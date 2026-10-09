@@ -23,5 +23,7 @@ void sh1106_draw_rect(int x, int y, int w, int h, bool on);
 void sh1106_fill_rect(int x, int y, int w, int h, bool on);
 void sh1106_draw_char(int x, int y, char c, bool on);
 void sh1106_draw_string(int x, int y, const char *str, bool on);
+void sh1106_draw_char_scaled(int x, int y, char c, int scale, bool on);
+void sh1106_draw_string_scaled(int x, int y, const char *str, int scale, bool on);
 
 #endif // CELESTIAL_SH1106_H

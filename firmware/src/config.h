@@ -9,7 +9,7 @@
  * ========================================================================== */
 
 /* Project Metadata */
-#define FIRMWARE_VERSION       "0.2.0-P1"
+#define FIRMWARE_VERSION       "0.3.0-P2"
 #define PROJECT_NAME           "Celestial Engine Mk.V"
 
 /* OLED Display (SH1106 I2C) */

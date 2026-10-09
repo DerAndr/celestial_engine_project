@@ -160,3 +160,35 @@ void sh1106_draw_string(int x, int y, const char *str, bool on) {
         cur_x += 6; // 5 pixels width + 1 pixel inter-character space
     }
 }
+
+void sh1106_draw_char_scaled(int x, int y, char c, int scale, bool on) {
+    if (scale <= 1) {
+        sh1106_draw_char(x, y, c, on);
+        return;
+    }
+    if (c < 32 || c > 126) c = ' ';
+    const uint8_t *glyph = font5x7[c - 32];
+
+    for (int col = 0; col < 5; col++) {
+        uint8_t line = glyph[col];
+        for (int row = 0; row < 7; row++) {
+            if (line & (1 << row)) {
+                sh1106_fill_rect(x + col * scale, y + row * scale, scale, scale, on);
+            }
+        }
+    }
+}
+
+void sh1106_draw_string_scaled(int x, int y, const char *str, int scale, bool on) {
+    if (scale <= 1) {
+        sh1106_draw_string(x, y, str, on);
+        return;
+    }
+    int cur_x = x;
+    int char_step = 5 * scale + scale; // 5 columns + 1 space column
+    while (*str) {
+        if (cur_x + 5 * scale > SH1106_WIDTH) break;
+        sh1106_draw_char_scaled(cur_x, y, *str++, scale, on);
+        cur_x += char_step;
+    }
+}

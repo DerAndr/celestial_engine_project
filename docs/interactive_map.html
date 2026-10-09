@@ -982,7 +982,7 @@
             <div class="stat-icon" style="color: var(--cyan-core);">⚡</div>
             <div class="stat-meta">
               <h3>Active Milestone</h3>
-              <p>P2: Rotary Encoder</p>
+              <p>P3: QUERY Push-To-Talk</p>
             </div>
           </div>
           <div class="stat-card">
@@ -1042,28 +1042,28 @@
                 </div>
               </div>
 
-              <div class="milestone-card active-step" onclick="openDrawer('P2')">
+              <div class="milestone-card complete" onclick="openDrawer('P2')">
                 <div class="card-top">
                   <span class="code-pill">P2</span>
-                  <span class="status-tag in-progress">In Progress</span>
+                  <span class="status-tag complete">Passed</span>
                 </div>
                 <h3>Bourns PEC11R Encoder</h3>
                 <p>Quadrature rotary decoding (GP6/GP7) and debounced switch (GP8) to navigate 5 modes.</p>
                 <div class="card-footer">
-                  <span>Internal Pull-ups</span>
+                  <span>Flying Leads • Passed</span>
                   <span>Inspect Step →</span>
                 </div>
               </div>
 
-              <div class="milestone-card" onclick="openDrawer('P3')">
+              <div class="milestone-card active-step" onclick="openDrawer('P3')">
                 <div class="card-top">
                   <span class="code-pill">P3</span>
-                  <span class="status-tag queued">Queued</span>
+                  <span class="status-tag in-progress">Up Next</span>
                 </div>
                 <h3>QUERY Push-To-Talk Button</h3>
                 <p>Momentary NO contact on GP9. Hold to enter LISTENING; release to submit audio.</p>
                 <div class="card-footer">
-                  <span>Never Toggle Mode</span>
+                  <span>GP9 • Active LOW</span>
                   <span>Inspect Step →</span>
                 </div>
               </div>
@@ -1725,7 +1725,7 @@
       { name: 'Raspberry Pi Pico 2 W (RP2350)', qty: 1, sub: 'Staff Controller', status: 'TESTED', note: 'Factory headers; Wi-Fi/BT; P0 validated on COM9' },
       { name: 'SH1106 1.3" 128x64 I2C OLED', qty: 1, sub: 'Visual Interface', status: 'TESTED', note: 'P1 validated on I2C1 (0x3C); clean display telemetry' },
       { name: 'Velleman VTBB3 Breadboard', qty: 1, sub: 'Prototyping', status: 'RECEIVED', note: '400 holes (30 rows, a–j, +/- rails)' },
-      { name: 'Bourns PEC11R Rotary Encoder', qty: 1, sub: 'Control Navigation', status: 'ORDERED', note: '24 detents/pulses + push' },
+      { name: 'Bourns PEC11R Rotary Encoder', qty: 1, sub: 'Control Navigation', status: 'TESTED', note: 'P2 validated; Gray quadrature + push switch on GP6/7/8' },
       { name: 'Momentary NO QUERY Button', qty: 1, sub: 'PTT Voice Trigger', status: 'ORDERED', note: 'GP9; Pull-up configured' },
       { name: 'INMP441 I2S MEMS Microphone', qty: 1, sub: 'Audio Input', status: 'ORDERED', note: 'I2S via PIO0' },
       { name: 'MAX98357A I2S Mono Amplifier', qty: 3, sub: 'Audio Output', status: 'ORDERED', note: '3.2W Class-D; 1 required' },
@@ -1804,26 +1804,26 @@ Hold BOOTSEL -> Plug USB -> Drop celestial_p0.uf2 into RP2350 drive</pre>
       },
       P2: {
         code: 'P2',
-        title: 'Bourns PEC11R Encoder [IN PROGRESS]',
+        title: 'Bourns PEC11R Encoder [PASSED]',
         goal: 'Read rotary quadrature signals and push button to navigate between 5 display modes.',
-        parts: '1x Bourns PEC11R encoder, 5x Jumper wires.',
+        parts: '1x Bourns PEC11R encoder, 5x Dupont F-M wires.',
         power: 'Disconnect USB power before inserting encoder jumpers.',
         wiring: `
           <table class="wiring-table">
             <tr><th>Encoder Pin</th><th>Pico Pin</th><th>Function</th><th>Notes</th></tr>
-            <tr><td>Channel A</td><td>Pin 9</td><td>GP6</td><td>Internal Pull-up</td></tr>
-            <tr><td>Channel B</td><td>Pin 10</td><td>GP7</td><td>Internal Pull-up</td></tr>
-            <tr><td>Common (C)</td><td>Pin 8</td><td>GND</td><td>Ground Reference</td></tr>
-            <tr><td>Push Switch</td><td>Pin 11</td><td>GP8</td><td>Internal Pull-up</td></tr>
-            <tr><td>Switch GND</td><td>Pin 8</td><td>GND</td><td>Ground Reference</td></tr>
+            <tr><td>Channel A (left)</td><td>Pin 9 (b9)</td><td>GP6</td><td>Internal Pull-up (Passed)</td></tr>
+            <tr><td>Common (C) (mid)</td><td>Pin 8 (b8)</td><td>GND</td><td>Ground Reference (Passed)</td></tr>
+            <tr><td>Channel B (right)</td><td>Pin 10 (b10)</td><td>GP7</td><td>Internal Pull-up (Passed)</td></tr>
+            <tr><td>Push Switch (SW1)</td><td>Pin 11 (b11)</td><td>GP8</td><td>Internal Pull-up (Passed)</td></tr>
+            <tr><td>Switch GND (SW2)</td><td>Pin 13 (b13)</td><td>GND</td><td>Ground Reference (Passed)</td></tr>
           </table>
         `,
         code: `<pre class="code-block"># Encoder Pin Map:
 #define PIN_ENCODER_A  6
 #define PIN_ENCODER_B  7
 #define PIN_ENCODER_SW 8</pre>`,
-        expected: 'Rotating encoder smoothly increments/decrements mode index on OLED. Pressing switch triggers SELECT beep.',
-        fail: '1. Check pull-up configuration. 2. If direction is reversed, swap GP6 and GP7 pins in code.'
+        expected: 'PASSED: Full Gray quadrature navigation across 5 modes, full-screen 67 Easter egg, and push switch verified.',
+        fail: '1. Check pull-up configuration. 2. Verify flying lead Dupont connections.'
       },
       P3: {
         code: 'P3',
