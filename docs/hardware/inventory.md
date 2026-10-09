@@ -6,7 +6,7 @@ Status values: `ORDERED`, `RECEIVED`, `TESTED`, `INSTALLED`, `FAILED`.
 
 | Component | Qty | Status | Notes |
 |---|---:|---|---|
-| Raspberry Pi Pico 2 W with headers | 1 | ORDERED | RP2350; Wi-Fi/Bluetooth |
+| Raspberry Pi Pico 2 W with headers | 1 | TESTED | RP2350; Wi-Fi/Bluetooth; P0 validated on COM9 |
 | SH1106 1.3in 128x64 I2C OLED | 1 | ORDERED | |
 | Bourns PEC11R-4225F-S0024 encoder | 1 | ORDERED | 24 detents/pulses + push |
 | Prototype momentary NO QUERY button | 1 | ORDERED | Final decorative button deferred |
