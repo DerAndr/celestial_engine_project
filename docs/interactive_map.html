@@ -945,7 +945,7 @@
           <h1>Celestial Engine Mk.V</h1>
           <p>
             <span>Interactive Mission & Hardware Map</span>
-            <span class="badge-status"><span class="pulsing-dot"></span> P1 IN PROGRESS</span>
+            <span class="badge-status"><span class="pulsing-dot"></span> P2 READY</span>
           </p>
         </div>
       </div>
@@ -982,7 +982,7 @@
             <div class="stat-icon" style="color: var(--cyan-core);">⚡</div>
             <div class="stat-meta">
               <h3>Active Milestone</h3>
-              <p>P1: SH1106 OLED</p>
+              <p>P2: Rotary Encoder</p>
             </div>
           </div>
           <div class="stat-card">
@@ -1029,23 +1029,23 @@
                 </div>
               </div>
 
-              <div class="milestone-card active-step" onclick="openDrawer('P1')">
+              <div class="milestone-card complete" onclick="openDrawer('P1')">
                 <div class="card-top">
                   <span class="code-pill">P1</span>
-                  <span class="status-tag in-progress">In Progress</span>
+                  <span class="status-tag complete">Passed</span>
                 </div>
                 <h3>SH1106 OLED Display</h3>
-                <p>Wire 1.3" 128x64 I2C OLED on I2C1 (GP2/GP3). Render bootscreen and mode headers.</p>
+                <p>1.3" 128x64 OLED operating on I2C1 (0x3C). Telemetry & live heartbeat ticking verified.</p>
                 <div class="card-footer">
                   <span>I2C1 • 3.3V Logic</span>
                   <span>Inspect Step →</span>
                 </div>
               </div>
 
-              <div class="milestone-card" onclick="openDrawer('P2')">
+              <div class="milestone-card active-step" onclick="openDrawer('P2')">
                 <div class="card-top">
                   <span class="code-pill">P2</span>
-                  <span class="status-tag queued">Queued</span>
+                  <span class="status-tag in-progress">In Progress</span>
                 </div>
                 <h3>Bourns PEC11R Encoder</h3>
                 <p>Quadrature rotary decoding (GP6/GP7) and debounced switch (GP8) to navigate 5 modes.</p>
@@ -1723,7 +1723,7 @@
     // INVENTORY DATA
     const INVENTORY_ITEMS = [
       { name: 'Raspberry Pi Pico 2 W (RP2350)', qty: 1, sub: 'Staff Controller', status: 'TESTED', note: 'Factory headers; Wi-Fi/BT; P0 validated on COM9' },
-      { name: 'SH1106 1.3" 128x64 I2C OLED', qty: 1, sub: 'Visual Interface', status: 'RECEIVED', note: 'Physically arrived; I2C1 on GP2/GP3' },
+      { name: 'SH1106 1.3" 128x64 I2C OLED', qty: 1, sub: 'Visual Interface', status: 'TESTED', note: 'P1 validated on I2C1 (0x3C); clean display telemetry' },
       { name: 'Velleman VTBB3 Breadboard', qty: 1, sub: 'Prototyping', status: 'RECEIVED', note: '400 holes (30 rows, a–j, +/- rails)' },
       { name: 'Bourns PEC11R Rotary Encoder', qty: 1, sub: 'Control Navigation', status: 'ORDERED', note: '24 detents/pulses + push' },
       { name: 'Momentary NO QUERY Button', qty: 1, sub: 'PTT Voice Trigger', status: 'ORDERED', note: 'GP9; Pull-up configured' },
@@ -1782,29 +1782,29 @@ Hold BOOTSEL -> Plug USB -> Drop celestial_p0.uf2 into RP2350 drive</pre>
       },
       P1: {
         code: 'P1',
-        title: 'SH1106 OLED Display [IN PROGRESS]',
+        title: 'SH1106 OLED Display [PASSED]',
         goal: 'Initialize 1.3" 128x64 I2C OLED display on I2C1 and render the boot title card.',
-        parts: '1x SH1106 1.3" I2C OLED, 400-Point Breadboard, 4x Jumper wires.',
+        parts: '1x SH1106 1.3" I2C OLED (VCC, GND, SCL, SDA), 4x Female-Female Jumper wires.',
         power: 'Disconnect USB power before wiring I2C rails.',
         wiring: `
           <table class="wiring-table">
             <tr><th>OLED Pin</th><th>Pico Pin</th><th>Function</th><th>Voltage</th></tr>
-            <tr><td>VCC</td><td>Pin 36</td><td>3V3_OUT</td><td>3.3V Logic & Power</td></tr>
-            <tr><td>GND</td><td>Pin 3</td><td>GND</td><td>Common Ground</td></tr>
-            <tr><td>SDA</td><td>Pin 4</td><td>GP2 (I2C1 SDA)</td><td>3.3V Logic</td></tr>
-            <tr><td>SCL</td><td>Pin 5</td><td>GP3 (I2C1 SCL)</td><td>3.3V Logic</td></tr>
+            <tr><td>Pin 1: VCC</td><td>Pin 36</td><td>3V3_OUT</td><td>3.3V Logic & Power</td></tr>
+            <tr><td>Pin 2: GND</td><td>Pin 3</td><td>GND</td><td>Common Ground</td></tr>
+            <tr><td>Pin 3: SCL</td><td>Pin 5</td><td>GP3 (I2C1 SCL)</td><td>3.3V Logic</td></tr>
+            <tr><td>Pin 4: SDA</td><td>Pin 4</td><td>GP2 (I2C1 SDA)</td><td>3.3V Logic</td></tr>
           </table>
         `,
         code: `<pre class="code-block"># I2C Configuration in config.h:
 #define PIN_OLED_SDA 2
 #define PIN_OLED_SCL 3
 #define OLED_I2C_INST i2c1</pre>`,
-        expected: 'OLED lights up and displays "CELESTIAL ENGINE Mk.V" followed by boot status and IP address.',
+        expected: 'PASSED: Border, header, status, and 1 Hz ticking telemetry verified on physical 1.3" OLED display.',
         fail: '1. Verify I2C address (default 0x3C). 2. Check 3.3V VCC. 3. Swap SDA and SCL if no ACK received.'
       },
       P2: {
         code: 'P2',
-        title: 'Bourns PEC11R Encoder',
+        title: 'Bourns PEC11R Encoder [IN PROGRESS]',
         goal: 'Read rotary quadrature signals and push button to navigate between 5 display modes.',
         parts: '1x Bourns PEC11R encoder, 5x Jumper wires.',
         power: 'Disconnect USB power before inserting encoder jumpers.',
