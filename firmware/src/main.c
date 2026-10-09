@@ -7,6 +7,7 @@
 #include "sh1106.h"
 #include "encoder.h"
 #include "query_button.h"
+#include "audio.h"
 #include "staff_state.h"
 
 #if __has_include("wifi_credentials.h")
@@ -21,6 +22,7 @@ typedef enum {
     MODE_GUIDE,
     MODE_SCANNER,
     MODE_CANDY_DETECTOR,
+    MODE_VOLUME,
     MODE_SYSTEM,
     MODE_COUNT
 } staff_mode_t;
@@ -30,6 +32,7 @@ static const char *MODE_NAMES[MODE_COUNT] = {
     "GUIDE",
     "SCANNER",
     "CANDY DETECTOR",
+    "VOLUME",
     "SYSTEM"
 };
 
@@ -39,6 +42,7 @@ static int active_confirmed_mode = 0;
 static staff_state_t current_state = STATE_IDLE;
 static absolute_time_t state_timeout;
 
+static bool volume_edit_mode = false;
 static bool easter_egg_active = false;
 static int32_t prev_encoder_pos = 0;
 static absolute_time_t click_feedback_until;
@@ -120,6 +124,35 @@ static void draw_uploading_screen(void) {
     sh1106_update();
 }
 
+static void draw_volume_screen(uint8_t vol_percent) {
+    if (!oled_ready) return;
+
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    // Header banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    sh1106_draw_string(14, 4, "[ VOLUME SETTING ]", false);
+
+    // Big volume percentage
+    char vol_buf[16];
+    snprintf(vol_buf, sizeof(vol_buf), "%3d %%", vol_percent);
+    sh1106_draw_string_scaled(32, 19, vol_buf, 2, true);
+
+    // Graphical Volume Gauge Bar: outer border x=14, y=38, w=100, h=10
+    sh1106_draw_rect(14, 38, 100, 10, true);
+    int fill_w = (vol_percent * 96) / 100;
+    if (fill_w > 0) {
+        sh1106_fill_rect(16, 40, fill_w, 6, true);
+    }
+
+    // Footer instruction
+    sh1106_draw_line(2, 51, 125, 51, true);
+    sh1106_draw_string(6, 54, "TURN: VOL  CLICK: OK", true);
+
+    sh1106_update();
+}
+
 static void draw_dashboard(uint32_t tick, bool led_on, int sel_idx, int32_t pos, bool sw_down, bool click_feedback) {
     if (!oled_ready) return;
 
@@ -130,7 +163,7 @@ static void draw_dashboard(uint32_t tick, bool led_on, int sel_idx, int32_t pos,
 
     // 1. Header (y=3..10)
     sh1106_draw_string(6, 3, "CELESTIAL ENGINE", true);
-    sh1106_draw_string(106, 3, "P3", true);
+    sh1106_draw_string(106, 3, "P6", true);
     sh1106_draw_line(2, 12, 125, 12, true);
 
     // 2. Selected Mode (y=15..22)
@@ -138,11 +171,15 @@ static void draw_dashboard(uint32_t tick, bool led_on, int sel_idx, int32_t pos,
     snprintf(mode_buf, sizeof(mode_buf), "MODE: > %s", MODE_NAMES[sel_idx]);
     sh1106_draw_string(6, 15, mode_buf, true);
 
-    // 3. Rotation number & state (y=25..38)
-    char pos_buf[16];
+    // 3. Volume indicator & Rotation counter (y=24..38)
+    char vol_buf[16];
+    snprintf(vol_buf, sizeof(vol_buf), "V:%2d%%", (int)audio_get_volume());
+    sh1106_draw_string_scaled(6, 24, vol_buf, 2, true);
+
+    char pos_buf[14];
     snprintf(pos_buf, sizeof(pos_buf), "ROT:%+ld", (long)pos);
-    sh1106_draw_string_scaled(6, 25, pos_buf, 2, true);
-    sh1106_draw_string(84, 28, "[IDLE]", true);
+    sh1106_draw_string(74, 24, pos_buf, true);
+    sh1106_draw_string(74, 33, "[IDLE]", true);
 
     // Divider (y=41)
     sh1106_draw_line(2, 41, 125, 41, true);
@@ -166,6 +203,8 @@ static void draw_dashboard(uint32_t tick, bool led_on, int sel_idx, int32_t pos,
         // High-contrast inverted bar when encoder switch clicked
         sh1106_fill_rect(2, 52, 124, 10, true);
         sh1106_draw_string(14, 53, ">> CLICK DETECTED! <<", false);
+    } else if (sel_idx == MODE_VOLUME) {
+        sh1106_draw_string(4, 53, "CLICK SW TO TUNE VOL", true);
     } else {
         sh1106_draw_string(6, 53, "HOLD QUERY TO RECORD", true);
     }
@@ -218,7 +257,11 @@ int main(void) {
         cyw43_arch_enable_sta_mode();
     }
 
-    LOG_INFO("SYS", "Milestone P3 Active! Hold QUERY button to enter LISTENING; release to submit.");
+    LOG_INFO("SYS", "Initializing MAX98357A I2S audio subsystem (GP16=BCLK, GP17=LRC, GP18=DIN)...");
+    audio_init();
+    audio_play_chime();
+
+    LOG_INFO("SYS", "Milestone P6 Active! MAX98357A I2S audio output enabled with chimes & feedback tones.");
 
     uint32_t tick_count = 0;
     bool led_state = true;
@@ -231,6 +274,9 @@ int main(void) {
     bool need_display_update = true;
 
     while (true) {
+        // Continuous audio buffer streaming
+        audio_update();
+
         // Fast sampling of controls
         encoder_update();
         query_button_update();
@@ -239,6 +285,7 @@ int main(void) {
         if (query_button_just_pressed()) {
             current_state = STATE_LISTENING;
             easter_egg_active = false;
+            audio_play_tone(587.33f, 40); // Short crisp start-beep (D5)
             LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! <<<");
             need_display_update = true;
         }
@@ -247,6 +294,7 @@ int main(void) {
         if (held_dur > 0) {
             current_state = STATE_UPLOADING;
             state_timeout = delayed_by_ms(get_absolute_time(), 1200);
+            audio_play_tone(880.0f, 60); // Release tone (A5)
             LOG_INFO("QUERY", ">>> QUERY RELEASED after %lu ms! State: UPLOADING -> IDLE <<<",
                      (unsigned long)held_dur);
             need_display_update = true;
@@ -264,36 +312,66 @@ int main(void) {
         // 3. Encoder rotation handling
         int32_t delta = encoder_get_delta();
         if (delta != 0 && current_state != STATE_LISTENING) {
-            int32_t curr_pos = encoder_get_position();
+            if (volume_edit_mode) {
+                int cur_vol = (int)audio_get_volume();
+                cur_vol += delta * 5; // 5% per click
+                if (cur_vol < 0) cur_vol = 0;
+                if (cur_vol > 100) cur_vol = 100;
+                audio_set_volume((uint8_t)cur_vol);
 
-            // Mode cycling
-            current_mode_idx = (current_mode_idx + delta) % MODE_COUNT;
-            if (current_mode_idx < 0) {
-                current_mode_idx += MODE_COUNT;
+                // Play live volume preview tone
+                audio_play_tone(440.0f + cur_vol * 4.0f, 20);
+                LOG_INFO("VOLUME", "Volume adjusted: %d%%", cur_vol);
+                need_display_update = true;
+            } else {
+                int32_t curr_pos = encoder_get_position();
+
+                // Mode cycling
+                current_mode_idx = (current_mode_idx + delta) % MODE_COUNT;
+                if (current_mode_idx < 0) {
+                    current_mode_idx += MODE_COUNT;
+                }
+
+                // Audio tick on each click detent
+                audio_play_blip();
+
+                // Check trigger: sequence 6 -> 7 OR counter reaches 67
+                if ((prev_encoder_pos == 6 && curr_pos == 7) || curr_pos == 67) {
+                    easter_egg_active = true;
+                    audio_play_chime();
+                    LOG_INFO("EASTER_EGG", ">>> TRIGGERED! Sequence 6 -> 7 reached! Activating '!!! 67 !!!' <<<");
+                }
+
+                LOG_INFO("ENCODER", "Pos: %ld | Mode: [%s]",
+                         (long)curr_pos,
+                         MODE_NAMES[current_mode_idx]);
+
+                prev_encoder_pos = curr_pos;
+                need_display_update = true;
             }
-
-            // Check trigger: sequence 6 -> 7 OR counter reaches 67
-            if ((prev_encoder_pos == 6 && curr_pos == 7) || curr_pos == 67) {
-                easter_egg_active = true;
-                LOG_INFO("EASTER_EGG", ">>> TRIGGERED! Sequence 6 -> 7 reached! Activating '!!! 67 !!!' <<<");
-            }
-
-            LOG_INFO("ENCODER", "Pos: %ld | Mode: [%s]",
-                     (long)curr_pos,
-                     MODE_NAMES[current_mode_idx]);
-
-            prev_encoder_pos = curr_pos;
-            need_display_update = true;
         }
 
         // 4. Encoder switch handling
         if (encoder_switch_clicked()) {
             if (easter_egg_active) {
                 easter_egg_active = false;
+                audio_play_tone(440.0f, 50);
                 LOG_INFO("EASTER_EGG", "Switch clicked: Exiting '!!! 67 !!!' screen.");
+            } else if (volume_edit_mode) {
+                // Confirm volume and exit volume screen
+                volume_edit_mode = false;
+                click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                audio_play_chime(); // Melodic confirmation chime at newly set volume
+                LOG_INFO("VOLUME", "Volume confirmed: %d%%. Exited volume edit.", audio_get_volume());
+            } else if (current_mode_idx == MODE_VOLUME) {
+                // Enter volume edit screen
+                volume_edit_mode = true;
+                audio_play_tone(659.25f, 35);
+                LOG_INFO("VOLUME", "Entering volume edit mode (current: %d%%)", audio_get_volume());
             } else {
                 active_confirmed_mode = current_mode_idx;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                audio_play_chime(); // Melodic confirmation chime
                 LOG_INFO("ENCODER", ">>> SWITCH CLICKED! Active Mode Confirmed: [%s] <<<",
                          MODE_NAMES[active_confirmed_mode]);
             }
@@ -324,7 +402,7 @@ int main(void) {
         if (absolute_time_diff_us(last_flash_toggle, get_absolute_time()) >= 400000) {
             last_flash_toggle = get_absolute_time();
             flash_phase = !flash_phase;
-            if (current_state == STATE_LISTENING || easter_egg_active) {
+            if (current_state == STATE_LISTENING || easter_egg_active || volume_edit_mode) {
                 need_display_update = true;
             }
         }
@@ -341,6 +419,8 @@ int main(void) {
                 draw_uploading_screen();
             } else if (easter_egg_active) {
                 draw_67_screen(flash_phase);
+            } else if (volume_edit_mode) {
+                draw_volume_screen(audio_get_volume());
             } else {
                 bool click_feedback = absolute_time_diff_us(get_absolute_time(), click_feedback_until) > 0;
                 draw_dashboard(tick_count, led_state, current_mode_idx,

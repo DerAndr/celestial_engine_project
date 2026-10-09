@@ -1,0 +1,43 @@
+.program audio_i2s
+.side_set 2
+
+; Side-set pin 0: BCLK (GP16)
+; Side-set pin 1: LRC (GP17)
+; OUT pin: DIN (GP18)
+;
+; Philips I2S 16-bit stereo frame:
+; 16 bits Left channel (LRC=0), 16 bits Right channel (LRC=1).
+; LRC transitions 1 BCLK cycle before MSB of the new channel.
+
+    set x, 14              side 0b01 ; BCLK=1, LRC=0 (1 cycle setup delay before MSB)
+left_loop:
+    out pins, 1            side 0b00 ; BCLK=0, LRC=0
+    jmp x--, left_loop     side 0b01 ; BCLK=1, LRC=0
+    out pins, 1            side 0b10 ; BCLK=0, LRC=1 (last bit of left; LRC flips to Right!)
+
+    set x, 14              side 0b11 ; BCLK=1, LRC=1 (1 cycle setup delay before MSB)
+right_loop:
+    out pins, 1            side 0b10 ; BCLK=0, LRC=1
+    jmp x--, right_loop    side 0b11 ; BCLK=1, LRC=1
+    out pins, 1            side 0b00 ; BCLK=0, LRC=0 (last bit of right; LRC flips to Left!)
+
+% c-sdk {
+static inline void audio_i2s_program_init(PIO pio, uint sm, uint offset, uint data_pin, uint clock_pin_base) {
+    pio_gpio_init(pio, data_pin);
+    pio_gpio_init(pio, clock_pin_base);     // BCLK
+    pio_gpio_init(pio, clock_pin_base + 1); // LRC
+
+    pio_sm_set_consecutive_pindirs(pio, sm, data_pin, 1, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, clock_pin_base, 2, true);
+
+    pio_sm_config c = audio_i2s_program_get_default_config(offset);
+    sm_config_set_out_pins(&c, data_pin, 1);
+    sm_config_set_sideset_pins(&c, clock_pin_base);
+
+    // Shift left (MSB first), autopull enabled, threshold = 32 bits (16-bit L + 16-bit R)
+    sm_config_set_out_shift(&c, false, true, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}

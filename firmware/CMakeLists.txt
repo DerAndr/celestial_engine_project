@@ -32,18 +32,25 @@ add_executable(celestial_firmware
     src/sh1106.c
     src/encoder.c
     src/query_button.c
+    src/audio.c
 )
+
+pico_generate_pio_header(celestial_firmware ${CMAKE_CURRENT_LIST_DIR}/src/audio_i2s.pio)
 
 target_include_directories(celestial_firmware PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src
 )
 
-# Link standard libraries, CYW43 Wi-Fi architecture, and I2C
+# Link standard libraries, CYW43 Wi-Fi architecture, I2C, PIO, DMA, and clocks
 target_link_libraries(celestial_firmware
     pico_stdlib
     pico_cyw43_arch_lwip_threadsafe_background
     hardware_gpio
     hardware_i2c
+    hardware_pio
+    hardware_dma
+    hardware_clocks
+    m
 )
 
 # Enable USB CDC serial output, disable hardware UART for stdio
