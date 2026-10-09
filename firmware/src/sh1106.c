@@ -1,0 +1,162 @@
+#include "sh1106.h"
+#include "font.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+static i2c_inst_t *driver_i2c = NULL;
+static uint8_t driver_addr = 0x3C;
+static uint8_t display_buffer[SH1106_BUF_SIZE];
+
+// Command packet sender (Co = 0, D/C# = 0)
+static bool send_cmd(uint8_t cmd) {
+    uint8_t pkt[2] = {0x00, cmd};
+    int ret = i2c_write_blocking(driver_i2c, driver_addr, pkt, 2, false);
+    return (ret == 2);
+}
+
+int sh1106_i2c_scan(i2c_inst_t *i2c) {
+    int found_addr = -1;
+    printf("[I2C] Scanning bus for devices...\n");
+    for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+        uint8_t rxdata;
+        // Perform 1-byte read test with 10ms timeout
+        int ret = i2c_read_timeout_us(i2c, addr, &rxdata, 1, false, 10000);
+        if (ret >= 0) {
+            printf("[I2C]   -> Found device at address 0x%02X\n", addr);
+            if (found_addr < 0) found_addr = addr;
+        }
+    }
+    if (found_addr < 0) {
+        printf("[I2C]   -> No devices responded on I2C bus.\n");
+    }
+    return found_addr;
+}
+
+bool sh1106_init(i2c_inst_t *i2c, uint8_t addr) {
+    driver_i2c = i2c;
+    driver_addr = addr;
+
+    // SH1106 128x64 display initialization sequence
+    const uint8_t init_cmds[] = {
+        0xAE,       // Display OFF
+        0x02,       // Set lower column address
+        0x10,       // Set higher column address
+        0x40,       // Set display start line to 0
+        0xB0,       // Set page address
+        0x81, 0x80, // Contrast control: 0x80 (mid-brightness)
+        0xA1,       // Set segment re-map: A1 (left/right normal)
+        0xA6,       // Normal display (non-inverted)
+        0xA8, 0x3F, // Multiplex ratio: 1/64 duty (64MUX)
+        0xAD, 0x8B, // DC-DC charge pump control: ON
+        0xC8,       // COM output scan direction: remapped
+        0xD3, 0x00, // Display offset: 0
+        0xD5, 0x80, // Display clock divide ratio/oscillator: default
+        0xD9, 0x1F, // Pre-charge period: 0x1F
+        0xDA, 0x12, // COM pins hardware config: alternative
+        0xDB, 0x40, // VCOM deselect level: 0x40
+        0xAF        // Display ON
+    };
+
+    for (size_t i = 0; i < sizeof(init_cmds); i++) {
+        if (!send_cmd(init_cmds[i])) {
+            return false;
+        }
+    }
+
+    sh1106_clear();
+    sh1106_update();
+    return true;
+}
+
+void sh1106_clear(void) {
+    memset(display_buffer, 0x00, SH1106_BUF_SIZE);
+}
+
+void sh1106_update(void) {
+    if (!driver_i2c) return;
+
+    for (uint8_t p = 0; p < SH1106_PAGES; p++) {
+        // Set page and column address with SH1106 2-column offset
+        send_cmd(0xB0 | p); // Set page
+        send_cmd(0x02);      // Lower column = 2 (SH1106 offset)
+        send_cmd(0x10);      // Higher column = 0
+
+        // Send 128 bytes of data for this page
+        uint8_t payload[129];
+        payload[0] = 0x40; // Co = 0, D/C# = 1 (Data mode)
+        memcpy(&payload[1], &display_buffer[p * SH1106_WIDTH], SH1106_WIDTH);
+        i2c_write_blocking(driver_i2c, driver_addr, payload, 129, false);
+    }
+}
+
+void sh1106_draw_pixel(int x, int y, bool on) {
+    if (x < 0 || x >= SH1106_WIDTH || y < 0 || y >= SH1106_HEIGHT) {
+        return;
+    }
+    int page = y / 8;
+    int bit  = y % 8;
+    int idx  = (page * SH1106_WIDTH) + x;
+
+    if (on) {
+        display_buffer[idx] |= (1 << bit);
+    } else {
+        display_buffer[idx] &= ~(1 << bit);
+    }
+}
+
+void sh1106_draw_line(int x0, int y0, int x1, int y1, bool on) {
+    int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+    int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy, e2;
+
+    while (1) {
+        sh1106_draw_pixel(x0, y0, on);
+        if (x0 == x1 && y0 == y1) break;
+        e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+void sh1106_draw_rect(int x, int y, int w, int h, bool on) {
+    for (int i = x; i < x + w; i++) {
+        sh1106_draw_pixel(i, y, on);
+        sh1106_draw_pixel(i, y + h - 1, on);
+    }
+    for (int j = y; j < y + h; j++) {
+        sh1106_draw_pixel(x, j, on);
+        sh1106_draw_pixel(x + w - 1, j, on);
+    }
+}
+
+void sh1106_fill_rect(int x, int y, int w, int h, bool on) {
+    for (int i = x; i < x + w; i++) {
+        for (int j = y; j < y + h; j++) {
+            sh1106_draw_pixel(i, j, on);
+        }
+    }
+}
+
+void sh1106_draw_char(int x, int y, char c, bool on) {
+    if (c < 32 || c > 126) c = ' ';
+    const uint8_t *glyph = font5x7[c - 32];
+
+    for (int col = 0; col < 5; col++) {
+        uint8_t line = glyph[col];
+        for (int row = 0; row < 7; row++) {
+            if (line & (1 << row)) {
+                sh1106_draw_pixel(x + col, y + row, on);
+            }
+        }
+    }
+}
+
+void sh1106_draw_string(int x, int y, const char *str, bool on) {
+    int cur_x = x;
+    while (*str) {
+        if (cur_x + 6 > SH1106_WIDTH) break;
+        sh1106_draw_char(cur_x, y, *str++, on);
+        cur_x += 6; // 5 pixels width + 1 pixel inter-character space
+    }
+}

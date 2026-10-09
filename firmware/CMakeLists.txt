@@ -27,24 +27,26 @@ set(CMAKE_CXX_STANDARD 17)
 # Initialize the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-add_executable(celestial_p0
+add_executable(celestial_firmware
     src/main.c
+    src/sh1106.c
 )
 
-target_include_directories(celestial_p0 PRIVATE
+target_include_directories(celestial_firmware PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src
 )
 
-# Link standard libraries and CYW43 Wi-Fi architecture
-target_link_libraries(celestial_p0
+# Link standard libraries, CYW43 Wi-Fi architecture, and I2C
+target_link_libraries(celestial_firmware
     pico_stdlib
     pico_cyw43_arch_lwip_threadsafe_background
     hardware_gpio
+    hardware_i2c
 )
 
 # Enable USB CDC serial output, disable hardware UART for stdio
-pico_enable_stdio_usb(celestial_p0 1)
-pico_enable_stdio_uart(celestial_p0 0)
+pico_enable_stdio_usb(celestial_firmware 1)
+pico_enable_stdio_uart(celestial_firmware 0)
 
 # Generate UF2, HEX, and BIN outputs
-pico_add_extra_outputs(celestial_p0)
+pico_add_extra_outputs(celestial_firmware)

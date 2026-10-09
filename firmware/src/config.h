@@ -9,13 +9,14 @@
  * ========================================================================== */
 
 /* Project Metadata */
-#define FIRMWARE_VERSION       "0.1.0-P0"
+#define FIRMWARE_VERSION       "0.2.0-P1"
 #define PROJECT_NAME           "Celestial Engine Mk.V"
 
 /* OLED Display (SH1106 I2C) */
 #define PIN_OLED_SDA           2   // GP2 (Pin 4) -> I2C1
 #define PIN_OLED_SCL           3   // GP3 (Pin 5) -> I2C1
 #define OLED_I2C_INST          i2c1
+#define OLED_I2C_ADDR          0x3C
 #define OLED_I2C_BAUDRATE      400000
 
 /* Rotary Encoder (Bourns PEC11R) */
