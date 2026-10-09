@@ -1,0 +1,1903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Celestial Engine Mk.V — Interactive Task & Pinout Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-panel: rgba(15, 20, 31, 0.75);
+      --bg-panel-hover: rgba(22, 30, 48, 0.85);
+      --bg-card: rgba(18, 25, 41, 0.6);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(56, 189, 248, 0.35);
+      
+      --cyan-core: #38bdf8;
+      --cyan-glow: rgba(56, 189, 248, 0.2);
+      --violet-stellar: #a855f7;
+      --violet-glow: rgba(168, 85, 247, 0.2);
+      --gold-brass: #f59e0b;
+      --gold-glow: rgba(245, 158, 11, 0.2);
+      --emerald-ready: #10b981;
+      --emerald-glow: rgba(16, 185, 129, 0.2);
+      --rose-danger: #f43f5e;
+      --blue-accent: #3b82f6;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --pin-gnd: #475569;
+      --pin-3v3: #f59e0b;
+      --pin-5v: #f43f5e;
+      --pin-i2c: #06b6d4;
+      --pin-i2s-in: #8b5cf6;
+      --pin-i2s-out: #ec4899;
+      --pin-led: #10b981;
+      --pin-gpio: #38bdf8;
+      --pin-adc: #fb923c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    canvas#stars {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app-container {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      backdrop-filter: blur(8px);
+    }
+
+    /* TOP HEADER */
+    header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(7, 9, 14, 0.85);
+      backdrop-filter: blur(16px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: radial-gradient(circle, #38bdf8 0%, #1e1b4b 100%);
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border-glow);
+      box-shadow: 0 0 24px var(--cyan-glow);
+    }
+
+    .brand-mark svg {
+      width: 24px;
+      height: 24px;
+      fill: #fff;
+    }
+
+    .title-group h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.4rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffffff 30%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .title-group p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--cyan-core);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .pulsing-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cyan-core);
+      box-shadow: 0 0 8px var(--cyan-core);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.3); }
+    }
+
+    /* VIEW SWITCHER TABS */
+    .view-tabs {
+      display: flex;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 0.25rem;
+      gap: 0.25rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.6rem 1.1rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: 'Space Grotesk', sans-serif;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-btn.active {
+      color: #07090e;
+      background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+      box-shadow: 0 0 16px var(--cyan-glow);
+    }
+
+    /* MAIN CONTENT AREA */
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+      display: grid;
+      gap: 2rem;
+    }
+
+    .view-section {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .view-section.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* TASK ROADMAP VIEW */
+    .roadmap-stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .stat-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .stat-meta h3 {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-meta p {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-main);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .phase-track {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .phase-block {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      padding: 1.5rem;
+      backdrop-filter: blur(12px);
+    }
+
+    .phase-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .phase-header h2 {
+      font-size: 1.1rem;
+      font-family: 'Space Grotesk', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .phase-badge {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .milestone-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .milestone-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .milestone-card:hover {
+      background: var(--bg-panel-hover);
+      transform: translateY(-3px);
+      border-color: rgba(56, 189, 248, 0.4);
+      box-shadow: 0 10px 24px -10px var(--cyan-glow);
+    }
+
+    .milestone-card.active-step {
+      border: 1px solid var(--cyan-core);
+      box-shadow: 0 0 20px var(--cyan-glow);
+      background: rgba(14, 27, 46, 0.85);
+    }
+
+    .milestone-card.active-step::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--cyan-core);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+
+    .code-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .status-tag {
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .status-tag.in-progress {
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--cyan-core);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+    }
+
+    .status-tag.queued {
+      background: rgba(148, 163, 184, 0.1);
+      color: var(--text-dim);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .status-tag.complete {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--emerald-ready);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .milestone-card h3 {
+      font-size: 1.05rem;
+      margin-bottom: 0.5rem;
+      color: var(--text-main);
+    }
+
+    .milestone-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      margin-bottom: 1rem;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 0.75rem;
+    }
+
+    /* HARDWARE PINOUT VIEW */
+    .pinout-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 2rem;
+      align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+      .pinout-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .pico-board-container {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: auto;
+    }
+
+    .pico-board {
+      width: 720px;
+      background: #0f4c3a; /* RP Pico Green PCB */
+      border: 2px solid #16654f;
+      border-radius: 20px;
+      padding: 1.5rem 1rem;
+      position: relative;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+      display: grid;
+      grid-template-columns: 240px 1fr 240px;
+      gap: 1rem;
+    }
+
+    .pico-board::before {
+      content: 'RASPBERRY PI PICO 2 W (RP2350)';
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.4);
+      letter-spacing: 0.1em;
+    }
+
+    .pico-center-core {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5rem;
+      padding: 2rem 0;
+    }
+
+    .rp2350-chip {
+      width: 100px;
+      height: 100px;
+      background: #111827;
+      border: 2px solid #374151;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+
+    .rp2350-chip span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #9ca3af;
+      line-height: 1.3;
+    }
+
+    .wifi-can {
+      width: 110px;
+      height: 70px;
+      background: #94a3b8;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      display: grid;
+      place-items: center;
+      color: #0f172a;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    }
+
+    .pin-column {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .pin-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.35);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .pin-row:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: scale(1.02);
+    }
+
+    .pin-row.highlighted {
+      box-shadow: 0 0 12px var(--cyan-core);
+      background: rgba(56, 189, 248, 0.35) !important;
+    }
+
+    .pin-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.6);
+      width: 20px;
+    }
+
+    .pin-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      border: 2px solid #475569;
+      flex-shrink: 0;
+    }
+
+    .pin-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .pin-col-right .pin-row {
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+
+    /* Pin Color Mapping */
+    .color-gnd { color: #94a3b8; }
+    .color-gnd .pin-dot { background: var(--pin-gnd); border-color: #64748b; }
+
+    .color-3v3 { color: #fde047; }
+    .color-3v3 .pin-dot { background: var(--pin-3v3); border-color: #ca8a04; }
+
+    .color-5v { color: #f87171; }
+    .color-5v .pin-dot { background: var(--pin-5v); border-color: #b91c1c; }
+
+    .color-i2c { color: #67e8f9; }
+    .color-i2c .pin-dot { background: var(--pin-i2c); border-color: #0891b2; }
+
+    .color-i2s-in { color: #c4b5fd; }
+    .color-i2s-in .pin-dot { background: var(--pin-i2s-in); border-color: #7c3aed; }
+
+    .color-i2s-out { color: #f472b6; }
+    .color-i2s-out .pin-dot { background: var(--pin-i2s-out); border-color: #db2777; }
+
+    .color-led { color: #6ee7b7; }
+    .color-led .pin-dot { background: var(--pin-led); border-color: #059669; }
+
+    .color-gpio { color: #7dd3fc; }
+    .color-gpio .pin-dot { background: var(--pin-gpio); border-color: #0284c7; }
+
+    .color-adc { color: #fdba74; }
+    .color-adc .pin-dot { background: var(--pin-adc); border-color: #ea580c; }
+
+    /* PIN DETAIL SIDEBAR */
+    .pinout-inspector {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      padding: 1.5rem;
+      backdrop-filter: blur(12px);
+    }
+
+    .pinout-inspector h3 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      font-family: 'Space Grotesk', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .peripheral-filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .filter-chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      padding: 0.35rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.2s;
+    }
+
+    .filter-chip:hover, .filter-chip.active {
+      background: var(--cyan-core);
+      color: #000;
+      border-color: var(--cyan-core);
+      font-weight: 700;
+    }
+
+    .pin-info-box {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 1.25rem;
+      min-height: 200px;
+    }
+
+    /* STATE MACHINE VIEW */
+    .fsm-container {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 2rem;
+    }
+
+    .fsm-diagram {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 2.5rem 0;
+      position: relative;
+    }
+
+    .fsm-node {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1rem 1.25rem;
+      text-align: center;
+      min-width: 130px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      z-index: 2;
+    }
+
+    .fsm-node:hover {
+      transform: translateY(-4px);
+      border-color: var(--cyan-core);
+      box-shadow: 0 6px 20px var(--cyan-glow);
+    }
+
+    .fsm-node.active-state {
+      border: 2px solid var(--cyan-core);
+      background: rgba(14, 30, 50, 0.9);
+      box-shadow: 0 0 25px var(--cyan-glow);
+    }
+
+    .fsm-node h4 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      color: #fff;
+      margin-bottom: 0.25rem;
+    }
+
+    .fsm-node span {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    .fsm-arrow {
+      color: var(--text-dim);
+      font-size: 1.2rem;
+    }
+
+    .oled-simulation-box {
+      margin-top: 2rem;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 2rem;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+
+    .oled-screen {
+      width: 256px;
+      height: 128px;
+      background: #020617;
+      border: 4px solid #1e293b;
+      border-radius: 8px;
+      box-shadow: inset 0 0 15px rgba(56, 189, 248, 0.2);
+      padding: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #38bdf8;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .oled-header {
+      font-size: 0.65rem;
+      border-bottom: 1px dashed rgba(56, 189, 248, 0.4);
+      padding-bottom: 0.25rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .oled-body {
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-align: center;
+      margin: auto 0;
+    }
+
+    .oled-footer {
+      font-size: 0.65rem;
+      border-top: 1px dashed rgba(56, 189, 248, 0.4);
+      padding-top: 0.25rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* MODAL / DRAWER FOR MILESTONE DETAILS */
+    .drawer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .drawer-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(650px, 100%);
+      height: 100%;
+      background: #0b0f19;
+      border-left: 1px solid var(--border-subtle);
+      z-index: 201;
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      box-shadow: -10px 0 40px rgba(0, 0, 0, 0.8);
+    }
+
+    .drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer-header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    .drawer-header h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.25rem;
+    }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+    }
+
+    .close-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .drawer-content {
+      padding: 2rem;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .drawer-section {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .drawer-section h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--cyan-core);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
+    table.wiring-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    table.wiring-table th, table.wiring-table td {
+      padding: 0.5rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    table.wiring-table th {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-dim);
+    }
+
+    pre.code-block {
+      background: #04060a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      overflow-x: auto;
+      color: #cbd5e1;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stars"></canvas>
+
+  <div class="app-container">
+    <header>
+      <div class="brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
+          </svg>
+        </div>
+        <div class="title-group">
+          <h1>Celestial Engine Mk.V</h1>
+          <p>
+            <span>Interactive Mission & Hardware Map</span>
+            <span class="badge-status"><span class="pulsing-dot"></span> P0 ACTIVE</span>
+          </p>
+        </div>
+      </div>
+
+      <nav class="view-tabs">
+        <button class="tab-btn active" onclick="switchView('roadmap')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
+          Milestone Galaxy
+        </button>
+        <button class="tab-btn" onclick="switchView('pinout')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h.01M17 7h.01M7 17h.01M17 17h.01"/></svg>
+          RP2350 Pinout Map
+        </button>
+        <button class="tab-btn" onclick="switchView('fsm')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M3 12h6M15 12h6"/></svg>
+          Staff State Machine
+        </button>
+        <button class="tab-btn" onclick="switchView('inventory')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg>
+          Inventory Tracker
+        </button>
+      </nav>
+    </header>
+
+    <main>
+      <!-- VIEW 1: MILESTONE GALAXY (ROADMAP) -->
+      <section id="view-roadmap" class="view-section active">
+        <div class="roadmap-stats-bar">
+          <div class="stat-card">
+            <div class="stat-icon" style="color: var(--cyan-core);">⚡</div>
+            <div class="stat-meta">
+              <h3>Active Milestone</h3>
+              <p>P0: Pico Alive</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="color: var(--emerald-ready);">🎯</div>
+            <div class="stat-meta">
+              <h3>Halloween Target</h3>
+              <p>P10: Voice MVP</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="color: var(--gold-brass);">🔋</div>
+            <div class="stat-meta">
+              <h3>Power Isolation</h3>
+              <p>Staff vs Pi 5 Rig</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="color: var(--violet-stellar);">📡</div>
+            <div class="stat-meta">
+              <h3>Wireless Transport</h3>
+              <p>CYW43 Wi-Fi 4</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="phase-track">
+          <!-- PHASE 1 -->
+          <div class="phase-block">
+            <div class="phase-header">
+              <h2><span>🌱</span> Phase 1 — Embedded Genesis (MCU & Controls)</h2>
+              <span class="phase-badge">P0 – P3</span>
+            </div>
+            <div class="milestone-grid">
+              <div class="milestone-card active-step" onclick="openDrawer('P0')">
+                <div class="card-top">
+                  <span class="code-pill">P0</span>
+                  <span class="status-tag in-progress">In Progress</span>
+                </div>
+                <h3>Pico Alive</h3>
+                <p>Validate toolchain, USB CDC serial logs, onboard LED, and CYW43 Wi-Fi scanner.</p>
+                <div class="card-footer">
+                  <span>Parts: Pico 2 W + USB</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+
+              <div class="milestone-card" onclick="openDrawer('P1')">
+                <div class="card-top">
+                  <span class="code-pill">P1</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>SH1106 OLED Display</h3>
+                <p>Wire 1.3" 128x64 I2C OLED on I2C1 (GP2/GP3). Render bootscreen and mode headers.</p>
+                <div class="card-footer">
+                  <span>I2C1 • 3.3V Logic</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+
+              <div class="milestone-card" onclick="openDrawer('P2')">
+                <div class="card-top">
+                  <span class="code-pill">P2</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>Bourns PEC11R Encoder</h3>
+                <p>Quadrature rotary decoding (GP6/GP7) and debounced switch (GP8) to navigate 5 modes.</p>
+                <div class="card-footer">
+                  <span>Internal Pull-ups</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+
+              <div class="milestone-card" onclick="openDrawer('P3')">
+                <div class="card-top">
+                  <span class="code-pill">P3</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>QUERY Push-To-Talk Button</h3>
+                <p>Momentary NO contact on GP9. Hold to enter LISTENING; release to submit audio.</p>
+                <div class="card-footer">
+                  <span>Never Toggle Mode</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PHASE 2 -->
+          <div class="phase-block">
+            <div class="phase-header">
+              <h2><span>✨</span> Phase 2 — Celestial Core (WS2812 Light Engine)</h2>
+              <span class="phase-badge">P4 – P5</span>
+            </div>
+            <div class="milestone-grid">
+              <div class="milestone-card" onclick="openDrawer('P4')">
+                <div class="card-top">
+                  <span class="code-pill">P4</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>Single WS2812 Ring</h3>
+                <p>Level shifting with SN74AHCT125N (GP15 to 5V), bulk 1000uF cap, and 470R protection.</p>
+                <div class="card-footer">
+                  <span>5V Rail • PIO2</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+
+              <div class="milestone-card" onclick="openDrawer('P5')">
+                <div class="card-top">
+                  <span class="code-pill">P5</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>Full LED Core (59 LEDs)</h3>
+                <p>Daisy chain 7 + 12 + 16 + 24 rings. Logical ring abstraction (CORE, HALO, ORBIT).</p>
+                <div class="card-footer">
+                  <span>Firmware Current Limiting</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PHASE 3 -->
+          <div class="phase-block">
+            <div class="phase-header">
+              <h2><span>🎙️</span> Phase 3 — Voice & Acoustics (Dual I2S Subsystems)</h2>
+              <span class="phase-badge">P6 – P8</span>
+            </div>
+            <div class="milestone-grid">
+              <div class="milestone-card" onclick="openDrawer('P6')">
+                <div class="card-top">
+                  <span class="code-pill">P6</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>INMP441 MEMS Mic</h3>
+                <p>I2S audio capture on PIO0 SM0 (GP10/11/12). 16 kHz 16-bit mono PCM validation.</p>
+                <div class="card-footer">
+                  <span>3.3V Logic • DMA Rx</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+
+              <div class="milestone-card" onclick="openDrawer('P7')">
+                <div class="card-top">
+                  <span class="code-pill">P7</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>MAX98357A Mono Amp</h3>
+                <p>I2S playback on PIO1 SM0 (GP16/17/18) + 4Ω 3W speaker. Play online chime sample.</p>
+                <div class="card-footer">
+                  <span>Independent Clock Domain</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+
+              <div class="milestone-card" onclick="openDrawer('P8')">
+                <div class="card-top">
+                  <span class="code-pill">P8</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>Integrated Staff Firmware</h3>
+                <p>Unify OLED, encoder, buttons, LEDs, mic, and speaker under the central state engine.</p>
+                <div class="card-footer">
+                  <span>Zero Peripheral Collisions</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PHASE 4 -->
+          <div class="phase-block">
+            <div class="phase-header">
+              <h2><span>🧠</span> Phase 4 — Wearable Brain & Wireless Link (Pi 5)</h2>
+              <span class="phase-badge">P9 – P10</span>
+            </div>
+            <div class="milestone-grid">
+              <div class="milestone-card" onclick="openDrawer('P9')">
+                <div class="card-top">
+                  <span class="code-pill">P9</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>Pi 5 Wireless Link</h3>
+                <p>Built-in Wi-Fi socket communication. PING/PONG, state telemetry, and PCM audio packets.</p>
+                <div class="card-footer">
+                  <span>Zero Cables to Staff</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+
+              <div class="milestone-card" onclick="openDrawer('P10')">
+                <div class="card-top">
+                  <span class="code-pill">P10</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>End-to-End Voice MVP</h3>
+                <p>Hold QUERY -> Record -> Send -> Whisper STT -> LLM Agent -> Piper TTS -> Playback.</p>
+                <div class="card-footer">
+                  <span>Halloween Mission Objective</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PHASE 5 -->
+          <div class="phase-block">
+            <div class="phase-header">
+              <h2><span>🔋</span> Phase 5 — Portable Rig & Mechanical Polish</h2>
+              <span class="phase-badge">P11 – P12</span>
+            </div>
+            <div class="milestone-grid">
+              <div class="milestone-card" onclick="openDrawer('P11')">
+                <div class="card-top">
+                  <span class="code-pill">P11</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>Pi 5 Portable Power Subsystem</h3>
+                <p>Geekworm X1209 V1.0 + 4x Molicel 18650 3500mAh cells. Dedicated to wearable Pi 5 only.</p>
+                <div class="card-footer">
+                  <span>Never Power Staff from X1209</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+
+              <div class="milestone-card" onclick="openDrawer('P12')">
+                <div class="card-top">
+                  <span class="code-pill">P12</span>
+                  <span class="status-tag queued">Queued</span>
+                </div>
+                <h3>Mechanical Staff Integration</h3>
+                <p>Soldered perma-proto board, celestial head assembly, cable routing, and wand chassis.</p>
+                <div class="card-footer">
+                  <span>Physical Assembly</span>
+                  <span>Inspect Step →</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: HARDWARE PINOUT MAP -->
+      <section id="view-pinout" class="view-section">
+        <div class="pinout-layout">
+          <div class="pico-board-container">
+            <div class="pico-board">
+              <!-- LEFT PINS: 1 to 20 -->
+              <div class="pin-column pin-col-left" id="pico-left-pins"></div>
+
+              <!-- CENTER CORE VISUAL -->
+              <div class="pico-center-core">
+                <div class="wifi-can">
+                  CYW43439<br>
+                  <span style="font-size:0.6rem; font-weight:normal;">Wi-Fi & BT 5.2</span>
+                </div>
+                <div class="rp2350-chip">
+                  <span>RP2350<br>Dual M33<br>150MHz</span>
+                </div>
+                <div style="font-size: 0.65rem; color: #6ee7b7; text-align: center; font-family:'JetBrains Mono';">
+                  LED ONBOARD<br>(CYW43 GPIO)
+                </div>
+              </div>
+
+              <!-- RIGHT PINS: 40 down to 21 -->
+              <div class="pin-column pin-col-right" id="pico-right-pins"></div>
+            </div>
+          </div>
+
+          <!-- PINOUT INSPECTOR -->
+          <div class="pinout-inspector">
+            <h3><span>🔍</span> Pin Inspector</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+              Click or hover any pin to inspect its allocated peripheral function, voltage limitations, and protocol.
+            </p>
+
+            <div class="peripheral-filter-chips">
+              <span class="filter-chip" onclick="filterPerip('all')">ALL PINS</span>
+              <span class="filter-chip" onclick="filterPerip('OLED')">OLED (I2C)</span>
+              <span class="filter-chip" onclick="filterPerip('Encoder')">Encoder</span>
+              <span class="filter-chip" onclick="filterPerip('QUERY')">QUERY</span>
+              <span class="filter-chip" onclick="filterPerip('INMP441')">Mic (I2S)</span>
+              <span class="filter-chip" onclick="filterPerip('MAX98357A')">Amp (I2S)</span>
+              <span class="filter-chip" onclick="filterPerip('WS2812')">WS2812</span>
+              <span class="filter-chip" onclick="filterPerip('Power')">Power/GND</span>
+            </div>
+
+            <div class="pin-info-box" id="pin-inspect-details">
+              <h4 style="font-family:'Space Grotesk'; font-size:1rem; margin-bottom:0.5rem; color:var(--cyan-core);">Select a Pin</h4>
+              <p style="font-size:0.85rem; color:var(--text-muted);">Hover or click any pin on the Pico 2 W diagram to display detailed wiring and electrical constraints.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: STAFF STATE MACHINE -->
+      <section id="view-fsm" class="view-section">
+        <div class="fsm-container">
+          <h2 style="font-family:'Space Grotesk'; margin-bottom:0.5rem;">Unified Staff State Machine</h2>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">
+            One authoritative state machine coordinates OLED views, LED core animations, and audio transport.
+          </p>
+
+          <div class="fsm-diagram">
+            <div class="fsm-node" onclick="simulateState('BOOT')">
+              <h4>BOOT</h4>
+              <span>System Init</span>
+            </div>
+            <div class="fsm-arrow">→</div>
+
+            <div class="fsm-node" onclick="simulateState('CONNECTING')">
+              <h4>CONNECTING</h4>
+              <span>Wi-Fi Join</span>
+            </div>
+            <div class="fsm-arrow">→</div>
+
+            <div class="fsm-node active-state" onclick="simulateState('IDLE')">
+              <h4>IDLE</h4>
+              <span>Ready / Idle</span>
+            </div>
+            <div class="fsm-arrow">→</div>
+
+            <div class="fsm-node" onclick="simulateState('LISTENING')">
+              <h4>LISTENING</h4>
+              <span>Hold QUERY</span>
+            </div>
+            <div class="fsm-arrow">→</div>
+
+            <div class="fsm-node" onclick="simulateState('UPLOADING')">
+              <h4>UPLOADING</h4>
+              <span>Release QUERY</span>
+            </div>
+            <div class="fsm-arrow">→</div>
+
+            <div class="fsm-node" onclick="simulateState('PROCESSING')">
+              <h4>PROCESSING</h4>
+              <span>Pi STT/LLM</span>
+            </div>
+            <div class="fsm-arrow">→</div>
+
+            <div class="fsm-node" onclick="simulateState('SPEAKING')">
+              <h4>SPEAKING</h4>
+              <span>TTS Playback</span>
+            </div>
+          </div>
+
+          <div class="oled-simulation-box">
+            <div class="oled-screen">
+              <div class="oled-header">
+                <span id="sim-mode">ORACLE MODE</span>
+                <span id="sim-wifi">WIFI OK</span>
+              </div>
+              <div class="oled-body" id="sim-body">
+                IDLE
+              </div>
+              <div class="oled-footer">
+                <span>VOL 75%</span>
+                <span id="sim-state-text">STATE: IDLE</span>
+              </div>
+            </div>
+
+            <div>
+              <h3 style="font-family:'Space Grotesk'; font-size:1.1rem; margin-bottom:0.5rem;" id="sim-title">Current State: IDLE</h3>
+              <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.5; margin-bottom:1rem;" id="sim-desc">
+                The staff is linked to the wearable brain over Wi-Fi. The rotary encoder selects between the 5 modes (ORACLE, GUIDE, SCANNER, CANDY DETECTOR, SYSTEM). Pressing and holding the QUERY button triggers a transition to LISTENING.
+              </p>
+              <div style="font-size:0.8rem; font-family:'JetBrains Mono'; color:var(--cyan-core);" id="sim-leds">
+                LED Core: Gentle astral blue breathing pattern (20% power limit).
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 4: HARDWARE INVENTORY -->
+      <section id="view-inventory" class="view-section">
+        <div class="fsm-container">
+          <h2 style="font-family:'Space Grotesk'; margin-bottom:0.5rem;">Hardware Inventory & Arrival Status</h2>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">
+            Synchronized with <code style="color:var(--cyan-core)">docs/hardware/inventory.md</code>.
+          </p>
+
+          <div class="table-container">
+            <table class="wiring-table" id="inventory-table">
+              <thead>
+                <tr>
+                  <th>Component</th>
+                  <th>Qty</th>
+                  <th>Subsystem</th>
+                  <th>Current Status</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- SLIDE-IN MISSION DRAWER -->
+    <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+    <div class="drawer" id="mission-drawer">
+      <div class="drawer-header">
+        <div>
+          <span class="code-pill" id="drawer-pill">P0</span>
+          <h2 id="drawer-title" style="display:inline-block; margin-left:0.5rem;">Pico Alive</h2>
+        </div>
+        <button class="close-btn" onclick="closeDrawer()">&times;</button>
+      </div>
+      <div class="drawer-content" id="drawer-content">
+        <!-- Dynamic content filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // STARFIELD BACKGROUND ANIMATION
+    const canvas = document.getElementById('stars');
+    const ctx = canvas.getContext('2d');
+    let stars = [];
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      stars = [];
+      const count = Math.floor((canvas.width * canvas.height) / 7000);
+      for (let i = 0; i < count; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: Math.random() * 1.4 + 0.3,
+          alpha: Math.random() * 0.8 + 0.2,
+          speed: Math.random() * 0.05 + 0.01
+        });
+      }
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function animateStars() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stars.forEach(s => {
+        s.alpha += s.speed;
+        if (s.alpha > 1 || s.alpha < 0.2) s.speed = -s.speed;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(180, 215, 255, ${s.alpha})`;
+        ctx.fill();
+      });
+      requestAnimationFrame(animateStars);
+    }
+    animateStars();
+
+    // VIEW SWITCHER
+    function switchView(viewId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+
+      event.currentTarget.classList.add('active');
+      document.getElementById('view-' + viewId).classList.add('active');
+    }
+
+    // PINOUT DATA (RP2350 PICO 2 W 40-PIN HEADER)
+    const PICO_PINS = [
+      // Left side: Pin 1 to 20
+      { pin: 1,  name: 'GP0',      color: 'color-gpio',    func: 'UART0 TX (Debug Console)', perip: 'Debug', volt: '3.3V Logic' },
+      { pin: 2,  name: 'GP1',      color: 'color-gpio',    func: 'UART0 RX (Debug Console)', perip: 'Debug', volt: '3.3V Logic' },
+      { pin: 3,  name: 'GND',      color: 'color-gnd',     func: 'Ground',                   perip: 'Power', volt: '0V Reference' },
+      { pin: 4,  name: 'GP2',      color: 'color-i2c',     func: 'I2C1 SDA (SH1106 OLED)',   perip: 'OLED',  volt: '3.3V Logic' },
+      { pin: 5,  name: 'GP3',      color: 'color-i2c',     func: 'I2C1 SCL (SH1106 OLED)',   perip: 'OLED',  volt: '3.3V Logic' },
+      { pin: 6,  name: 'GP4',      color: 'color-gpio',    func: 'General Purpose / Free',   perip: 'Free',  volt: '3.3V Logic' },
+      { pin: 7,  name: 'GP5',      color: 'color-gpio',    func: 'General Purpose / Free',   perip: 'Free',  volt: '3.3V Logic' },
+      { pin: 8,  name: 'GND',      color: 'color-gnd',     func: 'Ground',                   perip: 'Power', volt: '0V Reference' },
+      { pin: 9,  name: 'GP6',      color: 'color-gpio',    func: 'Bourns Encoder Pin A',     perip: 'Encoder', volt: '3.3V Input w/ Pullup' },
+      { pin: 10, name: 'GP7',      color: 'color-gpio',    func: 'Bourns Encoder Pin B',     perip: 'Encoder', volt: '3.3V Input w/ Pullup' },
+      { pin: 11, name: 'GP8',      color: 'color-gpio',    func: 'Bourns Encoder Push SW',   perip: 'Encoder', volt: '3.3V Input w/ Pullup' },
+      { pin: 12, name: 'GP9',      color: 'color-gpio',    func: 'QUERY Button (Push-to-Talk)', perip: 'QUERY', volt: '3.3V Input w/ Pullup' },
+      { pin: 13, name: 'GND',      color: 'color-gnd',     func: 'Ground',                   perip: 'Power', volt: '0V Reference' },
+      { pin: 14, name: 'GP10',     color: 'color-i2s-in',  func: 'INMP441 SCK (PIO0 SM0)',   perip: 'INMP441', volt: '3.3V I2S Clock' },
+      { pin: 15, name: 'GP11',     color: 'color-i2s-in',  func: 'INMP441 WS (PIO0 SM0)',    perip: 'INMP441', volt: '3.3V I2S Word' },
+      { pin: 16, name: 'GP12',     color: 'color-i2s-in',  func: 'INMP441 SD (PIO0 SM0)',    perip: 'INMP441', volt: '3.3V I2S Data In' },
+      { pin: 17, name: 'GP13',     color: 'color-gpio',    func: 'General Purpose / Free',   perip: 'Free',  volt: '3.3V Logic' },
+      { pin: 18, name: 'GND',      color: 'color-gnd',     func: 'Ground',                   perip: 'Power', volt: '0V Reference' },
+      { pin: 19, name: 'GP14',     color: 'color-gpio',    func: 'General Purpose / Free',   perip: 'Free',  volt: '3.3V Logic' },
+      { pin: 20, name: 'GP15',     color: 'color-led',     func: 'WS2812 DIN -> AHCT125 (PIO2)', perip: 'WS2812', volt: '3.3V -> 5V Level Shift' },
+
+      // Right side: Pin 21 to 40
+      { pin: 21, name: 'GP16',     color: 'color-i2s-out', func: 'MAX98357A BCLK (PIO1 SM0)', perip: 'MAX98357A', volt: '3.3V I2S Clock' },
+      { pin: 22, name: 'GP17',     color: 'color-i2s-out', func: 'MAX98357A LRC (PIO1 SM0)',  perip: 'MAX98357A', volt: '3.3V I2S Word' },
+      { pin: 23, name: 'GND',      color: 'color-gnd',     func: 'Ground',                   perip: 'Power', volt: '0V Reference' },
+      { pin: 24, name: 'GP18',     color: 'color-i2s-out', func: 'MAX98357A DIN (PIO1 SM0)',  perip: 'MAX98357A', volt: '3.3V I2S Data Out' },
+      { pin: 25, name: 'GP19',     color: 'color-gpio',    func: 'General Purpose / Free',   perip: 'Free',  volt: '3.3V Logic' },
+      { pin: 26, name: 'GP20',     color: 'color-gpio',    func: 'General Purpose / Free',   perip: 'Free',  volt: '3.3V Logic' },
+      { pin: 27, name: 'GP21',     color: 'color-gpio',    func: 'General Purpose / Free',   perip: 'Free',  volt: '3.3V Logic' },
+      { pin: 28, name: 'GND',      color: 'color-gnd',     func: 'Ground',                   perip: 'Power', volt: '0V Reference' },
+      { pin: 29, name: 'GP22',     color: 'color-gpio',    func: 'General Purpose / Free',   perip: 'Free',  volt: '3.3V Logic' },
+      { pin: 30, name: 'RUN',      color: 'color-gpio',    func: 'System Reset / Run Pin',   perip: 'System', volt: 'Pull to GND to reset' },
+      { pin: 31, name: 'GP26/ADC0',color: 'color-adc',     func: 'Analog In / Battery Sense', perip: 'ADC',   volt: 'Max 3.3V Analog' },
+      { pin: 32, name: 'GP27/ADC1',color: 'color-adc',     func: 'Analog In / Spare Sensor', perip: 'ADC',   volt: 'Max 3.3V Analog' },
+      { pin: 33, name: 'AGND',     color: 'color-gnd',     func: 'Analog Ground',            perip: 'Power', volt: 'Clean Analog 0V' },
+      { pin: 34, name: 'GP28/ADC2',color: 'color-adc',     func: 'Analog In / Spare Sensor', perip: 'ADC',   volt: 'Max 3.3V Analog' },
+      { pin: 35, name: 'ADC_VREF', color: 'color-3v3',     func: 'ADC Reference Voltage',    perip: 'Power', volt: '3.3V Ref' },
+      { pin: 36, name: '3V3_OUT',  color: 'color-3v3',     func: '3.3V Regulated Output',    perip: 'Power', volt: '3.3V Supply to Sensors' },
+      { pin: 37, name: '3V3_EN',   color: 'color-gpio',    func: 'Onboard SMPS Enable',      perip: 'System', volt: 'High = Enabled' },
+      { pin: 38, name: 'GND',      color: 'color-gnd',     func: 'Ground',                   perip: 'Power', volt: '0V Reference' },
+      { pin: 39, name: 'VSYS',     color: 'color-5v',      func: 'System Supply Input/Output', perip: 'Power', volt: '1.8V to 5.5V' },
+      { pin: 40, name: 'VBUS',     color: 'color-5v',      func: 'USB 5.0V Input Power',     perip: 'Power', volt: '5.0V USB Rail' }
+    ];
+
+    // RENDER PINS ON BOARD
+    const leftCol = document.getElementById('pico-left-pins');
+    const rightCol = document.getElementById('pico-right-pins');
+
+    PICO_PINS.slice(0, 20).forEach(p => {
+      const row = document.createElement('div');
+      row.className = `pin-row ${p.color}`;
+      row.id = `pin-row-${p.pin}`;
+      row.innerHTML = `
+        <span class="pin-number">${p.pin}</span>
+        <div class="pin-dot"></div>
+        <span class="pin-label">${p.name}</span>
+      `;
+      row.onclick = () => selectPin(p);
+      row.onmouseenter = () => selectPin(p);
+      leftCol.appendChild(row);
+    });
+
+    // Right pins 40 down to 21
+    PICO_PINS.slice(20, 40).reverse().forEach(p => {
+      const row = document.createElement('div');
+      row.className = `pin-row ${p.color}`;
+      row.id = `pin-row-${p.pin}`;
+      row.innerHTML = `
+        <span class="pin-number">${p.pin}</span>
+        <div class="pin-dot"></div>
+        <span class="pin-label">${p.name}</span>
+      `;
+      row.onclick = () => selectPin(p);
+      row.onmouseenter = () => selectPin(p);
+      rightCol.appendChild(row);
+    });
+
+    function selectPin(pin) {
+      document.querySelectorAll('.pin-row').forEach(r => r.classList.remove('highlighted'));
+      const activeRow = document.getElementById(`pin-row-${pin.pin}`);
+      if (activeRow) activeRow.classList.add('highlighted');
+
+      const box = document.getElementById('pin-inspect-details');
+      box.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+          <h4 style="font-family:'Space Grotesk'; font-size:1.15rem; color:#fff;">Pin ${pin.pin}: ${pin.name}</h4>
+          <span class="code-pill">${pin.perip}</span>
+        </div>
+        <div style="font-size:0.85rem; color:var(--text-muted); display:grid; gap:0.5rem;">
+          <div><strong style="color:#fff;">Assigned Function:</strong> ${pin.func}</div>
+          <div><strong style="color:#fff;">Electrical Range:</strong> <span style="color:var(--gold-brass);">${pin.volt}</span></div>
+          <div><strong style="color:#fff;">RP2350 Constraint:</strong> ${
+            pin.name.includes('GP') ? '3.3V max CMOS logic. Never apply 5V directly to this pin!' : 'Power rail or system control line.'
+          }</div>
+        </div>
+      `;
+    }
+
+    function filterPerip(perip) {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+
+      document.querySelectorAll('.pin-row').forEach(r => r.classList.remove('highlighted'));
+
+      if (perip === 'all') return;
+
+      PICO_PINS.filter(p => p.perip.toLowerCase().includes(perip.toLowerCase())).forEach(p => {
+        const el = document.getElementById(`pin-row-${p.pin}`);
+        if (el) el.classList.add('highlighted');
+      });
+    }
+
+    // STATE MACHINE SIMULATION
+    const STATE_DATA = {
+      BOOT: {
+        title: 'BOOT: System Initialization',
+        desc: 'CYW43 Wi-Fi architecture initializes, stdio connects over USB CDC. Hardware pins configured.',
+        oledText: 'BOOTING...',
+        led: 'Solid white core pulse (10% power).',
+        header: 'SYSTEM BOOT'
+      },
+      CONNECTING: {
+        title: 'CONNECTING: Wi-Fi Link',
+        desc: 'CYW43 station mode searches for Raspberry Pi 5 access point / router. Handshake in progress.',
+        oledText: 'LINKING...',
+        led: 'Breathing amber pulse (1 Hz).',
+        header: 'CONNECTING'
+      },
+      IDLE: {
+        title: 'IDLE: Ready for Commands',
+        desc: 'Staff is linked over Wi-Fi. Rotary encoder chooses between 5 operational modes. Ready to query.',
+        oledText: 'ORACLE IDLE',
+        led: 'Gentle astral cyan breathing ring.',
+        header: 'ORACLE MODE'
+      },
+      LISTENING: {
+        title: 'LISTENING: Audio Capture',
+        desc: 'QUERY button held down! INMP441 mic captures 16 kHz mono PCM into double DMA ping-pong buffers.',
+        oledText: 'LISTENING...',
+        led: 'Bright pulsating emerald green ring.',
+        header: 'VOICE CAPTURE'
+      },
+      UPLOADING: {
+        title: 'UPLOADING: Wi-Fi Transmission',
+        desc: 'QUERY button released! Pico packages captured audio buffer and streams it to Raspberry Pi 5.',
+        oledText: 'SENDING...',
+        led: 'Fast spinning cyan comet ring.',
+        header: 'UPLOADING'
+      },
+      PROCESSING: {
+        title: 'PROCESSING: Pi 5 Brain Compute',
+        desc: 'Pi 5 runs Faster-Whisper STT -> LLM Agent reasoning -> Piper TTS speech synthesis.',
+        oledText: 'THINKING...',
+        led: 'Deep nova violet celestial rotation.',
+        header: 'BRAIN COMPUTE'
+      },
+      SPEAKING: {
+        title: 'SPEAKING: Audio Playback',
+        desc: 'Synthesized audio streams back to MAX98357A I2S amplifier and mini speaker.',
+        oledText: 'SPEAKING...',
+        led: 'Voice-reactive gold/brass wave animation.',
+        header: 'AUDIO OUT'
+      }
+    };
+
+    function simulateState(stateKey) {
+      document.querySelectorAll('.fsm-node').forEach(n => n.classList.remove('active-state'));
+      event.currentTarget.classList.add('active-state');
+
+      const data = STATE_DATA[stateKey];
+      document.getElementById('sim-title').innerText = data.title;
+      document.getElementById('sim-desc').innerText = data.desc;
+      document.getElementById('sim-leds').innerText = `LED Core: ${data.led}`;
+      document.getElementById('sim-body').innerText = data.oledText;
+      document.getElementById('sim-state-text').innerText = `STATE: ${stateKey}`;
+      document.getElementById('sim-mode').innerText = data.header;
+    }
+
+    // INVENTORY DATA
+    const INVENTORY_ITEMS = [
+      { name: 'Raspberry Pi Pico 2 W (RP2350)', qty: 1, sub: 'Staff Controller', status: 'ORDERED', note: 'Factory headers; Wi-Fi/BT' },
+      { name: 'SH1106 1.3" 128x64 I2C OLED', qty: 1, sub: 'Visual Interface', status: 'ORDERED', note: 'I2C1 on GP2/GP3' },
+      { name: 'Bourns PEC11R Rotary Encoder', qty: 1, sub: 'Control Navigation', status: 'ORDERED', note: '24 detents/pulses + push' },
+      { name: 'Momentary NO QUERY Button', qty: 1, sub: 'PTT Voice Trigger', status: 'ORDERED', note: 'GP9; Pull-up configured' },
+      { name: 'INMP441 I2S MEMS Microphone', qty: 1, sub: 'Audio Input', status: 'ORDERED', note: 'I2S via PIO0' },
+      { name: 'MAX98357A I2S Mono Amplifier', qty: 3, sub: 'Audio Output', status: 'ORDERED', note: '3.2W Class-D; 1 required' },
+      { name: '4 ohm / 3W Mini Speaker', qty: 2, sub: 'Acoustics', status: 'ORDERED', note: '1 required for staff' },
+      { name: 'WS2812B Rings (7/12/16/24 LEDs)', qty: 4, sub: 'Celestial Core', status: 'ORDERED', note: '59 LEDs total; Level shifted' },
+      { name: 'SN74AHCT125N Level Shifter', qty: 2, sub: 'Signal Protection', status: 'ORDERED', note: '3.3V to 5V WS2812 data' },
+      { name: '~1000 uF electrolytic capacitor', qty: 'Kit', sub: 'Power Rail', status: 'ORDERED', note: 'Bulk LED 5V capacitance' },
+      { name: '~470 ohm series resistors', qty: 'Kit', sub: 'Data Line', status: 'ORDERED', note: 'WS2812 DIN ringing damping' },
+      { name: 'Raspberry Pi 5 (Wearable Brain)', qty: 1, sub: 'Wearable Compute', status: 'RECEIVED', note: 'Already owned; STT/LLM/TTS' },
+      { name: 'Raspberry Pi Active Cooler', qty: 1, sub: 'Wearable Compute', status: 'RECEIVED', note: 'Already owned' },
+      { name: 'Geekworm X1209 V1.0 Power Board', qty: 1, sub: 'Wearable Power', status: 'ORDERED', note: 'Pi 5 battery management only' },
+      { name: 'Molicel 18650-M35A 3500mAh Cells', qty: 4, sub: 'Wearable Power', status: 'ORDERED', note: 'Pi 5 battery pack only' }
+    ];
+
+    const invTbody = document.getElementById('inventory-tbody');
+    INVENTORY_ITEMS.forEach(item => {
+      const tr = document.createElement('tr');
+      const isRcv = item.status === 'RECEIVED';
+      tr.innerHTML = `
+        <td><strong style="color:#fff;">${item.name}</strong></td>
+        <td>${item.qty}</td>
+        <td><span class="code-pill">${item.sub}</span></td>
+        <td><span class="status-tag ${isRcv ? 'complete' : 'queued'}">${item.status}</span></td>
+        <td style="color:var(--text-muted);">${item.note}</td>
+      `;
+      invTbody.appendChild(tr);
+    });
+
+    // MILESTONE MISSION DETAILS (DRAWER DATA)
+    const MILESTONE_DETAILS = {
+      P0: {
+        code: 'P0',
+        title: 'Pico Alive',
+        goal: 'Validate the Raspberry Pi Pico 2 W toolchain, build process, USB CDC serial communication, onboard LED control, and CYW43 Wi-Fi scan.',
+        parts: '1x Raspberry Pi Pico 2 W (RP2350) + 1x USB data cable + Development PC.',
+        power: 'Disconnect Pico completely from USB before starting.',
+        wiring: `
+          <table class="wiring-table">
+            <tr><th>Component</th><th>Pico Pin</th><th>Function</th><th>Notes</th></tr>
+            <tr><td>None (Direct USB)</td><td>Direct USB</td><td>Power & Serial</td><td>No external breadboard wiring</td></tr>
+          </table>
+        `,
+        code: `
+          <pre class="code-block"># Build & flash commands:
+cd firmware
+cmake -B build -G "Ninja" -DPICO_BOARD=pico2_w -DPICO_PLATFORM=rp2350-arm-s
+cmake --build build
+
+# Flashing:
+Hold BOOTSEL -> Plug USB -> Drop celestial_p0.uf2 into RP2350 drive</pre>
+        `,
+        expected: 'Onboard LED pulses at 1 Hz. Serial console prints "Celestial Engine Mk.V - Firmware: 0.1.0-P0", CYW43 initialized, and logs nearby Wi-Fi network SSIDs.',
+        fail: '1. Check USB cable (must support data lines). 2. Verify VS Code Raspberry Pi Pico extension is installed. 3. Check COM port at 115200 baud.'
+      },
+      P1: {
+        code: 'P1',
+        title: 'SH1106 OLED Display',
+        goal: 'Initialize 1.3" 128x64 I2C OLED display on I2C1 and render the boot title card.',
+        parts: '1x SH1106 1.3" I2C OLED, 4x Jumper wires.',
+        power: 'Disconnect USB power before wiring I2C rails.',
+        wiring: `
+          <table class="wiring-table">
+            <tr><th>OLED Pin</th><th>Pico Pin</th><th>Function</th><th>Voltage</th></tr>
+            <tr><td>VCC</td><td>Pin 36</td><td>3V3_OUT</td><td>3.3V Logic & Power</td></tr>
+            <tr><td>GND</td><td>Pin 3</td><td>GND</td><td>Common Ground</td></tr>
+            <tr><td>SDA</td><td>Pin 4</td><td>GP2 (I2C1 SDA)</td><td>3.3V Logic</td></tr>
+            <tr><td>SCL</td><td>Pin 5</td><td>GP3 (I2C1 SCL)</td><td>3.3V Logic</td></tr>
+          </table>
+        `,
+        code: `<pre class="code-block"># I2C Configuration in config.h:
+#define PIN_OLED_SDA 2
+#define PIN_OLED_SCL 3
+#define OLED_I2C_INST i2c1</pre>`,
+        expected: 'OLED lights up and displays "CELESTIAL ENGINE Mk.V" followed by boot status and IP address.',
+        fail: '1. Verify I2C address (default 0x3C). 2. Check 3.3V VCC. 3. Swap SDA and SCL if no ACK received.'
+      },
+      P2: {
+        code: 'P2',
+        title: 'Bourns PEC11R Encoder',
+        goal: 'Read rotary quadrature signals and push button to navigate between 5 display modes.',
+        parts: '1x Bourns PEC11R encoder, 5x Jumper wires.',
+        power: 'Disconnect USB power before inserting encoder jumpers.',
+        wiring: `
+          <table class="wiring-table">
+            <tr><th>Encoder Pin</th><th>Pico Pin</th><th>Function</th><th>Notes</th></tr>
+            <tr><td>Channel A</td><td>Pin 9</td><td>GP6</td><td>Internal Pull-up</td></tr>
+            <tr><td>Channel B</td><td>Pin 10</td><td>GP7</td><td>Internal Pull-up</td></tr>
+            <tr><td>Common (C)</td><td>Pin 8</td><td>GND</td><td>Ground Reference</td></tr>
+            <tr><td>Push Switch</td><td>Pin 11</td><td>GP8</td><td>Internal Pull-up</td></tr>
+            <tr><td>Switch GND</td><td>Pin 8</td><td>GND</td><td>Ground Reference</td></tr>
+          </table>
+        `,
+        code: `<pre class="code-block"># Encoder Pin Map:
+#define PIN_ENCODER_A  6
+#define PIN_ENCODER_B  7
+#define PIN_ENCODER_SW 8</pre>`,
+        expected: 'Rotating encoder smoothly increments/decrements mode index on OLED. Pressing switch triggers SELECT beep.',
+        fail: '1. Check pull-up configuration. 2. If direction is reversed, swap GP6 and GP7 pins in code.'
+      },
+      P3: {
+        code: 'P3',
+        title: 'QUERY Button (Push-to-Talk)',
+        goal: 'Implement momentary push-to-talk trigger with clean debouncing.',
+        parts: '1x Momentary NO push button, 2x Jumper wires.',
+        power: 'Disconnect USB power before wiring.',
+        wiring: `
+          <table class="wiring-table">
+            <tr><th>Button Leg</th><th>Pico Pin</th><th>Function</th><th>Notes</th></tr>
+            <tr><td>Leg 1</td><td>Pin 12</td><td>GP9</td><td>Internal Pull-up</td></tr>
+            <tr><td>Leg 2</td><td>Pin 13</td><td>GND</td><td>Active LOW</td></tr>
+          </table>
+        `,
+        code: `<pre class="code-block">#define PIN_QUERY_BTN 9
+gpio_init(PIN_QUERY_BTN);
+gpio_set_dir(PIN_QUERY_BTN, GPIO_IN);
+gpio_pull_up(PIN_QUERY_BTN);</pre>`,
+        expected: 'Holding button transitions state machine to LISTENING. Releasing button triggers UPLOADING. Never acts as toggle.',
+        fail: '1. Confirm button is Normally Open (NO). 2. Check contact resistance with multimeter.'
+      },
+      P4: {
+        code: 'P4',
+        title: 'Single WS2812 Ring & Level Shifting',
+        goal: 'Drive one WS2812 ring safely using SN74AHCT125N level shifting and bulk capacitance.',
+        parts: '1x WS2812 ring, 1x SN74AHCT125N, 1x 470R resistor, 1x 1000uF capacitor.',
+        power: 'MANDATORY: Disconnect power before wiring 5V and capacitor. Observe capacitor polarity!',
+        wiring: `
+          <table class="wiring-table">
+            <tr><th>Module Pin</th><th>Pico / Source</th><th>Function</th><th>Notes</th></tr>
+            <tr><td>AHCT125 1A</td><td>Pin 20 (GP15)</td><td>PIO Data Out</td><td>3.3V Logic</td></tr>
+            <tr><td>AHCT125 1Y</td><td>WS2812 DIN</td><td>Level Shifted Out</td><td>Via 470R series resistor</td></tr>
+            <tr><td>AHCT125 VCC</td><td>Pin 40 (VBUS)</td><td>5V Supply</td><td>5V logic rail</td></tr>
+            <tr><td>AHCT125 /1OE</td><td>Pin 18 (GND)</td><td>Output Enable</td><td>Tied to GND</td></tr>
+            <tr><td>WS2812 5V</td><td>5V Rail</td><td>Power</td><td>1000uF bulk cap across 5V/GND</td></tr>
+          </table>
+        `,
+        code: `<pre class="code-block"># PIO2 state machine generates 800kHz WS2812 waveform.
+# Maximum brightness capped at 25% to protect power rails.</pre>`,
+        expected: 'Smooth breathing and rotation animations without flickering or brownouts.',
+        fail: '1. Verify capacitor polarity (negative stripe to GND). 2. Check level shifter orientation. 3. Ensure common ground.'
+      },
+      P5: {
+        code: 'P5',
+        title: 'Full LED Core (59 LEDs)',
+        goal: 'Daisy chain 7, 12, 16, and 24 LED rings and implement layered celestial animations.',
+        parts: '4x WS2812 rings (7+12+16+24), hookup wire.',
+        power: 'Disconnect power before soldering or wiring daisy chain.',
+        wiring: `
+          <table class="wiring-table">
+            <tr><th>Ring</th><th>LED Count</th><th>Data In (DIN)</th><th>Data Out (DOUT)</th></tr>
+            <tr><td>Core (Inner)</td><td>7</td><td>From AHCT125</td><td>To 12-Ring DIN</td></tr>
+            <tr><td>Halo</td><td>12</td><td>From 7-Ring DOUT</td><td>To 16-Ring DIN</td></tr>
+            <tr><td>Orbit</td><td>16</td><td>From 12-Ring DOUT</td><td>To 24-Ring DIN</td></tr>
+            <tr><td>Outer</td><td>24</td><td>From 16-Ring DOUT</td><td>End of chain</td></tr>
+          </table>
+        `,
+        code: `<pre class="code-block">#define TOTAL_LED_COUNT 59
+// Software current limiter: Max total current <= 800mA</pre>`,
+        expected: 'Concentric celestial rings animate simultaneously with distinct speeds and astronomical color schemes.',
+        fail: '1. Inspect solder joints between DOUT and DIN. 2. Verify 5V power feeds to all rings.'
+      },
+      P6: {
+        code: 'P6',
+        title: 'INMP441 MEMS Microphone',
+        goal: 'Capture clean 16 kHz 16-bit mono speech audio over I2S on PIO0 SM0.',
+        parts: '1x INMP441 I2S MEMS mic breakout, 6x Jumper wires.',
+        power: 'Disconnect USB power before connecting microphone.',
+        wiring: `
+          <table class="wiring-table">
+            <tr><th>INMP441 Pin</th><th>Pico Pin</th><th>Function</th><th>Voltage</th></tr>
+            <tr><td>VDD</td><td>Pin 36</td><td>3V3_OUT</td><td>3.3V ONLY (Never 5V!)</td></tr>
+            <tr><td>GND</td><td>Pin 13</td><td>GND</td><td>Ground</td></tr>
+            <tr><td>SCK</td><td>Pin 14</td><td>GP10 (PIO0 SM0)</td><td>Bit Clock</td></tr>
+            <tr><td>WS</td><td>Pin 15</td><td>GP11 (PIO0 SM0)</td><td>Word Select</td></tr>
+            <tr><td>SD</td><td>Pin 16</td><td>GP12 (PIO0 SM0)</td><td>Data In</td></tr>
+            <tr><td>L/R</td><td>Pin 13</td><td>GND</td><td>Select Left Channel</td></tr>
+          </table>
+        `,
+        code: `<pre class="code-block"># I2S RX PIO state machine:
+#define PIN_MIC_SCK 10
+#define PIN_MIC_WS  11
+#define PIN_MIC_SD  12</pre>`,
+        expected: 'Microphone captures live PCM. Serial monitor logs audio RMS and peak amplitude levels responding to speech.',
+        fail: '1. Verify L/R is tied to GND. 2. Confirm VDD is strictly 3.3V. 3. Check for clock jitter in PIO.'
+      },
+      P7: {
+        code: 'P7',
+        title: 'MAX98357A I2S Amplifier',
+        goal: 'Play synthesized speech audio sample over I2S on PIO1 SM0 to the mini speaker.',
+        parts: '1x MAX98357A breakout, 1x 4Ω 3W speaker, 5x Jumper wires.',
+        power: 'Disconnect power before wiring amplifier rails.',
+        wiring: `
+          <table class="wiring-table">
+            <tr><th>MAX98357A Pin</th><th>Pico Pin</th><th>Function</th><th>Voltage</th></tr>
+            <tr><td>VIN</td><td>Pin 40</td><td>VBUS (5V USB)</td><td>5.0V Amplifier Power</td></tr>
+            <tr><td>GND</td><td>Pin 23</td><td>GND</td><td>Ground</td></tr>
+            <tr><td>BCLK</td><td>Pin 21</td><td>GP16 (PIO1 SM0)</td><td>Bit Clock</td></tr>
+            <tr><td>LRC</td><td>Pin 22</td><td>GP17 (PIO1 SM0)</td><td>Word Select</td></tr>
+            <tr><td>DIN</td><td>Pin 24</td><td>GP18 (PIO1 SM0)</td><td>Data Out</td></tr>
+            <tr><td>GAIN</td><td>Pin 23</td><td>GND</td><td>9dB Gain default</td></tr>
+          </table>
+        `,
+        code: `<pre class="code-block"># I2S TX PIO state machine:
+#define PIN_SPK_BCLK 16
+#define PIN_SPK_LRC  17
+#define PIN_SPK_DIN  18</pre>`,
+        expected: 'Crisp audible playback: "The Celestial Engine is online."',
+        fail: '1. Verify speaker polarity into screw terminals. 2. Check SD_MODE pin voltage. 3. Verify DMA buffer loop.'
+      },
+      P8: {
+        code: 'P8',
+        title: 'Integrated Staff Firmware',
+        goal: 'Run OLED, encoder, buttons, LEDs, microphone, and speaker together under the unified state engine.',
+        parts: 'Fully assembled prototype breadboard.',
+        power: 'Complete full continuity and isolation check before powering whole assembly.',
+        wiring: 'Refer to Master Pinout (docs/wiring/pinout.md).',
+        code: '<pre class="code-block">Central state engine in firmware/src/state_machine.c coordinates all peripherals.</pre>',
+        expected: 'Seamless standalone operation. Modes switch smoothly while LED rings pulse and display updates.',
+        fail: 'Check for interrupt/DMA resource conflicts between PIO0, PIO1, and PIO2.'
+      },
+      P9: {
+        code: 'P9',
+        title: 'Raspberry Pi 5 Wireless Link',
+        goal: 'Establish wireless socket communication between Pico 2 W (CYW43) and Raspberry Pi 5.',
+        parts: 'Pico 2 W Staff + Raspberry Pi 5 Wearable Brain.',
+        power: 'Staff powered via USB; Pi 5 powered independently.',
+        wiring: 'No physical wires between Staff and Pi 5! Wireless Wi-Fi only.',
+        code: '<pre class="code-block">Lightweight packet protocol: HELLO, PING/PONG, AUDIO, STATE.</pre>',
+        expected: 'Heartbeat packets exchange every 1000ms with latency < 15ms.',
+        fail: '1. Verify both devices are on same Wi-Fi subnet. 2. Check firewall on Pi 5.'
+      },
+      P10: {
+        code: 'P10',
+        title: 'End-to-End Voice MVP',
+        goal: 'Complete the full Halloween mission interaction loop.',
+        parts: 'Integrated Staff + Wearable Pi 5 Brain running STT/LLM/TTS services.',
+        power: 'Independently powered systems.',
+        wiring: 'Wireless Wi-Fi link.',
+        code: '<pre class="code-block">Hold QUERY -> Speak -> Release -> Pi Whisper STT -> LLM -> Piper TTS -> Staff Plays</pre>',
+        expected: 'User asks a question; staff LED core spins while processing; speaker speaks AI response.',
+        fail: 'Inspect Pi 5 server logs for STT or TTS pipeline stalls.'
+      },
+      P11: {
+        code: 'P11',
+        title: 'Pi 5 Portable Power Subsystem',
+        goal: 'Integrate and test Geekworm X1209 V1.0 battery management system with 4x 18650 cells on Pi 5.',
+        parts: 'Raspberry Pi 5 + Geekworm X1209 + 4x Molicel 18650 cells.',
+        power: 'CAUTION: Ensure correct battery polarity. Belong to Pi 5 ONLY; never power staff directly from X1209.',
+        wiring: 'Mount X1209 onto Pi 5 using pogo pins / standoffs per Geekworm manual.',
+        code: '<pre class="code-block">Monitor battery voltage and graceful shutdown scripts on Raspberry Pi OS.</pre>',
+        expected: 'Pi 5 boots untethered, powers Active Cooler, and runs for 3+ hours on battery.',
+        fail: '1. Check 18650 flat-top contact seating. 2. Verify power switch on X1209.'
+      },
+      P12: {
+        code: 'P12',
+        title: 'Mechanical Assembly & Enclosure',
+        goal: 'Transfer breadboard prototype to soldered perma-proto board and mount inside staff chassis.',
+        parts: 'Staff staff body, 3D printed / craft core housing, perma-proto board, connectors.',
+        power: 'Power off during all soldering and mechanical mounting.',
+        wiring: 'Permanent soldered headers matching docs/wiring/pinout.md.',
+        code: 'Final production build flashed.',
+        expected: 'Robust, battle-ready interactive AI staff ready for Halloween exhibition.',
+        fail: 'Inspect wiring strain relief and verify no short circuits from mechanical enclosure.'
+      }
+    };
+
+    function openDrawer(stepKey) {
+      const data = MILESTONE_DETAILS[stepKey];
+      if (!data) return;
+
+      document.getElementById('drawer-pill').innerText = data.code;
+      document.getElementById('drawer-title').innerText = data.title;
+
+      const content = document.getElementById('drawer-content');
+      content.innerHTML = `
+        <div class="drawer-section">
+          <h3><span>🎯</span> Milestone Goal</h3>
+          <p style="font-size:0.9rem; line-height:1.5;">${data.goal}</p>
+        </div>
+
+        <div class="drawer-section">
+          <h3><span>📦</span> Required Parts</h3>
+          <p style="font-size:0.85rem; color:var(--text-muted);">${data.parts}</p>
+        </div>
+
+        <div class="drawer-section" style="border-left: 3px solid var(--rose-danger);">
+          <h3 style="color:var(--rose-danger);"><span>⚡</span> Electrical Safety & Power Off</h3>
+          <p style="font-size:0.85rem; color:#fca5a5;">${data.power}</p>
+        </div>
+
+        <div class="drawer-section">
+          <h3><span>🔌</span> Wiring Table</h3>
+          <div class="table-container">${data.wiring}</div>
+        </div>
+
+        <div class="drawer-section">
+          <h3><span>💻</span> Code & Commands</h3>
+          ${data.code}
+        </div>
+
+        <div class="drawer-section">
+          <h3><span>👁️</span> Expected Result</h3>
+          <p style="font-size:0.85rem; color:var(--emerald-ready); line-height:1.4;">${data.expected}</p>
+        </div>
+
+        <div class="drawer-section">
+          <h3><span>🛠️</span> Diagnostics & Triage</h3>
+          <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.4;">${data.fail}</p>
+        </div>
+      `;
+
+      document.getElementById('drawer-overlay').classList.add('open');
+      document.getElementById('mission-drawer').classList.add('open');
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawer-overlay').classList.remove('open');
+      document.getElementById('mission-drawer').classList.remove('open');
+    }
+  </script>
+</body>
+</html>
