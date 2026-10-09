@@ -880,6 +880,54 @@
       overflow-x: auto;
       color: #cbd5e1;
     }
+
+    /* BREADBOARD VIEW STYLING */
+    .bb-container {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      padding: 1.75rem;
+      backdrop-filter: blur(12px);
+    }
+    .bb-grid-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-top: 1.5rem;
+    }
+    @media (max-width: 950px) {
+      .bb-grid-layout { grid-template-columns: 1fr; }
+    }
+    .bb-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .bb-card h3 {
+      font-size: 1.05rem;
+      font-family: 'Space Grotesk', sans-serif;
+      margin-bottom: 0.5rem;
+      color: var(--cyan-core);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .bb-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .bb-visual-board {
+      background: #111827;
+      border: 2px solid #374151;
+      border-radius: 12px;
+      padding: 1.25rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #94a3b8;
+      box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.7);
+    }
   </style>
 </head>
 <body>
@@ -897,7 +945,7 @@
           <h1>Celestial Engine Mk.V</h1>
           <p>
             <span>Interactive Mission & Hardware Map</span>
-            <span class="badge-status"><span class="pulsing-dot"></span> P0 ACTIVE</span>
+            <span class="badge-status"><span class="pulsing-dot"></span> P1 IN PROGRESS</span>
           </p>
         </div>
       </div>
@@ -910,6 +958,10 @@
         <button class="tab-btn" onclick="switchView('pinout')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h.01M17 7h.01M7 17h.01M17 17h.01"/></svg>
           RP2350 Pinout Map
+        </button>
+        <button class="tab-btn" onclick="switchView('breadboard')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          Breadboard Guide
         </button>
         <button class="tab-btn" onclick="switchView('fsm')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M3 12h6M15 12h6"/></svg>
@@ -930,7 +982,7 @@
             <div class="stat-icon" style="color: var(--cyan-core);">⚡</div>
             <div class="stat-meta">
               <h3>Active Milestone</h3>
-              <p>P0: Pico Alive</p>
+              <p>P1: SH1106 OLED</p>
             </div>
           </div>
           <div class="stat-card">
@@ -964,23 +1016,23 @@
               <span class="phase-badge">P0 – P3</span>
             </div>
             <div class="milestone-grid">
-              <div class="milestone-card active-step" onclick="openDrawer('P0')">
+              <div class="milestone-card complete" onclick="openDrawer('P0')">
                 <div class="card-top">
                   <span class="code-pill">P0</span>
-                  <span class="status-tag in-progress">In Progress</span>
+                  <span class="status-tag complete">Passed</span>
                 </div>
                 <h3>Pico Alive</h3>
-                <p>Validate toolchain, USB CDC serial logs, onboard LED, and CYW43 Wi-Fi scanner.</p>
+                <p>Validated toolchain, USB CDC serial logs (COM9), 1 Hz heartbeat LED, and CYW43 Wi-Fi.</p>
                 <div class="card-footer">
                   <span>Parts: Pico 2 W + USB</span>
                   <span>Inspect Step →</span>
                 </div>
               </div>
 
-              <div class="milestone-card" onclick="openDrawer('P1')">
+              <div class="milestone-card active-step" onclick="openDrawer('P1')">
                 <div class="card-top">
                   <span class="code-pill">P1</span>
-                  <span class="status-tag queued">Queued</span>
+                  <span class="status-tag in-progress">In Progress</span>
                 </div>
                 <h3>SH1106 OLED Display</h3>
                 <p>Wire 1.3" 128x64 I2C OLED on I2C1 (GP2/GP3). Render bootscreen and mode headers.</p>
@@ -1221,6 +1273,97 @@
             <div class="pin-info-box" id="pin-inspect-details">
               <h4 style="font-family:'Space Grotesk'; font-size:1rem; margin-bottom:0.5rem; color:var(--cyan-core);">Select a Pin</h4>
               <p style="font-size:0.85rem; color:var(--text-muted);">Hover or click any pin on the Pico 2 W diagram to display detailed wiring and electrical constraints.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2.5: BREADBOARD GUIDE -->
+      <section id="view-breadboard" class="view-section">
+        <div class="bb-container">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+            <div>
+              <h2 style="font-family:'Space Grotesk'; font-size:1.4rem;">Breadboard Anatomy & Wiring Primer</h2>
+              <p style="font-size:0.85rem; color:var(--text-muted);">
+                How electrical connectivity works on your 400-point breadboard (30 vertical rows, columns a–j, power rails).
+              </p>
+            </div>
+            <span class="code-pill">Velleman VTBB3 / Standard 400-Pin</span>
+          </div>
+
+          <div class="bb-grid-layout">
+            <!-- LEFT: PRINCIPLES & MOUNTING -->
+            <div>
+              <div class="bb-card">
+                <h3><span>⚡</span> 1. Power Rails (Outer Columns '+' and '-')</h3>
+                <p>
+                  The long vertical strips on the far left and far right run <strong>vertically top to bottom</strong>.
+                  <br>• <strong style="color:var(--rose-danger);">'+' (Red line)</strong>: Power rail (use for 3.3V or 5V).
+                  <br>• <strong style="color:var(--cyan-core); font-weight:bold;">'-' (Blue/Black line)</strong>: Ground rail (GND / 0V reference).
+                  <br>All 30 holes in that column share one continuous metal clip underneath.
+                </p>
+              </div>
+
+              <div class="bb-card">
+                <h3><span>🔗</span> 2. Terminal Strips (Rows 1–30, Columns a–e and f–j)</h3>
+                <p>
+                  Inside the main grid, holes connect <strong>horizontally in 5-hole groups</strong>:
+                  <br>• In row <strong>N</strong>, holes <strong>[a, b, c, d, e]</strong> are electrically connected.
+                  <br>• In row <strong>N</strong>, holes <strong>[f, g, h, i, j]</strong> are electrically connected.
+                  <br>• <strong>Rows are isolated from each other</strong>: Row 4 is completely separate from Row 5.
+                </p>
+              </div>
+
+              <div class="bb-card">
+                <h3><span>🌉</span> 3. Center Trough & Straddling the Pico 2 W</h3>
+                <p>
+                  The trench down the middle physically isolates columns <strong>a–e</strong> from <strong>f–j</strong>.
+                  <br>• Mount the <strong>Raspberry Pi Pico 2 W across the center divider</strong> spanning rows 1 to 20.
+                  <br>• Pico Pins 1 to 20 sit in column <strong>e</strong> (leaving holes <strong>a, b, c, d</strong> free on rows 1–20 to plug jumper wires into).
+                  <br>• Pico Pins 40 down to 21 sit in column <strong>f</strong> (leaving holes <strong>g, h, i, j</strong> free on rows 1–20 for jumpers).
+                </p>
+              </div>
+
+              <div class="bb-card" style="border-left: 3px solid var(--gold-brass);">
+                <h3 style="color:var(--gold-brass);"><span>🛡️</span> Golden Rules for Safe Wiring</h3>
+                <p>
+                  <strong>Rule 1: Always Disconnect USB</strong> before plugging in or moving wires.
+                  <br><strong>Rule 2: Never short '+' to '-'</strong>.
+                  <br><strong>Rule 3: Keep 5V away from Pico GPIO</strong>. The Pico is 3.3V logic only!
+                  <br><strong>Rule 4: Verify OLED Pinout</strong> before connecting VCC and GND.
+                </p>
+              </div>
+            </div>
+
+            <!-- RIGHT: VISUAL BOARD DIAGRAM -->
+            <div>
+              <div class="bb-card">
+                <h3><span>📐</span> Visual Breadboard Layout Diagram</h3>
+                <div class="bb-visual-board">
+<pre style="font-size:0.75rem; line-height:1.4; color:#e2e8f0; overflow-x:auto;">
+     POWER      LEFT GRID       CENTER       RIGHT GRID     POWER
+    [-]  [+]   | a b c d e |   DIVIDER   | f g h i j |   [+]  [-]
+     |    |    | - - - - - |   (Trench)  | - - - - - |    |    |
+ 1   o    o    o o o o [P1]      PICO     [P40] o o o o    o    o
+ 2   o    o    o o o o [P2]       2 W     [P39] o o o o    o    o
+ 3   o    o    o o o o [GND]              [GND] o o o o    o    o
+ 4   o    o    o o o o [P4]     (RP2350)  [P37] o o o o    o    o
+ 5   o    o    o o o o [P5]               [3V3] o o o o    o    o
+...
+20   o    o    o o o o [P20]              [P21] o o o o    o    o
+----------------------------------------------------------------
+   (Free prototyping area for sensors / breakout modules)
+25   o    o    o o o o [GND]  <--- OLED GND pin
+26   o    o    o o o o [VCC]  <--- OLED 3.3V pin (Pin 36 / 3V3)
+27   o    o    o o o o [SCL]  <--- OLED SCL pin (Pin 5 / GP3)
+28   o    o    o o o o [SDA]  <--- OLED SDA pin (Pin 4 / GP2)
+30   o    o    o o o o o                  o o o o o        o    o
+</pre>
+                </div>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.75rem;">
+                  Plugging the OLED into separate rows (e.g. 25–28) allows each of its 4 pins to access holes on columns a–d to connect jumper wires directly to the corresponding Pico header pins.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -1577,8 +1720,9 @@
 
     // INVENTORY DATA
     const INVENTORY_ITEMS = [
-      { name: 'Raspberry Pi Pico 2 W (RP2350)', qty: 1, sub: 'Staff Controller', status: 'ORDERED', note: 'Factory headers; Wi-Fi/BT' },
-      { name: 'SH1106 1.3" 128x64 I2C OLED', qty: 1, sub: 'Visual Interface', status: 'ORDERED', note: 'I2C1 on GP2/GP3' },
+      { name: 'Raspberry Pi Pico 2 W (RP2350)', qty: 1, sub: 'Staff Controller', status: 'TESTED', note: 'Factory headers; Wi-Fi/BT; P0 validated on COM9' },
+      { name: 'SH1106 1.3" 128x64 I2C OLED', qty: 1, sub: 'Visual Interface', status: 'RECEIVED', note: 'Physically arrived; I2C1 on GP2/GP3' },
+      { name: 'Velleman VTBB3 Breadboard', qty: 1, sub: 'Prototyping', status: 'RECEIVED', note: '400 holes (30 rows, a–j, +/- rails)' },
       { name: 'Bourns PEC11R Rotary Encoder', qty: 1, sub: 'Control Navigation', status: 'ORDERED', note: '24 detents/pulses + push' },
       { name: 'Momentary NO QUERY Button', qty: 1, sub: 'PTT Voice Trigger', status: 'ORDERED', note: 'GP9; Pull-up configured' },
       { name: 'INMP441 I2S MEMS Microphone', qty: 1, sub: 'Audio Input', status: 'ORDERED', note: 'I2S via PIO0' },
@@ -1597,12 +1741,12 @@
     const invTbody = document.getElementById('inventory-tbody');
     INVENTORY_ITEMS.forEach(item => {
       const tr = document.createElement('tr');
-      const isRcv = item.status === 'RECEIVED';
+      const statusClass = item.status === 'TESTED' ? 'complete' : (item.status === 'RECEIVED' ? 'in-progress' : 'queued');
       tr.innerHTML = `
         <td><strong style="color:#fff;">${item.name}</strong></td>
         <td>${item.qty}</td>
         <td><span class="code-pill">${item.sub}</span></td>
-        <td><span class="status-tag ${isRcv ? 'complete' : 'queued'}">${item.status}</span></td>
+        <td><span class="status-tag ${statusClass}">${item.status}</span></td>
         <td style="color:var(--text-muted);">${item.note}</td>
       `;
       invTbody.appendChild(tr);
@@ -1612,7 +1756,7 @@
     const MILESTONE_DETAILS = {
       P0: {
         code: 'P0',
-        title: 'Pico Alive',
+        title: 'Pico Alive [PASSED]',
         goal: 'Validate the Raspberry Pi Pico 2 W toolchain, build process, USB CDC serial communication, onboard LED control, and CYW43 Wi-Fi scan.',
         parts: '1x Raspberry Pi Pico 2 W (RP2350) + 1x USB data cable + Development PC.',
         power: 'Disconnect Pico completely from USB before starting.',
@@ -1631,14 +1775,14 @@ cmake --build build
 # Flashing:
 Hold BOOTSEL -> Plug USB -> Drop celestial_p0.uf2 into RP2350 drive</pre>
         `,
-        expected: 'Onboard LED pulses at 1 Hz. Serial console prints "Celestial Engine Mk.V - Firmware: 0.1.0-P0", CYW43 initialized, and logs nearby Wi-Fi network SSIDs.',
+        expected: 'PASSED: Onboard LED pulses at 1 Hz. Serial console prints telemetry over COM9, CYW43 active.',
         fail: '1. Check USB cable (must support data lines). 2. Verify VS Code Raspberry Pi Pico extension is installed. 3. Check COM port at 115200 baud.'
       },
       P1: {
         code: 'P1',
-        title: 'SH1106 OLED Display',
+        title: 'SH1106 OLED Display [IN PROGRESS]',
         goal: 'Initialize 1.3" 128x64 I2C OLED display on I2C1 and render the boot title card.',
-        parts: '1x SH1106 1.3" I2C OLED, 4x Jumper wires.',
+        parts: '1x SH1106 1.3" I2C OLED, 400-Point Breadboard, 4x Jumper wires.',
         power: 'Disconnect USB power before wiring I2C rails.',
         wiring: `
           <table class="wiring-table">

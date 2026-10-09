@@ -7,7 +7,7 @@ Status values: `ORDERED`, `RECEIVED`, `TESTED`, `INSTALLED`, `FAILED`.
 | Component | Qty | Status | Notes |
 |---|---:|---|---|
 | Raspberry Pi Pico 2 W with headers | 1 | TESTED | RP2350; Wi-Fi/Bluetooth; P0 validated on COM9 |
-| SH1106 1.3in 128x64 I2C OLED | 1 | ORDERED | |
+| SH1106 1.3in 128x64 I2C OLED | 1 | RECEIVED | Arrived; ready for P1 pinout confirmation |
 | Bourns PEC11R-4225F-S0024 encoder | 1 | ORDERED | 24 detents/pulses + push |
 | Prototype momentary NO QUERY button | 1 | ORDERED | Final decorative button deferred |
 | INMP441 I2S microphone | 1 | ORDERED | Verify actual breakout pin labels on arrival |
@@ -20,7 +20,7 @@ Status values: `ORDERED`, `RECEIVED`, `TESTED`, `INSTALLED`, `FAILED`.
 | SN74AHCT125N | 2 | ORDERED | WS2812 level shifting |
 | ~470 ohm resistor | TBD | ORDERED | WS2812 data series resistor |
 | ~1000 uF >=10 V capacitor | TBD | ORDERED | LED power bulk capacitance |
-| Velleman VTBB3 breadboard | 1 | ORDERED | 400 holes |
+| Velleman VTBB3 breadboard | 1 | RECEIVED | 400 holes (30 rows, a-j, +/- rails) |
 | 22 AWG red/black wire | 1 set | ORDERED | Power distribution |
 | 26 AWG multicolor wire | 1 set | ORDERED | Signals |
 | Raspberry Pi 5 | 1 | RECEIVED | Already owned; wearable brain |
