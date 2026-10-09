@@ -1318,9 +1318,11 @@
                 <h3><span>🌉</span> 3. Center Trough & Straddling the Pico 2 W</h3>
                 <p>
                   The trench down the middle physically isolates columns <strong>a–e</strong> from <strong>f–j</strong>.
-                  <br>• Mount the <strong>Raspberry Pi Pico 2 W across the center divider</strong> spanning rows 1 to 20.
-                  <br>• Pico Pins 1 to 20 sit in column <strong>e</strong> (leaving holes <strong>a, b, c, d</strong> free on rows 1–20 to plug jumper wires into).
-                  <br>• Pico Pins 40 down to 21 sit in column <strong>f</strong> (leaving holes <strong>g, h, i, j</strong> free on rows 1–20 for jumpers).
+                  <br>• The Pico 2 W header spacing is <strong>0.7 inches</strong> (7 pin intervals).
+                  <br>• When placed across rows 1 to 20: 
+                  <br>&nbsp;&nbsp;&nbsp;&nbsp;– <strong>Pico Left Pins (1 to 20)</strong> plug into column <strong>a</strong> (holes <strong>b, c, d, e</strong> on rows 1–20 connect to those pins!).
+                  <br>&nbsp;&nbsp;&nbsp;&nbsp;– <strong>Pico Right Pins (40 down to 21)</strong> plug into column <strong>f</strong> (holes <strong>g, h, i, j</strong> on rows 1–20 connect to those pins!).
+                  <br>• Because the divider is between <strong>e</strong> and <strong>f</strong>, column <strong>a</strong> is completely isolated from column <strong>f</strong>!
                 </p>
               </div>
 
@@ -1341,27 +1343,27 @@
                 <h3><span>📐</span> Visual Breadboard Layout Diagram</h3>
                 <div class="bb-visual-board">
 <pre style="font-size:0.75rem; line-height:1.4; color:#e2e8f0; overflow-x:auto;">
-     POWER      LEFT GRID       CENTER       RIGHT GRID     POWER
-    [-]  [+]   | a b c d e |   DIVIDER   | f g h i j |   [+]  [-]
-     |    |    | - - - - - |   (Trench)  | - - - - - |    |    |
- 1   o    o    o o o o [P1]      PICO     [P40] o o o o    o    o
- 2   o    o    o o o o [P2]       2 W     [P39] o o o o    o    o
- 3   o    o    o o o o [GND]              [GND] o o o o    o    o
- 4   o    o    o o o o [P4]     (RP2350)  [P37] o o o o    o    o
- 5   o    o    o o o o [P5]               [3V3] o o o o    o    o
+     POWER       LEFT TERMINAL STRIPS         CENTER         RIGHT TERMINAL STRIPS       POWER
+    [-]  [+]    a     b    c    d    e       DIVIDER        f     g    h    i    j       [+]  [-]
+     |    |     |     |    |    |    |       (Trench)       |     |    |    |    |        |    |
+ 1   o    o   [P1]  --o----o----o----o         PICO       [P40] --o----o----o----o       o    o
+ 2   o    o   [P2]  --o----o----o----o         2 W        [P39] --o----o----o----o       o    o
+ 3   o    o   [GND] --o----o----o----o      (RP2350)      [GND] --o----o----o----o       o    o
+ 4   o    o   [GP2] --o----o----o----o                    [P37] --o----o----o----o       o    o
+ 5   o    o   [GP3] --o----o----o----o                    [3V3] --o----o----o----o       o    o
 ...
-20   o    o    o o o o [P20]              [P21] o o o o    o    o
-----------------------------------------------------------------
-   (Free prototyping area for sensors / breakout modules)
-25   o    o    o o o o [GND]  <--- OLED GND pin
-26   o    o    o o o o [VCC]  <--- OLED 3.3V pin (Pin 36 / 3V3)
-27   o    o    o o o o [SCL]  <--- OLED SCL pin (Pin 5 / GP3)
-28   o    o    o o o o [SDA]  <--- OLED SDA pin (Pin 4 / GP2)
-30   o    o    o o o o o                  o o o o o        o    o
+20   o    o   [P20] --o----o----o----o                    [P21] --o----o----o----o       o    o
+-----------------------------------------------------------------------------------------------
+   (Rows 21 to 30: Free prototyping area below the Pico for OLED and sensors)
+24   o    o   [PIN 1] -o----o----o----o   <--- OLED Pin 1
+25   o    o   [PIN 2] -o----o----o----o   <--- OLED Pin 2
+26   o    o   [PIN 3] -o----o----o----o   <--- OLED Pin 3
+27   o    o   [PIN 4] -o----o----o----o   <--- OLED Pin 4
+30   o    o     o     o    o    o    o                      o     o    o    o    o        o    o
 </pre>
                 </div>
                 <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.75rem;">
-                  Plugging the OLED into separate rows (e.g. 25–28) allows each of its 4 pins to access holes on columns a–d to connect jumper wires directly to the corresponding Pico header pins.
+                  Holes on the same row share the connection: plugging into <code>b4</code> connects to Pico Pin 4 (GP2 SDA); plugging into <code>g5</code> connects to Pico Pin 36 (3V3_OUT).
                 </p>
               </div>
             </div>
