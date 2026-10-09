@@ -1,0 +1,81 @@
+#include "query_button.h"
+#include "config.h"
+#include "hardware/gpio.h"
+#include "pico/time.h"
+
+static bool btn_is_down = false;
+static bool btn_prev_raw = true;
+static absolute_time_t last_edge_time;
+static absolute_time_t press_start_time;
+
+static bool pressed_event = false;
+static uint32_t released_duration = 0;
+
+void query_button_init(void) {
+    gpio_init(PIN_QUERY_BTN);
+    gpio_set_dir(PIN_QUERY_BTN, GPIO_IN);
+    gpio_pull_up(PIN_QUERY_BTN);
+
+    btn_prev_raw = gpio_get(PIN_QUERY_BTN);
+    btn_is_down = !btn_prev_raw;
+    last_edge_time = get_absolute_time();
+    press_start_time = get_absolute_time();
+    pressed_event = false;
+    released_duration = 0;
+}
+
+void query_button_update(void) {
+    bool raw = gpio_get(PIN_QUERY_BTN); // Active-low: 0=pressed, 1=released
+
+    if (!raw && btn_prev_raw) {
+        // Instant falling edge (pressed down)
+        if (absolute_time_diff_us(last_edge_time, get_absolute_time()) > 30000) { // 30ms lockout
+            pressed_event = true;
+            btn_is_down = true;
+            press_start_time = get_absolute_time();
+            last_edge_time = get_absolute_time();
+        }
+    } else if (raw && !btn_prev_raw) {
+        // Rising edge (released)
+        if (btn_is_down) {
+            btn_is_down = false;
+            int64_t held_us = absolute_time_diff_us(press_start_time, get_absolute_time());
+            released_duration = (held_us > 0) ? (uint32_t)(held_us / 1000) : 1;
+            last_edge_time = get_absolute_time();
+        }
+    }
+
+    btn_prev_raw = raw;
+}
+
+bool query_button_is_held(void) {
+    // Return true if pin is actively LOW
+    return !gpio_get(PIN_QUERY_BTN);
+}
+
+bool query_button_just_pressed(void) {
+    if (pressed_event) {
+        pressed_event = false;
+        return true;
+    }
+    return false;
+}
+
+uint32_t query_button_just_released(void) {
+    if (released_duration > 0) {
+        uint32_t dur = released_duration;
+        released_duration = 0;
+        return dur;
+    }
+    return 0;
+}
+
+uint32_t query_button_current_hold_ms(void) {
+    if (gpio_get(PIN_QUERY_BTN)) return 0; // High = released
+    int64_t diff = absolute_time_diff_us(press_start_time, get_absolute_time());
+    return (diff > 0) ? (uint32_t)(diff / 1000) : 0;
+}
+
+bool query_button_get_raw(void) {
+    return gpio_get(PIN_QUERY_BTN);
+}

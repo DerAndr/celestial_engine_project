@@ -31,6 +31,7 @@ add_executable(celestial_firmware
     src/main.c
     src/sh1106.c
     src/encoder.c
+    src/query_button.c
 )
 
 target_include_directories(celestial_firmware PRIVATE

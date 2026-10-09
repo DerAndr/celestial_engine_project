@@ -9,7 +9,7 @@ Status values: `ORDERED`, `RECEIVED`, `TESTED`, `INSTALLED`, `FAILED`.
 | Raspberry Pi Pico 2 W with headers | 1 | TESTED | RP2350; Wi-Fi/Bluetooth; P0 validated on COM9 |
 | SH1106 1.3in 128x64 I2C OLED | 1 | TESTED | P1 validated on I2C1 (0x3C); clean display telemetry |
 | Bourns PEC11R-4225F-S0024 encoder | 1 | TESTED | P2 validated; Gray quadrature + push switch on GP6/7/8 |
-| Prototype momentary NO QUERY button | 1 | ORDERED | Final decorative button deferred |
+| Prototype momentary NO QUERY button | 1 | TESTED | P3 validated; Push-to-Talk active-LOW on GP9 |
 | INMP441 I2S microphone | 1 | ORDERED | Verify actual breakout pin labels on arrival |
 | MAX98357A I2S amplifier | 3 | ORDERED | Only one required; verify actual breakout |
 | 4 ohm / 3 W mini speaker | 2 | ORDERED | Only one required |
