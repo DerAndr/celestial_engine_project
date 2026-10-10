@@ -16,7 +16,8 @@ static uint mic_offset = 0;
 static int mic_dma_chan = -1;
 
 // 1024-byte aligned ring buffer for zero-overhead DMA circular writing
-static uint32_t mic_ring_buf[MIC_BUFFER_SAMPLES] __attribute__((aligned(1024)));
+static volatile uint32_t mic_ring_buf[MIC_BUFFER_SAMPLES] __attribute__((aligned(1024)));
+static uint32_t mic_snapshot[MIC_BUFFER_SAMPLES];
 
 static int16_t last_peak_amplitude = 0;
 static uint8_t rolling_level_percent = 0;
@@ -51,7 +52,7 @@ void mic_init(void) {
         &c,
         mic_ring_buf,
         &mic_pio->rxf[mic_sm],
-        0xFFFFFFFF,
+        dma_encode_endless_transfer_count(),
         false
     );
 
@@ -75,9 +76,10 @@ static inline int16_t dc_block_filter(int16_t x) {
 }
 
 void mic_update(void) {
-    // Restart DMA transfer if it ever nears wrap limit
+    // RP2350 endless mode does not decrement a finite transfer count.
+    // Restart only if the channel was stopped.
     if (!dma_channel_is_busy(mic_dma_chan)) {
-        dma_channel_set_trans_count(mic_dma_chan, 0xFFFFFFFF, true);
+        dma_channel_set_trans_count(mic_dma_chan, dma_encode_endless_transfer_count(), true);
     }
 
     // Update metrics every 20 ms (~50 Hz)
@@ -87,12 +89,35 @@ void mic_update(void) {
     last_metric_update = get_absolute_time();
 
     int16_t current_max = 0;
+    // DMA can overwrite the oldest slot while we read it. Accept a copy only
+    // when its cursor stays still; bound retries so controls remain responsive.
+    uintptr_t write_addr = 0;
+    bool snapshot_ready = false;
+    for (int attempt = 0; attempt < 5; attempt++) {
+        absolute_time_t copy_start = get_absolute_time();
+        write_addr = dma_channel_hw_addr(mic_dma_chan)->write_addr;
+        for (int i = 0; i < MIC_BUFFER_SAMPLES; i++) {
+            mic_snapshot[i] = mic_ring_buf[i];
+        }
+        uintptr_t after = dma_channel_hw_addr(mic_dma_chan)->write_addr;
+        // Accept if cursor was stable, or on final attempt if copy was sub-millisecond (no ring wrap)
+        if ((write_addr == after || attempt == 4) && absolute_time_diff_us(copy_start, get_absolute_time()) < 16000) {
+            snapshot_ready = true;
+            break;
+        }
+    }
+    if (!snapshot_ready) return;
+
+
+    // DMA's next write position is the oldest sample in the full ring.
+    size_t oldest = ((write_addr - (uintptr_t)mic_ring_buf) / sizeof(mic_ring_buf[0])) % MIC_BUFFER_SAMPLES;
     for (int i = 0; i < MIC_BUFFER_SAMPLES; i++) {
-        uint32_t raw = mic_ring_buf[i];
+        uint32_t raw = mic_snapshot[(oldest + i) % MIC_BUFFER_SAMPLES];
         // INMP441 24-bit audio inside 32-bit slot: bit 30 is MSB
         int16_t raw_sample = (int16_t)((int32_t)(raw << 1) >> 16);
         int16_t sample = dc_block_filter(raw_sample);
-        int16_t abs_s = (sample < 0) ? -sample : sample;
+        int32_t abs_s = (sample < 0) ? -(int32_t)sample : sample;
+        if (abs_s > 32767) abs_s = 32767;
         if (abs_s > current_max) {
             current_max = abs_s;
         }

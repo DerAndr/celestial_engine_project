@@ -46,6 +46,8 @@ target_include_directories(celestial_firmware PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src
 )
 
+target_compile_options(celestial_firmware PRIVATE -Wall -Wextra)
+
 # Link standard libraries, CYW43 Wi-Fi architecture, I2C, PIO, DMA, and clocks
 target_link_libraries(celestial_firmware
     pico_stdlib
@@ -55,6 +57,7 @@ target_link_libraries(celestial_firmware
     hardware_pio
     hardware_dma
     hardware_clocks
+    pico_bootrom
     m
 )
 

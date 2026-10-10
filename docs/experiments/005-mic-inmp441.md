@@ -1,9 +1,11 @@
-# Experiment 005 — INMP441 I2S MEMS Microphone (P7)
+# Experiment 005 — INMP441 I2S MEMS Microphone (P6)
 
-Status: IN PROGRESS
+Status: PASSED / VERIFIED, per PROJECT.md; software regression changes await physical revalidation.
+
+2026-10-10 software review: microphone metering now reads a stable copied DMA window in chronological order and handles the -32768 peak correctly. The 256-sample ring is a live meter, not retained speech recording. RP2350 endless DMA is selected with the SDK helper. See experiment 007 for the new firmware test.
 
 ## Goal
-Verify I2S digital audio recording using PIO0 state machine and continuous DMA circular ring-buffer streaming at 16 kHz on RP2350 with the INMP441 MEMS microphone, and validate live voice sensitivity via the OLED live VU meter test menu.
+Verify live I2S microphone metering using PIO0 SM0 and a continuous 256-sample DMA circular window at 16 kHz on RP2350, and validate voice sensitivity via the OLED VU meter. This window is overwritten every 16 ms and does not retain a held speech query.
 
 ## Hardware Required
 - Raspberry Pi Pico 2 W (RP2350)
@@ -30,4 +32,4 @@ Verify I2S digital audio recording using PIO0 state machine and continuous DMA c
 3. When speaking into the microphone or gently clapping/tapping, the VU meter bar actively jumps in real time.
 4. When silent, the bar rests near 0%–5%.
 5. Clicking the encoder knob confirms and exits back to the main menu.
-6. When holding the QUERY button in normal mode, the recording screen also displays a live audio level bar underneath the timer.
+6. When holding QUERY in normal mode, the microphone-test screen displays a live audio level bar underneath the hold timer.

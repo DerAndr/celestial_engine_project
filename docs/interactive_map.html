@@ -945,29 +945,29 @@
           <h1>Celestial Engine Mk.V</h1>
           <p>
             <span>Interactive Mission & Hardware Map</span>
-            <span class="badge-status"><span class="pulsing-dot"></span> P2 READY</span>
+            <span class="badge-status"><span class="pulsing-dot"></span> 0.7.2-AUDIO-DIAG · AUDIO FAULT</span>
           </p>
         </div>
       </div>
 
       <nav class="view-tabs">
-        <button class="tab-btn active" onclick="switchView('roadmap')">
+        <button class="tab-btn active" onclick="switchView('roadmap', event)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>
           Milestone Galaxy
         </button>
-        <button class="tab-btn" onclick="switchView('pinout')">
+        <button class="tab-btn" onclick="switchView('pinout', event)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h.01M17 7h.01M7 17h.01M17 17h.01"/></svg>
           RP2350 Pinout Map
         </button>
-        <button class="tab-btn" onclick="switchView('breadboard')">
+        <button class="tab-btn" onclick="switchView('breadboard', event)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
           Breadboard Guide
         </button>
-        <button class="tab-btn" onclick="switchView('fsm')">
+        <button class="tab-btn" onclick="switchView('fsm', event)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M3 12h6M15 12h6"/></svg>
           Staff State Machine
         </button>
-        <button class="tab-btn" onclick="switchView('inventory')">
+        <button class="tab-btn" onclick="switchView('inventory', event)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg>
           Inventory Tracker
         </button>
@@ -981,8 +981,8 @@
           <div class="stat-card">
             <div class="stat-icon" style="color: var(--cyan-core);">⚡</div>
             <div class="stat-meta">
-              <h3>Active Milestone</h3>
-              <p>P3: QUERY Push-To-Talk</p>
+              <h3>Active Check</h3>
+              <p>P7: Speaker Diagnostics</p>
             </div>
           </div>
           <div class="stat-card">
@@ -1003,10 +1003,18 @@
             <div class="stat-icon" style="color: var(--violet-stellar);">📡</div>
             <div class="stat-meta">
               <h3>Wireless Transport</h3>
-              <p>CYW43 Wi-Fi 4</p>
+              <p>CYW43 initialized · Link pending</p>
             </div>
           </div>
         </div>
+
+        <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.6; margin-bottom:1.5rem;">
+          Snapshot: 2026-10-10 · Firmware 0.7.2-AUDIO-DIAG · Native C audio check passes · Pico 2 W Release build succeeds.
+          User reports distorted/loud audio at V10 with GAIN disconnected. Boot is muted at V0; no automatic chime/voice. Resolve audio before P5.
+          <a href="experiments/009-speaker-distortion.md" style="color:var(--cyan-core)">V0/V5 speaker test</a> ·
+          <a href="reviews/2026-10-10-audio-review.md" style="color:var(--cyan-core)">Audio code review</a> ·
+          <a href="../PROJECT.md" style="color:var(--cyan-core)">Project status</a>
+        </p>
 
         <div class="phase-track">
           <!-- PHASE 1 -->
@@ -1048,7 +1056,7 @@
                   <span class="status-tag complete">Passed</span>
                 </div>
                 <h3>Bourns PEC11R Encoder</h3>
-                <p>Quadrature rotary decoding (GP6/GP7) and debounced switch (GP8) to navigate 5 modes.</p>
+                <p>GPIO IRQ quadrature decoding (GP6/GP7) and push switch (GP8). Current menu has ten entries; revised behavior awaits regression.</p>
                 <div class="card-footer">
                   <span>Flying Leads • Passed</span>
                   <span>Inspect Step →</span>
@@ -1061,7 +1069,7 @@
                   <span class="status-tag complete">Passed</span>
                 </div>
                 <h3>QUERY Push-To-Talk Button</h3>
-                <p>Momentary NO contact on GP9. Hold to enter LISTENING; release to submit audio.</p>
+                <p>Momentary NO contact on GP9. Hold for a live mic test; release returns to IDLE. Retained capture and upload are pending.</p>
                 <div class="card-footer">
                   <span>GP9 • Validated</span>
                   <span>Inspect Step →</span>
@@ -1077,15 +1085,15 @@
               <span class="phase-badge">P4 – P5</span>
             </div>
             <div class="milestone-grid">
-              <div class="milestone-card active-step" onclick="openDrawer('P4')">
+              <div class="milestone-card complete" onclick="openDrawer('P4')">
                 <div class="card-top">
                   <span class="code-pill">P4</span>
-                  <span class="status-tag in-progress">Up Next</span>
+                  <span class="status-tag complete">Passed</span>
                 </div>
                 <h3>Single WS2812 Ring</h3>
-                <p>Level shifting with SN74AHCT125N (GP15 to 5V), bulk 1000uF cap, and 470R protection.</p>
+                <p>Seven-pixel direct GP15 smoke test recorded as passed. Shifter and full-array validation remain pending.</p>
                 <div class="card-footer">
-                  <span>5V Rail • PIO2</span>
+                  <span>5V Rail • PIO0 SM1</span>
                   <span>Inspect Step →</span>
                 </div>
               </div>
@@ -1093,12 +1101,12 @@
               <div class="milestone-card" onclick="openDrawer('P5')">
                 <div class="card-top">
                   <span class="code-pill">P5</span>
-                  <span class="status-tag queued">Queued</span>
+                  <span class="status-tag queued">Blocked by Audio</span>
                 </div>
                 <h3>Full LED Core (59 LEDs)</h3>
                 <p>Daisy chain 7 + 12 + 16 + 24 rings. Logical ring abstraction (CORE, HALO, ORBIT).</p>
                 <div class="card-footer">
-                  <span>Firmware Current Limiting</span>
+                  <span>Current Budget &amp; Shifter Pending</span>
                   <span>Inspect Step →</span>
                 </div>
               </div>
@@ -1112,28 +1120,28 @@
               <span class="phase-badge">P6 – P8</span>
             </div>
             <div class="milestone-grid">
-              <div class="milestone-card" onclick="openDrawer('P6')">
+              <div class="milestone-card complete" onclick="openDrawer('P6')">
                 <div class="card-top">
                   <span class="code-pill">P6</span>
-                  <span class="status-tag queued">Queued</span>
+                  <span class="status-tag complete">Passed</span>
                 </div>
                 <h3>INMP441 MEMS Mic</h3>
-                <p>I2S audio capture on PIO0 SM0 (GP10/11/12). 16 kHz 16-bit mono PCM validation.</p>
+                <p>16 kHz live microphone metering on PIO0 SM0 (GP10/11/12). Speech retention remains pending.</p>
                 <div class="card-footer">
                   <span>3.3V Logic • DMA Rx</span>
                   <span>Inspect Step →</span>
                 </div>
               </div>
 
-              <div class="milestone-card complete" onclick="openDrawer('P7')">
+              <div class="milestone-card active-step" onclick="openDrawer('P7')">
                 <div class="card-top">
                   <span class="code-pill">P7</span>
-                  <span class="status-tag complete">Passed</span>
+                  <span class="status-tag in-progress">Debugging</span>
                 </div>
                 <h3>MAX98357A Mono Amp</h3>
-                <p>I2S playback on PIO1 SM0 (GP16/17/18) + 4Ω 3W speaker. Play online chime sample & volume tuning.</p>
+                <p>Historical pass; current audio is distorted/loud at V10. GAIN disconnected. PCM24 / 32-bit slots; boot muted; V0/V5 test pending.</p>
                 <div class="card-footer">
-                  <span>Independent Clock Domain • Passed</span>
+                  <span>Audio Regression Failed · P5 Blocked</span>
                   <span>Inspect Step →</span>
                 </div>
               </div>
@@ -1141,12 +1149,12 @@
               <div class="milestone-card" onclick="openDrawer('P8')">
                 <div class="card-top">
                   <span class="code-pill">P8</span>
-                  <span class="status-tag queued">Queued</span>
+                  <span class="status-tag in-progress">In Progress</span>
                 </div>
                 <h3>Integrated Staff Firmware</h3>
                 <p>Unify OLED, encoder, buttons, LEDs, mic, and speaker under the central state engine.</p>
                 <div class="card-footer">
-                  <span>Zero Peripheral Collisions</span>
+                  <span>Local Integration · State Flow Partial</span>
                   <span>Inspect Step →</span>
                 </div>
               </div>
@@ -1260,14 +1268,14 @@
             </p>
 
             <div class="peripheral-filter-chips">
-              <span class="filter-chip" onclick="filterPerip('all')">ALL PINS</span>
-              <span class="filter-chip" onclick="filterPerip('OLED')">OLED (I2C)</span>
-              <span class="filter-chip" onclick="filterPerip('Encoder')">Encoder</span>
-              <span class="filter-chip" onclick="filterPerip('QUERY')">QUERY</span>
-              <span class="filter-chip" onclick="filterPerip('INMP441')">Mic (I2S)</span>
-              <span class="filter-chip" onclick="filterPerip('MAX98357A')">Amp (I2S)</span>
-              <span class="filter-chip" onclick="filterPerip('WS2812')">WS2812</span>
-              <span class="filter-chip" onclick="filterPerip('Power')">Power/GND</span>
+              <span class="filter-chip" onclick="filterPerip('all', event)">ALL PINS</span>
+              <span class="filter-chip" onclick="filterPerip('OLED', event)">OLED (I2C)</span>
+              <span class="filter-chip" onclick="filterPerip('Encoder', event)">Encoder</span>
+              <span class="filter-chip" onclick="filterPerip('QUERY', event)">QUERY</span>
+              <span class="filter-chip" onclick="filterPerip('INMP441', event)">Mic (I2S)</span>
+              <span class="filter-chip" onclick="filterPerip('MAX98357A', event)">Amp (I2S)</span>
+              <span class="filter-chip" onclick="filterPerip('WS2812', event)">WS2812</span>
+              <span class="filter-chip" onclick="filterPerip('Power', event)">Power/GND</span>
             </div>
 
             <div class="pin-info-box" id="pin-inspect-details">
@@ -1315,8 +1323,10 @@
               </div>
 
               <div class="bb-card">
-                <h3><span>🌉</span> 3. Center Trough & Straddling the Pico 2 W</h3>
+                  <h3><span>🌉</span> 3. Center Trough & Straddling the Pico 2 W</h3>
                 <p>
+                  The coordinates below illustrate one placement; verify the actual assembly before using them.
+                  <br>
                   The trench down the middle physically isolates columns <strong>a–e</strong> from <strong>f–j</strong>.
                   <br>• The Pico 2 W header spacing is <strong>0.7 inches</strong> (7 pin intervals).
                   <br>• When placed across rows 1 to 20: 
@@ -1340,7 +1350,7 @@
             <!-- RIGHT: VISUAL BOARD DIAGRAM -->
             <div>
               <div class="bb-card">
-                <h3><span>📐</span> Visual Breadboard Layout Diagram</h3>
+                <h3><span>📐</span> Illustrative Breadboard Layout Diagram</h3>
                 <div class="bb-visual-board">
 <pre style="font-size:0.75rem; line-height:1.4; color:#e2e8f0; overflow-x:auto;">
      POWER       LEFT TERMINAL STRIPS         CENTER         RIGHT TERMINAL STRIPS       POWER
@@ -1363,7 +1373,8 @@
 </pre>
                 </div>
                 <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.75rem;">
-                  Holes on the same row share the connection: plugging into <code>b4</code> connects to Pico Pin 4 (GP2 SDA); plugging into <code>g5</code> connects to Pico Pin 36 (3V3_OUT).
+                  In the illustrated placement, <code>b4</code> connects to Pico Pin 4 (GP2 SDA) and <code>g5</code> to Pico Pin 36 (3V3_OUT).
+                  OLED positions here are examples, not updated physical observations. Use actual markings and the <a href="wiring/pinout.md" style="color:var(--cyan-core)">master physical-pin/GPIO table</a>.
                 </p>
               </div>
             </div>
@@ -1374,49 +1385,49 @@
       <!-- VIEW 3: STAFF STATE MACHINE -->
       <section id="view-fsm" class="view-section">
         <div class="fsm-container">
-          <h2 style="font-family:'Space Grotesk'; margin-bottom:0.5rem;">Unified Staff State Machine</h2>
+          <h2 style="font-family:'Space Grotesk'; margin-bottom:0.5rem;">Planned Staff State Flow</h2>
           <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">
-            One authoritative state machine coordinates OLED views, LED core animations, and audio transport.
+            Planned MVP simulation, not live device telemetry. Current firmware implements local controls and microphone metering; Wi-Fi audio transport and brain processing remain pending.
           </p>
 
           <div class="fsm-diagram">
-            <div class="fsm-node" onclick="simulateState('BOOT')">
+            <div class="fsm-node" onclick="simulateState('BOOT', event)">
               <h4>BOOT</h4>
               <span>System Init</span>
             </div>
             <div class="fsm-arrow">→</div>
 
-            <div class="fsm-node" onclick="simulateState('CONNECTING')">
+            <div class="fsm-node" onclick="simulateState('CONNECTING', event)">
               <h4>CONNECTING</h4>
               <span>Wi-Fi Join</span>
             </div>
             <div class="fsm-arrow">→</div>
 
-            <div class="fsm-node active-state" onclick="simulateState('IDLE')">
+            <div class="fsm-node active-state" onclick="simulateState('IDLE', event)">
               <h4>IDLE</h4>
               <span>Ready / Idle</span>
             </div>
             <div class="fsm-arrow">→</div>
 
-            <div class="fsm-node" onclick="simulateState('LISTENING')">
+            <div class="fsm-node" onclick="simulateState('LISTENING', event)">
               <h4>LISTENING</h4>
               <span>Hold QUERY</span>
             </div>
             <div class="fsm-arrow">→</div>
 
-            <div class="fsm-node" onclick="simulateState('UPLOADING')">
+            <div class="fsm-node" onclick="simulateState('UPLOADING', event)">
               <h4>UPLOADING</h4>
               <span>Release QUERY</span>
             </div>
             <div class="fsm-arrow">→</div>
 
-            <div class="fsm-node" onclick="simulateState('PROCESSING')">
+            <div class="fsm-node" onclick="simulateState('PROCESSING', event)">
               <h4>PROCESSING</h4>
               <span>Pi STT/LLM</span>
             </div>
             <div class="fsm-arrow">→</div>
 
-            <div class="fsm-node" onclick="simulateState('SPEAKING')">
+            <div class="fsm-node" onclick="simulateState('SPEAKING', event)">
               <h4>SPEAKING</h4>
               <span>TTS Playback</span>
             </div>
@@ -1426,24 +1437,24 @@
             <div class="oled-screen">
               <div class="oled-header">
                 <span id="sim-mode">ORACLE MODE</span>
-                <span id="sim-wifi">WIFI OK</span>
+                <span id="sim-wifi">DEMO</span>
               </div>
               <div class="oled-body" id="sim-body">
                 IDLE
               </div>
               <div class="oled-footer">
-                <span>VOL 75%</span>
+                <span>VOL 0%</span>
                 <span id="sim-state-text">STATE: IDLE</span>
               </div>
             </div>
 
             <div>
-              <h3 style="font-family:'Space Grotesk'; font-size:1.1rem; margin-bottom:0.5rem;" id="sim-title">Current State: IDLE</h3>
+              <h3 style="font-family:'Space Grotesk'; font-size:1.1rem; margin-bottom:0.5rem;" id="sim-title">IDLE: Local Prototype Ready</h3>
               <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.5; margin-bottom:1rem;" id="sim-desc">
-                The staff is linked to the wearable brain over Wi-Fi. The rotary encoder selects between the 5 modes (ORACLE, GUIDE, SCANNER, CANDY DETECTOR, SYSTEM). Pressing and holding the QUERY button triggers a transition to LISTENING.
+                Current firmware offers ten local menu entries. Hold QUERY for live microphone metering, then release to return to IDLE. The wearable-brain link and AI services remain pending. Click states to explore the planned MVP flow.
               </p>
               <div style="font-size:0.8rem; font-family:'JetBrains Mono'; color:var(--cyan-core);" id="sim-leds">
-                LED Core: Gentle astral blue breathing pattern (20% power limit).
+                LED Core: Current default GALAXY VORTEX; 19 pixels configured with an 18% brightness cap. Historical physical pass covers seven; expansion awaits validation. State-linked patterns below are planned.
               </div>
             </div>
           </div>
@@ -1455,7 +1466,8 @@
         <div class="fsm-container">
           <h2 style="font-family:'Space Grotesk'; margin-bottom:0.5rem;">Hardware Inventory & Arrival Status</h2>
           <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">
-            Synchronized with <code style="color:var(--cyan-core)">docs/hardware/inventory.md</code>.
+            Snapshot reconciled on 2026-10-10 with <a href="hardware/inventory.md" style="color:var(--cyan-core)">docs/hardware/inventory.md</a>.
+            TESTED denotes a recorded historical pass; current audio revalidation is failing. Outer-ring arrivals have not been confirmed.
           </p>
 
           <div class="table-container">
@@ -1531,7 +1543,7 @@
     animateStars();
 
     // VIEW SWITCHER
-    function switchView(viewId) {
+    function switchView(viewId, event) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
 
@@ -1561,7 +1573,7 @@
       { pin: 17, name: 'GP13',     color: 'color-gpio',    func: 'General Purpose / Free',   perip: 'Free',  volt: '3.3V Logic' },
       { pin: 18, name: 'GND',      color: 'color-gnd',     func: 'Ground',                   perip: 'Power', volt: '0V Reference' },
       { pin: 19, name: 'GP14',     color: 'color-gpio',    func: 'General Purpose / Free',   perip: 'Free',  volt: '3.3V Logic' },
-      { pin: 20, name: 'GP15',     color: 'color-led',     func: 'WS2812 DIN -> AHCT125 (PIO2)', perip: 'WS2812', volt: '3.3V -> 5V Level Shift' },
+      { pin: 20, name: 'GP15',     color: 'color-led',     func: 'WS2812 DIN (PIO0 SM1)', perip: 'WS2812', volt: '3.3V GPIO; shifter path planned' },
 
       // Right side: Pin 21 to 40
       { pin: 21, name: 'GP16',     color: 'color-i2s-out', func: 'MAX98357A BCLK (PIO1 SM0)', perip: 'MAX98357A', volt: '3.3V I2S Clock' },
@@ -1640,7 +1652,7 @@
       `;
     }
 
-    function filterPerip(perip) {
+    function filterPerip(perip, event) {
       document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
       event.currentTarget.classList.add('active');
 
@@ -1658,56 +1670,56 @@
     const STATE_DATA = {
       BOOT: {
         title: 'BOOT: System Initialization',
-        desc: 'CYW43 Wi-Fi architecture initializes, stdio connects over USB CDC. Hardware pins configured.',
+        desc: 'Current diagnostic firmware initializes peripherals and CYW43, then stays muted at V0 without startup sounds. USB CDC provides audio diagnostics; no brain link is implemented.',
         oledText: 'BOOTING...',
-        led: 'Solid white core pulse (10% power).',
+        led: 'Planned state pattern: solid white core pulse. Current default is GALAXY VORTEX with an 18% brightness cap.',
         header: 'SYSTEM BOOT'
       },
       CONNECTING: {
         title: 'CONNECTING: Wi-Fi Link',
-        desc: 'CYW43 station mode searches for Raspberry Pi 5 access point / router. Handshake in progress.',
+        desc: 'Planned P9: connect built-in Wi-Fi and verify the Pi 5 link. Current firmware does not associate with a network or perform this handshake.',
         oledText: 'LINKING...',
         led: 'Breathing amber pulse (1 Hz).',
         header: 'CONNECTING'
       },
       IDLE: {
-        title: 'IDLE: Ready for Commands',
-        desc: 'Staff is linked over Wi-Fi. Rotary encoder chooses between 5 operational modes. Ready to query.',
+        title: 'IDLE: Local Prototype Ready',
+        desc: 'Current firmware offers ten local menu entries. Hold QUERY for microphone metering and release to return to IDLE. The Wi-Fi brain link and AI services are pending.',
         oledText: 'ORACLE IDLE',
-        led: 'Gentle astral cyan breathing ring.',
+        led: 'Current default: GALAXY VORTEX, 19 pixels configured, 18% brightness cap. Historical physical pass: seven pixels. Expansion awaits validation. Planned state pattern: cyan breathing ring.',
         header: 'ORACLE MODE'
       },
       LISTENING: {
-        title: 'LISTENING: Audio Capture',
-        desc: 'QUERY button held down! INMP441 mic captures 16 kHz mono PCM into double DMA ping-pong buffers.',
+        title: 'LISTENING: Live Microphone Test',
+        desc: 'Planned speech capture. Current firmware shows live microphone levels from a 256-sample circular DMA window; it does not retain a query.',
         oledText: 'LISTENING...',
         led: 'Bright pulsating emerald green ring.',
-        header: 'VOICE CAPTURE'
+        header: 'MIC TEST'
       },
       UPLOADING: {
         title: 'UPLOADING: Wi-Fi Transmission',
-        desc: 'QUERY button released! Pico packages captured audio buffer and streams it to Raspberry Pi 5.',
+        desc: 'Planned P10: transmit a retained speech query to Pi 5. Current release returns directly to IDLE; no query is retained or uploaded.',
         oledText: 'SENDING...',
         led: 'Fast spinning cyan comet ring.',
         header: 'UPLOADING'
       },
       PROCESSING: {
         title: 'PROCESSING: Pi 5 Brain Compute',
-        desc: 'Pi 5 runs Faster-Whisper STT -> LLM Agent reasoning -> Piper TTS speech synthesis.',
+        desc: 'Planned Pi 5 pipeline: STT -> agent -> TTS. No brain service is implemented in this repository yet.',
         oledText: 'THINKING...',
         led: 'Deep nova violet celestial rotation.',
         header: 'BRAIN COMPUTE'
       },
       SPEAKING: {
         title: 'SPEAKING: Audio Playback',
-        desc: 'Synthesized audio streams back to MAX98357A I2S amplifier and mini speaker.',
+        desc: 'Planned P10: play a streamed brain response. Current MAX98357A playback supports local chiptunes and four embedded voice clips.',
         oledText: 'SPEAKING...',
         led: 'Voice-reactive gold/brass wave animation.',
         header: 'AUDIO OUT'
       }
     };
 
-    function simulateState(stateKey) {
+    function simulateState(stateKey, event) {
       document.querySelectorAll('.fsm-node').forEach(n => n.classList.remove('active-state'));
       event.currentTarget.classList.add('active-state');
 
@@ -1727,16 +1739,20 @@
       { name: 'Velleman VTBB3 Breadboard', qty: 1, sub: 'Prototyping', status: 'RECEIVED', note: '400 holes (30 rows, a–j, +/- rails)' },
       { name: 'Bourns PEC11R Rotary Encoder', qty: 1, sub: 'Control Navigation', status: 'TESTED', note: 'P2 validated; Gray quadrature + push switch on GP6/7/8' },
       { name: 'Momentary NO QUERY Button', qty: 1, sub: 'PTT Voice Trigger', status: 'TESTED', note: 'P3 validated; GP9 active-LOW (c24 & h22)' },
-      { name: 'INMP441 I2S MEMS Microphone', qty: 1, sub: 'Audio Input', status: 'ORDERED', note: 'I2S via PIO0' },
-      { name: 'MAX98357A I2S Mono Amplifier', qty: 3, sub: 'Audio Output', status: 'ORDERED', note: '3.2W Class-D; 1 required' },
-      { name: '4 ohm / 3W Mini Speaker', qty: 2, sub: 'Acoustics', status: 'ORDERED', note: '1 required for staff' },
-      { name: 'WS2812B Rings (7/12/16/24 LEDs)', qty: 4, sub: 'Celestial Core', status: 'ORDERED', note: '59 LEDs total; Level shifted' },
-      { name: 'SN74AHCT125N Level Shifter', qty: 2, sub: 'Signal Protection', status: 'ORDERED', note: '3.3V to 5V WS2812 data' },
-      { name: '~1000 uF electrolytic capacitor', qty: 'Kit', sub: 'Power Rail', status: 'ORDERED', note: 'Bulk LED 5V capacitance' },
-      { name: '~470 ohm series resistors', qty: 'Kit', sub: 'Data Line', status: 'ORDERED', note: 'WS2812 DIN ringing damping' },
+      { name: 'INMP441 I2S MEMS Microphone', qty: 1, sub: 'Audio Input', status: 'TESTED', note: 'P6 metering recorded as passed; PIO0 SM0' },
+      { name: 'MAX98357A I2S Mono Amplifier', qty: 3, sub: 'Audio Output', status: 'RECEIVED', note: 'Historical P7 pass; current distortion/V10, GAIN removed; unit fault unproven' },
+      { name: '4 ohm / 3W Mini Speaker', qty: 2, sub: 'Acoustics', status: 'RECEIVED', note: 'Historical P7 pass; current distortion under investigation; second unverified' },
+      { name: 'WS2812B 7-LED Ring', qty: 1, sub: 'Celestial Core', status: 'TESTED', note: 'P4 direct core smoke test recorded as passed' },
+      { name: 'WS2812B Rings (12/16/24 LEDs)', qty: 3, sub: 'Celestial Core', status: 'ORDERED', note: 'Arrival unconfirmed; P5 full array pending' },
+      { name: 'SN74AHCT125N Level Shifter', qty: 2, sub: 'Signal Protection', status: 'RECEIVED', note: '3.3V to 5V WS2812 data; integration pending' },
+      { name: '~1000 uF electrolytic capacitor', qty: 'TBD', sub: 'Power Rail', status: 'RECEIVED', note: 'Bulk LED 5V capacitance' },
+      { name: '~470 ohm series resistors', qty: 'TBD', sub: 'Data Line', status: 'RECEIVED', note: 'WS2812 DIN ringing damping' },
+      { name: '22 AWG red/black wire', qty: '1 set', sub: 'Power Distribution', status: 'RECEIVED', note: 'Recorded supporting parts' },
+      { name: '26 AWG multicolor wire', qty: '1 set', sub: 'Signals', status: 'RECEIVED', note: 'Recorded supporting parts' },
       { name: 'Raspberry Pi 5 (Wearable Brain)', qty: 1, sub: 'Wearable Compute', status: 'RECEIVED', note: 'Already owned; STT/LLM/TTS' },
       { name: 'Raspberry Pi Active Cooler', qty: 1, sub: 'Wearable Compute', status: 'RECEIVED', note: 'Already owned' },
       { name: 'Geekworm X1209 V1.0 Power Board', qty: 1, sub: 'Wearable Power', status: 'ORDERED', note: 'Pi 5 battery management only' },
+      { name: 'Geekworm X12-A1 + X12-A3', qty: 1, sub: 'Wearable Power', status: 'ORDERED', note: 'Pi 5 portable power only' },
       { name: 'Molicel 18650-M35A 3500mAh Cells', qty: 4, sub: 'Wearable Power', status: 'ORDERED', note: 'Pi 5 battery pack only' }
     ];
 
@@ -1757,7 +1773,6 @@
     // MILESTONE MISSION DETAILS (DRAWER DATA)
     const MILESTONE_DETAILS = {
       P0: {
-        code: 'P0',
         title: 'Pico Alive [PASSED]',
         goal: 'Validate the Raspberry Pi Pico 2 W toolchain, build process, USB CDC serial communication, onboard LED control, and CYW43 Wi-Fi scan.',
         parts: '1x Raspberry Pi Pico 2 W (RP2350) + 1x USB data cable + Development PC.',
@@ -1770,18 +1785,17 @@
         `,
         code: `
           <pre class="code-block"># Build & flash commands:
-cd firmware
-cmake -B build -G "Ninja" -DPICO_BOARD=pico2_w -DPICO_PLATFORM=rp2350-arm-s
-cmake --build build
+cmake -S firmware -B firmware/build -G "Ninja" -DPICO_BOARD=pico2_w -DPICO_PLATFORM=rp2350-arm-s
+cmake --build firmware/build --parallel 4
 
 # Flashing:
-Hold BOOTSEL -> Plug USB -> Drop celestial_p0.uf2 into RP2350 drive</pre>
+Hold BOOTSEL -> Plug USB -> Drop firmware/build/celestial_firmware.uf2 into the observed Pico drive
+# Detailed drive/serial checks: docs/experiments/007-code-review-regression.md</pre>
         `,
         expected: 'PASSED: Onboard LED pulses at 1 Hz. Serial console prints telemetry over COM9, CYW43 active.',
         fail: '1. Check USB cable (must support data lines). 2. Verify VS Code Raspberry Pi Pico extension is installed. 3. Check COM port at 115200 baud.'
       },
       P1: {
-        code: 'P1',
         title: 'SH1106 OLED Display [PASSED]',
         goal: 'Initialize 1.3" 128x64 I2C OLED display on I2C1 and render the boot title card.',
         parts: '1x SH1106 1.3" I2C OLED (VCC, GND, SCL, SDA), 4x Female-Female Jumper wires.',
@@ -1803,7 +1817,6 @@ Hold BOOTSEL -> Plug USB -> Drop celestial_p0.uf2 into RP2350 drive</pre>
         fail: '1. Verify I2C address (default 0x3C). 2. Check 3.3V VCC. 3. Swap SDA and SCL if no ACK received.'
       },
       P2: {
-        code: 'P2',
         title: 'Bourns PEC11R Encoder [PASSED]',
         goal: 'Read rotary quadrature signals and push button to navigate between 5 display modes.',
         parts: '1x Bourns PEC11R encoder, 5x Dupont F-M wires.',
@@ -1822,11 +1835,10 @@ Hold BOOTSEL -> Plug USB -> Drop celestial_p0.uf2 into RP2350 drive</pre>
 #define PIN_ENCODER_A  6
 #define PIN_ENCODER_B  7
 #define PIN_ENCODER_SW 8</pre>`,
-        expected: 'PASSED: Full Gray quadrature navigation across 5 modes, full-screen 67 Easter egg, and push switch verified.',
+        expected: 'Historical P2 pass: five-mode navigation, 67 Easter egg and switch. Current menu has ten entries and IRQ rotation capture; verify fast/slow rotation in experiment 007.',
         fail: '1. Check pull-up configuration. 2. Verify flying lead Dupont connections.'
       },
       P3: {
-        code: 'P3',
         title: 'QUERY Button (Push-to-Talk) [PASSED]',
         goal: 'Implement momentary push-to-talk trigger with clean debouncing.',
         parts: '1x 4-pin tactile switch (d24, f24, d22, f22), 2x Jumper wires.',
@@ -1842,13 +1854,12 @@ Hold BOOTSEL -> Plug USB -> Drop celestial_p0.uf2 into RP2350 drive</pre>
 gpio_init(PIN_QUERY_BTN);
 gpio_set_dir(PIN_QUERY_BTN, GPIO_IN);
 gpio_pull_up(PIN_QUERY_BTN);</pre>`,
-        expected: 'PASSED: Holding button triggers LISTENING with live recording timer. Releasing triggers UPLOADING and returns to IDLE.',
+        expected: 'Recorded button pass. Current firmware: holding triggers LISTENING with a live mic meter and hold timer; release returns to IDLE. Capture/upload are pending.',
         fail: '1. Confirm button is Normally Open (NO). 2. Check contact resistance with multimeter.'
       },
       P4: {
-        code: 'P4',
-        title: 'Single WS2812 Ring & Level Shifting',
-        goal: 'Drive one WS2812 ring safely using SN74AHCT125N level shifting and bulk capacitance.',
+        title: 'Single WS2812 Ring [CORE PASSED; SHIFTER PENDING]',
+        goal: 'Preserve the recorded seven-pixel core pass; verify the actual shifter setup separately before full-array wiring.',
         parts: '1x WS2812 ring, 1x SN74AHCT125N, 1x 470R resistor, 1x 1000uF capacitor.',
         power: 'MANDATORY: Disconnect power before wiring 5V and capacitor. Observe capacitor polarity!',
         wiring: `
@@ -1861,13 +1872,14 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
             <tr><td>WS2812 5V</td><td>5V Rail</td><td>Power</td><td>1000uF bulk cap across 5V/GND</td></tr>
           </table>
         `,
-        code: `<pre class="code-block"># PIO2 state machine generates 800kHz WS2812 waveform.
-# Maximum brightness capped at 25% to protect power rails.</pre>`,
+        code: `<pre class="code-block"># PIO0 SM1 generates the 800kHz WS2812 waveform.
+# Current working tree configures 19 pixels with an enforced 18% brightness cap.
+# Historical physical pass covers seven; expansion awaits validation after audio recovery.
+# Proposed shifter wiring above is not a recorded physical pass.</pre>`,
         expected: 'Smooth breathing and rotation animations without flickering or brownouts.',
         fail: '1. Verify capacitor polarity (negative stripe to GND). 2. Check level shifter orientation. 3. Ensure common ground.'
       },
       P5: {
-        code: 'P5',
         title: 'Full LED Core (59 LEDs)',
         goal: 'Daisy chain 7, 12, 16, and 24 LED rings and implement layered celestial animations.',
         parts: '4x WS2812 rings (7+12+16+24), hookup wire.',
@@ -1882,14 +1894,14 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
           </table>
         `,
         code: `<pre class="code-block">#define TOTAL_LED_COUNT 59
-// Software current limiter: Max total current <= 800mA</pre>`,
+// Planned only: logical rings and full-array current limiting are not implemented.
+// Confirm supply capacity and the actual shifter wiring before P5.</pre>`,
         expected: 'Concentric celestial rings animate simultaneously with distinct speeds and astronomical color schemes.',
         fail: '1. Inspect solder joints between DOUT and DIN. 2. Verify 5V power feeds to all rings.'
       },
       P6: {
-        code: 'P6',
         title: 'INMP441 MEMS Microphone',
-        goal: 'Capture clean 16 kHz 16-bit mono speech audio over I2S on PIO0 SM0.',
+        goal: 'Verify live microphone metering at 16 kHz on PIO0 SM0; retained speech capture is future work.',
         parts: '1x INMP441 I2S MEMS mic breakout, 6x Jumper wires.',
         power: 'Disconnect USB power before connecting microphone.',
         wiring: `
@@ -1911,9 +1923,8 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
         fail: '1. Verify L/R is tied to GND. 2. Confirm VDD is strictly 3.3V. 3. Check for clock jitter in PIO.'
       },
       P7: {
-        code: 'P7',
-        title: 'MAX98357A I2S Amplifier',
-        goal: 'Play synthesized speech audio sample over I2S on PIO1 SM0 to the mini speaker.',
+        title: 'MAX98357A Audio Regression [DEBUGGING]',
+        goal: 'Resolve distorted/uncomfortable output using V0 silence and a one-second V5 440 Hz sine before continuing P5.',
         parts: '1x MAX98357A breakout, 1x 4Ω 3W speaker, 5x Jumper wires.',
         power: 'Disconnect power before wiring amplifier rails.',
         wiring: `
@@ -1924,29 +1935,34 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
             <tr><td>BCLK</td><td>Pin 21</td><td>GP16 (PIO1 SM0)</td><td>Bit Clock</td></tr>
             <tr><td>LRC</td><td>Pin 22</td><td>GP17 (PIO1 SM0)</td><td>Word Select</td></tr>
             <tr><td>DIN</td><td>Pin 24</td><td>GP18 (PIO1 SM0)</td><td>Data Out</td></tr>
-            <tr><td>GAIN</td><td>Pin 23</td><td>GND</td><td>9dB Gain default</td></tr>
+            <tr><td>GAIN</td><td>—</td><td>User removed wire</td><td>Keep unconnected for experiment 009</td></tr>
+            <tr><td>SD/MODE</td><td>Existing arrangement</td><td>Board dependent</td><td>Preserve wiring; verify actual board if test fails</td></tr>
           </table>
         `,
         code: `<pre class="code-block"># I2S TX PIO state machine:
 #define PIN_SPK_BCLK 16
 #define PIN_SPK_LRC  17
-#define PIN_SPK_DIN  18</pre>`,
-        expected: 'Crisp audible playback: "The Celestial Engine is online."',
-        fail: '1. Verify speaker polarity into screw terminals. 2. Check SD_MODE pin voltage. 3. Verify DMA buffer loop.'
+#define PIN_SPK_DIN  18
+# Firmware 0.7.2-AUDIO-DIAG: PCM24 in 32-bit stereo slots, 16kHz frames.
+# Boot V0, no automatic sounds. D=1s sine; A=stats; S=stop all.
+.\\scripts\\check-audio.ps1
+cmake --build firmware/build --parallel 4
+# After flashing, close the dashboard/monitor; use the observed Pico COM port:
+.\\scripts\\test-speaker.ps1 -Port COM9 -Volume 5</pre>`,
+        expected: 'Pending physical test: V0 is silent, V5 gives a faint smooth 440 Hz tone. The script asks for the V0 observation before sound. See experiment 009 for flash commands and expected diagnostics.',
+        fail: 'If V0 is noisy or V5 is uncomfortable, disconnect USB and stop. Save the banner/AUDIO stats; power off before inspecting actual module and speaker markings. See experiment 009.'
       },
       P8: {
-        code: 'P8',
         title: 'Integrated Staff Firmware',
         goal: 'Run OLED, encoder, buttons, LEDs, microphone, and speaker together under the unified state engine.',
         parts: 'Fully assembled prototype breadboard.',
         power: 'Complete full continuity and isolation check before powering whole assembly.',
         wiring: 'Refer to Master Pinout (docs/wiring/pinout.md).',
-        code: '<pre class="code-block">Central state engine in firmware/src/state_machine.c coordinates all peripherals.</pre>',
+        code: '<pre class="code-block">Current state enum: firmware/src/staff_state.h; local orchestration: firmware/src/main.c. Unified state-driven LEDs and audio transport remain incomplete.</pre>',
         expected: 'Seamless standalone operation. Modes switch smoothly while LED rings pulse and display updates.',
         fail: 'Check for interrupt/DMA resource conflicts between PIO0, PIO1, and PIO2.'
       },
       P9: {
-        code: 'P9',
         title: 'Raspberry Pi 5 Wireless Link',
         goal: 'Establish wireless socket communication between Pico 2 W (CYW43) and Raspberry Pi 5.',
         parts: 'Pico 2 W Staff + Raspberry Pi 5 Wearable Brain.',
@@ -1957,7 +1973,6 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
         fail: '1. Verify both devices are on same Wi-Fi subnet. 2. Check firewall on Pi 5.'
       },
       P10: {
-        code: 'P10',
         title: 'End-to-End Voice MVP',
         goal: 'Complete the full Halloween mission interaction loop.',
         parts: 'Integrated Staff + Wearable Pi 5 Brain running STT/LLM/TTS services.',
@@ -1968,7 +1983,6 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
         fail: 'Inspect Pi 5 server logs for STT or TTS pipeline stalls.'
       },
       P11: {
-        code: 'P11',
         title: 'Pi 5 Portable Power Subsystem',
         goal: 'Integrate and test Geekworm X1209 V1.0 battery management system with 4x 18650 cells on Pi 5.',
         parts: 'Raspberry Pi 5 + Geekworm X1209 + 4x Molicel 18650 cells.',
@@ -1979,7 +1993,6 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
         fail: '1. Check 18650 flat-top contact seating. 2. Verify power switch on X1209.'
       },
       P12: {
-        code: 'P12',
         title: 'Mechanical Assembly & Enclosure',
         goal: 'Transfer breadboard prototype to soldered perma-proto board and mount inside staff chassis.',
         parts: 'Staff staff body, 3D printed / craft core housing, perma-proto board, connectors.',
@@ -1995,7 +2008,7 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
       const data = MILESTONE_DETAILS[stepKey];
       if (!data) return;
 
-      document.getElementById('drawer-pill').innerText = data.code;
+      document.getElementById('drawer-pill').innerText = stepKey;
       document.getElementById('drawer-title').innerText = data.title;
 
       const content = document.getElementById('drawer-content');

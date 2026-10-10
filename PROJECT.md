@@ -5,6 +5,22 @@ Build a working interactive AI staff quickly from the hardware already purchased
 
 The coding agent must guide the user physically, one testable prototype at a time, and maintain the repository as an engineering notebook.
 
+## Current implementation — 2026-10-10
+
+Current firmware **0.7.2-AUDIO-DIAG** targets Pico 2 W / RP2350. The physical array is configured for 43 LEDs across 3 concentric rings (7 Core + 12 Inner + 24 Outer; the defective 16-LED ring was removed). Audio dynamic range has been calibrated with a smooth perceptual gain curve down to 1% (-80 dBFS whisper quiet) without coil heating (`AUDIO_CONTINUOUS_CLOCKS = 1`). All 27 regression unit tests and native C audio checks pass.
+
+| Area | Current behavior / status |
+|---|---|
+| Display and controls | SH1106 on I2C1; encoder A/B decoded in GPIO IRQ; QUERY press/release require 30 ms stability |
+| QUERY | Local microphone test: IDLE -> LISTENING -> IDLE; live meter and hold timer |
+| LEDs | Active 3-ring array: 43 pixels (7 + 12 + 24) on GP15; 18% brightness cap; dynamic audio-reactive sync and cosmic effects |
+| Microphone | 16 kHz live metering, 256-sample circular DMA window; PIO0 SM0 |
+| Speaker | 16 kHz frames, PCM24 in 32-bit channel slots, PIO1 SM0; 13 world chiptune tracks, 7 cosmic SFX; whisper-quiet calibrated |
+| Mission Control | Web dashboard at http://localhost:5050 with one-click UF2 flasher, live telemetry stream, and presets |
+| Milestones | P0–P4/P6/P7 validated; 43-LED multi-ring verified; P8 brain integration next |
+
+See the [audio experiment 011](docs/experiments/011-audio-volume-fix.md), [three rings experiment 010](docs/experiments/010-three-rings-cosmic-effects.md), [pinout](docs/wiring/pinout.md), [inventory](docs/hardware/inventory.md) and [interactive map](docs/interactive_map.html).
+
 ## System architecture
 There are two physically separate systems:
 
@@ -16,7 +32,7 @@ Communication is wireless over Wi-Fi. Do not introduce a physical data cable bet
 For now use the built-in Wi-Fi hardware already present on Pico 2 W and Raspberry Pi 5. Do not add another Wi-Fi adapter unless actual testing demonstrates a need.
 
 ## Halloween MVP
-The minimum successful interaction is:
+The target interaction below is not yet implemented end to end:
 
 1. Hold QUERY.
 2. Staff enters LISTENING and records speech.
@@ -66,7 +82,7 @@ Portable power subsystem planned/ordered separately:
 
 This battery system belongs to the wearable Raspberry Pi 5, NOT the staff.
 
-## UI concept
+## Target UI concept
 OLED modes:
 - ORACLE
 - GUIDE
@@ -91,6 +107,8 @@ BOOT -> CONNECTING -> IDLE -> LISTENING -> UPLOADING -> PROCESSING -> SPEAKING -
 Exceptional states:
 - OFFLINE
 - ERROR
+
+This is the target flow. Current state definitions are in `firmware/src/staff_state.h`, with local orchestration in `firmware/src/main.c`; unified state-driven LEDs and transport states remain incomplete.
 
 ## Electrical constraints
 - Pico GPIO is 3.3 V.
@@ -157,16 +175,16 @@ Add PEC11R. Implement rotation, press and debounce. Navigate the modes and adjus
 Add momentary NO button. Log/display QUERY DOWN and QUERY UP; connect this to LISTENING state.
 
 ### P4 — WS2812 Core Ring & Celestial Animations [PASSED / VERIFIED]
-Direct GP15 driving verified. Added 7 rich animation modes (`[ LED EFFECTS ]`): Cosmic Breathe, Galaxy Vortex, Pulsar Pulse, Solar Plasma, Starry Night, Voice Reactive VU, and Rainbow Wave.
+Direct GP15 driving verified. Added seven animation modes (`[ LED EFFECTS ]`): Cosmic Breathe, Galaxy Vortex, Pulsar Pulse, Solar Plasma, Starry Night, Voice Reactive and Rainbow Wave. The revised frame, color and brightness handling awaits experiment 007.
 
-### P5 — Full LED core [NEXT]
-Connect 7/12/16/24 rings. Prefer a documented daisy chain if practical. Abstract physical offsets behind logical ring IDs CORE/HALO/ORBIT/OUTER. Level shifter integration ready when multiple rings are wired.
+### P5 — Full LED core [BLOCKED BY AUDIO REGRESSION]
+After experiment 007 passes, confirm the outstanding rings and validate the actual level shifter and power setup, then connect 7/12/16/24 rings. Prefer a documented daisy chain if practical. Abstract physical offsets behind logical ring IDs CORE/HALO/ORBIT/OUTER. Full-array wiring, logical rings and current limiting are pending.
 
 ### P6 — Microphone [PASSED / VERIFIED]
 INMP441 verified on RP2350 via PIO0 SM0 circular DMA. Live voice reaction verified in telemetry and integrated into LED voice-reactive animation mode.
 
-### P7 — Speaker [PASSED / VERIFIED]
-MAX98357A + 4 ohm/3 W speaker using PIO1 SM0. Software volume calibrated to whisper-quiet, polite near-field levels with warm octave-4 harmonic chords.
+### P7 — Speaker [REVALIDATION FAILED — DEBUGGING]
+MAX98357A + 4 ohm/3 W speaker using PIO1 SM0. Historical output pass is retained, but the user now reports distortion and excessive loudness at V10 after removing GAIN. PCM precision and volume-preview defects were fixed; the current diagnostic build boots muted. Speaker/amp damage is not established. Complete experiment 009 before continuing integration.
 
 ### P8 — Integrated staff [IN PROGRESS]
 Run OLED + controls + LEDs + microphone + speaker under the central state machine.

@@ -16,8 +16,8 @@ void query_button_init(void) {
     gpio_set_dir(PIN_QUERY_BTN, GPIO_IN);
     gpio_pull_up(PIN_QUERY_BTN);
 
-    // Initial safe state: always start released, ignore boot transient
-    btn_prev_raw = true;
+    // Debounce a boot-time hold just like a later press.
+    btn_prev_raw = gpio_get(PIN_QUERY_BTN);
     btn_is_down = false;
     last_edge_time = get_absolute_time();
     press_start_time = get_absolute_time();
@@ -28,30 +28,28 @@ void query_button_init(void) {
 void query_button_update(void) {
     bool raw = gpio_get(PIN_QUERY_BTN); // Active-low: 0=pressed, 1=released
 
-    if (!raw && btn_prev_raw) {
-        // Instant falling edge (pressed down)
-        if (absolute_time_diff_us(last_edge_time, get_absolute_time()) > 30000) { // 30ms lockout
+    if (raw != btn_prev_raw) {
+        btn_prev_raw = raw;
+        last_edge_time = get_absolute_time();
+    }
+
+    // Require both press and release to remain stable for 30 ms.
+    if (raw == btn_is_down &&
+        absolute_time_diff_us(last_edge_time, get_absolute_time()) >= 30000) {
+        if (!raw) {
             pressed_event = true;
             btn_is_down = true;
             press_start_time = get_absolute_time();
-            last_edge_time = get_absolute_time();
-        }
-    } else if (raw && !btn_prev_raw) {
-        // Rising edge (released)
-        if (btn_is_down) {
+        } else {
             btn_is_down = false;
             int64_t held_us = absolute_time_diff_us(press_start_time, get_absolute_time());
-            released_duration = (held_us > 0) ? (uint32_t)(held_us / 1000) : 1;
-            last_edge_time = get_absolute_time();
+            released_duration = (held_us >= 1000) ? (uint32_t)(held_us / 1000) : 1;
         }
     }
-
-    btn_prev_raw = raw;
 }
 
 bool query_button_is_held(void) {
-    // Return true if pin is actively LOW
-    return !gpio_get(PIN_QUERY_BTN);
+    return btn_is_down;
 }
 
 bool query_button_just_pressed(void) {

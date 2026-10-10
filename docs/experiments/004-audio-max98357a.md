@@ -1,6 +1,10 @@
-# Experiment 004 — MAX98357A I2S Audio Output (P6)
+# Experiment 004 — MAX98357A I2S Audio Output (P7)
 
-Status: COMPLETED (PASSED)
+Status: HISTORICAL PASS — CURRENT AUDIO REVALIDATION FAILED
+
+2026-10-10 user report supersedes the comfort claims below: all sounds are distorted and too loud at V10; GAIN wire was removed. Follow [experiment 009](009-speaker-distortion.md) with firmware 0.7.2-AUDIO-DIAG. The original pass is preserved as history, not current evidence of good audio.
+
+2026-10-10 software review: startup sequencing now services the entire chime without a blocking 350 ms pause, and short sounds refresh the amplifier sleep deadline before playback. IRQ-shared state is explicit and compound volume/stop updates are protected. Existing physical pass is retained; the revised firmware needs experiment 007's regression test.
 
 ## Goal
 Verify I2S digital audio output using PIO1 state machine and double-buffered DMA streaming on RP2350 with the MAX98357A Class-D amplifier driving a 4Ω 3W speaker, and implement master volume control through the rotary encoder UI.
@@ -35,7 +39,7 @@ Verify I2S digital audio output using PIO1 state machine and double-buffered DMA
    - `VOICE_READY` ("System ready")
    - `VOICE_ORACLE` ("Voice Oracle activated")
    - `VOICE_WARNING` ("Celestial anomaly detected")
-   - Plays automatically at power-on and after voice recording, plus selectable via new `VOICE ORACLE` menu mode.
+   - Local clips play at power-on and after QUERY release, plus via the `VOICE ORACLE` menu. QUERY release does not imply that audio was recorded or uploaded.
 6. Extended 8-Bit Chiptune Jukebox: expanded to 6 full iconic compositions (Super Mario Bros, Tetris Korobeiniki, Doom E1M1, Zelda Overworld, Star Wars Imperial March, Mega Man 2).
 7. In-Jukebox Controls: turning encoder adjusts volume directly in real-time (2% steps) with live gauge; clicking switch skips to next track; QUERY button exits.
 8. Default LED Idle Animation: updated to `GALAXY VORTEX` (smooth rotating comet orbiting LEDs 1..6 with pulsing core).

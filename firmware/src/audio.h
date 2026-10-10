@@ -13,14 +13,14 @@ extern "C" {
  * Initialize I2S audio subsystem for MAX98357A amplifier.
  * Uses PIO1 State Machine 0.
  * Pins: GP16 (BCLK), GP17 (LRC), GP18 (DIN).
- * Configures double-buffered DMA streaming at 16,000 Hz.
+ * Configures double-buffered DMA at 16,000 frames/s, 32-bit stereo slots.
+ * Carries signed 24-bit PCM left aligned in each slot.
  */
 void audio_init(void);
 
 /**
  * Play a synthesized tone (frequency in Hz, duration in milliseconds).
- * Automatically applies frequency-weighted Fletcher-Munson equal-loudness scaling
- * and soft raised-cosine envelope to eliminate harshness and clicks.
+ * Applies quadratic digital gain, heuristic high-note attenuation and a soft envelope.
  */
 void audio_play_tone(float freq_hz, uint32_t duration_ms);
 
@@ -45,8 +45,8 @@ const char* audio_get_voice_name(voice_phrase_id_t phrase_id);
 int audio_get_voice_count(void);
 
 /**
- * Non-blocking audio update. Fills DMA ping-pong buffers.
- * Call frequently from main loop.
+ * Non-blocking sequencer update; diagnostic builds keep silent I2S clocks running.
+ * DMA IRQ0 fills ping-pong buffers; call this frequently from main loop.
  */
 void audio_update(void);
 
@@ -74,6 +74,31 @@ void audio_play_chiptune(int track_id);
 void audio_stop_chiptune(void);
 bool audio_is_chiptune_playing(void);
 float audio_get_current_note_freq(void);
+
+/**
+ * Cosmic Sci-Fi Sound FX Demo Suite
+ */
+typedef enum {
+    COSMIC_SFX_WARP = 0,     // 1. Hyperdrive / Warp jump (rising sweep)
+    COSMIC_SFX_PULSAR,       // 2. Pulsar beacon (rhythmic cosmic ping)
+    COSMIC_SFX_ALIEN,        // 3. Alien communicator / scanner (sci-fi arpeggio)
+    COSMIC_SFX_LASER,        // 4. Photon laser blaster (downward chirp)
+    COSMIC_SFX_TRACTOR,      // 5. Gravitational tractor beam (vibrato hum)
+    COSMIC_SFX_PORTAL,       // 6. Stargate portal (harmonic shimmer)
+    COSMIC_SFX_SUPERNOVA,    // 7. Supernova rumble (deep sub-bass rumble)
+    COSMIC_SFX_COUNT
+} cosmic_sfx_id_t;
+
+int audio_get_cosmic_sfx_count(void);
+const char* audio_get_cosmic_sfx_name(int sfx_id);
+void audio_play_cosmic_sfx(int sfx_id);
+void audio_stop_cosmic_sfx(void);
+bool audio_is_cosmic_sfx_playing(void);
+
+/* Fault-isolation controls: fixed 440 Hz sine, stop all sources, IRQ/FIFO stats. */
+void audio_play_diagnostic_tone(void);
+void audio_stop_all(void);
+void audio_print_diagnostics(void);
 
 #ifdef __cplusplus
 }

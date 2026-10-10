@@ -8,6 +8,12 @@ build/
 *.map
 *.dis
 tools/*.wav
+tools/*.mp3
+tools/gtts_audio/
+tools/neural_raw/
+__pycache__/
+*.pyc
+firmware/src/wifi_credentials.h
 
 
 # System & Editor files

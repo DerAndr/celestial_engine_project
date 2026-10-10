@@ -7,22 +7,23 @@
 static i2c_inst_t *driver_i2c = NULL;
 static uint8_t driver_addr = 0x3C;
 static uint8_t display_buffer[SH1106_BUF_SIZE];
+#define I2C_TIMEOUT_US 10000
 
 // Command packet sender (Co = 0, D/C# = 0)
 static bool send_cmd(uint8_t cmd) {
     uint8_t pkt[2] = {0x00, cmd};
-    int ret = i2c_write_blocking(driver_i2c, driver_addr, pkt, 2, false);
+    int ret = i2c_write_timeout_us(driver_i2c, driver_addr, pkt, 2, false, I2C_TIMEOUT_US);
     return (ret == 2);
 }
 
 int sh1106_i2c_scan(i2c_inst_t *i2c) {
     int found_addr = -1;
-    printf("[I2C] Scanning bus for devices...\n");
-    for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+    printf("[I2C] Probing SH1106 addresses 0x3C/0x3D...\n");
+    for (uint8_t addr = 0x3C; addr <= 0x3D; addr++) {
         uint8_t rxdata;
         // Perform 1-byte read test with 10ms timeout
         int ret = i2c_read_timeout_us(i2c, addr, &rxdata, 1, false, 10000);
-        if (ret >= 0) {
+        if (ret == 1) {
             printf("[I2C]   -> Found device at address 0x%02X\n", addr);
             if (found_addr < 0) found_addr = addr;
         }
@@ -65,29 +66,34 @@ bool sh1106_init(i2c_inst_t *i2c, uint8_t addr) {
     }
 
     sh1106_clear();
-    sh1106_update();
-    return true;
+    return sh1106_update();
 }
 
 void sh1106_clear(void) {
     memset(display_buffer, 0x00, SH1106_BUF_SIZE);
 }
 
-void sh1106_update(void) {
-    if (!driver_i2c) return;
+bool sh1106_update(void) {
+    if (!driver_i2c) return false;
 
     for (uint8_t p = 0; p < SH1106_PAGES; p++) {
         // Set page and column address with SH1106 2-column offset
-        send_cmd(0xB0 | p); // Set page
-        send_cmd(0x02);      // Lower column = 2 (SH1106 offset)
-        send_cmd(0x10);      // Higher column = 0
+        if (!send_cmd(0xB0 | p) || !send_cmd(0x02) || !send_cmd(0x10)) {
+            printf("[OLED] Command transfer failed at page %u.\n", p);
+            return false;
+        }
 
         // Send 128 bytes of data for this page
         uint8_t payload[129];
         payload[0] = 0x40; // Co = 0, D/C# = 1 (Data mode)
         memcpy(&payload[1], &display_buffer[p * SH1106_WIDTH], SH1106_WIDTH);
-        i2c_write_blocking(driver_i2c, driver_addr, payload, 129, false);
+        if (i2c_write_timeout_us(driver_i2c, driver_addr, payload, sizeof(payload), false,
+                                 I2C_TIMEOUT_US) != (int)sizeof(payload)) {
+            printf("[OLED] Frame transfer failed at page %u.\n", p);
+            return false;
+        }
     }
+    return true;
 }
 
 void sh1106_draw_pixel(int x, int y, bool on) {

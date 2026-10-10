@@ -3,18 +3,19 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "config.h"
 
-#define LED_RING_COUNT       7
 #define RAINBOW_COLOR_COUNT  7
 
 typedef enum {
     LED_ANIM_BREATHE = 0,    // 0. Slow cosmic breathing
     LED_ANIM_VORTEX,         // 1. Spinning galaxy comet vortex
-    LED_ANIM_PULSAR,         // 2. Cosmic heartbeat / pulsar shockwave
-    LED_ANIM_PLASMA,         // 3. Living solar plasma & fire flames
-    LED_ANIM_STARS,          // 4. Deep navy & diamond starlight sparkle
-    LED_ANIM_VOICE,          // 5. Live audio/voice reactive VU halo
-    LED_ANIM_RAINBOW,        // 6. Smooth chromatic rainbow wave
+    LED_ANIM_SNAKE,          // 2. Cosmic dragon snake winding across all rings
+    LED_ANIM_RAINBOW,        // 3. Smooth chromatic rainbow wave
+    LED_ANIM_PULSAR,         // 4. Cosmic heartbeat / pulsar shockwave
+    LED_ANIM_PLASMA,         // 5. Living solar plasma & fire flames
+    LED_ANIM_STARS,          // 6. Deep navy & diamond starlight sparkle
+    LED_ANIM_VOICE,          // 7. Live audio/voice reactive VU halo
     LED_ANIM_COUNT
 } led_anim_mode_t;
 
@@ -28,7 +29,7 @@ typedef struct {
 extern const led_color_t RAINBOW_COLORS[RAINBOW_COLOR_COUNT];
 
 /**
- * Initialize WS2812 LED subsystem on GP15 using PIO2 SM0.
+ * Initialize WS2812 LED subsystem on GP15 using PIO0 SM1.
  */
 void leds_init(void);
 
@@ -73,7 +74,7 @@ const char* leds_get_rainbow_name(int color_idx);
 void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim_idx, uint8_t mic_level_pct);
 
 /**
- * Set master brightness cap percent (0..100). Default is 18%.
+ * Set brightness percent, clamped to LED_BRIGHTNESS_LIMIT (currently 18%).
  */
 void leds_set_brightness(uint8_t brightness_pct);
 

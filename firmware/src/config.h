@@ -9,8 +9,15 @@
  * ========================================================================== */
 
 /* Project Metadata */
-#define FIRMWARE_VERSION       "0.7.0-P4"
+#define FIRMWARE_VERSION       "0.7.2-AUDIO-DIAG"
 #define PROJECT_NAME           "Celestial Engine Mk.V"
+
+/* Audio fault isolation: boot muted, no automatic startup sounds. */
+#define AUDIO_DIAGNOSTIC_BOOT   1
+#define AUDIO_DEFAULT_VOLUME   0
+#define AUDIO_I2S_SLOT_BITS    32
+#define AUDIO_PCM16_PEAK       8000.0f  // Digital ceiling in equivalent 16-bit units (-12 dBFS headroom, clean, safe acoustic volume).
+#define AUDIO_CONTINUOUS_CLOCKS 1     // Continuous clean I2S bit/word clocks; eliminates clock-stop DC bias, PLL unlock and desync.
 
 /* OLED Display (SH1106 I2C) */
 #define PIN_OLED_SDA           2   // GP2 (Pin 4) -> I2C1
@@ -34,7 +41,9 @@
 
 /* WS2812 LED Core (via SN74AHCT125N Level Shifter) */
 #define PIN_WS2812_DATA        15  // GP15 (Pin 20)
-#define TOTAL_LED_COUNT        59  // 7 + 12 + 16 + 24
+#define TOTAL_LED_COUNT        43  // 7 (Core) + 12 (Inner) + 24 (Outer) = 43 LEDs
+#define LED_RING_COUNT         43  // Active 3-ring concentric array
+#define LED_BRIGHTNESS_LIMIT   18  // Percent cap for the current USB-powered prototype.
 
 /* MAX98357A Mono Amplifier (I2S Output) */
 #define PIN_SPK_BCLK           16  // GP16 (Pin 21)

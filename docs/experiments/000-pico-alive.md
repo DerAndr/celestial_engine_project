@@ -2,6 +2,8 @@
  
 Status: COMPLETED (PASSED)
 
+Historical P0 record: `celestial_p0.uf2`, drive `D:` and banner `0.1.0-P0` refer to the original test. Current firmware is `0.7.1-P4`, built as `firmware/build/celestial_firmware.uf2`; detect the actual drive and serial port using [experiment 007](007-code-review-regression.md). Current code initializes CYW43 but does not scan, connect to Wi-Fi or contact a Pi service. This preserves the original pass without claiming a new wireless test.
+
 ## Goal
 Validate Raspberry Pi Pico 2 W toolchain, build process, firmware flashing via BOOTSEL, USB CDC serial logs, CYW43 onboard LED control, and Wi-Fi scanning.
 
@@ -42,7 +44,7 @@ No external breadboard wiring or modules for this step. Pico connects directly t
 5. Onboard LED confirmed toggling at 1 Hz (500 ms / 1 s cycle).
 
 ## Problems / Fixes
-- **Build error `lwipopts.h: No such file or directory`**: Added [lwipopts.h](file:///c:/projects/personal/hardware-01/celestial_engine_project/firmware/src/lwipopts.h) tailored for `pico_cyw43_arch_lwip_threadsafe_background` (`NO_SYS = 1`). Clean compilation succeeded producing `celestial_p0.uf2`.
+- **Build error `lwipopts.h: No such file or directory`**: Added [lwipopts.h](../../firmware/src/lwipopts.h) tailored for `pico_cyw43_arch_lwip_threadsafe_background` (`NO_SYS = 1`). Clean compilation succeeded producing `celestial_p0.uf2`.
 - **Copy path confusion**: Absolute path to binary used to flash directly to `D:\`.
 - **Serial CDC DTR signal**: When inspecting USB CDC on Windows, DTR (`DtrEnable = $true`) must be asserted for Pico USB stdio stream to be captured.
 

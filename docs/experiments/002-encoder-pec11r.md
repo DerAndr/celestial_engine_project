@@ -2,6 +2,10 @@
 
 Status: COMPLETED (PASSED)
 
+2026-10-10 software review: A/B transitions are now decoded in a GPIO edge IRQ so synchronous OLED refreshes cannot hide a complete quadrature cycle. The previously verified two-substep threshold and rotation direction are retained. Accumulated delta is consumed atomically; switch polling remains in the main loop. Physical fast/slow rotation revalidation is pending in experiment 007.
+
+The five-mode menu below is the historical P2 baseline. Current firmware has ten menu entries, listed in [PROJECT.md](../../PROJECT.md); the revised firmware still needs [experiment 007](007-code-review-regression.md).
+
 ## Goal
 Connect the Bourns PEC11R-4225F-S0024 rotary encoder (Channel A, Channel B, Push Switch) to RP2350 (GP6, GP7, GP8), implement quadrature decoding and debouncing, and navigate the 5 Celestial Engine modes on the OLED display.
 

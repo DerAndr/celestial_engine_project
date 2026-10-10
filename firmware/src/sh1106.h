@@ -14,7 +14,8 @@
 int  sh1106_i2c_scan(i2c_inst_t *i2c);
 bool sh1106_init(i2c_inst_t *i2c, uint8_t addr);
 void sh1106_clear(void);
-void sh1106_update(void);
+// Returns false on a command/data failure; every transaction has a timeout.
+bool sh1106_update(void);
 
 // Drawing primitives
 void sh1106_draw_pixel(int x, int y, bool on);
