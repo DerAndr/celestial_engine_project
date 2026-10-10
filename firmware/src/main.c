@@ -8,6 +8,7 @@
 #include "encoder.h"
 #include "query_button.h"
 #include "audio.h"
+#include "voice_data.h"
 #include "mic.h"
 #include "leds.h"
 #include "staff_state.h"
@@ -27,6 +28,8 @@ typedef enum {
     MODE_VOLUME,
     MODE_MIC_TEST,
     MODE_LED_CORE,
+    MODE_CHIPTUNE,
+    MODE_VOICE,
     MODE_SYSTEM,
     MODE_COUNT
 } staff_mode_t;
@@ -38,7 +41,9 @@ static const char *MODE_NAMES[MODE_COUNT] = {
     "CANDY DETECTOR",
     "VOLUME",
     "MIC TEST",
-    "LED RAINBOW",
+    "LED EFFECTS",
+    "8-BIT CHIPTUNE",
+    "VOICE ORACLE",
     "SYSTEM"
 };
 
@@ -51,7 +56,11 @@ static absolute_time_t state_timeout;
 static bool volume_edit_mode = false;
 static bool mic_test_mode = false;
 static bool led_edit_mode = false;
-static int active_rainbow_idx = 0;
+static bool chiptune_mode = false;
+static bool voice_mode = false;
+static int active_anim_idx = 0;
+static int active_track_idx = 0;
+static int active_voice_idx = 0;
 static bool easter_egg_active = false;
 static int32_t prev_encoder_pos = 0;
 static absolute_time_t click_feedback_until;
@@ -202,7 +211,7 @@ static void draw_mic_test_screen(uint8_t level_pct, int16_t peak_val) {
     sh1106_update();
 }
 
-static void draw_led_screen(int rainbow_idx) {
+static void draw_led_screen(int anim_idx) {
     if (!oled_ready) return;
 
     sh1106_clear();
@@ -210,19 +219,109 @@ static void draw_led_screen(int rainbow_idx) {
 
     // Header banner
     sh1106_fill_rect(2, 2, 124, 12, true);
-    sh1106_draw_string(14, 4, "[ RAINBOW CORE ]", false);
+    sh1106_draw_string(14, 4, "[ LED EFFECTS ]", false);
 
-    // Color index
-    char num_buf[20];
-    snprintf(num_buf, sizeof(num_buf), "COLOR %d / 7", rainbow_idx + 1);
-    sh1106_draw_string(30, 18, num_buf, true);
+    // Effect index
+    char num_buf[24];
+    snprintf(num_buf, sizeof(num_buf), "EFFECT %d / %d", anim_idx + 1, LED_ANIM_COUNT);
+    sh1106_draw_string(20, 18, num_buf, true);
 
-    // Color name in large font
-    sh1106_draw_string_scaled(22, 30, leds_get_rainbow_name(rainbow_idx), 2, true);
+    // Effect name in bold
+    sh1106_draw_string(10, 31, leds_get_anim_name(anim_idx), true);
+
+    // Graphical progress bar under effect name
+    sh1106_draw_rect(10, 42, 108, 5, true);
+    int bar_fill = ((anim_idx + 1) * 104) / LED_ANIM_COUNT;
+    if (bar_fill > 0) {
+        sh1106_fill_rect(12, 43, bar_fill, 3, true);
+    }
 
     // Footer instruction
     sh1106_draw_line(2, 51, 125, 51, true);
-    sh1106_draw_string(8, 54, "TURN: TUNE | SW: OK", true);
+    sh1106_draw_string(6, 54, "TURN: TUNE | SW: OK", true);
+
+    sh1106_update();
+}
+
+static void draw_chiptune_screen(int track_idx, bool is_playing) {
+    if (!oled_ready) return;
+
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    // Header banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    sh1106_draw_string(14, 4, "[ 8-BIT JUKEBOX ]", false);
+
+    // Track index & status
+    char num_buf[24];
+    snprintf(num_buf, sizeof(num_buf), "TRK %d/%d  %s",
+             track_idx + 1, audio_get_chiptune_count(),
+             is_playing ? "[PLAYING]" : "[PAUSED]");
+    sh1106_draw_string(6, 17, num_buf, true);
+
+    // Track Name
+    sh1106_draw_string(6, 26, audio_get_chiptune_name(track_idx), true);
+
+    // Real-time Volume Gauge (x=6, y=36, w=116, h=5)
+    int cur_vol = (int)audio_get_volume();
+    char vol_buf[16];
+    snprintf(vol_buf, sizeof(vol_buf), "V:%2d%%", cur_vol);
+    sh1106_draw_string(6, 36, vol_buf, true);
+    sh1106_draw_rect(42, 37, 80, 5, true);
+    int v_fill = (cur_vol * 76) / 100;
+    if (v_fill > 0) {
+        sh1106_fill_rect(44, 38, v_fill, 3, true);
+    }
+
+    // Retro Equalizer Bars (animated while playing!)
+    for (int b = 0; b < 10; b++) {
+        int bar_h = 2;
+        if (is_playing) {
+            bar_h = 2 + (rand() % 6);
+        }
+        sh1106_fill_rect(8 + b * 11, 51 - bar_h, 8, bar_h, true);
+    }
+
+    // Footer instruction
+    sh1106_draw_line(2, 53, 125, 53, true);
+    sh1106_draw_string(4, 55, "TURN:VOL SW:NEXT QRY:EX", true);
+
+    sh1106_update();
+}
+
+static void draw_voice_screen(int phrase_idx, bool is_playing) {
+    if (!oled_ready) return;
+
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    // Header banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    sh1106_draw_string(18, 4, "[ VOICE ORACLE ]", false);
+
+    // Phrase index & status
+    char num_buf[24];
+    snprintf(num_buf, sizeof(num_buf), "VOICE %d/%d  %s",
+             phrase_idx + 1, audio_get_voice_count(),
+             is_playing ? "[SPEAKING]" : "[READY]");
+    sh1106_draw_string(6, 18, num_buf, true);
+
+    // Phrase Description
+    sh1106_draw_string(6, 30, audio_get_voice_name((voice_phrase_id_t)phrase_idx), true);
+
+    // Graphic soundwave bar
+    for (int b = 0; b < 10; b++) {
+        int bar_h = 2;
+        if (is_playing) {
+            bar_h = 3 + (rand() % 9);
+        }
+        sh1106_fill_rect(8 + b * 11, 48 - bar_h, 8, bar_h, true);
+    }
+
+    // Footer instruction
+    sh1106_draw_line(2, 51, 125, 51, true);
+    sh1106_draw_string(4, 54, "TURN:SEL SW:SPEAK QRY:EX", true);
 
     sh1106_update();
 }
@@ -283,6 +382,10 @@ static void draw_dashboard(uint32_t tick, bool led_on, int sel_idx, int32_t pos,
         sh1106_draw_string(4, 53, "CLICK SW TO TEST MIC", true);
     } else if (sel_idx == MODE_LED_CORE) {
         sh1106_draw_string(4, 53, "CLICK SW TO TUNE LED", true);
+    } else if (sel_idx == MODE_CHIPTUNE) {
+        sh1106_draw_string(4, 53, "CLICK SW: 8-BIT JUKEBOX", true);
+    } else if (sel_idx == MODE_VOICE) {
+        sh1106_draw_string(4, 53, "CLICK SW: VOICE ORACLE", true);
     } else {
         sh1106_draw_string(6, 53, "HOLD QUERY TO RECORD", true);
     }
@@ -344,8 +447,10 @@ int main(void) {
     LOG_INFO("SYS", "Initializing WS2812 LED core (GP15=DATA, PIO2 SM0)...");
     leds_init();
 
-    LOG_INFO("SYS", "Milestone P4 Active! 7-LED core ring operational with 7 rainbow colors and 67 vortex.");
+    LOG_INFO("SYS", "Celestial Engine Online! Playing harmonic chime and voice announcement.");
     audio_play_chime();
+    sleep_ms(350);
+    audio_play_voice(VOICE_ONLINE);
 
     uint32_t tick_count = 0;
     bool led_state = true;
@@ -361,26 +466,38 @@ int main(void) {
         // Continuous audio buffer streaming, mic processing & LED updates
         audio_update();
         mic_update();
-        leds_update(easter_egg_active, led_edit_mode, active_rainbow_idx);
+        leds_update(easter_egg_active, led_edit_mode, active_anim_idx, mic_get_level_percent());
 
         // Fast sampling of controls
         encoder_update();
         query_button_update();
 
-        // 1. Check QUERY button events (Push-to-Talk)
+        // 1. Check QUERY button events (Push-to-Talk or Exit sub-screen)
         if (query_button_just_pressed()) {
-            current_state = STATE_LISTENING;
-            easter_egg_active = false;
-            audio_play_tone(587.33f, 40); // Short crisp start-beep (D5)
-            LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! <<<");
-            need_display_update = true;
+            if (chiptune_mode) {
+                audio_stop_chiptune();
+                chiptune_mode = false;
+                LOG_INFO("CHIPTUNE", "Exited Jukebox via button.");
+                need_display_update = true;
+            } else if (voice_mode) {
+                audio_stop_voice();
+                voice_mode = false;
+                LOG_INFO("VOICE", "Exited Voice Oracle via button.");
+                need_display_update = true;
+            } else {
+                current_state = STATE_LISTENING;
+                easter_egg_active = false;
+                audio_play_tone(392.00f, 25); // Soft warm start-beep (G4)
+                LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! <<<");
+                need_display_update = true;
+            }
         }
 
         uint32_t held_dur = query_button_just_released();
-        if (held_dur > 0) {
+        if (held_dur > 0 && current_state == STATE_LISTENING) {
             current_state = STATE_UPLOADING;
             state_timeout = delayed_by_ms(get_absolute_time(), 1200);
-            audio_play_tone(880.0f, 60); // Release tone (A5)
+            audio_play_voice(VOICE_READY); // Speak "System ready"
             LOG_INFO("QUERY", ">>> QUERY RELEASED after %lu ms! State: UPLOADING -> IDLE <<<",
                      (unsigned long)held_dur);
             need_display_update = true;
@@ -406,18 +523,36 @@ int main(void) {
                 audio_set_volume((uint8_t)cur_vol);
 
                 // Play live volume preview tone
-                audio_play_tone(440.0f + cur_vol * 4.0f, 20);
+                audio_play_tone(440.0f + cur_vol * 3.0f, 20);
                 LOG_INFO("VOLUME", "Volume adjusted: %d%%", cur_vol);
                 need_display_update = true;
             } else if (led_edit_mode) {
-                active_rainbow_idx = (active_rainbow_idx + delta) % RAINBOW_COLOR_COUNT;
-                if (active_rainbow_idx < 0) {
-                    active_rainbow_idx += RAINBOW_COLOR_COUNT;
+                active_anim_idx = (active_anim_idx + delta) % LED_ANIM_COUNT;
+                if (active_anim_idx < 0) {
+                    active_anim_idx += LED_ANIM_COUNT;
                 }
-                leds_set_rainbow_index(active_rainbow_idx);
                 audio_play_blip();
-                LOG_INFO("LEDS", "Color tuned: [%s] (%d/7)",
-                         leds_get_rainbow_name(active_rainbow_idx), active_rainbow_idx + 1);
+                LOG_INFO("LEDS", "Effect preview: [%s] (%d/%d)",
+                         leds_get_anim_name(active_anim_idx), active_anim_idx + 1, LED_ANIM_COUNT);
+                need_display_update = true;
+            } else if (chiptune_mode) {
+                // Immediate, direct volume control while in Jukebox!
+                int cur_vol = (int)audio_get_volume();
+                cur_vol += delta * 2; // 2% per click for ultra-fine control
+                if (cur_vol < 0) cur_vol = 0;
+                if (cur_vol > 100) cur_vol = 100;
+                audio_set_volume((uint8_t)cur_vol);
+                LOG_INFO("CHIPTUNE", "Live Volume tuned: %d%%", cur_vol);
+                need_display_update = true;
+            } else if (voice_mode) {
+                active_voice_idx = (active_voice_idx + delta) % audio_get_voice_count();
+                if (active_voice_idx < 0) {
+                    active_voice_idx += audio_get_voice_count();
+                }
+                audio_play_blip();
+                LOG_INFO("VOICE", "Voice phrase selected: [%s] (%d/%d)",
+                         audio_get_voice_name((voice_phrase_id_t)active_voice_idx),
+                         active_voice_idx + 1, audio_get_voice_count());
                 need_display_update = true;
             } else {
                 int32_t curr_pos = encoder_get_position();
@@ -451,47 +586,63 @@ int main(void) {
         if (encoder_switch_clicked()) {
             if (easter_egg_active) {
                 easter_egg_active = false;
-                audio_play_tone(440.0f, 50);
+                audio_play_tone(440.0f, 40);
                 LOG_INFO("EASTER_EGG", "Switch clicked: Exiting '!!! 67 !!!' screen.");
             } else if (volume_edit_mode) {
-                // Confirm volume and exit volume screen
                 volume_edit_mode = false;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
-                audio_play_chime(); // Melodic confirmation chime at newly set volume
+                audio_play_chime();
                 LOG_INFO("VOLUME", "Volume confirmed: %d%%. Exited volume edit.", audio_get_volume());
             } else if (mic_test_mode) {
-                // Exit mic test screen
                 mic_test_mode = false;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
                 audio_play_chime();
                 LOG_INFO("MIC", "Exited mic live test screen.");
             } else if (led_edit_mode) {
-                // Confirm LED color and exit
                 led_edit_mode = false;
+                leds_set_anim_mode(active_anim_idx);
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
                 audio_play_chime();
-                LOG_INFO("LEDS", "Color confirmed: [%s]. Exited LED menu.",
-                         leds_get_rainbow_name(active_rainbow_idx));
+                LOG_INFO("LEDS", "Effect confirmed: [%s]. Exited LED menu.",
+                         leds_get_anim_name(active_anim_idx));
             } else if (current_mode_idx == MODE_VOLUME) {
-                // Enter volume edit screen
                 volume_edit_mode = true;
-                audio_play_tone(659.25f, 35);
+                audio_play_tone(523.25f, 25);
                 LOG_INFO("VOLUME", "Entering volume edit mode (current: %d%%)", audio_get_volume());
             } else if (current_mode_idx == MODE_MIC_TEST) {
-                // Enter mic live test screen
                 mic_test_mode = true;
-                audio_play_tone(659.25f, 35);
+                audio_play_tone(523.25f, 25);
                 LOG_INFO("MIC", "Entering mic live test screen.");
             } else if (current_mode_idx == MODE_LED_CORE) {
-                // Enter LED edit mode
                 led_edit_mode = true;
-                audio_play_tone(659.25f, 35);
-                LOG_INFO("LEDS", "Entering LED rainbow menu (current: %s)",
-                         leds_get_rainbow_name(active_rainbow_idx));
+                active_anim_idx = leds_get_anim_mode();
+                audio_play_tone(523.25f, 25);
+                LOG_INFO("LEDS", "Entering LED effects menu (current: %s)",
+                         leds_get_anim_name(active_anim_idx));
+            } else if (chiptune_mode) {
+                // Advance to next track!
+                active_track_idx = (active_track_idx + 1) % audio_get_chiptune_count();
+                audio_play_chiptune(active_track_idx);
+                LOG_INFO("CHIPTUNE", "Switched to track: %s", audio_get_chiptune_name(active_track_idx));
+            } else if (voice_mode) {
+                // Play selected voice phrase!
+                audio_play_voice((voice_phrase_id_t)active_voice_idx);
+                LOG_INFO("VOICE", "Speaking phrase: %s",
+                         audio_get_voice_name((voice_phrase_id_t)active_voice_idx));
+            } else if (current_mode_idx == MODE_CHIPTUNE) {
+                chiptune_mode = true;
+                audio_play_chiptune(active_track_idx);
+                LOG_INFO("CHIPTUNE", "Entering 8-bit Jukebox! Playing %s",
+                         audio_get_chiptune_name(active_track_idx));
+            } else if (current_mode_idx == MODE_VOICE) {
+                voice_mode = true;
+                audio_play_voice((voice_phrase_id_t)active_voice_idx);
+                LOG_INFO("VOICE", "Entering Voice Oracle! Speaking %s",
+                         audio_get_voice_name((voice_phrase_id_t)active_voice_idx));
             } else {
                 active_confirmed_mode = current_mode_idx;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
-                audio_play_chime(); // Melodic confirmation chime
+                audio_play_chime();
                 LOG_INFO("ENCODER", ">>> SWITCH CLICKED! Active Mode Confirmed: [%s] <<<",
                          MODE_NAMES[active_confirmed_mode]);
             }
@@ -505,12 +656,18 @@ int main(void) {
             led_state = !led_state;
             cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
 
-            bool a_val, b_val, sw_val;
-            encoder_get_raw_pins(&a_val, &b_val, &sw_val);
+            // Auto-recovery attempt for OLED if it was not detected at power-on
+            if (!oled_ready && (tick_count % 3 == 0)) {
+                int scan_addr = sh1106_i2c_scan(OLED_I2C_INST);
+                if (scan_addr > 0 && sh1106_init(OLED_I2C_INST, (uint8_t)scan_addr)) {
+                    oled_ready = true;
+                    LOG_INFO("OLED", ">>> OLED RECOVERED! Initialized at 0x%02X <<<", scan_addr);
+                }
+            }
 
-            LOG_INFO("HEARTBEAT", "Tick #%lu | LED: %s | State: %s | Mode: [%s] | Vol: %d%% | Mic: %d%% | QRY: %s",
+            LOG_INFO("HEARTBEAT", "Tick #%lu | OLED: %s | State: %s | Mode: [%s] | Vol: %d%% | Mic: %d%% | QRY: %s",
                      (unsigned long)tick_count,
-                     led_state ? "ON" : "OFF",
+                     oled_ready ? "ONLINE" : "OFFLINE",
                      staff_state_name(current_state),
                      MODE_NAMES[active_confirmed_mode],
                      (int)audio_get_volume(),
@@ -523,7 +680,8 @@ int main(void) {
         if (absolute_time_diff_us(last_flash_toggle, get_absolute_time()) >= 400000) {
             last_flash_toggle = get_absolute_time();
             flash_phase = !flash_phase;
-            if (current_state == STATE_LISTENING || easter_egg_active || volume_edit_mode || mic_test_mode || led_edit_mode) {
+            if (current_state == STATE_LISTENING || easter_egg_active || volume_edit_mode ||
+                mic_test_mode || led_edit_mode || chiptune_mode || voice_mode) {
                 need_display_update = true;
             }
         }
@@ -535,7 +693,7 @@ int main(void) {
 
             if (current_state == STATE_LISTENING) {
                 draw_listening_screen(query_button_current_hold_ms(), active_confirmed_mode, flash_phase);
-                need_display_update = true; // Continuous update while recording
+                need_display_update = true;
             } else if (current_state == STATE_UPLOADING) {
                 draw_uploading_screen();
             } else if (easter_egg_active) {
@@ -544,9 +702,15 @@ int main(void) {
                 draw_volume_screen(audio_get_volume());
             } else if (mic_test_mode) {
                 draw_mic_test_screen(mic_get_level_percent(), mic_get_peak_amplitude());
-                need_display_update = true; // Continuous update for live VU meter
+                need_display_update = true;
             } else if (led_edit_mode) {
-                draw_led_screen(active_rainbow_idx);
+                draw_led_screen(active_anim_idx);
+            } else if (chiptune_mode) {
+                draw_chiptune_screen(active_track_idx, audio_is_chiptune_playing());
+                need_display_update = true;
+            } else if (voice_mode) {
+                draw_voice_screen(active_voice_idx, audio_is_voice_playing());
+                need_display_update = true;
             } else {
                 bool click_feedback = absolute_time_diff_us(get_absolute_time(), click_feedback_until) > 0;
                 draw_dashboard(tick_count, led_state, current_mode_idx,

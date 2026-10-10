@@ -26,14 +26,20 @@ Verify I2S digital audio output using PIO1 state machine and double-buffered DMA
 | **Speaker + / -** | — | Screw Terminal (+ / -) | — | Clamped to 4Ω 3W speaker terminals |
 
 ## Observed Behavior & Verification
-1. Physical I2S streaming over PIO1 SM0 verified with loud, clear audio from the 4Ω 3W dynamic speaker.
-2. Default output amplitude reduced from 6000 (100%) to a gentle 1750 (25%) default for comfortable near-field listening.
-3. Master volume adjustment integrated into rotary encoder menu (`MODE_VOLUME`):
-   - Selecting `VOLUME` mode and clicking the encoder enters the dedicated interactive Volume Setting screen.
-   - Turning encoder adjusts volume in 5% steps (0% to 100%) with live graphical gauge bar.
-   - Live tone feedback plays at each volume step with matching pitch and amplitude.
-   - Clicking encoder confirms volume, plays harmonic chime, and returns to main dashboard.
-   - Live volume indicator `V:25%` and rotation counter `ROT:+0` rendered cleanly on OLED dashboard.
+1. Physical I2S streaming over PIO1 SM0 verified with clear audio from the 4Ω 3W dynamic speaker.
+2. Master volume scale updated to perceptual quadratic curve (`vol_norm^2 * 1200`), with startup volume set to gentle 12% (whisper-quiet, non-piercing).
+3. Equalization (Fletcher-Munson compensation) implemented: frequencies >250 Hz are smoothly attenuated (`f_comp = powf(250 / f, 0.70)`), eliminating ear fatigue and resonance screech on small speakers.
+4. Soft harmonic timbre: synthesized tone blends 85% fundamental sine with 15% 2nd harmonic and 12 ms raised-cosine envelope, eliminating harsh square-wave edges and clicks.
+5. Digitized Speech Engine: 4 voice clips embedded in flash (16 kHz 8-bit mono):
+   - `VOICE_ONLINE` ("Celestial Engine online")
+   - `VOICE_READY` ("System ready")
+   - `VOICE_ORACLE` ("Voice Oracle activated")
+   - `VOICE_WARNING` ("Celestial anomaly detected")
+   - Plays automatically at power-on and after voice recording, plus selectable via new `VOICE ORACLE` menu mode.
+6. Extended 8-Bit Chiptune Jukebox: expanded to 6 full iconic compositions (Super Mario Bros, Tetris Korobeiniki, Doom E1M1, Zelda Overworld, Star Wars Imperial March, Mega Man 2).
+7. In-Jukebox Controls: turning encoder adjusts volume directly in real-time (2% steps) with live gauge; clicking switch skips to next track; QUERY button exits.
+8. Default LED Idle Animation: updated to `GALAXY VORTEX` (smooth rotating comet orbiting LEDs 1..6 with pulsing core).
 
 ## Result
-PASSED — Audio output subsystem fully operational. Ready for microphone (P7) or LED ring (P4/P5).
+PASSED — Audio output subsystem calibrated for gentle, pleasant acoustics, robotic speech synthesis, and full user volume control.
+

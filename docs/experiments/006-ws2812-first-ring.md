@@ -13,13 +13,35 @@ Verify driving the first WS2812B 7-LED core ring using PIO0 SM1 on RP2350 (GP15)
 - WS2812B 7-LED ring (already soldered with 3 wires: 5V, GND, DIN)
 - Breadboard & jumper connections to Pico
 
-## Wiring Table
-
+### Phase 1: Direct Smoke Test (Initial Verification)
 | WS2812B Pad | Pico Physical Pin | RP2350 Line | Breadboard Pin / Coordinate | Notes |
 | :--- | :---: | :--- | :--- | :--- |
 | **PWR5V** (5V) | **Pin 40** | `VBUS` (5.0 V) | Row 1 Right (`i1`) | 5V USB power rail |
-| **GND** (0V) | **Pin 38** or **Pin 18** | Ground (0 V) | Row 38 Right (`i38`) or `c18` | Common Ground |
+| **GND** (0V) | **Pin 38** or **Pin 18** | Ground (0 V) | Row 3 Right (`i3`) or `c18` | Common Ground |
 | **DIN** (Data) | **Pin 20** | `GP15` (PIO2 SM0) | Row 20 Left (`b20` or `a20`) | 800 kHz WS2812 NRZ data |
+
+### Phase 2: Hardware Level Shifter (SN74AHCT125N + 470R + 1000uF Bulk Decoupling)
+*QUERY Button shifted 1 step up to rows 21 & 23, freeing rows 24–30 for DIP-14.*
+
+| Component / Pin | Wire Color | Where on Breadboard | Connects To | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **5V Rail Feed** | **Red** | Pico Pin 40 (`j1`) | **Red (+) Side Rail** | 5.0 V VBUS supply |
+| **GND Rail Feed** | **Black** | Pico Pin 38 (`j3`) | **Blue (-) Side Rail** | Common Ground (0 V) |
+| **Capacitor 1000uF (+)** | Long leg | **Red (+) Side Rail** | 5V Rail | Bulk decoupling |
+| **Capacitor 1000uF (-)** | Short / stripe | **Blue (-) Side Rail** | GND Rail | Mind polarity! |
+| **SN74 Pin 14 (VCC)** | **Red** | Row 24 Right (`g24` / `j24`) | **Red (+) Side Rail** | 5.0 V supply |
+| **SN74 Pin 7 (GND)** | **Black** | Row 30 Left (`c30` / `a30`) | **Blue (-) Side Rail** | Ground |
+| **SN74 Pin 1 (/1OE)** | **Black** | Row 24 Left (`c24` / `a24`) | **Blue (-) Side Rail** | Enable Channel 1 (Active LOW) |
+| **SN74 Pin 2 (1A, IN)** | **Green** | Row 25 Left (`c25`) | Pico Pin 20 (`b20` / GP15) | 3.3 V PIO2 data signal |
+| **Resistor 470R** | Axial leg 1 | Row 26 Left (`d26`) | SN74 Pin 3 (1Y, 5V OUT) | Signal damping |
+| **Resistor 470R** | Axial leg 2 | Row 22 Left (`d22`) | Free row tie-point | Output tap point |
+| **WS2812 DIN** | **White / Yellow** | Row 22 Left (`c22`) | Connects to Resistor leg 2 | 5.0 V safe data line |
+| **WS2812 PWR5V** | **Red** | **Red (+) Side Rail** | 5V Rail | Ring 5V power |
+| **WS2812 GND** | **Black** | **Blue (-) Side Rail** | GND Rail | Ring Ground |
+| **QUERY Btn Leg 1** | — | Row 21 (`d21`, `f21`) | Tactile switch top | Shifted from row 22 |
+| **QUERY Btn Leg 2** | — | Row 23 (`d23`, `f23`) | Tactile switch bottom | Shifted from row 24 |
+| **QUERY Signal Wire** | **Orange** | Row 23 Left (`c23`) | Pico Pin 12 (`b12` / GP9) | Active LOW |
+| **QUERY Ground Wire** | **Black** | Row 21 Right (`h21`) | **Blue (-) Side Rail** | Ground reference |
 
 *(Pads `DO` and second `GND` on the 7-LED ring remain unconnected for this milestone).*
 

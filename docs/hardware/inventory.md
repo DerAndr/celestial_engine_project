@@ -18,11 +18,11 @@ Status values: `ORDERED`, `RECEIVED`, `TESTED`, `INSTALLED`, `FAILED`.
 | WS2812B 16-LED ring | 1 | ORDERED | OD 45 / ID 32 mm |
 | WS2812B 24-LED ring | 1 | ORDERED | OD 66 / ID 52 mm |
 | SN74AHCT125N | 2 | RECEIVED | WS2812 3.3V->5.0V level shifting DIP-14 IC |
-| ~470 ohm resistor | TBD | ORDERED | WS2812 data series resistor |
-| ~1000 uF >=10 V capacitor | TBD | ORDERED | LED power bulk capacitance |
+| ~470 ohm resistor | TBD | RECEIVED | WS2812 data series protection resistor |
+| ~1000 uF >=10 V capacitor | TBD | RECEIVED | LED power bulk decoupling capacitance |
 | Velleman VTBB3 breadboard | 1 | RECEIVED | 400 holes (30 rows, a-j, +/- rails) |
-| 22 AWG red/black wire | 1 set | ORDERED | Power distribution |
-| 26 AWG multicolor wire | 1 set | ORDERED | Signals |
+| 22 AWG red/black wire | 1 set | RECEIVED | Power distribution |
+| 26 AWG multicolor wire | 1 set | RECEIVED | Signals |
 | Raspberry Pi 5 | 1 | RECEIVED | Already owned; wearable brain |
 | Raspberry Pi Active Cooler | 1 | RECEIVED | Already owned |
 | Geekworm X1209 V1.0 | 1 | ORDERED | Pi 5 portable power only |

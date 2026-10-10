@@ -156,17 +156,17 @@ Add PEC11R. Implement rotation, press and debounce. Navigate the modes and adjus
 ### P3 — QUERY [PASSED]
 Add momentary NO button. Log/display QUERY DOWN and QUERY UP; connect this to LISTENING state.
 
-### P4 — One WS2812 ring [PASSED / IN INTEGRATION]
-Add 7-LED core ring, SN74AHCT125 level shifter. Implement rainbow menu (`[ LED RAINBOW ]`), 7 rainbow colors, 67 fast spinning vortex animation.
+### P4 — WS2812 Core Ring & Celestial Animations [PASSED / VERIFIED]
+Direct GP15 driving verified. Added 7 rich animation modes (`[ LED EFFECTS ]`): Cosmic Breathe, Galaxy Vortex, Pulsar Pulse, Solar Plasma, Starry Night, Voice Reactive VU, and Rainbow Wave.
 
 ### P5 — Full LED core [NEXT]
-Connect 7/12/16/24 rings. Prefer a documented daisy chain if practical. Abstract physical offsets behind logical ring IDs CORE/HALO/ORBIT/OUTER.
+Connect 7/12/16/24 rings. Prefer a documented daisy chain if practical. Abstract physical offsets behind logical ring IDs CORE/HALO/ORBIT/OUTER. Level shifter integration ready when multiple rings are wired.
 
 ### P6 — Microphone [PASSED / VERIFIED]
-Add INMP441. Capture valid 16 kHz PCM using PIO0 SM0 and circular DMA ring-buffer. Live VU meter test mode (`[ MIC LIVE TEST ]`) on OLED.
+INMP441 verified on RP2350 via PIO0 SM0 circular DMA. Live voice reaction verified in telemetry and integrated into LED voice-reactive animation mode.
 
 ### P7 — Speaker [PASSED / VERIFIED]
-Add MAX98357A + 4 ohm/3 W speaker using PIO1 SM0. Upgraded to hardware DMA IRQ0 double-buffering, rich amplitude, and smooth 5 ms envelope.
+MAX98357A + 4 ohm/3 W speaker using PIO1 SM0. Software volume calibrated to whisper-quiet, polite near-field levels with warm octave-4 harmonic chords.
 
 ### P8 — Integrated staff [IN PROGRESS]
 Run OLED + controls + LEDs + microphone + speaker under the central state machine.

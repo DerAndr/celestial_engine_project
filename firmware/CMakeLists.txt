@@ -35,6 +35,7 @@ add_executable(celestial_firmware
     src/audio.c
     src/mic.c
     src/leds.c
+    src/voice_data.c
 )
 
 pico_generate_pio_header(celestial_firmware ${CMAKE_CURRENT_LIST_DIR}/src/audio_i2s.pio)
