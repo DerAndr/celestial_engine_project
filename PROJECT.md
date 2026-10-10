@@ -7,7 +7,7 @@ The coding agent must guide the user physically, one testable prototype at a tim
 
 ## Current implementation — 2026-10-10
 
-Current firmware **0.7.2-AUDIO-DIAG** targets Pico 2 W / RP2350. The physical array is configured for 43 LEDs across 3 concentric rings (7 Core + 12 Inner + 24 Outer; the defective 16-LED ring was removed). Audio dynamic range has been calibrated with a smooth perceptual gain curve down to 1% (-80 dBFS whisper quiet) without coil heating (`AUDIO_CONTINUOUS_CLOCKS = 1`). All 27 regression unit tests and native C audio checks pass.
+Current firmware **0.7.2-AUDIO-DIAG** targets Pico 2 W / RP2350. The physical array is configured for 43 LEDs across 3 concentric rings (7 Core + 12 Inner + 24 Outer; the defective 16-LED ring was removed). **Audio revalidation is failing: the user reports that volume still does not work normally, with GAIN unconnected.** The current digital ceiling is 8000 equivalent 16-bit units, increased from the earlier diagnostic ceiling of 400; music and diagnostic sine use different gain curves. Software checks and silent telemetry do not establish acoustic comfort or coil temperature. See [experiment 012](docs/experiments/012-gain-volume-research.md); resolve audio before further integration.
 
 | Area | Current behavior / status |
 |---|---|
@@ -15,9 +15,9 @@ Current firmware **0.7.2-AUDIO-DIAG** targets Pico 2 W / RP2350. The physical ar
 | QUERY | Local microphone test: IDLE -> LISTENING -> IDLE; live meter and hold timer |
 | LEDs | Active 3-ring array: 43 pixels (7 + 12 + 24) on GP15; 18% brightness cap; dynamic audio-reactive sync and cosmic effects |
 | Microphone | 16 kHz live metering, 256-sample circular DMA window; PIO0 SM0 |
-| Speaker | 16 kHz frames, PCM24 in 32-bit channel slots, PIO1 SM0; 13 world chiptune tracks, 7 cosmic SFX; whisper-quiet calibrated |
+| Speaker | 16 kHz frames, PCM24 in 32-bit channel slots, PIO1 SM0; 13 world chiptune tracks, 7 cosmic SFX; current volume fault unresolved |
 | Mission Control | Web dashboard at http://localhost:5050 with one-click UF2 flasher, live telemetry stream, and presets |
-| Milestones | P0–P4/P6/P7 validated; 43-LED multi-ring verified; P8 brain integration next |
+| Milestones | Historical P0–P4/P6/P7 passes retained; 43-LED multi-ring recorded as verified; current P7 audio revalidation failed, further integration blocked |
 
 See the [audio experiment 011](docs/experiments/011-audio-volume-fix.md), [three rings experiment 010](docs/experiments/010-three-rings-cosmic-effects.md), [pinout](docs/wiring/pinout.md), [inventory](docs/hardware/inventory.md) and [interactive map](docs/interactive_map.html).
 

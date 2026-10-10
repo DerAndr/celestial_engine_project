@@ -3,12 +3,14 @@
 - **Date:** 2026-10-10
 - **Milestone:** P7 Audio Dynamic Range, Perceptual Gain Curve & Jukebox Expansion
 - **Target:** Raspberry Pi Pico 2 W (RP2350)
-- **Status:** PASS
+- **Status:** AUDIO REVALIDATION FAILED — USER REPORT SUPERSEDES EARLIER PASS
+
+The user reports that volume still does not work normally and GAIN remains unconnected. Follow [experiment 012](012-gain-volume-research.md). Earlier software/serial results below do not prove acoustic comfort or speaker temperature.
 
 ## 1. Problem Statement & Root Cause
 1. **Loudness at 1%:**
    - Previous volume curve was dominated by an aggressive linear coefficient or pure quadratic scale under low bit-depth headroom, causing values below 10% to quantize or jump in perceived acoustic volume.
-   - MAX98357A internal 16-bit DAC decodes bits [31..16] of the 32-bit I2S slot.
+   - The earlier claim that MAX98357A only decodes 16 bits was unsupported. Its datasheet specifies 16/24/32-bit I2S input; do not discard PCM precision or raise gain based on that claim. [Manufacturer datasheet](https://www.analog.com/media/en/technical-documentation/data-sheets/max98357a-max98357b.pdf).
    - When amplitude was too low in earlier tests, it either clipped to silence or distorted; when boosted, 1% was uncomfortably loud.
 2. **Dashboard UI slider disconnected:**
    - The web dashboard volume slider had `oninput` updating the text label only, without transmitting serial commands until the user clicked a tiny "Set" button. To the user, moving the slider appeared to do nothing.
@@ -22,12 +24,11 @@
 ## 2. Technical Solution
 1. **Perceptual Volume Curve:**
    - Formula: `vol_curve = 0.05f * vol_norm + 0.95f * (vol_norm * vol_norm)`.
-   - At `1%`: peak amplitude ~3.2 in 16-bit DAC (-80 dBFS), whisper-quiet.
-   - At `3%`: ~11 (-73 dBFS), comfortable soft background.
-   - At `8%`: ~39 (-62 dBFS), normal listening.
-   - Diagnostic sine retains exact quadratic curve to preserve `V10 / V5 == 4.000` test compliance.
+   - With the current ceiling of 8000, unshaped musical peaks are 4.76 equivalent 16-bit units at 1%, 18.84 at 3%, and 80.64 at 8%; frequency rolloff and envelope further modify them. These values do not establish listening comfort.
+   - Voice and diagnostic sine use a different, quadratic curve. The diagnostic sine at V1 peaks at 0.8 equivalent 16-bit units (`peak24` approximately 205); V5 is 20 (`peak24` approximately 5120).
+   - Diagnostic V10/V5 amplitude ratio is four; this check does not validate the musical gain curve or the physical amplifier.
 2. **Continuous Glitch-Free Clocking:**
-   - `AUDIO_CONTINUOUS_CLOCKS = 1` maintained. Zero PCM sent during silence, keeping 0.000 V differential DC across the 4Ω speaker coil (no heating).
+   - `AUDIO_CONTINUOUS_CLOCKS = 1` sends zero PCM during silence. No differential voltage or temperature measurement is recorded, so exact zero volts/no heating cannot be claimed.
    - Synchronous `amp_wake()` ensures bit-alignment and FIFO flushing upon wake.
 3. **Interactive Control:**
    - Rotary encoder in Jukebox mode allows immediate real-time volume adjustment (step by step) while songs play.

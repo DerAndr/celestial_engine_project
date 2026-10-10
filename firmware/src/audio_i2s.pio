@@ -5,17 +5,17 @@
 ; Side-set pin 1: LRC (GP17)
 ; OUT pin: DIN (GP18)
 ;
-; Philips I2S 32-bit stereo frame (one FIFO word per channel):
-; 32 bits Left channel (LRC=0), 32 bits Right channel (LRC=1).
+; Philips I2S 16-bit stereo frame (one FIFO word per stereo frame):
+; 16 bits Left channel (LRC=0), 16 bits Right channel (LRC=1).
 ; LRC transitions 1 BCLK cycle before MSB of the new channel.
 
-    set x, 30              side 0b01 ; BCLK=1, LRC=0 (1 cycle setup delay before MSB)
+    set x, 14              side 0b01 ; BCLK=1, LRC=0 (1 cycle setup delay before MSB)
 left_loop:
     out pins, 1            side 0b00 ; BCLK=0, LRC=0
     jmp x--, left_loop     side 0b01 ; BCLK=1, LRC=0
     out pins, 1            side 0b10 ; BCLK=0, LRC=1 (last bit of left; LRC flips to Right!)
 
-    set x, 30              side 0b11 ; BCLK=1, LRC=1 (1 cycle setup delay before MSB)
+    set x, 14              side 0b11 ; BCLK=1, LRC=1 (1 cycle setup delay before MSB)
 right_loop:
     out pins, 1            side 0b10 ; BCLK=0, LRC=1
     jmp x--, right_loop    side 0b11 ; BCLK=1, LRC=1
@@ -34,7 +34,7 @@ static inline void audio_i2s_program_init(PIO pio, uint sm, uint offset, uint da
     sm_config_set_out_pins(&c, data_pin, 1);
     sm_config_set_sideset_pins(&c, clock_pin_base);
 
-    // MSB first; pull one 32-bit word for each channel. PCM is signed and left aligned.
+    // Shift left (MSB first), autopull enabled, threshold = 32 bits (16-bit L + 16-bit R)
     sm_config_set_out_shift(&c, false, true, 32);
     sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
 

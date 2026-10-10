@@ -1011,7 +1011,7 @@
         <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.6; margin-bottom:1.5rem;">
           Snapshot: 2026-10-10 · Firmware 0.7.2-AUDIO-DIAG · Native C audio check passes · Pico 2 W Release build succeeds.
           User reports distorted/loud audio at V10 with GAIN disconnected. Boot is muted at V0; no automatic chime/voice. Resolve audio before P5.
-          <a href="experiments/009-speaker-distortion.md" style="color:var(--cyan-core)">V0/V5 speaker test</a> ·
+          <a href="experiments/012-gain-volume-research.md" style="color:var(--cyan-core)">GAIN research / V0/V1 test</a> ·
           <a href="reviews/2026-10-10-audio-review.md" style="color:var(--cyan-core)">Audio code review</a> ·
           <a href="../PROJECT.md" style="color:var(--cyan-core)">Project status</a>
         </p>
@@ -1948,9 +1948,9 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
 .\\scripts\\check-audio.ps1
 cmake --build firmware/build --parallel 4
 # After flashing, close the dashboard/monitor; use the observed Pico COM port:
-.\\scripts\\test-speaker.ps1 -Port COM9 -Volume 5</pre>`,
-        expected: 'Pending physical test: V0 is silent, V5 gives a faint smooth 440 Hz tone. The script asks for the V0 observation before sound. See experiment 009 for flash commands and expected diagnostics.',
-        fail: 'If V0 is noisy or V5 is uncomfortable, disconnect USB and stop. Save the banner/AUDIO stats; power off before inspecting actual module and speaker markings. See experiment 009.'
+.\\scripts\\test-speaker.ps1 -Port COM9 -Volume 1</pre>`,
+        expected: 'User confirms encoder V0 is silent; nonzero output is still too loud. Next isolated test: V1 pure 440 Hz sine. Current limit16:8000 predicts peak24 near 205. The script checks the version and asks for the V0 observation before sound. See experiment 012.',
+        fail: 'If V0 becomes noisy or V1 is uncomfortable, disconnect USB and stop. Save both AUDIO lines including limit16 and peak24; power off before inspecting actual module and speaker markings. See experiment 012.'
       },
       P8: {
         title: 'Integrated Staff Firmware',

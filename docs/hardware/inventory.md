@@ -4,6 +4,10 @@ Update status as parts arrive and are tested.
 
 Current software: `0.7.2-AUDIO-DIAG`. TESTED entries describe historical observations. The user reports distorted/uncomfortably loud audio at V10; GAIN wire removed. Follow [experiment 009](../experiments/009-speaker-distortion.md). No speaker/amplifier defect is proven; this is a failed subsystem regression.
 
+Latest observation (2026-10-10): encoder V0 is silent, enabling sound is still very loud, GAIN unconnected. See [GAIN research / experiment 012](../experiments/012-gain-volume-research.md). Speaker manufacturer/model and exact amplifier-board identity remain unknown; nominal 4 ohm / 3 W alone is insufficient to identify a speaker datasheet.
+
+User-reported amplifier marking: `MAX98357A I2S MONO AMP`, `VIN 2.5-5.V`, `DEFAULT GAIN 9DB`, `L+R / 2 OUT`. Module is marked for I2S with 9 dB default gain and stereo-average mono output; manufacturer/photo and speaker model remain unavailable. This is identification evidence, not a new audio pass.
+
 Status values: `ORDERED`, `RECEIVED`, `TESTED`, `INSTALLED`, `FAILED`.
 
 | Component | Qty | Status | Notes |

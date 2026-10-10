@@ -6,6 +6,8 @@ Reconciled on 2026-10-10 against `config.h`, the drivers and recorded milestones
 
 Firmware: `0.7.2-AUDIO-DIAG`. RECORDED PASS refers to historical milestones. Current audio revalidation failed; use [experiment 009](../experiments/009-speaker-distortion.md) before combined regression/P5. Physical pin numbers and actual module markings take precedence over historical breadboard coordinates.
 
+Current volume investigation is [experiment 012](../experiments/012-gain-volume-research.md): GAIN remains unconnected, encoder V0 is silent, nonzero output is too loud. No new GPIO/wiring assignment is made.
+
 This global GPIO allocation satisfies all peripherals for the Celestial Engine staff:
 - OLED (I2C)
 - Rotary encoder (A/B/SW)

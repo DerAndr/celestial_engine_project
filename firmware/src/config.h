@@ -9,15 +9,15 @@
  * ========================================================================== */
 
 /* Project Metadata */
-#define FIRMWARE_VERSION       "0.7.2-AUDIO-DIAG"
+#define FIRMWARE_VERSION       "0.8.0-AUDIO-RESTORE"
 #define PROJECT_NAME           "Celestial Engine Mk.V"
 
-/* Audio fault isolation: boot muted, no automatic startup sounds. */
-#define AUDIO_DIAGNOSTIC_BOOT   1
-#define AUDIO_DEFAULT_VOLUME   0
-#define AUDIO_I2S_SLOT_BITS    32
-#define AUDIO_PCM16_PEAK       8000.0f  // Digital ceiling in equivalent 16-bit units (-12 dBFS headroom, clean, safe acoustic volume).
-#define AUDIO_CONTINUOUS_CLOCKS 1     // Continuous clean I2S bit/word clocks; eliminates clock-stop DC bias, PLL unlock and desync.
+/* Audio Configuration: Standard 16-bit I2S Stereo with Hardware Power-Down */
+#define AUDIO_DIAGNOSTIC_BOOT   0        // Boot with gentle startup chime and announcement
+#define AUDIO_DEFAULT_VOLUME   10       // Default 10% gentle whisper/quiet volume
+#define AUDIO_I2S_SLOT_BITS    16       // Standard 16-bit stereo I2S (32 BCLKs per frame)
+#define AUDIO_PCM16_PEAK       2400.0f  // Comfortable digital ceiling (~ -22.7 dBFS, max 21 mW @ 4 ohms)
+#define AUDIO_CONTINUOUS_CLOCKS 0       // Stop BCLK during silence (>80 ms) for true amplifier shutdown (<0.6 uA)
 
 /* OLED Display (SH1106 I2C) */
 #define PIN_OLED_SDA           2   // GP2 (Pin 4) -> I2C1

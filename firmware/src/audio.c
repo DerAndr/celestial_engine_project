@@ -10,13 +10,13 @@
 #include <math.h>
 
 #define AUDIO_SAMPLE_RATE     16000
-#define AUDIO_BUFFER_SAMPLES  512   // 512 samples = 32 ms per buffer
-#define AUDIO_BUFFER_WORDS    (AUDIO_BUFFER_SAMPLES * 2)
-#define AUDIO_DMA_RING_BITS   12 // 4096-byte read ring per channel.
+#define AUDIO_BUFFER_SAMPLES  1024   // 1024 samples = 64 ms per buffer
+#define AUDIO_BUFFER_WORDS    AUDIO_BUFFER_SAMPLES // 1 x 32-bit word per stereo frame (16-bit L + 16-bit R)
+#define AUDIO_DMA_RING_BITS   12 // 4096-byte read ring per channel (1024 words * 4 bytes).
 _Static_assert(AUDIO_BUFFER_WORDS * sizeof(uint32_t) == (1u << AUDIO_DMA_RING_BITS),
                "DMA read ring must exactly cover one audio buffer");
-#if AUDIO_I2S_SLOT_BITS != 32
-#error "audio_i2s.pio and the PCM buffer layout require 32-bit channel slots"
+#if AUDIO_I2S_SLOT_BITS != 16
+#error "audio_i2s.pio and the PCM buffer layout require 16-bit channel slots"
 #endif
 
 static PIO audio_pio = pio1;
@@ -386,8 +386,8 @@ static int active_cosmic_sfx = -1;
 static size_t cosmic_sfx_step = 0;
 static absolute_time_t next_cosmic_sfx_step;
 
-// Perceptual digital gain with acoustic rolloff for high frequencies.
-// Diagnostic sine uses pure quadratic scaling for exact V10/V5 ratio == 4.0.
+// Digital gain with heuristic high-note rolloff; actual speaker response is unmeasured.
+// Diagnostic sine uses quadratic scaling to isolate gain from musical shaping.
 static float calculate_amplitude(float freq_hz) {
     if (master_volume_percent == 0 || freq_hz <= 0.0f) {
         return 0.0f;
@@ -396,18 +396,16 @@ static float calculate_amplitude(float freq_hz) {
     float vol_norm = (float)master_volume_percent / 100.0f;
 
     if (diagnostic_sine) {
-        // Pure quadratic curve for diagnostic test compliance (guarantees V10/V5 RMS == 4.000)
+        // The diagnostic gain is independent of musical shaping.
         return (vol_norm * vol_norm) * AUDIO_PCM16_PEAK;
     }
 
-    // Perceptual musical volume curve:
-    // Blend a gentle linear component with quadratic scaling so that 1% is a true whisper-quiet
-    // minimum (amplitude ~5 in 16-bit PCM), 5-10% is pleasant soft background music,
-    // and higher volumes scale cleanly up to the digital ceiling without speaker distortion.
+    // Existing musical gain curve. A digital percentage does not establish
+    // acoustic comfort or absence of distortion on the actual assembly.
     float vol_curve = 0.05f * vol_norm + 0.95f * (vol_norm * vol_norm);
     float base_amp = vol_curve * AUDIO_PCM16_PEAK;
 
-    // Equalization curve: higher notes get rolled off to match speaker sensitivity
+    // Heuristic rolloff; not a measured equalization of this speaker.
     float f_comp = 1.0f;
     if (freq_hz > 250.0f) {
         f_comp = powf(250.0f / freq_hz, 0.70f);
@@ -416,19 +414,17 @@ static float calculate_amplitude(float freq_hz) {
     return base_amp * f_comp;
 }
 
-// count is FIFO words: two 32-bit channel words per mono sample/frame.
+// count is FIFO words: one 32-bit word per stereo frame (16-bit L + 16-bit R).
 static void fill_audio_buffer(uint32_t *buf, size_t count) {
     float phase_step = (current_freq > 0.0f) ? (current_freq * 2.0f * 3.14159265f / (float)AUDIO_SAMPLE_RATE) : 0.0f;
     const uint32_t RAMP_SAMPLES = 192; // 12 ms smooth raised-cosine fade-in/fade-out
 
-    // Keep fractions until the final 24-bit quantization. At V10 the old
-    // 16-bit truncation reduced a complete voice to only seven levels.
     float vol_norm = (float)master_volume_percent / 100.0f;
     float vol_curve = vol_norm * vol_norm;
     float voice_gain = vol_curve * (AUDIO_PCM16_PEAK / 120.0f);
     uint32_t buffer_peak = 0;
 
-    for (size_t i = 0; i + 1 < count; i += 2) {
+    for (size_t i = 0; i < count; i++) {
         float mixed_sample = 0.0f;
 
 
@@ -480,14 +476,11 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
         // Bound even simultaneous tone + voice to the configured digital ceiling.
         if (mixed_sample > AUDIO_PCM16_PEAK) mixed_sample = AUDIO_PCM16_PEAK;
         if (mixed_sample < -AUDIO_PCM16_PEAK) mixed_sample = -AUDIO_PCM16_PEAK;
-        int32_t pcm24 = (int32_t)lroundf(mixed_sample * 256.0f);
-        uint32_t magnitude = (uint32_t)(pcm24 < 0 ? -pcm24 : pcm24);
+        int16_t s16 = (int16_t)lroundf(mixed_sample);
+        uint32_t magnitude = (uint32_t)(s16 < 0 ? -s16 : s16);
         if (magnitude > buffer_peak) buffer_peak = magnitude;
-        // Signed 24-bit PCM in the high bits of each 32-bit I2S slot.
-        // Unsigned shift preserves negative samples without signed-shift UB.
-        uint32_t word = (uint32_t)pcm24 << 8;
-        buf[i] = word;
-        buf[i + 1] = word;
+        // 16-bit stereo frame packed: Left channel in MSW (bits 31..16), Right channel in LSW (bits 15..0)
+        buf[i] = ((uint32_t)(uint16_t)s16 << 16) | (uint32_t)(uint16_t)s16;
     }
     if (buffer_peak > playback_peak_pcm24) playback_peak_pcm24 = buffer_peak;
 }
@@ -911,8 +904,8 @@ void audio_print_diagnostics(void) {
     bool dma_b_busy = dma_channel_is_busy(dma_chan_b);
     bool stall_pending = (audio_pio->fdebug & (1u << (PIO_FDEBUG_TXSTALL_LSB + audio_sm))) != 0;
     restore_interrupts(save);
-    LOG_INFO("AUDIO", "FW:%s | 16kHz / 32-bit slots / PCM24 | Vol:%u%% | peak24:%lu | refill_max_us:%lu | tx_stalls:%lu",
-             FIRMWARE_VERSION, (unsigned)audio_get_volume(), (unsigned long)peak,
+    LOG_INFO("AUDIO", "FW:%s | limit16:%u | 16kHz / 16-bit slots / PCM16 | Vol:%u%% | peak16:%lu | refill_max_us:%lu | tx_stalls:%lu",
+             FIRMWARE_VERSION, (unsigned)AUDIO_PCM16_PEAK, (unsigned)audio_get_volume(), (unsigned long)peak,
              (unsigned long)refill_us, (unsigned long)stalls);
     LOG_INFO("AUDIO", "DMA A/B busy:%u/%u | restarts:%lu | late_refills:%lu | stall_pending:%u",
              (unsigned)dma_a_busy, (unsigned)dma_b_busy, (unsigned long)restarts,

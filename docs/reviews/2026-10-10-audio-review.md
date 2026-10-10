@@ -2,6 +2,8 @@
 
 The user reports badly distorted, excessively loud audio at V10 on all sounds, with GAIN disconnected. This overrides the earlier recorded comfort/pass claim. Current hardware status: unresolved audio fault. Software target: `0.7.2-AUDIO-DIAG`.
 
+Latest follow-up: encoder V0 is silent but enabling sound remains too loud. The current source ceiling has since changed from this report's 400 to 8000, with a different musical gain curve and unchanged version string. Use [experiment 012](../experiments/012-gain-volume-research.md); old level measurements below remain historical.
+
 ## Findings and corrections
 
 | Priority | Finding | Evidence / correction |

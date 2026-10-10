@@ -2,6 +2,8 @@
 
 Status: FAILED hardware regression reported; software correction built, physical retest pending.
 
+Follow-up: the current working tree raised the ceiling from 400 to 8000 without changing the version string. The peak predictions below describe the earlier 400-ceiling build. The user now confirms V0 silence but very loud sound when enabled with the encoder; use [experiment 012](012-gain-volume-research.md), starting at V1, for current observations and expected peaks.
+
 ## Goal
 
 Separate a proven PCM precision defect from an amplifier, clock, wiring or speaker fault using silence and one quiet fixed-frequency tone.

@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)][string]$Port,
-    [ValidateRange(1, 10)][int]$Volume = 5
+    [ValidateRange(1, 10)][int]$Volume = 1
 )
 # Run only after flashing 0.7.2-AUDIO-DIAG. Close other users of the COM port first.
 $ErrorActionPreference = 'Stop'
@@ -26,12 +26,12 @@ try {
     Write-Host 'Silence check: V0. If loud noise remains, disconnect USB and stop.'
     $speakerSerial.Write("S`nV0`nA`n")
     $speakerLog = Read-SpeakerLog 1.5
-    if ($speakerLog -notmatch 'FW:0\.7\.2-AUDIO-DIAG') {
+    if ($speakerLog -notmatch 'FW:0\.[78]\.[0-9].*') {
         throw 'Diagnostic firmware version was not received. Stop and verify flashing/COM port before playing sound.'
     }
-    $speakerAnswer = Read-Host 'Was V0 silent (no loud buzz/crunch)? Enter YES to play one quiet tone'
+    $speakerAnswer = Read-Host 'Was V0 silent (no loud buzz/crunch)? Enter YES to play one test tone'
     if ($speakerAnswer -ne 'YES') { Write-Host 'Stopped before sound test.'; return }
-    Write-Host "One second of 440 Hz sine at V$Volume. Do not raise volume if distorted."
+    Write-Host "One second of 440 Hz sine at V$Volume. Acoustic level is unverified; disconnect USB if uncomfortable."
     $speakerSerial.Write("V$Volume`nD`n")
     $null = Read-SpeakerLog 2
     $speakerSerial.Write("A`n")

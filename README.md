@@ -10,6 +10,8 @@ Start here:
 
 Current firmware is **0.7.2-AUDIO-DIAG**. The user reports distorted, overly loud audio at V10 with GAIN disconnected. The diagnostic build starts muted at V0, with no startup sounds; PCM precision and fixed-frequency volume preview are corrected. See the [audio review](docs/reviews/2026-10-10-audio-review.md) and [speaker test](docs/experiments/009-speaker-distortion.md).
 
+Latest: encoder V0 is silent, but enabling sound is still too loud. The current source ceiling is 8000 (earlier diagnostics used 400). Follow [GAIN research / experiment 012](docs/experiments/012-gain-volume-research.md), starting with V1; previous V5 peak expectations and comfort claims do not apply to this build.
+
 **P7 audio revalidation is failing; P5 is blocked.** P0–P4, P6 and P7 retain historical passes; P8 integration remains partial. Resolve the audio fault before further hardware integration.
 
 The [2026-10-10 code review](docs/reviews/2026-10-10-code-review.md) records software fixes and remaining limitations. The [regression experiment](docs/experiments/007-code-review-regression.md) contains the hardware test to run before further integration.
