@@ -16,6 +16,7 @@ static int64_t absolute_time_diff_us(absolute_time_t a, absolute_time_t b) { ret
 static absolute_time_t delayed_by_ms(absolute_time_t t, uint32_t ms) { return t + (int64_t)ms*1000; }
 static uint32_t save_and_disable_interrupts(void) { return interrupt_depth++; }
 static void restore_interrupts(uint32_t n) { interrupt_depth = n; }
+#define __compiler_memory_barrier() do {} while (0)
 #define GPIO_IN 0
 #define GPIO_OUT 1
 #define GPIO_FUNC_I2C 2
@@ -52,13 +53,14 @@ static void pio_sm_claim(PIO p, uint sm) { (void)p; (void)sm; }
 static void pio_sm_restart(PIO p, uint sm) { (void)p; (void)sm; }
 static void pio_sm_clkdiv_restart(PIO p, uint sm) { (void)p; (void)sm; }
 static void pio_sm_clear_fifos(PIO p, uint sm) { (void)p; (void)sm; }
+static void pio_sm_set_pins_with_mask(PIO p, uint sm, uint32_t values, uint32_t mask) { (void)p; (void)sm; for(uint i=0;i<32;i++) if(mask & (1u<<i)) test_gpio[i]=(values & (1u<<i)) != 0; }
 static void pio_sm_exec(PIO p, uint sm, uint instr) { (void)p; (void)sm; (void)instr; }
 static uint pio_encode_jmp(uint addr) { return addr; }
 static void dma_channel_abort(uint ch) { (void)ch; }
 static void pio_sm_set_enabled(PIO p, uint sm, bool enabled) { test_sm_enabled[p-test_pios][sm] = enabled; }
 static void pio_sm_set_clkdiv(PIO p, uint sm, float div) { (void)p; (void)sm; (void)div; }
 static void pio_gpio_init(PIO p, uint pin) { (void)p; (void)pin; }
-static uint pio_get_dreq(PIO p, uint sm, bool tx) { (void)p; (void)sm; (void)tx; return 0; }
+static uint pio_get_dreq(PIO p, uint sm, bool tx) { return (uint)(p-test_pios)*8 + sm + (tx ? 0 : 4); }
 static void pio_sm_put(PIO p, uint sm, uint32_t data) {
     (void)p; (void)sm; (void)data;
     if (test_fifo_count < 8) { test_fifo_count++; accepted_pixels++; }
@@ -73,7 +75,9 @@ static bool pio_sm_is_tx_fifo_empty(PIO p, uint sm) {
     return true;
 }
 static void tight_loop_contents(void) {}
+static uint64_t test_last_sleep_us;
 static void sleep_us(uint64_t us) {
+    test_last_sleep_us = us;
     test_now += us;
     uint consumed = (uint)(us/30);
     test_fifo_count = consumed < test_fifo_count ? test_fifo_count-consumed : 0;
@@ -87,30 +91,50 @@ static void sleep_ms(uint32_t ms) {
 }
 static void stdio_init_all(void) {}
 static const int audio_i2s_program, mic_i2s_program, ws2812_program;
+static const uint audio_i2s_offset_entry_point = 0;
 static void audio_i2s_program_init(PIO p, uint sm, uint o, uint d, uint c) { (void)p; (void)sm; (void)o; (void)d; (void)c; }
 static void mic_i2s_program_init(PIO p, uint sm, uint o, uint d, uint c) { (void)p; (void)sm; (void)o; (void)d; (void)c; }
 static void ws2812_program_init(PIO p, uint sm, uint o, uint pin, float freq, bool rgbw) { (void)p; (void)sm; (void)o; (void)pin; (void)freq; (void)rgbw; }
 #define clk_sys 0
 static uint32_t clock_get_hz(int clk) { (void)clk; return 150000000; }
-typedef struct { bool ring_write; uint ring_bits; } dma_channel_config;
-typedef struct { uintptr_t write_addr; uint32_t transfer_count; } test_dma_hw_t;
+typedef struct { bool ring_write; uint ring_bits; uint size, dreq; bool read_increment, write_increment, high_priority; } dma_channel_config;
+typedef struct { uintptr_t write_addr; uint32_t transfer_count; uint32_t ctrl_trig, al1_ctrl; } test_dma_hw_t;
+#define DMA_CH0_CTRL_TRIG_EN_BITS 1u
+static void hw_clear_bits(volatile uint32_t *p, uint32_t mask) { *p &= ~mask; }
+static void hw_set_bits(volatile uint32_t *p, uint32_t mask) { *p |= mask; }
 static test_dma_hw_t test_dma_hw[16];
 static void (*test_dma_cursor_hook)(void);
 static int next_dma;
 static bool test_force_dma_idle;
 static uint32_t test_dma_busy_mask = UINT32_MAX;
 static dma_channel_config test_dma_configs[16];
+static const volatile uint32_t *test_dma_read_ptrs[16];
+static uint32_t test_dma_words[256];
+static uint test_dma_word_count, test_dma_wait_count;
+static uint test_dma_last_channel;
 static uint32_t test_dma_irq_flags, test_dma_start_count;
 static int dma_claim_unused_channel(bool required) { (void)required; return next_dma++; }
 static dma_channel_config dma_channel_get_default_config(uint channel) { (void)channel; dma_channel_config c = {0}; return c; }
 #define DMA_SIZE_32 2
-static void channel_config_set_transfer_data_size(dma_channel_config *c, uint size) { (void)c; (void)size; }
-static void channel_config_set_read_increment(dma_channel_config *c, bool b) { (void)c; (void)b; }
-static void channel_config_set_write_increment(dma_channel_config *c, bool b) { (void)c; (void)b; }
-static void channel_config_set_dreq(dma_channel_config *c, uint d) { (void)c; (void)d; }
+static void channel_config_set_transfer_data_size(dma_channel_config *c, uint size) { c->size = size; }
+static void channel_config_set_read_increment(dma_channel_config *c, bool b) { c->read_increment = b; }
+static void channel_config_set_write_increment(dma_channel_config *c, bool b) { c->write_increment = b; }
+static void channel_config_set_dreq(dma_channel_config *c, uint d) { c->dreq = d; }
+static void channel_config_set_high_priority(dma_channel_config *c, bool b) { c->high_priority = b; }
 static void channel_config_set_chain_to(dma_channel_config *c, uint d) { (void)c; (void)d; }
 static void channel_config_set_ring(dma_channel_config *c, bool w, uint n) { c->ring_write = w; c->ring_bits = n; }
-static void dma_channel_configure(uint ch, const dma_channel_config *c, volatile void *w, const volatile void *r, uint32_t n, bool start) { (void)r; (void)start; test_dma_configs[ch] = *c; test_dma_hw[ch].write_addr = (uintptr_t)w; test_dma_hw[ch].transfer_count = n; }
+static void dma_channel_configure(uint ch, const dma_channel_config *c, volatile void *w, const volatile void *r, uint32_t n, bool start) { test_dma_configs[ch] = *c; test_dma_read_ptrs[ch] = r; test_dma_hw[ch].write_addr = (uintptr_t)w; test_dma_hw[ch].transfer_count = n; if (start) test_dma_start_count++; }
+static void dma_channel_wait_for_finish_blocking(uint ch) {
+    test_dma_last_channel = ch;
+    test_dma_wait_count++;
+    test_dma_word_count = test_dma_hw[ch].transfer_count;
+    if (test_dma_word_count > 256 || test_dma_hw[ch].write_addr != (uintptr_t)&pio0->txf[1]) abort();
+    for (uint i = 0; i < test_dma_word_count; ++i) {
+        test_dma_words[i] = test_dma_read_ptrs[ch][i];
+        pio_sm_put_blocking(pio0, 1, test_dma_words[i]);
+    }
+    test_dma_hw[ch].transfer_count = 0;
+}
 static void dma_channel_set_irq0_enabled(uint ch, bool enabled) { (void)ch; (void)enabled; }
 static bool dma_channel_get_irq0_status(uint ch) { return (test_dma_irq_flags & (1u << ch)) != 0; }
 static void dma_channel_acknowledge_irq0(uint ch) { test_dma_irq_flags &= ~(1u << ch); }

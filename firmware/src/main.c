@@ -472,13 +472,25 @@ int main(void) {
 
     LOG_INFO("SYS", "Initializing WS2812 LED core (GP15=DATA, PIO0 SM1)...");
     leds_init();
+#if CELESTIAL_FOUR_RINGS
+    LOG_INFO("LED", "FOUR-RING DMA: frames:%u (base:%u + tail:%u) | brightness_cap:%u%% | reset:%uus | boot RGB:%ums/color | address mapping unverified",
+             (unsigned)LED_RING_COUNT, (unsigned)LED_BASE_CHAIN_COUNT,
+             (unsigned)LED_EXPERIMENT_TAIL_FRAMES, (unsigned)LED_BRIGHTNESS_LIMIT,
+             (unsigned)LED_RESET_US, (unsigned)LED_BOOT_COLOR_MS);
+#if CELESTIAL_RING_EXPERIMENT
+    LOG_INFO("LED", "DIAGNOSTIC: RAINBOW spare holds pure R/G/B for %ums each; other effects unchanged",
+             (unsigned)LED_DIAG_COLOR_MS);
+#endif
+#endif
 
-    bool boot_voice_pending = !AUDIO_DIAGNOSTIC_BOOT;
+    bool boot_voice_pending = AUDIO_STARTUP_SOUNDS && !AUDIO_DIAGNOSTIC_BOOT;
     if (AUDIO_DIAGNOSTIC_BOOT) {
         LOG_INFO("AUDIO", "Diagnostic boot: muted, continuous I2S, startup sounds disabled. V5 then D for a 1s sine; A for stats; S to stop.");
-    } else {
+    } else if (AUDIO_STARTUP_SOUNDS) {
         LOG_INFO("SYS", "Celestial Engine Online! Playing harmonic chime and voice announcement.");
         audio_play_chime();
+    } else {
+        LOG_INFO("SYS", "Celestial Engine Online! Silent startup; use VOLUME to enable audio.");
     }
 
     uint32_t tick_count = 0;
@@ -856,12 +868,23 @@ int main(void) {
                 boot_voice_pending = false;
                 LOG_INFO("AUDIO", "Diagnostic 440 Hz sine, 1 second at %u%%", (unsigned)audio_get_volume());
                 audio_play_diagnostic_tone();
+            } else if (cmd_c == 'U' || cmd_c == 'u' || cmd_c == 'N' || cmd_c == 'n') {
+                boot_voice_pending = false;
+                int polarity = (cmd_c == 'U' || cmd_c == 'u') ? 1 : -1;
+                LOG_INFO("AUDIO", "Polarity test: 440 Hz, 1 s, %s samples only, at %u%%",
+                         polarity > 0 ? "POSITIVE" : "NEGATIVE", (unsigned)audio_get_volume());
+                audio_play_polarity_tone(polarity);
             } else if (cmd_c == 'A' || cmd_c == 'a') {
                 audio_print_diagnostics();
+            } else if (cmd_c == 'E' || cmd_c == 'e') {
+                bool a, b, sw;
+                encoder_get_raw_pins(&a, &b, &sw);
+                printf("[ENCODER] GP6(A):%d GP7(B):%d GP8(SW):%d | pos:%ld | mode:[%s] | vol_edit:%d\n",
+                       a, b, sw, (long)encoder_get_position(), MODE_NAMES[current_mode_idx], volume_edit_mode);
             } else if (cmd_c == '?' || cmd_c == 'h' || cmd_c == 'H') {
                 printf("[HELP] Available serial commands:\n");
                 printf("  B     - Reboot into BOOTSEL flash mode\n");
-                printf("  V<n>  - Set master volume to n%% (e.g. V10)\n");
+                printf("  V<n>  - Set master volume to n%% (e.g. V3)\n");
                 printf("  T     - Play celestial harmonic chime\n");
                 printf("  M     - Play 8-bit chiptune track\n");
                 printf("  C     - Play Cosmic Sci-Fi SFX demo\n");
@@ -869,7 +892,9 @@ int main(void) {
                 printf("  P     - Play voice announcement\n");
                 printf("  S     - Stop all audio playback\n");
                 printf("  D     - Play fixed 440 Hz diagnostic sine for 1 second\n");
+                printf("  U / N - 1 s 440 Hz with only positive / only negative samples\n");
                 printf("  A     - Print audio PCM / DMA / FIFO diagnostics\n");
+                printf("  E     - Print encoder pins / rotation status\n");
             }
             cmd_c = getchar_timeout_us(0);
         }

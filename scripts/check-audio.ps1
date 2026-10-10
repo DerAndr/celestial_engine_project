@@ -1,7 +1,9 @@
-# Compile and run a small native C check against the real audio generator.
+# Compile a native C check against the actual firmware sources.
+param([switch]$RingExperiment, [switch]$RingDiagnostic)
+if ($RingDiagnostic) { $RingExperiment = $true }
 $ErrorActionPreference = 'Stop'
 $audioRoot = Split-Path -Parent $PSScriptRoot
-$audioBuild = Join-Path $audioRoot 'firmware/build/audio-check'
+$audioBuild = Join-Path $audioRoot $(if ($RingExperiment) { 'firmware/build/ring-check' } else { 'firmware/build/audio-check' })
 $audioInclude = Join-Path $audioBuild 'include'
 $vswherePath = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
 if (-not (Test-Path -LiteralPath $vswherePath)) { throw 'Installed Visual Studio C Build Tools are required.' }
@@ -26,7 +28,11 @@ try {
     }
     Push-Location $audioBuild
     try {
-        & cl.exe /nologo /std:c11 /O2 "/I$audioInclude" "/I$(Join-Path $audioRoot 'tests')" "/I$(Join-Path $audioRoot 'firmware/src')" (Join-Path $audioRoot 'tests/audio_signal_check.c') /Fe:audio_signal_check.exe /Fo:audio_signal_check.obj
+        $checkSource = if ($RingExperiment) { 'tests/ring_experiment_check.c' } else { 'tests/audio_signal_check.c' }
+        $checkDefines = @()
+        if ($RingExperiment) { $checkDefines += '/DCELESTIAL_FOUR_RINGS=1' }
+        if ($RingDiagnostic) { $checkDefines += '/DCELESTIAL_RING_EXPERIMENT=1' }
+        & cl.exe /nologo /std:c11 /O2 @checkDefines "/I$audioInclude" "/I$(Join-Path $audioRoot 'tests')" "/I$(Join-Path $audioRoot 'firmware/src')" (Join-Path $audioRoot $checkSource) /Fe:audio_signal_check.exe /Fo:audio_signal_check.obj
         if ($LASTEXITCODE -ne 0) { throw 'C audio check did not compile.' }
         & .\audio_signal_check.exe
         if ($LASTEXITCODE -ne 0) { throw 'C audio signal check failed.' }

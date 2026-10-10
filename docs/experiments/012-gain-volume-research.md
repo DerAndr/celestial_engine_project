@@ -2,6 +2,8 @@
 
 Date: 2026-10-10. Status: AUDIO REVALIDATION FAILED; next isolated test pending.
 
+**Historical procedure; superseded by [experiment 013](013-speaker-isolated-probe.md).** Normal application is now 0.8.0-AUDIO-RESTORE, 16-bit I2S, ceiling 2400 with startup sounds. The 8000/PCM24 predictions below do not apply. ERR-AUDIO-02/03 remain OPEN; QUARKZMAN speaker identity is now recorded. Use the separate speaker_probe UF2 and its single U test, not this V1 procedure.
+
 ## Goal
 
 Determine whether the persistent loud output comes from digital gain, audio framing or the actual amplifier/speaker assembly, without speculative rewiring.

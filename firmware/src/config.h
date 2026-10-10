@@ -9,15 +9,34 @@
  * ========================================================================== */
 
 /* Project Metadata */
-#define FIRMWARE_VERSION       "0.8.0-AUDIO-RESTORE"
+#ifndef CELESTIAL_FOUR_RINGS
+#define CELESTIAL_FOUR_RINGS 0
+#endif
+#ifndef CELESTIAL_RING_EXPERIMENT
+#define CELESTIAL_RING_EXPERIMENT 0
+#endif
+#if CELESTIAL_RING_EXPERIMENT
+#define FIRMWARE_VERSION       "1.0.10-RING-DIAGNOSTIC"
+#elif CELESTIAL_FOUR_RINGS
+#define FIRMWARE_VERSION       "1.0.10-FOUR-RINGS"
+#else
+#define FIRMWARE_VERSION       "1.0.5-AUDIO-GAIN"
+#endif
 #define PROJECT_NAME           "Celestial Engine Mk.V"
 
-/* Audio Configuration: Standard 16-bit I2S Stereo with Hardware Power-Down */
-#define AUDIO_DIAGNOSTIC_BOOT   0        // Boot with gentle startup chime and announcement
-#define AUDIO_DEFAULT_VOLUME   10       // Default 10% gentle whisper/quiet volume
-#define AUDIO_I2S_SLOT_BITS    16       // Standard 16-bit stereo I2S (32 BCLKs per frame)
-#define AUDIO_PCM16_PEAK       2400.0f  // Comfortable digital ceiling (~ -22.7 dBFS, max 21 mW @ 4 ohms)
-#define AUDIO_CONTINUOUS_CLOCKS 0       // Stop BCLK during silence (>80 ms) for true amplifier shutdown (<0.6 uA)
+/* Audio Configuration: Official Raspberry Pi 16-bit I2S Stereo with Hardware Sleep */
+#define AUDIO_DIAGNOSTIC_BOOT   0        // Normal application UI and peripherals.
+#if CELESTIAL_FOUR_RINGS
+#define AUDIO_STARTUP_SOUNDS    0        // Retain the current four-ring build's quiet startup.
+#define AUDIO_DEFAULT_VOLUME    0
+#else
+#define AUDIO_STARTUP_SOUNDS    1        // Play gentle startup chime and announcement at boot.
+#define AUDIO_DEFAULT_VOLUME    10       // Startup and encoder share the same gain: V10 is -36.36 dB below ceiling.
+#endif
+#define AUDIO_VOLUME_RANGE_DB   40.0f    // V1..V100: -40..0 dB; V0 is exact mute (experiment 018).
+#define AUDIO_I2S_SLOT_BITS     16       // Standard 16-bit stereo I2S (32 BCLKs per frame, 512 kHz).
+#define AUDIO_PCM16_PEAK        14400.0f // +1.58 dB from 12000; digital ceiling, not measured power.
+#define AUDIO_CONTINUOUS_CLOCKS 0        // Stop BCLK during silence (>80 ms) for total amplifier shutdown (<0.6 uA).
 
 /* OLED Display (SH1106 I2C) */
 #define PIN_OLED_SDA           2   // GP2 (Pin 4) -> I2C1
@@ -27,6 +46,7 @@
 #define OLED_I2C_BAUDRATE      400000
 
 /* Rotary Encoder (Bourns PEC11R) */
+#define ENCODER_TRANSITIONS_PER_STEP 4 // PEC11R-4225F-S0024: one full quadrature cycle per detent.
 #define PIN_ENCODER_A          6   // GP6 (Pin 9)
 #define PIN_ENCODER_B          7   // GP7 (Pin 10)
 #define PIN_ENCODER_SW         8   // GP8 (Pin 11)
@@ -41,9 +61,21 @@
 
 /* WS2812 LED Core (via SN74AHCT125N Level Shifter) */
 #define PIN_WS2812_DATA        15  // GP15 (Pin 20)
-#define TOTAL_LED_COUNT        43  // 7 (Core) + 12 (Inner) + 24 (Outer) = 43 LEDs
-#define LED_RING_COUNT         43  // Active 3-ring concentric array
+#define LED_BASE_CHAIN_COUNT   43  // Verified chain: 7 (Core) + 12 (Inner) + 24 (Outer).
+#if CELESTIAL_FOUR_RINGS
+// Reserve all 16 tail slots; the common-DI jumper has unverified address consumption.
+#define LED_EXPERIMENT_TAIL_FRAMES 16
+#define LED_RING_COUNT         (LED_BASE_CHAIN_COUNT + LED_EXPERIMENT_TAIL_FRAMES)
+#define LED_BRIGHTNESS_LIMIT   4   // Low-brightness, removable fourth-ring experiment.
+#define LED_RESET_US           300 // Conservative inter-frame latch for mixed ring revisions.
+#define LED_BOOT_COLOR_MS      2000 // Red, green, blue on all 59 slots before normal effects.
+#define LED_DIAG_COLOR_MS      5000 // Experimental RAINBOW: static pure RGB on spare, five seconds each.
+#else
+#define LED_RING_COUNT         LED_BASE_CHAIN_COUNT
 #define LED_BRIGHTNESS_LIMIT   18  // Percent cap for the current USB-powered prototype.
+#define LED_RESET_US           80
+#endif
+#define TOTAL_LED_COUNT        LED_RING_COUNT
 
 /* MAX98357A Mono Amplifier (I2S Output) */
 #define PIN_SPK_BCLK           16  // GP16 (Pin 21)

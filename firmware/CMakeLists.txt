@@ -37,6 +37,7 @@ add_executable(celestial_firmware
     src/leds.c
     src/voice_data.c
 )
+target_compile_definitions(celestial_firmware PRIVATE CELESTIAL_FOUR_RINGS=1)
 
 pico_generate_pio_header(celestial_firmware ${CMAKE_CURRENT_LIST_DIR}/src/audio_i2s.pio)
 pico_generate_pio_header(celestial_firmware ${CMAKE_CURRENT_LIST_DIR}/src/mic_i2s.pio)
@@ -67,3 +68,33 @@ pico_enable_stdio_uart(celestial_firmware 0)
 
 # Generate UF2, HEX, and BIN outputs
 pico_add_extra_outputs(celestial_firmware)
+
+# Main output now matches the current four-ring wiring. Keep a separately named
+# diagnostic build: only the spare's RAINBOW output becomes static pure RGB.
+get_target_property(CELESTIAL_APP_SOURCES celestial_firmware SOURCES)
+add_executable(celestial_ring_experiment ${CELESTIAL_APP_SOURCES})
+target_compile_definitions(celestial_ring_experiment PRIVATE CELESTIAL_FOUR_RINGS=1 CELESTIAL_RING_EXPERIMENT=1)
+foreach(pio_source audio_i2s mic_i2s ws2812)
+    pico_generate_pio_header(celestial_ring_experiment ${CMAKE_CURRENT_LIST_DIR}/src/${pio_source}.pio)
+endforeach()
+target_include_directories(celestial_ring_experiment PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
+target_compile_options(celestial_ring_experiment PRIVATE -Wall -Wextra)
+target_link_libraries(celestial_ring_experiment
+    pico_stdlib
+    pico_cyw43_arch_lwip_threadsafe_background
+    hardware_gpio hardware_i2c hardware_pio hardware_dma hardware_clocks
+    pico_bootrom m
+)
+pico_enable_stdio_usb(celestial_ring_experiment 1)
+pico_enable_stdio_uart(celestial_ring_experiment 0)
+pico_add_extra_outputs(celestial_ring_experiment)
+
+# Isolate the failed audio milestone; the normal application target stays separate.
+add_executable(speaker_probe src/speaker_probe.c)
+pico_generate_pio_header(speaker_probe ${CMAKE_CURRENT_LIST_DIR}/src/audio_i2s.pio)
+target_include_directories(speaker_probe PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
+target_compile_options(speaker_probe PRIVATE -Wall -Wextra)
+target_link_libraries(speaker_probe pico_stdlib hardware_pio hardware_dma hardware_clocks m)
+pico_enable_stdio_usb(speaker_probe 1)
+pico_enable_stdio_uart(speaker_probe 0)
+pico_add_extra_outputs(speaker_probe)

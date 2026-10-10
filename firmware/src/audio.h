@@ -20,7 +20,7 @@ void audio_init(void);
 
 /**
  * Play a synthesized tone (frequency in Hz, duration in milliseconds).
- * Applies quadratic digital gain, heuristic high-note attenuation and a soft envelope.
+ * Applies a soft envelope and the same master gain as voice playback.
  */
 void audio_play_tone(float freq_hz, uint32_t duration_ms);
 
@@ -97,6 +97,8 @@ bool audio_is_cosmic_sfx_playing(void);
 
 /* Fault-isolation controls: fixed 440 Hz sine, stop all sources, IRQ/FIFO stats. */
 void audio_play_diagnostic_tone(void);
+/* 1 s 440 Hz at current volume; polarity > 0: all samples >= 0, < 0: all samples <= 0. */
+void audio_play_polarity_tone(int polarity);
 void audio_stop_all(void);
 void audio_print_diagnostics(void);
 

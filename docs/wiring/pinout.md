@@ -1,12 +1,14 @@
 # Master Pinout — Celestial Engine Mk.V
 
-**Status: GPIO allocation matches firmware; P5 full-array wiring remains unverified.**
+**Status: GPIO allocation matches firmware; all four rings respond. Repaired-ring address mapping and white flashes remain unresolved.**
 
-Reconciled on 2026-10-10 against `config.h`, the drivers and recorded milestones in `PROJECT.md`. This is a documentation correction, not a new physical test.
+Reconciled through the 2026-10-11 checkpoint against `config.h`, the drivers and user observations in `PROJECT.md`. This is a documentation correction, not a new physical test.
 
-Firmware: `0.7.2-AUDIO-DIAG`. RECORDED PASS refers to historical milestones. Current audio revalidation failed; use [experiment 009](../experiments/009-speaker-distortion.md) before combined regression/P5. Physical pin numbers and actual module markings take precedence over historical breadboard coordinates.
+Current main: `1.0.10-FOUR-RINGS`, built but awaiting physical validation; earlier working audio `1.0.5-AUDIO-GAIN` is archived. Both use 16-bit stereo I2S, 512 kHz BCLK and 16 kHz LRC during playback. User solder repair resolved ERR-AUDIO-02/03; see [experiment 017](../experiments/017-audio-solder-repair-level.md). All GPIO/wiring assignments are preserved. Physical pin numbers and actual module markings take precedence over historical breadboard coordinates.
 
-Current volume investigation is [experiment 012](../experiments/012-gain-volume-research.md): GAIN remains unconnected, encoder V0 is silent, nonzero output is too loud. No new GPIO/wiring assignment is made.
+User solder repair resolved the audio fault. [Experiment 018](../experiments/018-volume-consistent-gain.md) fixes boot/control gain consistency and raises startup V10 by +3.64 dB with the same maximum. GAIN remains unconnected. ONE QUARKZMAN 4-ohm / 3-W speaker is between OUT+/OUT−, neither wire to GND. No GPIO/wiring assignment changes.
+
+Spare 16-LED ring: existing **7→12→24→spare** serial wiring is retained. Spare DIN from 24-ring DO, spare DO free, removable +5 V/GND from the same rails. The common-DI→faulty DOUT bypass still leaves the old faulty output attached ([019](../experiments/019-ring-single-pixel-repair.md)); address mapping/output isolation remain unresolved. [022](../experiments/022-ring-dma-firmware.md) is the passed 1.0.7 baseline. [025](../experiments/025-main-build-and-ring-backgrounds.md): main 1.0.10-FOUR-RINGS uses the standard celestial_firmware.uf2 name; separate celestial_ring_experiment.uf2 holds pure RGB on the spare in RAINBOW. Both retain PIO0 SM1, dynamic DMA, 59 reserved slots, 300 µs reset and 4% cap. Main removes the spare backgrounds in PULSAR/VOICE/VORTEX; visual voice order remains 7→12→16→24. No GPIO or physical ring order changes. White flashes remain unresolved and new physical observation is pending.
 
 This global GPIO allocation satisfies all peripherals for the Celestial Engine staff:
 - OLED (I2C)
@@ -36,7 +38,7 @@ This global GPIO allocation satisfies all peripherals for the Celestial Engine s
 | **INMP441 WS** (LRCK) | WS | Pin 15 | GP11 (PIO0 SM0) | 3.3 V logic (I2S RX word select) | RECORDED PASS (P6) |
 | **INMP441 SD** (Data) | SD | Pin 16 | GP12 (PIO0 SM0) | 3.3 V logic (I2S data into Pico) | RECORDED PASS (P6) |
 | **GND** | GND | Pin 18 | GND | Common Ground | SYSTEM |
-| **WS2812 Data** | AHCT125 1A / verified direct core DIN | Pin 20 | GP15 (PIO0 SM1) | 3.3 V GPIO; level-shift before full-array integration | CORE TESTED (P4); P5 PENDING |
+| **WS2812 Data** | AHCT125 1A / verified direct core DIN | Pin 20 | GP15 (PIO0 SM1) | 3.3 V GPIO; actual shifter wiring remains unverified | FOUR-RING RESPONSE CONFIRMED; EFFECTS PARTIAL |
 | **MAX98357A BCLK** | BCLK | Pin 21 | GP16 (PIO1 SM0) | 3.3 V logic (I2S TX bit clock) | RECORDED PASS (P7) |
 | **MAX98357A LRC** | LRC | Pin 22 | GP17 (PIO1 SM0) | 3.3 V logic (I2S TX word select) | RECORDED PASS (P7) |
 | **GND** | GND | Pin 23 | GND | Common Ground | SYSTEM |
@@ -53,8 +55,8 @@ This global GPIO allocation satisfies all peripherals for the Celestial Engine s
 | **VBUS (5V USB)** | 5V Rail | Pin 40 | VBUS | 5.0 V USB supply (Amp / Level Shifter) | SYSTEM |
 
 ## RP2350 Audio Architecture Notes
-1. **Clock Domain Separation**: Microphone metering and speaker playback both run at 16 kHz with separate PIO state machines and GPIO clocks (GP10/11 vs GP16/17). Output now carries signed PCM24 in 32-bit stereo slots: BCLK 1.024 MHz, LRCLK 16 kHz. Diagnostic mode keeps silent frames running. Future TTS transport is not implemented.
+1. **Clock Domain Separation**: Microphone metering and speaker playback both run at 16 kHz with separate PIO state machines and GPIO clocks (GP10/11 vs GP16/17). Output carries signed PCM16 in 16-bit stereo slots: BCLK 512 kHz, LRCLK 16 kHz. Normal playback stops clocks after idle. Future TTS transport is not implemented.
 2. **PIO allocation**: Mic is PIO0 SM0; LEDs are PIO0 SM1; speaker is PIO1 SM0. Pico SDK 2.3.1's CYW43 allocator searches from PIO2 and claims a free state machine. Do not move LEDs onto the documented former PIO2 SM0 assignment without checking wireless resource ownership.
 3. **Level Shifting**: The SN74AHCT125N provides the planned reliable 3.3 V -> 5 V LED data path. The direct core-ring smoke test is recorded as passed; shifter/full-array validation is separate. Never connect 5 V directly to any Pico GPIO.
-4. **Current configured array**: The active array is configured for 43 pixels across 3 concentric rings (7 + 12 + 24), with the defective 16-LED ring removed from the daisy chain. Maximum brightness is enforced at 18% in firmware (`LED_BRIGHTNESS_LIMIT = 18`). Using the 60 mA/LED model, worst-case full white at 18% is ~464 mA, and typical animated colors draw 140–190 mA, well within safe USB limits.
-5. **Amplifier GAIN**: Left unconnected (default internal 9 dB gain). Idle sleep mode after 80 ms drops BCLK to shut down the amplifier during silence and prevent heating.
+4. **Current configured array**: Physical chain is 7→12→24→repaired 16-position ring, with 59 reserved serial slots and a 4% brightness cap. The user bypassed one failed LED with a common-DIN→failed-DOUT jumper; its original output remains attached and one position stays dark. All four rings respond, but exact repaired-ring addressing and individual white flashes remain unresolved. Final current and power validation is pending. Full four-ring lighting is a priority in [tasks](../tasks.md).
+5. **Amplifier GAIN**: Left unconnected (default internal 9 dB gain). The normal application stops I2S clocks after idle; physical current, heating and acoustic behavior have not been measured. The isolated probe starts silent and stops clocks after one bounded transfer.

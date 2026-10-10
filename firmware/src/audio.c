@@ -10,9 +10,9 @@
 #include <math.h>
 
 #define AUDIO_SAMPLE_RATE     16000
-#define AUDIO_BUFFER_SAMPLES  1024   // 1024 samples = 64 ms per buffer
-#define AUDIO_BUFFER_WORDS    AUDIO_BUFFER_SAMPLES // 1 x 32-bit word per stereo frame (16-bit L + 16-bit R)
-#define AUDIO_DMA_RING_BITS   12 // 4096-byte read ring per channel (1024 words * 4 bytes).
+#define AUDIO_BUFFER_SAMPLES  512    // 32 ms per buffer
+#define AUDIO_BUFFER_WORDS    AUDIO_BUFFER_SAMPLES // One 32-bit word per stereo frame (16-bit L + 16-bit R)
+#define AUDIO_DMA_RING_BITS   11 // 2048-byte read ring per channel (512 words * 4 bytes)
 _Static_assert(AUDIO_BUFFER_WORDS * sizeof(uint32_t) == (1u << AUDIO_DMA_RING_BITS),
                "DMA read ring must exactly cover one audio buffer");
 #if AUDIO_I2S_SLOT_BITS != 16
@@ -31,7 +31,14 @@ _Alignas(1u << AUDIO_DMA_RING_BITS) static uint32_t buf_b[AUDIO_BUFFER_WORDS];
 
 // Percentage controls digital gain. Acoustic level must be verified on the actual assembly.
 static volatile uint8_t master_volume_percent = AUDIO_DEFAULT_VOLUME;
+static volatile float master_gain = 0.0f;
+static bool amp_is_sleeping = true;
+static absolute_time_t silence_since;
+static void amp_sleep(void);
+static void amp_wake(void);
 static volatile bool diagnostic_sine = false;
+// Fault isolation (exp. 016): 0 = normal signed sine, +1 = samples >= 0 only, -1 = samples <= 0 only.
+static volatile int diagnostic_polarity = 0;
 static volatile uint32_t max_refill_us = 0;
 static volatile uint32_t tx_stall_observations = 0;
 static volatile uint32_t dma_restarts = 0;
@@ -386,42 +393,26 @@ static int active_cosmic_sfx = -1;
 static size_t cosmic_sfx_step = 0;
 static absolute_time_t next_cosmic_sfx_step;
 
-// Digital gain with heuristic high-note rolloff; actual speaker response is unmeasured.
-// Diagnostic sine uses quadratic scaling to isolate gain from musical shaping.
+// All sources receive the same final gain. Frequency does not change volume.
 static float calculate_amplitude(float freq_hz) {
-    if (master_volume_percent == 0 || freq_hz <= 0.0f) {
-        return 0.0f;
-    }
-
-    float vol_norm = (float)master_volume_percent / 100.0f;
-
-    if (diagnostic_sine) {
-        // The diagnostic gain is independent of musical shaping.
-        return (vol_norm * vol_norm) * AUDIO_PCM16_PEAK;
-    }
-
-    // Existing musical gain curve. A digital percentage does not establish
-    // acoustic comfort or absence of distortion on the actual assembly.
-    float vol_curve = 0.05f * vol_norm + 0.95f * (vol_norm * vol_norm);
-    float base_amp = vol_curve * AUDIO_PCM16_PEAK;
-
-    // Heuristic rolloff; not a measured equalization of this speaker.
-    float f_comp = 1.0f;
-    if (freq_hz > 250.0f) {
-        f_comp = powf(250.0f / freq_hz, 0.70f);
-    }
-
-    return base_amp * f_comp;
+    return freq_hz > 0.0f ? AUDIO_PCM16_PEAK : 0.0f;
 }
 
-// count is FIFO words: one 32-bit word per stereo frame (16-bit L + 16-bit R).
+// Use the same curve at boot and when any control changes volume.
+static float calculate_volume_gain(uint8_t volume_percent) {
+    if (volume_percent == 0) return 0.0f;
+    if (volume_percent > 100) volume_percent = 100;
+    float db = -AUDIO_VOLUME_RANGE_DB * (float)(100 - volume_percent) / 99.0f;
+    return powf(10.0f, db / 20.0f);
+}
+
+// count is FIFO words: one 32-bit word per stereo frame (16-bit L in MSW, 16-bit R in LSW).
 static void fill_audio_buffer(uint32_t *buf, size_t count) {
     float phase_step = (current_freq > 0.0f) ? (current_freq * 2.0f * 3.14159265f / (float)AUDIO_SAMPLE_RATE) : 0.0f;
     const uint32_t RAMP_SAMPLES = 192; // 12 ms smooth raised-cosine fade-in/fade-out
 
-    float vol_norm = (float)master_volume_percent / 100.0f;
-    float vol_curve = vol_norm * vol_norm;
-    float voice_gain = vol_curve * (AUDIO_PCM16_PEAK / 120.0f);
+    float gain = master_gain;
+    float voice_gain = AUDIO_PCM16_PEAK / 128.0f;
     uint32_t buffer_peak = 0;
 
     for (size_t i = 0; i < count; i++) {
@@ -449,6 +440,10 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
             float s1 = sinf(current_phase);
             float warm_wave = diagnostic_sine ? s1 :
                 0.85f * s1 + 0.15f * sinf(current_phase * 2.0f);
+            if (diagnostic_sine && diagnostic_polarity != 0) {
+                // Same peak magnitude, but never crosses zero: isolates sign-bit decoding.
+                warm_wave = (0.5f + 0.5f * s1) * (float)diagnostic_polarity;
+            }
 
             float val = warm_wave * (current_amplitude * env);
             mixed_sample += val;
@@ -476,17 +471,17 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
         // Bound even simultaneous tone + voice to the configured digital ceiling.
         if (mixed_sample > AUDIO_PCM16_PEAK) mixed_sample = AUDIO_PCM16_PEAK;
         if (mixed_sample < -AUDIO_PCM16_PEAK) mixed_sample = -AUDIO_PCM16_PEAK;
-        int16_t s16 = (int16_t)lroundf(mixed_sample);
+        int16_t s16 = (int16_t)lroundf(mixed_sample * gain);
         uint32_t magnitude = (uint32_t)(s16 < 0 ? -s16 : s16);
         if (magnitude > buffer_peak) buffer_peak = magnitude;
-        // 16-bit stereo frame packed: Left channel in MSW (bits 31..16), Right channel in LSW (bits 15..0)
+        // Official 16-bit stereo frame format: Left in bits 31..16, Right in bits 15..0
         buf[i] = ((uint32_t)(uint16_t)s16 << 16) | (uint32_t)(uint16_t)s16;
     }
     if (buffer_peak > playback_peak_pcm24) playback_peak_pcm24 = buffer_peak;
 }
 
 static void refill_completed_buffer(int channel, int peer, uint32_t *buf) {
-    // A late IRQ may arrive close to the next handoff. Allow at least 16 ms
+    // A late IRQ may arrive close to the next handoff. Allow at least 8 ms
     // before starting synthesis; actual refill time must be measured below it.
     if (dma_channel_is_busy(channel) ||
         (dma_channel_is_busy(peer) &&
@@ -500,6 +495,11 @@ static void refill_completed_buffer(int channel, int peer, uint32_t *buf) {
 
 // Hardware DMA IRQ handler for continuous double buffering.
 static void audio_dma_irq_handler(void) {
+    if (amp_is_sleeping) {
+        dma_channel_acknowledge_irq0(dma_chan_a);
+        dma_channel_acknowledge_irq0(dma_chan_b);
+        return;
+    }
     absolute_time_t refill_start = get_absolute_time();
     uint32_t stall_bit = 1u << (PIO_FDEBUG_TXSTALL_LSB + audio_sm);
     if (dma_debug_started && (audio_pio->fdebug & stall_bit)) tx_stall_observations++;
@@ -525,10 +525,13 @@ static void audio_dma_irq_handler(void) {
 }
 
 void audio_init(void) {
+    master_volume_percent = AUDIO_DEFAULT_VOLUME;
+    master_gain = calculate_volume_gain(AUDIO_DEFAULT_VOLUME);
+    amp_is_sleeping = false;
     audio_offset = pio_add_program(audio_pio, &audio_i2s_program);
     audio_i2s_program_init(audio_pio, audio_sm, audio_offset, PIN_SPK_DIN, PIN_SPK_BCLK);
 
-    float pio_clock = (float)(AUDIO_SAMPLE_RATE * AUDIO_I2S_SLOT_BITS * 2 * 2);
+    float pio_clock = (float)(AUDIO_SAMPLE_RATE * 32 * 2);
     float div = (float)clock_get_hz(clk_sys) / pio_clock;
     pio_sm_set_clkdiv(audio_pio, audio_sm, div);
 
@@ -582,16 +585,18 @@ void audio_init(void) {
     irq_set_exclusive_handler(DMA_IRQ_0, audio_dma_irq_handler);
     irq_set_enabled(DMA_IRQ_0, true);
 
-    // Enable PIO and start continuous double-buffered DMA stream
-    pio_sm_set_enabled(audio_pio, audio_sm, true);
-    dma_channel_start(dma_chan_a);
+    // Stay stopped until the user starts playback. No stale buffer on boot.
+    amp_sleep();
 }
 
 void audio_set_volume(uint8_t volume_percent) {
     if (volume_percent > 100) volume_percent = 100;
+    float gain = calculate_volume_gain(volume_percent);
     uint32_t save = save_and_disable_interrupts();
     master_volume_percent = volume_percent;
-    current_amplitude = calculate_amplitude(current_freq);
+    master_gain = gain;
+    if (volume_percent == 0 && dma_chan_a >= 0 && dma_chan_b >= 0) amp_sleep();
+    else if (volume_percent > 0 && audio_is_playing()) amp_wake();
     restore_interrupts(save);
 }
 
@@ -599,56 +604,67 @@ uint8_t audio_get_volume(void) {
     return master_volume_percent;
 }
 
-static bool amp_is_sleeping = false;
-static absolute_time_t silence_since;
-
 static void amp_wake(void) {
     silence_since = get_absolute_time();
-    if (amp_is_sleeping) {
-        pio_gpio_init(audio_pio, PIN_SPK_BCLK);
-        pio_gpio_init(audio_pio, PIN_SPK_LRC);
-        pio_gpio_init(audio_pio, PIN_SPK_DIN);
-
+    if (amp_is_sleeping && master_volume_percent > 0) {
         // Fully reset PIO state machine to start at instruction 0 on a clean frame boundary
         pio_sm_set_enabled(audio_pio, audio_sm, false);
         pio_sm_restart(audio_pio, audio_sm);
         pio_sm_clkdiv_restart(audio_pio, audio_sm);
         pio_sm_clear_fifos(audio_pio, audio_sm);
-        pio_sm_exec(audio_pio, audio_sm, pio_encode_jmp(audio_offset));
+        pio_sm_exec(audio_pio, audio_sm, pio_encode_jmp(audio_offset + audio_i2s_offset_entry_point));
 
-        // Restart DMA ping-pong streaming synchronously
-        dma_channel_abort(dma_chan_a);
-        dma_channel_abort(dma_chan_b);
+        // amp_sleep() already stopped both channels and cleared old PCM.
         dma_channel_set_read_addr(dma_chan_a, buf_a, false);
         dma_channel_set_trans_count(dma_chan_a, AUDIO_BUFFER_WORDS, false);
         dma_channel_set_read_addr(dma_chan_b, buf_b, false);
         dma_channel_set_trans_count(dma_chan_b, AUDIO_BUFFER_WORDS, false);
 
-        pio_sm_set_enabled(audio_pio, audio_sm, true);
-        dma_channel_start(dma_chan_a);
+        dma_channel_acknowledge_irq0(dma_chan_a);
+        dma_channel_acknowledge_irq0(dma_chan_b);
+        // AL1_CTRL changes EN without triggering both channels simultaneously.
+        hw_set_bits(&dma_channel_hw_addr(dma_chan_a)->al1_ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
+        hw_set_bits(&dma_channel_hw_addr(dma_chan_b)->al1_ctrl, DMA_CH0_CTRL_TRIG_EN_BITS);
+        dma_channel_set_irq0_enabled(dma_chan_a, true);
+        dma_channel_set_irq0_enabled(dma_chan_b, true);
         amp_is_sleeping = false;
+        dma_debug_started = false;
+        dma_channel_start(dma_chan_a); // Prime FIFO before enabling BCLK.
+        pio_sm_set_enabled(audio_pio, audio_sm, true);
     }
 }
 
 static void amp_sleep(void) {
-    if (!amp_is_sleeping && !AUDIO_CONTINUOUS_CLOCKS) {
+    uint32_t save = save_and_disable_interrupts();
+    if (!amp_is_sleeping) {
         pio_sm_set_enabled(audio_pio, audio_sm, false);
-        gpio_init(PIN_SPK_BCLK);
-        gpio_set_dir(PIN_SPK_BCLK, GPIO_OUT);
-        gpio_put(PIN_SPK_BCLK, 0);
+        dma_channel_set_irq0_enabled(dma_chan_a, false);
+        dma_channel_set_irq0_enabled(dma_chan_b, false);
+        // RP2350-E5: clear EN on BOTH chained channels before aborting either.
+        hw_clear_bits(&dma_channel_hw_addr(dma_chan_a)->ctrl_trig, DMA_CH0_CTRL_TRIG_EN_BITS);
+        hw_clear_bits(&dma_channel_hw_addr(dma_chan_b)->ctrl_trig, DMA_CH0_CTRL_TRIG_EN_BITS);
+        dma_channel_abort(dma_chan_a);
+        dma_channel_abort(dma_chan_b);
+        dma_channel_acknowledge_irq0(dma_chan_a);
+        dma_channel_acknowledge_irq0(dma_chan_b);
+        pio_sm_clear_fifos(audio_pio, audio_sm);
+        uint32_t pins = (1u << PIN_SPK_BCLK) | (1u << PIN_SPK_LRC) | (1u << PIN_SPK_DIN);
+        pio_sm_set_pins_with_mask(audio_pio, audio_sm, 0, pins);
         amp_is_sleeping = true;
     }
+    for (size_t i = 0; i < AUDIO_BUFFER_WORDS; ++i) buf_a[i] = buf_b[i] = 0;
+    restore_interrupts(save);
 }
 
 void audio_play_tone(float freq_hz, uint32_t duration_ms) {
     uint32_t save = save_and_disable_interrupts();
-    amp_wake();
     diagnostic_sine = false;
     playback_peak_pcm24 = 0;
     current_freq = freq_hz;
     current_amplitude = calculate_amplitude(freq_hz);
     total_note_samples = (AUDIO_SAMPLE_RATE * duration_ms) / 1000;
     samples_played = 0;
+    amp_wake();
     restore_interrupts(save);
 }
 
@@ -669,11 +685,11 @@ void audio_play_voice(voice_phrase_id_t phrase_id) {
     const voice_clip_t *clip = voice_get_clip(phrase_id);
     if (clip != NULL && clip->samples != NULL && clip->sample_count > 0) {
         uint32_t save = save_and_disable_interrupts();
-        amp_wake();
         playback_peak_pcm24 = 0;
         active_voice_clip = clip;
         voice_sample_idx = 0;
         voice_active = true;
+        amp_wake();
         restore_interrupts(save);
     }
 }
@@ -875,21 +891,31 @@ void audio_stop_all(void) {
     audio_stop_cosmic_sfx();
     audio_stop_voice();
     diagnostic_sine = false;
+    diagnostic_polarity = 0;
     playback_peak_pcm24 = 0;
+    amp_sleep();
+    restore_interrupts(save);
+}
+
+void audio_play_polarity_tone(int polarity) {
+    audio_play_diagnostic_tone();
+    uint32_t save = save_and_disable_interrupts();
+    diagnostic_polarity = (polarity > 0) ? 1 : (polarity < 0 ? -1 : 0);
     restore_interrupts(save);
 }
 
 void audio_play_diagnostic_tone(void) {
     audio_stop_all();
     uint32_t save = save_and_disable_interrupts();
-    amp_wake();
     diagnostic_sine = true;
+    diagnostic_polarity = 0;
     playback_peak_pcm24 = 0;
     current_freq = 440.0f;
     current_amplitude = calculate_amplitude(current_freq);
     current_phase = 0.0f;
     total_note_samples = AUDIO_SAMPLE_RATE; // One second, with the normal soft envelope.
     samples_played = 0;
+    amp_wake();
     restore_interrupts(save);
 }
 
@@ -904,7 +930,7 @@ void audio_print_diagnostics(void) {
     bool dma_b_busy = dma_channel_is_busy(dma_chan_b);
     bool stall_pending = (audio_pio->fdebug & (1u << (PIO_FDEBUG_TXSTALL_LSB + audio_sm))) != 0;
     restore_interrupts(save);
-    LOG_INFO("AUDIO", "FW:%s | limit16:%u | 16kHz / 16-bit slots / PCM16 | Vol:%u%% | peak16:%lu | refill_max_us:%lu | tx_stalls:%lu",
+    LOG_INFO("AUDIO", "FW:%s | limit16:%u | 16kHz / 16-bit stereo I2S | Vol:%u%% | peak:%lu | refill_max_us:%lu | tx_stalls:%lu",
              FIRMWARE_VERSION, (unsigned)AUDIO_PCM16_PEAK, (unsigned)audio_get_volume(), (unsigned long)peak,
              (unsigned long)refill_us, (unsigned long)stalls);
     LOG_INFO("AUDIO", "DMA A/B busy:%u/%u | restarts:%lu | late_refills:%lu | stall_pending:%u",

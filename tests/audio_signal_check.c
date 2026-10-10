@@ -1,6 +1,32 @@
 /* Native C check of the production PCM generator. No Python runner. */
 #include "firmware_harness.c"
+#define main isolated_probe_main
+#include "../firmware/src/speaker_probe.c"
+#undef main
 #undef printf
+
+static int check_isolated_probe(void) {
+    probe_play(true, 8);
+    if (probe_min != 0 || probe_max != 16) return 1;
+    for (size_t i = 0; i < PROBE_FRAMES + PROBE_TAIL; ++i) {
+        int16_t left = (int16_t)(probe_words[i] >> 16);
+        int16_t right = (int16_t)(probe_words[i] & 0xffff);
+        if (left != right || left < 0 || left > 16 || (i >= PROBE_FRAMES && left != 0)) return 1;
+    }
+    probe_play(false, 8);
+    if (probe_min != -8 || probe_max != 8) return 1;
+    for (size_t i = 0; i < PROBE_FRAMES + PROBE_TAIL; ++i) {
+        int16_t left = (int16_t)(probe_words[i] >> 16);
+        int16_t right = (int16_t)(probe_words[i] & 0xffff);
+        if (left != right || left < -8 || left > 8 || (i >= PROBE_FRAMES && left != 0)) return 1;
+    }
+    probe_play(true, 16);
+    if (probe_min != 0 || probe_max != 32) return 1;
+    probe_stop();
+    if (probe_active || test_gpio[PIN_SPK_BCLK] || test_gpio[PIN_SPK_LRC] || test_gpio[PIN_SPK_DIN]) return 1;
+    puts("Isolated probe: positive/bipolar signed packing, bounded levels, zero tail, stop pins PASS");
+    return 0;
+}
 
 static int32_t left_sample(const uint32_t *words, size_t frame) {
 #if defined(AUDIO_I2S_SLOT_BITS) && AUDIO_I2S_SLOT_BITS == 32
@@ -81,18 +107,37 @@ static double sine_rms(uint8_t volume) {
     return sqrt(squares / 320.0);
 }
 
+static int check_volume_faults(void) {
+    double low = sine_rms(1);
+    next_dma = 0; audio_init();
+    float boot_gain = master_gain;
+    audio_set_volume(AUDIO_DEFAULT_VOLUME);
+    bool same_gain = fabsf(master_gain - boot_gain) < 0.0000001f;
+    audio_set_volume(AUDIO_DEFAULT_VOLUME + 1);
+    bool rising_gain = master_gain > boot_gain;
+    for (size_t i = 0; i < AUDIO_BUFFER_WORDS; ++i) buf_a[i] = buf_b[i] = 123;
+    audio_set_volume(0);
+    bool muted = true;
+    for (size_t i = 0; i < AUDIO_BUFFER_WORDS; ++i) if (buf_a[i] || buf_b[i]) muted = false;
+    printf("V1 nonzero PCM: %s; V0 clears queued PCM: %s\n", low > 0 ? "OK" : "FAIL", muted ? "OK" : "FAIL");
+    printf("Boot/encoder gain equality: %s; first clockwise step louder: %s\n", same_gain ? "OK" : "FAIL", rising_gain ? "OK" : "FAIL");
+    return low > 0 && muted && same_gain && rising_gain ? 0 : 1;
+}
+
 static int check_diagnostic_controls(void) {
     double quiet = sine_rms(5), louder = sine_rms(10);
     double ratio = quiet > 0 ? louder / quiet : 0;
     audio_play_chime(); audio_play_voice(VOICE_ONLINE); audio_stop_all();
     bool stopped = !audio_is_playing();
-    printf("Diagnostic sine: V10/V5 RMS=%.3f (expected4); 512 frames; stop-all=%s\n",
-           ratio, stopped ? "OK" : "FAIL");
-    return fabs(ratio - 4.0) < 0.06 && stopped ? 0 : 1;
+    double expected = pow(10.0, (AUDIO_VOLUME_RANGE_DB * 5.0 / 99.0) / 20.0);
+    printf("Diagnostic sine: V10/V5 RMS=%.3f (expected%.3f); 512 frames; stop-all=%s\n",
+           ratio, expected, stopped ? "OK" : "FAIL");
+    return fabs(ratio - expected) < 0.01 && stopped ? 0 : 1;
 }
 
 static int check_late_dma_irq(void) {
     next_dma = 0; audio_init();
+    audio_set_volume(10); audio_play_tone(440, 1000);
     test_force_dma_idle = true;
     test_dma_irq_flags = (1u << dma_chan_a) | (1u << dma_chan_b);
     uint32_t starts_before = test_dma_start_count;
@@ -105,11 +150,12 @@ static int check_late_dma_irq(void) {
 
 static int check_dma_read_bounds(void) {
     next_dma = 0; audio_init();
-    bool bounded = test_dma_configs[dma_chan_a].ring_bits == 12 &&
-        test_dma_configs[dma_chan_b].ring_bits == 12 &&
+    bool bounded = test_dma_configs[dma_chan_a].ring_bits == AUDIO_DMA_RING_BITS &&
+        test_dma_configs[dma_chan_b].ring_bits == AUDIO_DMA_RING_BITS &&
         !test_dma_configs[dma_chan_a].ring_write && !test_dma_configs[dma_chan_b].ring_write &&
-        ((uintptr_t)buf_a & 4095u) == 0 && ((uintptr_t)buf_b & 4095u) == 0 &&
-        sizeof buf_a == 4096 && sizeof buf_b == 4096;
+        ((uintptr_t)buf_a & ((1u << AUDIO_DMA_RING_BITS) - 1)) == 0 && ((uintptr_t)buf_b & ((1u << AUDIO_DMA_RING_BITS) - 1)) == 0 &&
+        sizeof buf_a == (1u << AUDIO_DMA_RING_BITS) && sizeof buf_b == (1u << AUDIO_DMA_RING_BITS);
+    audio_set_volume(10);
     audio_play_diagnostic_tone();
     test_dma_busy_mask = 1u << dma_chan_a; // A has already been retriggered by B.
     test_dma_irq_flags = 1u << dma_chan_a;
@@ -117,7 +163,7 @@ static int check_dma_read_bounds(void) {
     audio_dma_irq_handler();
     bool active_not_refilled = samples_played == before;
     test_dma_busy_mask = 1u << dma_chan_b; // B is close to handing off to A.
-    test_dma_hw[dma_chan_b].transfer_count = 511;
+    test_dma_hw[dma_chan_b].transfer_count = AUDIO_BUFFER_WORDS / 2 - 1;
     test_dma_irq_flags = 1u << dma_chan_a;
     audio_dma_irq_handler();
     bool near_handoff_not_refilled = samples_played == before;
@@ -129,14 +175,17 @@ static int check_dma_read_bounds(void) {
 }
 
 int main(void) {
-    int failures = check_voice_resolution();
+    next_dma = 0; audio_init();
+    int failures = check_isolated_probe();
+    failures += check_voice_resolution();
     failures += check_mute_and_tone();
     failures += check_diagnostic_controls();
+    failures += check_volume_faults();
     failures += check_late_dma_irq();
     failures += check_dma_read_bounds();
     failures += main_boot_sequence_probe();
     failures += main_boot_announcement_probe();
-    printf("Configured boot mode: %s\n", AUDIO_DIAGNOSTIC_BOOT ? "muted; no automatic playback" : "chime then voice");
+    printf("Configured boot mode: %s\n", !AUDIO_STARTUP_SOUNDS ? "muted; no automatic playback" : "chime then voice");
     /* Reuse the existing C probes directly; no Python orchestration required. */
     int (*existing_probes[])(void) = {
         query_bounce_probe, query_boot_hold_probe, encoder_display_stall_probe,

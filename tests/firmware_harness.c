@@ -46,10 +46,23 @@ EXPORT int encoder_display_stall_probe(void) {
     // A complete cycle can happen while main is inside a 24 ms OLED write.
     test_gpio_transition(PIN_ENCODER_A,false);
     test_gpio_transition(PIN_ENCODER_B,false);
+    encoder_update();
+    if (encoder_get_delta() != 0) return 1; // A half cycle must not skip a menu item.
     test_gpio_transition(PIN_ENCODER_A,true);
     test_gpio_transition(PIN_ENCODER_B,true);
     encoder_update();
-    return encoder_get_delta() == 1 && encoder_get_position() == 1 ? 0 : 1;
+    if (encoder_get_delta() != 1 || encoder_get_position() != 1) return 2;
+    // Contact bounce returns to the same state without a full cycle.
+    test_gpio_transition(PIN_ENCODER_A,false);
+    test_gpio_transition(PIN_ENCODER_A,true);
+    encoder_update();
+    if (encoder_get_delta() != 0) return 3;
+    test_gpio_transition(PIN_ENCODER_B,false);
+    test_gpio_transition(PIN_ENCODER_A,false);
+    test_gpio_transition(PIN_ENCODER_B,true);
+    test_gpio_transition(PIN_ENCODER_A,true);
+    encoder_update();
+    return encoder_get_delta() == -1 && encoder_get_position() == 0 ? 0 : 4;
 }
 EXPORT int led_frames_probe(void) {
     test_now=0; test_fifo_count=accepted_pixels=0; leds_init();
@@ -77,6 +90,7 @@ EXPORT int oled_init_failure_probe(void) {
 }
 EXPORT int oled_scan_probe(void) { return sh1106_i2c_scan(i2c1) == 0x3c ? 0 : 1; }
 EXPORT int audio_short_wake_probe(void) {
+    audio_set_volume(10);
     test_now=2000000; amp_is_sleeping=true; silence_since=0;
     chime_index=-1; active_chiptune_track=-1; voice_active=false;
     audio_play_blip(); uint32_t scratch[512]; fill_audio_buffer(scratch,512);
@@ -177,7 +191,7 @@ EXPORT int main_boot_sequence_probe(void) {
     chime_index=-1; active_chiptune_track=-1; audio_set_volume(AUDIO_DEFAULT_VOLUME);
     if (!setjmp(main_exit)) firmware_main();
     main_scenario=0;
-    return (AUDIO_DIAGNOSTIC_BOOT ?
+    return ((AUDIO_DIAGNOSTIC_BOOT || !AUDIO_STARTUP_SOUNDS) ?
             (chime_index == -1 && !voice_active && audio_get_volume() == 0) :
             (chime_index == 0 && !voice_active)) ? 0 : 1;
 }
@@ -189,6 +203,6 @@ EXPORT int main_boot_announcement_probe(void) {
     volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=false;
     if (!setjmp(main_exit)) firmware_main();
     main_scenario=0;
-    if (AUDIO_DIAGNOSTIC_BOOT) return chime_index == -1 && !voice_active && audio_get_volume() == 0 ? 0 : 1;
+    if (AUDIO_DIAGNOSTIC_BOOT || !AUDIO_STARTUP_SOUNDS) return chime_index == -1 && !voice_active && audio_get_volume() == 0 ? 0 : 1;
     return chime_index == -1 && voice_active && active_voice_clip == voice_get_clip(VOICE_ONLINE) ? 0 : 1;
 }

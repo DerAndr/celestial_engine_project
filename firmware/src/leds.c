@@ -3,6 +3,9 @@
 #include "config.h"
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
+#if CELESTIAL_FOUR_RINGS
+#include "hardware/dma.h"
+#endif
 #include "pico/time.h"
 #include "ws2812.pio.h"
 #include <math.h>
@@ -22,6 +25,14 @@ static int base_color_idx = 0;
 static uint8_t pixels_r[LED_RING_COUNT];
 static uint8_t pixels_g[LED_RING_COUNT];
 static uint8_t pixels_b[LED_RING_COUNT];
+
+#if CELESTIAL_FOUR_RINGS
+static int led_dma_chan = -1;
+static dma_channel_config led_dma_config;
+static uint32_t led_tx_words[LED_RING_COUNT];
+static absolute_time_t led_boot_test_started;
+static int led_boot_test_phase = -1;
+#endif
 
 const led_color_t RAINBOW_COLORS[RAINBOW_COLOR_COUNT] = {
     { 255,   0,   0, "RED" },     // 0. Red
@@ -51,19 +62,37 @@ static inline uint32_t rgb_to_grb(uint8_t r, uint8_t g, uint8_t b) {
     return ((uint32_t)g_scaled << 16) | ((uint32_t)r_scaled << 8) | (uint32_t)b_scaled;
 }
 
+#if !CELESTIAL_FOUR_RINGS
 static inline void put_pixel(uint32_t pixel_grb) {
     pio_sm_put_blocking(led_pio, led_sm, pixel_grb << 8u);
 }
+#endif
 
 static void show_pixels(void) {
+#if CELESTIAL_FOUR_RINGS
+    // Finish packing the entire frame before starting PIO-paced DMA.
+    // CPU/USB/Wi-Fi/audio interrupts must not interrupt feeding the pixel stream.
+    for (int i = 0; i < LED_RING_COUNT; ++i) {
+        led_tx_words[i] = rgb_to_grb(pixels_r[i], pixels_g[i], pixels_b[i]) << 8u;
+    }
+    __compiler_memory_barrier();
+    dma_channel_configure(led_dma_chan, &led_dma_config,
+                          &led_pio->txf[led_sm], led_tx_words, LED_RING_COUNT, true);
+    dma_channel_wait_for_finish_blocking(led_dma_chan);
+#else
     for (int i = 0; i < LED_RING_COUNT; i++) {
         put_pixel(rgb_to_grb(pixels_r[i], pixels_g[i], pixels_b[i]));
     }
+#endif
     // FIFO empty can still leave one 24-bit pixel in the output shifter.
     while (!pio_sm_is_tx_fifo_empty(led_pio, led_sm)) {
         tight_loop_contents();
     }
-    sleep_us(30 + 80); // Last pixel at 800 kHz, then reset latch (>50 us).
+#if CELESTIAL_FOUR_RINGS
+    sleep_us(35 + LED_RESET_US); // Finish the last 30us word, then a >=300us low latch.
+#else
+    sleep_us(30 + LED_RESET_US);
+#endif
 }
 
 // Simple HSV to RGB converter (h: 0..359, s: 0..255, v: 0..255)
@@ -92,6 +121,16 @@ void leds_init(void) {
     led_offset = pio_add_program(led_pio, &ws2812_program);
     ws2812_program_init(led_pio, led_sm, led_offset, PIN_WS2812_DATA, 800000.0f, false);
 
+#if CELESTIAL_FOUR_RINGS
+    led_dma_chan = dma_claim_unused_channel(true);
+    led_dma_config = dma_channel_get_default_config(led_dma_chan);
+    channel_config_set_transfer_data_size(&led_dma_config, DMA_SIZE_32);
+    channel_config_set_read_increment(&led_dma_config, true);
+    channel_config_set_write_increment(&led_dma_config, false);
+    channel_config_set_dreq(&led_dma_config, pio_get_dreq(led_pio, led_sm, true));
+    channel_config_set_high_priority(&led_dma_config, true);
+#endif
+
     for (int i = 0; i < LED_RING_COUNT; i++) {
         pixels_r[i] = 0;
         pixels_g[i] = 0;
@@ -99,6 +138,10 @@ void leds_init(void) {
     }
     show_pixels();
     next_anim_time = get_absolute_time();
+#if CELESTIAL_FOUR_RINGS
+    led_boot_test_started = next_anim_time;
+    led_boot_test_phase = -1;
+#endif
 }
 
 void leds_set_pixel_rgb(int index, uint8_t r, uint8_t g, uint8_t b) {
@@ -388,8 +431,14 @@ static void render_voice_reactive(uint8_t mic_level_pct) {
     pixels_g[0] = (uint8_t)(40  + level * 215);
     pixels_b[0] = (uint8_t)(160 + (1.0f - level) * 95);
 
-    // Ring 0 (1..6): Lights up smoothly with low/medium voice (0..40%)
-    int r0_active = (int)(level * 2.5f * 6.0f);
+    // Voice progression is visual ring order, independent of serial wire order.
+#if CELESTIAL_FOUR_RINGS
+    float r0_progress = level / 0.3f; // 7-ring: 0..30%.
+#else
+    float r0_progress = level * 2.5f; // Original three-ring range: 0..40%.
+#endif
+    if (r0_progress > 1.0f) r0_progress = 1.0f;
+    int r0_active = (int)(r0_progress * 6.0f);
     for (int i = 1; i <= 6; i++) {
         if (i <= r0_active) {
             pixels_r[i] = (uint8_t)(level * 220);
@@ -400,8 +449,12 @@ static void render_voice_reactive(uint8_t mic_level_pct) {
         }
     }
 
-    // Ring 1 (7..18): Circular VU halo fills with medium/high voice (30..80%)
+    // Ring 1 (7..18): Circular VU halo.
+#if CELESTIAL_FOUR_RINGS
+    float r1_progress = (level > 0.25f) ? ((level - 0.25f) / 0.25f) : 0.0f; // 12-ring: 25..50%.
+#else
     float r1_progress = (level > 0.3f) ? ((level - 0.3f) / 0.5f) : 0.0f;
+#endif
     if (r1_progress > 1.0f) r1_progress = 1.0f;
     int r1_active = (int)(r1_progress * 12.0f);
     for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
@@ -415,8 +468,12 @@ static void render_voice_reactive(uint8_t mic_level_pct) {
         }
     }
 
-    // Ring 2 (19..42): Outer horizon bursts on loud peaks (>70%)
+    // The largest ring follows the spare (50..75%) in the four-ring VU.
+#if CELESTIAL_FOUR_RINGS
+    float r2_power = (level > 0.75f) ? ((level - 0.75f) / 0.25f) : 0.0f;
+#else
     float r2_power = (level > 0.7f) ? ((level - 0.7f) / 0.3f) : 0.0f;
+#endif
     for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
         if (r2_power > 0.05f) {
             pixels_r[i] = (uint8_t)(255 * r2_power);
@@ -489,6 +546,91 @@ static void render_chiptune_sync(uint32_t tick) {
     }
 }
 
+#if CELESTIAL_FOUR_RINGS
+// The spare's physical address mapping is provisional. Animate all reserved
+// slots, keeping its offset/count in config.h and the first three rings intact.
+static void render_spare_ring(uint32_t tick, int mode, uint8_t mic_level_pct, bool music_active) {
+#if CELESTIAL_RING_EXPERIMENT
+    // Diagnostic changes only RAINBOW on the spare. Stable, pure-channel
+    // frames let the user distinguish intentional colors from white corruption.
+    if (!music_active && (mode == LED_ANIM_RAINBOW || mode < 0 || mode >= LED_ANIM_COUNT)) {
+        int64_t elapsed = absolute_time_diff_us(led_boot_test_started, get_absolute_time()) -
+                          (int64_t)LED_BOOT_COLOR_MS * 3000;
+        int phase = elapsed > 0 ? (int)((elapsed / ((int64_t)LED_DIAG_COLOR_MS * 1000)) % 3) : 0;
+        for (int i = LED_BASE_CHAIN_COUNT; i < LED_RING_COUNT; ++i) {
+            pixels_r[i] = phase == 0 ? 180 : 0;
+            pixels_g[i] = phase == 1 ? 180 : 0;
+            pixels_b[i] = phase == 2 ? 180 : 0;
+        }
+        return;
+    }
+#endif
+    if (!music_active && (mode == LED_ANIM_BREATHE || mode == LED_ANIM_SNAKE ||
+                          mode == LED_ANIM_PLASMA || mode == LED_ANIM_STARS)) {
+        return; // These existing renderers already cover the entire frame.
+    }
+
+    const int count = LED_EXPERIMENT_TAIL_FRAMES;
+    const float tau = 6.2831853f;
+    float note_hz = music_active ? audio_get_current_note_freq() : 0.0f;
+    int note_hue = (int)((note_hz - 100.0f) * 0.35f);
+    if (note_hue < 0) note_hue = 0;
+    note_hue %= 360;
+    unsigned level = mic_level_pct > 100 ? 100 : mic_level_pct;
+
+    for (int i = 0; i < count; ++i) {
+        int slot = LED_BASE_CHAIN_COUNT + i;
+        unsigned angle_hue = (unsigned)(i * 360 / count);
+        float angle = tau * (float)i / (float)count;
+        float wave = 0.5f + 0.5f * sinf(angle - (float)(tick % 180) * tau / 180.0f);
+        uint16_t hue = (uint16_t)((tick * 4 + 150 + angle_hue) % 360);
+        // Constant, softer rainbow intensity: no traveling brightness surges.
+        uint8_t value = 180;
+        unsigned highlight = 0;
+
+        if (music_active) {
+            // Opposed note-colored comets; keep a blue halo during note rests.
+            int distance = ((int)((tick / 2) % count) - i + count) % count;
+            int opposite = (distance + count / 2) % count;
+            if (opposite < distance) distance = opposite;
+            hue = note_hz > 80.0f ? (uint16_t)((note_hue + angle_hue / 6) % 360) : 225;
+            value = note_hz > 80.0f ? (uint8_t)(distance < 5 ? 255 - distance * 40 : 45)
+                                          : (uint8_t)(35.0f + 35.0f * wave);
+            highlight = note_hz > 80.0f && distance == 0 ? 100 : 0;
+        } else if (mode == LED_ANIM_VORTEX) {
+            // Counter-rotating violet/cyan comet with a luminous falling tail.
+            int head = count - 1 - (int)((tick / 2) % count);
+            int distance = (i - head + count) % count;
+            hue = (uint16_t)((190 + angle_hue / 3 + tick / 3) % 360);
+            value = (uint8_t)(distance < 7 ? 255 - distance * 30 : 0);
+            highlight = distance == 0 ? 150 : 0;
+        } else if (mode == LED_ANIM_PULSAR) {
+            // The fourth wave follows the existing outward double heartbeat.
+            int phase = (int)(tick % 90);
+            int delay = i / 2;
+            bool pulse = (phase >= 18 + delay && phase < 24 + delay) ||
+                         (phase >= 44 + delay && phase < 50 + delay);
+            hue = (uint16_t)(270 + angle_hue / 6);
+            value = pulse ? 255 : 0;
+            highlight = pulse ? 100 : 0;
+        } else if (mode == LED_ANIM_VOICE) {
+            // 16-ring: 50..75%, between the 12-ring and largest 24-ring.
+            unsigned progress = level <= 50 ? 0 : level >= 75 ? 100 : (level - 50) * 4;
+            int filled = (int)(progress * (unsigned)count / 100);
+            bool lit = i < filled;
+            hue = lit ? (uint16_t)(190 - progress * 150 / 100 + angle_hue / 12) : 265;
+            value = lit ? (uint8_t)(100 + progress * 155 / 100) : 0;
+        }
+
+        uint8_t r, g, b;
+        hsv_to_rgb(hue, 235, value, &r, &g, &b);
+        pixels_r[slot] = (uint8_t)((r * (255 - highlight) + 255 * highlight) / 255);
+        pixels_g[slot] = (uint8_t)((g * (255 - highlight) + 255 * highlight) / 255);
+        pixels_b[slot] = (uint8_t)((b * (255 - highlight) + 255 * highlight) / 255);
+    }
+}
+#endif
+
 void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim_idx, uint8_t mic_level_pct) {
     // 33 Hz animation refresh rate (30 ms)
     if (absolute_time_diff_us(next_anim_time, get_absolute_time()) < 30000) {
@@ -497,6 +639,27 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
     next_anim_time = get_absolute_time();
     anim_tick++;
 
+#if CELESTIAL_FOUR_RINGS
+    int64_t boot_elapsed_us = absolute_time_diff_us(led_boot_test_started, get_absolute_time());
+    if (boot_elapsed_us >= 0 && boot_elapsed_us < (int64_t)LED_BOOT_COLOR_MS * 3000) {
+        int phase = (int)(boot_elapsed_us / ((int64_t)LED_BOOT_COLOR_MS * 1000));
+        if (phase != led_boot_test_phase) {
+            led_boot_test_phase = phase;
+            LOG_INFO("LED", "DMA boot color:%s | frames:%u | brightness:%u%%",
+                     phase == 0 ? "RED" : phase == 1 ? "GREEN" : "BLUE",
+                     (unsigned)LED_RING_COUNT, (unsigned)master_brightness);
+        }
+        leds_set_all_rgb(phase == 0 ? 255 : 0, phase == 1 ? 255 : 0, phase == 2 ? 255 : 0);
+        return;
+    }
+    if (led_boot_test_phase != 3) {
+        led_boot_test_phase = 3;
+        LOG_INFO("LED", "DMA boot RGB complete; four-ring effects active (per-pixel spare)");
+    }
+#endif
+
+    bool music_active = audio_is_chiptune_playing() || audio_is_cosmic_sfx_playing();
+    int current_mode = led_menu_active ? selected_anim_idx : active_anim_mode;
     if (easter_egg_active) {
         // Hyperspeed 67 easter egg rainbow vortex!
         uint16_t fast_hue = (anim_tick * 16) % 360;
@@ -504,12 +667,10 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
             uint16_t led_hue = (fast_hue + (i * 360 / LED_RING_COUNT)) % 360;
             hsv_to_rgb(led_hue, 255, 255, &pixels_r[i], &pixels_g[i], &pixels_b[i]);
         }
-    } else if (audio_is_chiptune_playing() || audio_is_cosmic_sfx_playing()) {
+    } else if (music_active) {
         // Active chiptune and cosmic SFX synchronization across all 3 rings!
         render_chiptune_sync(anim_tick);
     } else {
-        int current_mode = led_menu_active ? selected_anim_idx : active_anim_mode;
-
         switch (current_mode) {
             case LED_ANIM_BREATHE:
                 render_breathe(anim_tick);
@@ -541,5 +702,8 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
         }
     }
 
+#if CELESTIAL_FOUR_RINGS
+    if (!easter_egg_active) render_spare_ring(anim_tick, current_mode, mic_level_pct, music_active);
+#endif
     show_pixels();
 }

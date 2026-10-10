@@ -34,12 +34,12 @@ extern const led_color_t RAINBOW_COLORS[RAINBOW_COLOR_COUNT];
 void leds_init(void);
 
 /**
- * Set individual LED color (0..6).
+ * Set individual LED color (0..LED_RING_COUNT-1).
  */
 void leds_set_pixel_rgb(int index, uint8_t r, uint8_t g, uint8_t b);
 
 /**
- * Set all 7 LEDs to a specific RGB color (0..255).
+ * Set every configured LED slot to a specific RGB color (0..255).
  */
 void leds_set_all_rgb(uint8_t r, uint8_t g, uint8_t b);
 
@@ -74,7 +74,7 @@ const char* leds_get_rainbow_name(int color_idx);
 void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim_idx, uint8_t mic_level_pct);
 
 /**
- * Set brightness percent, clamped to LED_BRIGHTNESS_LIMIT (currently 18%).
+ * Set brightness percent, clamped to the configured LED_BRIGHTNESS_LIMIT.
  */
 void leds_set_brightness(uint8_t brightness_pct);
 

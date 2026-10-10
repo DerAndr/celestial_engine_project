@@ -5,8 +5,8 @@
 #include "pico/time.h"
 
 // State tracking for quadrature signals
-static uint8_t last_quad_state = 0;
-static int8_t sub_step_acc = 0;
+static volatile uint8_t last_quad_state = 0;
+static volatile int8_t sub_step_acc = 0;
 static volatile int32_t net_delta = 0;
 static volatile int32_t absolute_pos = 0;
 
@@ -61,10 +61,9 @@ void encoder_init(void) {
     gpio_set_irq_enabled(PIN_ENCODER_B, edges, true);
 }
 
-static void encoder_gpio_irq(uint gpio, uint32_t events) {
-    (void)events;
-    if (gpio != PIN_ENCODER_A && gpio != PIN_ENCODER_B) return;
-    uint32_t pins = gpio_get_all();
+// Called from IRQ, or from polling with interrupts disabled. Both paths must
+// sample/update the same state atomically; a stale polling snapshot can invent edges.
+static void encoder_decode_pins(uint32_t pins) {
     uint8_t a = (pins >> PIN_ENCODER_A) & 1u;
     uint8_t b = (pins >> PIN_ENCODER_B) & 1u;
     uint8_t curr_quad = (a << 1) | b;
@@ -72,15 +71,15 @@ static void encoder_gpio_irq(uint gpio, uint32_t events) {
     if (curr_quad != last_quad_state) {
         uint8_t index = (last_quad_state << 2) | curr_quad;
         int8_t step = quad_table[index];
+        if (step == 0) sub_step_acc = 0; // Both channels changed: discard an incomplete cycle.
         sub_step_acc += step;
 
-        // Threshold = 4: Bourns PEC11R-4225F (24 detent / 24 pulse) produces 4 quadrature
-        // transitions per mechanical click detent. Threshold = 4 prevents skipping/jumping.
-        if (sub_step_acc >= 4) {
+        // A half cycle must not produce a second menu step for one physical detent.
+        if (sub_step_acc >= ENCODER_TRANSITIONS_PER_STEP) {
             net_delta++;
             absolute_pos++;
             sub_step_acc = 0;
-        } else if (sub_step_acc <= -4) {
+        } else if (sub_step_acc <= -ENCODER_TRANSITIONS_PER_STEP) {
             net_delta--;
             absolute_pos--;
             sub_step_acc = 0;
@@ -90,7 +89,18 @@ static void encoder_gpio_irq(uint gpio, uint32_t events) {
     }
 }
 
+static void encoder_gpio_irq(uint gpio, uint32_t events) {
+    (void)events;
+    if (gpio != PIN_ENCODER_A && gpio != PIN_ENCODER_B) return;
+    encoder_decode_pins(gpio_get_all());
+}
+
 void encoder_update(void) {
+    // 1. Quadrature polling fallback in case GPIO interrupt missed
+    uint32_t save = save_and_disable_interrupts();
+    encoder_decode_pins(gpio_get_all());
+    restore_interrupts(save);
+
     // 2. Read switch with instant falling-edge detection and 100ms lockout debounce
     bool raw_sw = gpio_get(PIN_ENCODER_SW); // 0 when pressed, 1 when released
     if (!raw_sw && sw_prev_raw) {
