@@ -8,6 +8,8 @@
 #include "encoder.h"
 #include "query_button.h"
 #include "audio.h"
+#include "mic.h"
+#include "leds.h"
 #include "staff_state.h"
 
 #if __has_include("wifi_credentials.h")
@@ -23,6 +25,8 @@ typedef enum {
     MODE_SCANNER,
     MODE_CANDY_DETECTOR,
     MODE_VOLUME,
+    MODE_MIC_TEST,
+    MODE_LED_CORE,
     MODE_SYSTEM,
     MODE_COUNT
 } staff_mode_t;
@@ -33,6 +37,8 @@ static const char *MODE_NAMES[MODE_COUNT] = {
     "SCANNER",
     "CANDY DETECTOR",
     "VOLUME",
+    "MIC TEST",
+    "LED RAINBOW",
     "SYSTEM"
 };
 
@@ -43,6 +49,9 @@ static staff_state_t current_state = STATE_IDLE;
 static absolute_time_t state_timeout;
 
 static bool volume_edit_mode = false;
+static bool mic_test_mode = false;
+static bool led_edit_mode = false;
+static int active_rainbow_idx = 0;
 static bool easter_egg_active = false;
 static int32_t prev_encoder_pos = 0;
 static absolute_time_t click_feedback_until;
@@ -99,6 +108,13 @@ static void draw_listening_screen(uint32_t hold_ms, int mode_idx, bool anim_blin
              (unsigned long)((hold_ms % 1000) / 10));
     sh1106_draw_string_scaled(20, 37, timer_buf, 2, true);
 
+    // Live audio level bar during recording (y=49..52)
+    int mic_fill = (mic_get_level_percent() * 116) / 100;
+    sh1106_draw_rect(6, 48, 116, 4, true);
+    if (mic_fill > 0) {
+        sh1106_fill_rect(6, 48, mic_fill, 4, true);
+    }
+
     // Footer instruction
     sh1106_draw_line(2, 53, 125, 53, true);
     sh1106_draw_string(4, 55, "RELEASE TO SUBMIT", true);
@@ -153,6 +169,64 @@ static void draw_volume_screen(uint8_t vol_percent) {
     sh1106_update();
 }
 
+static void draw_mic_test_screen(uint8_t level_pct, int16_t peak_val) {
+    if (!oled_ready) return;
+
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    // Header banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    sh1106_draw_string(14, 4, "[ MIC LIVE TEST ]", false);
+
+    // Live Metrics: Level % and Peak Amplitude
+    char lvl_buf[24];
+    snprintf(lvl_buf, sizeof(lvl_buf), "LVL:%3d%%  PK:%5d", level_pct, (int)peak_val);
+    sh1106_draw_string(6, 17, lvl_buf, true);
+
+    // Graphical VU Meter Bar (outer frame)
+    sh1106_draw_rect(6, 28, 116, 11, true);
+    // Inner fill bar
+    int fill_w = (level_pct * 112) / 100;
+    if (fill_w > 0) {
+        sh1106_fill_rect(8, 30, fill_w, 7, true);
+    }
+
+    // Scale tick marks under VU meter
+    sh1106_draw_string(6, 42, "0%  25%  50%  75%  MAX", true);
+
+    // Footer instruction
+    sh1106_draw_line(2, 51, 125, 51, true);
+    sh1106_draw_string(4, 54, "SPEAK TO TEST | SW: OK", true);
+
+    sh1106_update();
+}
+
+static void draw_led_screen(int rainbow_idx) {
+    if (!oled_ready) return;
+
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    // Header banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    sh1106_draw_string(14, 4, "[ RAINBOW CORE ]", false);
+
+    // Color index
+    char num_buf[20];
+    snprintf(num_buf, sizeof(num_buf), "COLOR %d / 7", rainbow_idx + 1);
+    sh1106_draw_string(30, 18, num_buf, true);
+
+    // Color name in large font
+    sh1106_draw_string_scaled(22, 30, leds_get_rainbow_name(rainbow_idx), 2, true);
+
+    // Footer instruction
+    sh1106_draw_line(2, 51, 125, 51, true);
+    sh1106_draw_string(8, 54, "TURN: TUNE | SW: OK", true);
+
+    sh1106_update();
+}
+
 static void draw_dashboard(uint32_t tick, bool led_on, int sel_idx, int32_t pos, bool sw_down, bool click_feedback) {
     if (!oled_ready) return;
 
@@ -163,7 +237,7 @@ static void draw_dashboard(uint32_t tick, bool led_on, int sel_idx, int32_t pos,
 
     // 1. Header (y=3..10)
     sh1106_draw_string(6, 3, "CELESTIAL ENGINE", true);
-    sh1106_draw_string(106, 3, "P6", true);
+    sh1106_draw_string(106, 3, "P4", true);
     sh1106_draw_line(2, 12, 125, 12, true);
 
     // 2. Selected Mode (y=15..22)
@@ -205,6 +279,10 @@ static void draw_dashboard(uint32_t tick, bool led_on, int sel_idx, int32_t pos,
         sh1106_draw_string(14, 53, ">> CLICK DETECTED! <<", false);
     } else if (sel_idx == MODE_VOLUME) {
         sh1106_draw_string(4, 53, "CLICK SW TO TUNE VOL", true);
+    } else if (sel_idx == MODE_MIC_TEST) {
+        sh1106_draw_string(4, 53, "CLICK SW TO TEST MIC", true);
+    } else if (sel_idx == MODE_LED_CORE) {
+        sh1106_draw_string(4, 53, "CLICK SW TO TUNE LED", true);
     } else {
         sh1106_draw_string(6, 53, "HOLD QUERY TO RECORD", true);
     }
@@ -259,9 +337,15 @@ int main(void) {
 
     LOG_INFO("SYS", "Initializing MAX98357A I2S audio subsystem (GP16=BCLK, GP17=LRC, GP18=DIN)...");
     audio_init();
-    audio_play_chime();
 
-    LOG_INFO("SYS", "Milestone P6 Active! MAX98357A I2S audio output enabled with chimes & feedback tones.");
+    LOG_INFO("SYS", "Initializing INMP441 I2S microphone (GP10=SCK, GP11=WS, GP12=SD)...");
+    mic_init();
+
+    LOG_INFO("SYS", "Initializing WS2812 LED core (GP15=DATA, PIO2 SM0)...");
+    leds_init();
+
+    LOG_INFO("SYS", "Milestone P4 Active! 7-LED core ring operational with 7 rainbow colors and 67 vortex.");
+    audio_play_chime();
 
     uint32_t tick_count = 0;
     bool led_state = true;
@@ -274,8 +358,10 @@ int main(void) {
     bool need_display_update = true;
 
     while (true) {
-        // Continuous audio buffer streaming
+        // Continuous audio buffer streaming, mic processing & LED updates
         audio_update();
+        mic_update();
+        leds_update(easter_egg_active, led_edit_mode, active_rainbow_idx);
 
         // Fast sampling of controls
         encoder_update();
@@ -323,6 +409,16 @@ int main(void) {
                 audio_play_tone(440.0f + cur_vol * 4.0f, 20);
                 LOG_INFO("VOLUME", "Volume adjusted: %d%%", cur_vol);
                 need_display_update = true;
+            } else if (led_edit_mode) {
+                active_rainbow_idx = (active_rainbow_idx + delta) % RAINBOW_COLOR_COUNT;
+                if (active_rainbow_idx < 0) {
+                    active_rainbow_idx += RAINBOW_COLOR_COUNT;
+                }
+                leds_set_rainbow_index(active_rainbow_idx);
+                audio_play_blip();
+                LOG_INFO("LEDS", "Color tuned: [%s] (%d/7)",
+                         leds_get_rainbow_name(active_rainbow_idx), active_rainbow_idx + 1);
+                need_display_update = true;
             } else {
                 int32_t curr_pos = encoder_get_position();
 
@@ -363,11 +459,35 @@ int main(void) {
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
                 audio_play_chime(); // Melodic confirmation chime at newly set volume
                 LOG_INFO("VOLUME", "Volume confirmed: %d%%. Exited volume edit.", audio_get_volume());
+            } else if (mic_test_mode) {
+                // Exit mic test screen
+                mic_test_mode = false;
+                click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                audio_play_chime();
+                LOG_INFO("MIC", "Exited mic live test screen.");
+            } else if (led_edit_mode) {
+                // Confirm LED color and exit
+                led_edit_mode = false;
+                click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                audio_play_chime();
+                LOG_INFO("LEDS", "Color confirmed: [%s]. Exited LED menu.",
+                         leds_get_rainbow_name(active_rainbow_idx));
             } else if (current_mode_idx == MODE_VOLUME) {
                 // Enter volume edit screen
                 volume_edit_mode = true;
                 audio_play_tone(659.25f, 35);
                 LOG_INFO("VOLUME", "Entering volume edit mode (current: %d%%)", audio_get_volume());
+            } else if (current_mode_idx == MODE_MIC_TEST) {
+                // Enter mic live test screen
+                mic_test_mode = true;
+                audio_play_tone(659.25f, 35);
+                LOG_INFO("MIC", "Entering mic live test screen.");
+            } else if (current_mode_idx == MODE_LED_CORE) {
+                // Enter LED edit mode
+                led_edit_mode = true;
+                audio_play_tone(659.25f, 35);
+                LOG_INFO("LEDS", "Entering LED rainbow menu (current: %s)",
+                         leds_get_rainbow_name(active_rainbow_idx));
             } else {
                 active_confirmed_mode = current_mode_idx;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
@@ -388,12 +508,13 @@ int main(void) {
             bool a_val, b_val, sw_val;
             encoder_get_raw_pins(&a_val, &b_val, &sw_val);
 
-            LOG_INFO("HEARTBEAT", "Tick #%lu | LED: %s | State: %s | Mode: [%s] | Pos: %ld | QRY: %s",
+            LOG_INFO("HEARTBEAT", "Tick #%lu | LED: %s | State: %s | Mode: [%s] | Vol: %d%% | Mic: %d%% | QRY: %s",
                      (unsigned long)tick_count,
                      led_state ? "ON" : "OFF",
                      staff_state_name(current_state),
                      MODE_NAMES[active_confirmed_mode],
-                     (long)encoder_get_position(),
+                     (int)audio_get_volume(),
+                     (int)mic_get_level_percent(),
                      query_button_is_held() ? "HELD" : "UP");
             need_display_update = true;
         }
@@ -402,13 +523,13 @@ int main(void) {
         if (absolute_time_diff_us(last_flash_toggle, get_absolute_time()) >= 400000) {
             last_flash_toggle = get_absolute_time();
             flash_phase = !flash_phase;
-            if (current_state == STATE_LISTENING || easter_egg_active || volume_edit_mode) {
+            if (current_state == STATE_LISTENING || easter_egg_active || volume_edit_mode || mic_test_mode || led_edit_mode) {
                 need_display_update = true;
             }
         }
 
-        // 7. Rate-limited display update (~30 Hz)
-        if (need_display_update && absolute_time_diff_us(last_display_refresh, get_absolute_time()) >= 33000) {
+        // 7. Rate-limited display update (~20 Hz / 50 ms)
+        if (need_display_update && absolute_time_diff_us(last_display_refresh, get_absolute_time()) >= 50000) {
             last_display_refresh = get_absolute_time();
             need_display_update = false;
 
@@ -421,6 +542,11 @@ int main(void) {
                 draw_67_screen(flash_phase);
             } else if (volume_edit_mode) {
                 draw_volume_screen(audio_get_volume());
+            } else if (mic_test_mode) {
+                draw_mic_test_screen(mic_get_level_percent(), mic_get_peak_amplitude());
+                need_display_update = true; // Continuous update for live VU meter
+            } else if (led_edit_mode) {
+                draw_led_screen(active_rainbow_idx);
             } else {
                 bool click_feedback = absolute_time_diff_us(get_absolute_time(), click_feedback_until) > 0;
                 draw_dashboard(tick_count, led_state, current_mode_idx,

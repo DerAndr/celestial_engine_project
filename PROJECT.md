@@ -144,31 +144,31 @@ Plan pins globally for:
 Do not assign GPIO independently in unrelated examples. Account for RP2350/Pico 2 W capabilities rather than blindly copying RP2040 tutorials.
 
 ## Prototype sequence
-### P0 — Pico alive
+### P0 — Pico alive [PASSED]
 Pico + computer only. Establish toolchain, build, flash, serial logs, onboard LED and Wi-Fi scan/connect.
 
-### P1 — OLED
+### P1 — OLED [PASSED]
 Add SH1106. Display `CELESTIAL ENGINE Mk.V` and boot/status information.
 
-### P2 — Encoder
-Add PEC11R. Implement rotation, press and debounce. Navigate the five modes.
+### P2 — Encoder [PASSED]
+Add PEC11R. Implement rotation, press and debounce. Navigate the modes and adjust parameters.
 
-### P3 — QUERY
+### P3 — QUERY [PASSED]
 Add momentary NO button. Log/display QUERY DOWN and QUERY UP; connect this to LISTENING state.
 
-### P4 — One WS2812 ring
-Add one ring, SN74AHCT125, resistor and capacitor. Implement IDLE/LISTENING/PROCESSING/SPEAKING/ERROR animations at conservative brightness.
+### P4 — One WS2812 ring [PASSED / IN INTEGRATION]
+Add 7-LED core ring, SN74AHCT125 level shifter. Implement rainbow menu (`[ LED RAINBOW ]`), 7 rainbow colors, 67 fast spinning vortex animation.
 
-### P5 — Full LED core
+### P5 — Full LED core [NEXT]
 Connect 7/12/16/24 rings. Prefer a documented daisy chain if practical. Abstract physical offsets behind logical ring IDs CORE/HALO/ORBIT/OUTER.
 
-### P6 — Microphone
-Add INMP441. Capture valid PCM first. Verify changing samples, speech response and absence of obvious clipping/corruption. Export a short recording for inspection before attempting STT.
+### P6 — Microphone [PASSED / VERIFIED]
+Add INMP441. Capture valid 16 kHz PCM using PIO0 SM0 and circular DMA ring-buffer. Live VU meter test mode (`[ MIC LIVE TEST ]`) on OLED.
 
-### P7 — Speaker
-Add MAX98357A + 4 ohm/3 W speaker. Play a known local sample such as `The Celestial Engine is online.` before networking/TTS.
+### P7 — Speaker [PASSED / VERIFIED]
+Add MAX98357A + 4 ohm/3 W speaker using PIO1 SM0. Upgraded to hardware DMA IRQ0 double-buffering, rich amplitude, and smooth 5 ms envelope.
 
-### P8 — Integrated staff
+### P8 — Integrated staff [IN PROGRESS]
 Run OLED + controls + LEDs + microphone + speaker under the central state machine.
 
 ### P9 — Pi link

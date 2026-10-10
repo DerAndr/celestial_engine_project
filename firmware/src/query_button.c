@@ -16,8 +16,9 @@ void query_button_init(void) {
     gpio_set_dir(PIN_QUERY_BTN, GPIO_IN);
     gpio_pull_up(PIN_QUERY_BTN);
 
-    btn_prev_raw = gpio_get(PIN_QUERY_BTN);
-    btn_is_down = !btn_prev_raw;
+    // Initial safe state: always start released, ignore boot transient
+    btn_prev_raw = true;
+    btn_is_down = false;
     last_edge_time = get_absolute_time();
     press_start_time = get_absolute_time();
     pressed_event = false;
@@ -62,16 +63,15 @@ bool query_button_just_pressed(void) {
 }
 
 uint32_t query_button_just_released(void) {
-    if (released_duration > 0) {
-        uint32_t dur = released_duration;
-        released_duration = 0;
-        return dur;
-    }
-    return 0;
+    uint32_t dur = released_duration;
+    released_duration = 0;
+    return dur;
 }
 
 uint32_t query_button_current_hold_ms(void) {
-    if (gpio_get(PIN_QUERY_BTN)) return 0; // High = released
+    if (!btn_is_down) {
+        return 0;
+    }
     int64_t diff = absolute_time_diff_us(press_start_time, get_absolute_time());
     return (diff > 0) ? (uint32_t)(diff / 1000) : 0;
 }

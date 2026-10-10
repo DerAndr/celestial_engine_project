@@ -33,9 +33,13 @@ add_executable(celestial_firmware
     src/encoder.c
     src/query_button.c
     src/audio.c
+    src/mic.c
+    src/leds.c
 )
 
 pico_generate_pio_header(celestial_firmware ${CMAKE_CURRENT_LIST_DIR}/src/audio_i2s.pio)
+pico_generate_pio_header(celestial_firmware ${CMAKE_CURRENT_LIST_DIR}/src/mic_i2s.pio)
+pico_generate_pio_header(celestial_firmware ${CMAKE_CURRENT_LIST_DIR}/src/ws2812.pio)
 
 target_include_directories(celestial_firmware PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src

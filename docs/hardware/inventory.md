@@ -17,7 +17,7 @@ Status values: `ORDERED`, `RECEIVED`, `TESTED`, `INSTALLED`, `FAILED`.
 | WS2812B 12-LED ring | 1 | ORDERED | OD 37 / ID 23 mm |
 | WS2812B 16-LED ring | 1 | ORDERED | OD 45 / ID 32 mm |
 | WS2812B 24-LED ring | 1 | ORDERED | OD 66 / ID 52 mm |
-| SN74AHCT125N | 2 | ORDERED | WS2812 level shifting |
+| SN74AHCT125N | 2 | RECEIVED | WS2812 3.3V->5.0V level shifting DIP-14 IC |
 | ~470 ohm resistor | TBD | ORDERED | WS2812 data series resistor |
 | ~1000 uF >=10 V capacitor | TBD | ORDERED | LED power bulk capacitance |
 | Velleman VTBB3 breadboard | 1 | RECEIVED | 400 holes (30 rows, a-j, +/- rails) |

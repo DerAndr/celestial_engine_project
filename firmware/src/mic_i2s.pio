@@ -1,0 +1,44 @@
+.program mic_i2s
+.side_set 2
+
+; Side-set pin 0: SCK (GP10)
+; Side-set pin 1: WS  (GP11)
+; IN pin: SD (GP12)
+;
+; Philips I2S 16 kHz stereo frame (32 bits per channel, 64 clocks total).
+; INMP441 drives SD on falling edge of SCK.
+; Receiver samples SD while SCK is HIGH.
+; WS transitions 1 clock cycle before MSB of the new channel.
+
+    set x, 30          side 0b01 ; SCK=1, WS=0 (Bit 0 sample tick)
+left_loop:
+    in pins, 1         side 0b00 ; SCK=0, WS=0
+    jmp x--, left_loop side 0b01 ; SCK=1, WS=0
+    in pins, 1         side 0b10 ; SCK=0, WS=1 (Bit 31; WS flips to 1 for Right!)
+
+    set x, 30          side 0b11 ; SCK=1, WS=1
+right_loop:
+    nop                side 0b10 ; SCK=0, WS=1
+    jmp x--, right_loop side 0b11 ; SCK=1, WS=1
+    nop                side 0b00 ; SCK=0, WS=0 (WS flips to 0 for Left!)
+
+% c-sdk {
+static inline void mic_i2s_program_init(PIO pio, uint sm, uint offset, uint data_pin, uint clock_pin_base) {
+    pio_gpio_init(pio, data_pin);
+    pio_gpio_init(pio, clock_pin_base);     // SCK
+    pio_gpio_init(pio, clock_pin_base + 1); // WS
+
+    pio_sm_set_consecutive_pindirs(pio, sm, data_pin, 1, false);      // SD is INPUT
+    pio_sm_set_consecutive_pindirs(pio, sm, clock_pin_base, 2, true);  // SCK & WS are OUTPUT
+
+    pio_sm_config c = mic_i2s_program_get_default_config(offset);
+    sm_config_set_in_pins(&c, data_pin);
+    sm_config_set_sideset_pins(&c, clock_pin_base);
+
+    // Shift left (MSB first), autopush enabled, threshold = 32 bits
+    sm_config_set_in_shift(&c, false, true, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}
