@@ -31,9 +31,10 @@ bool net_client_send_query_end(void) { return true; }
 void net_client_cancel(void) {}
 bool net_client_is_receiving_response(void) { return false; }
 bool net_client_has_response_ready(void) { return false; }
-const int16_t* net_client_get_response_samples(size_t *c) { if (c) *c = 0; return NULL; }
 void net_client_consume_response(void) {}
 const char* net_client_get_response_text(void) { return ""; }
+bool net_client_response_failed(void) { return false; }
+uint32_t net_client_response_progress_ms(void) { return to_ms_since_boot(get_absolute_time()); }
 #define main firmware_main
 #include "../firmware/src/main.c"
 #undef main

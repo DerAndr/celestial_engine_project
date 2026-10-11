@@ -945,7 +945,7 @@
           <h1>Celestial Engine Mk.V</h1>
           <p>
             <span>Interactive Mission & Hardware Map</span>
-            <span class="badge-status"><span class="pulsing-dot"></span> 1.0.5-AUDIO-GAIN · AUDIO WORKING</span>
+            <span class="badge-status"><span class="pulsing-dot"></span> 1.0.16 · RESPONSE FIX PREPARED</span>
           </p>
         </div>
       </div>
@@ -1009,13 +1009,10 @@
         </div>
 
         <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.6; margin-bottom:1.5rem;">
-          Snapshot: 2026-10-11 · Main 1.0.10-FOUR-RINGS built and checked as celestial_firmware.uf2 · Not flashed: Pico disconnected.
-          User solder repair established working audio and encoder volume. Shared 40 dB gain and 16-bit I2S remain; current four-ring startup is silent V0. The earlier 1.0.5 V10 audio build is archived separately.
-          <br><strong>Four-ring effects and separate experiment.</strong> Main removes the fourth-ring background in PULSAR/VOICE/VORTEX; COSMIC SNAKE remains as reported good. Voice order 7→12→16→24, four-transition encoder, existing 7→12→24→spare wire order, 59-word DMA, 300 µs reset and 4% cap remain. <strong>Individual white rainbow flashes remain unresolved.</strong> Separate celestial_ring_experiment.uf2 (1.0.10-RING-DIAGNOSTIC) holds pure RGB on the spare for five seconds each in RAINBOW. Both new files await physical validation; prior 1.0.9 is archived and passed 1.0.7 retained. <a href="experiments/025-main-build-and-ring-backgrounds.md">Experiment 025: naming and diagnostic observation</a>.
-          <a href="experiments/017-audio-solder-repair-level.md" style="color:var(--cyan-core)">Solder repair and small level increase</a> ·
-          <a href="reviews/2026-10-10-audio-review.md" style="color:var(--cyan-core)">Audio code review</a> ·
-          <a href="../PROJECT.md" style="color:var(--cyan-core)">Project status</a>
-          <br><strong>Checkpoint 2026-10-11.</strong> The user repaired the fourth ring with a jumper around one failed LED; one position stays dark. Next: finish four-ring lighting and standalone Pico functionality, then build Raspberry Pi independently and integrate. <a href="tasks.md">Prioritized tasks</a> · <a href="checkpoints/2026-10-11.md">Saved state</a>. No implementation or flashing at this checkpoint.
+          Snapshot: 2026-10-11 · Prepared main 1.0.16-RESPONSE-FIX · Paired brain protocol v2 · New physical validation pending.
+          <br><strong>Three-ring hardware.</strong> The user discarded the unstable fourth 16-LED ring. Current chain is 7→12→24, 43 LEDs, 18% cap; existing GPIO and speaker wiring remain.
+          <br><strong>Live voice requests now work.</strong> PC brain: STT → LLM → TTS. Prepared fixes cover ring-buffer overwrite, response retries/order, cancellation of late answers, muted completion and full-screen large scrolling response text. Local Pico modes remain available without the brain.
+          <a href="experiments/036-response-review-and-fullscreen-text.md">Experiment 036</a> · <a href="reviews/2026-10-11-streaming-review.md">Current code review</a> · <a href="protocol.md">Protocol v2</a> · <a href="tasks.md">Priorities</a> · <a href="pi5-next-stage.md">Next: move the same server to Pi 5</a> · <a href="../PROJECT.md">Project status</a>.
         </p>
 
         <div class="phase-track">
@@ -1103,12 +1100,12 @@
               <div class="milestone-card" onclick="openDrawer('P5')">
                 <div class="card-top">
                   <span class="code-pill">P5</span>
-                  <span class="status-tag in-progress">Four Rings Respond</span>
+                  <span class="status-tag in-progress">Three Rings Active</span>
                 </div>
-                <h3>Four-Ring LED Core</h3>
-                <p>Physical chain 7→12→24→16. User repaired one failed LED with a jumper; one position stays dark. White flashes remain open; full four-ring lighting rewrite is next.</p>
+                <h3>Three-Ring LED Core</h3>
+                <p>Active chain 7→12→24 = 43 LEDs. User discarded the unreliable fourth ring; stable three-ring effects and state patterns are retained.</p>
                 <div class="card-footer">
-                  <span>Data Response Confirmed · 4% Cap</span>
+                  <span>43 LEDs · 18% Cap</span>
                   <span>Inspect Step →</span>
                 </div>
               </div>
@@ -1154,7 +1151,7 @@
                   <span class="status-tag in-progress">In Progress</span>
                 </div>
                 <h3>Integrated Staff Firmware</h3>
-                <p>Finish standalone Pico operation: OLED, encoder, buttons, four-ring lighting, mic, and speaker under one state engine. Local controls must work without Raspberry Pi or Wi-Fi.</p>
+                <p>Local Pico controls and live voice requests work with the PC brain. Response fixes are prepared; next move the same service independently to Pi 5.</p>
                 <div class="card-footer">
                   <span>Local Integration · State Flow Partial</span>
                   <span>Inspect Step →</span>
@@ -1456,7 +1453,7 @@
                 Current firmware offers ten local menu entries. Hold QUERY for live microphone metering, then release to return to IDLE. The wearable-brain link and AI services remain pending. Click states to explore the planned MVP flow.
               </p>
               <div style="font-size:0.8rem; font-family:'JetBrains Mono'; color:var(--cyan-core);" id="sim-leds">
-                LED Core: Four rings respond in physical order 7→12→24→16; 59 reserved slots, 4% brightness cap. One repaired-ring position is dark; white flashes and full state-linked lighting remain pending.
+                LED Core: Three rings in physical order 7→12→24, 43 LEDs, 18% cap. Recording vortex, processing data radar and speaking waves are integrated. Fourth ring discarded.
               </div>
             </div>
           </div>
@@ -1469,7 +1466,7 @@
           <h2 style="font-family:'Space Grotesk'; margin-bottom:0.5rem;">Hardware Inventory & Arrival Status</h2>
           <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">
             Snapshot reconciled on 2026-10-10 with <a href="hardware/inventory.md" style="color:var(--cyan-core)">docs/hardware/inventory.md</a>.
-            Audio revalidated after user solder repair; one amp and one speaker confirmed working. Four LED rings respond: 7→12→24→repaired 16-position ring, with one failed LED bypassed by the user. Untested duplicate units remain unverified.
+            Audio revalidated after user solder repair; one amp and one speaker confirmed working. Three rings respond: 7→12→24. Fourth ring discarded by the user after instability. Untested duplicate units remain unverified.
           </p>
 
           <div class="table-container">
@@ -1674,7 +1671,7 @@
         title: 'BOOT: System Initialization',
         desc: 'Current diagnostic firmware initializes peripherals and CYW43, then stays muted at V0 without startup sounds. USB CDC provides audio diagnostics; no brain link is implemented.',
         oledText: 'BOOTING...',
-        led: 'Planned state pattern: solid white core pulse. Current four-ring firmware has a 4% brightness cap; full state-linked lighting remains pending.',
+        led: 'Planned state pattern: solid white core pulse. Current three-ring main has an 18% brightness cap and recording/processing/speaking patterns.',
         header: 'SYSTEM BOOT'
       },
       CONNECTING: {
@@ -1686,35 +1683,35 @@
       },
       IDLE: {
         title: 'IDLE: Local Prototype Ready',
-        desc: 'Current firmware offers ten local menu entries. Hold QUERY for microphone metering and release to return to IDLE. The Wi-Fi brain link and AI services are pending.',
+        desc: 'Current Pico offers local menu/controls and network voice queries. Hold QUERY to capture and upload, release to request a generated answer. Local modes work without the brain.',
         oledText: 'ORACLE IDLE',
-        led: 'Current default: GALAXY VORTEX, four rings with 59 reserved slots and a 4% cap. White flashes remain open. Planned state pattern: cyan breathing across all four rings.',
+        led: 'Current default: GALAXY VORTEX, three rings with 43 LEDs and an 18% cap. State patterns are integrated; fourth ring discarded.',
         header: 'ORACLE MODE'
       },
       LISTENING: {
-        title: 'LISTENING: Live Microphone Test',
-        desc: 'Planned speech capture. Current firmware shows live microphone levels from a 256-sample circular DMA window; it does not retain a query.',
+        title: 'LISTENING: Voice Capture',
+        desc: 'Hold streams 16kHz PCM16 live to the PC brain, up to 60s. First 2s retained locally; release submits the query.',
         oledText: 'LISTENING...',
         led: 'Bright pulsating emerald green ring.',
         header: 'MIC TEST'
       },
       UPLOADING: {
         title: 'UPLOADING: Wi-Fi Transmission',
-        desc: 'Planned P10: transmit a retained speech query to Pi 5. Current release returns directly to IDLE; no query is retained or uploaded.',
+        desc: 'Upload occurs live during LISTENING. Release submits QUERY_END once; current target is the PC brain, Pi 5 deployment follows.',
         oledText: 'SENDING...',
         led: 'Fast spinning cyan comet ring.',
         header: 'UPLOADING'
       },
       PROCESSING: {
-        title: 'PROCESSING: Pi 5 Brain Compute',
-        desc: 'Planned Pi 5 pipeline: STT -> agent -> TTS. No brain service is implemented in this repository yet.',
+        title: 'PROCESSING: Brain Generation',
+        desc: 'PC brain implements STT -> LLM -> TTS. Progress maintains the waiting screen; timeout/cancel invalidates late replies. Same server moves to Pi 5 next.',
         oledText: 'THINKING...',
         led: 'Deep nova violet celestial rotation.',
         header: 'BRAIN COMPUTE'
       },
       SPEAKING: {
         title: 'SPEAKING: Audio Playback',
-        desc: 'Planned P10: play a streamed brain response. Current MAX98357A playback supports local chiptunes and four embedded voice clips.',
+        desc: 'Live generated responses now stream to MAX98357A from the PC brain; local chiptunes and embedded phrases remain available. Protocol v2 completion fixes prepared.',
         oledText: 'SPEAKING...',
         led: 'Voice-reactive gold/brass wave animation.',
         header: 'AUDIO OUT'
@@ -1745,7 +1742,7 @@
       { name: 'MAX98357A I2S Mono Amplifier', qty: 3, sub: 'Audio Output', status: 'TESTED', note: 'One working after solder repair; GAIN unconnected; other units unverified' },
       { name: 'QUARKZMAN 4 ohm / 3W, JST-PH2.0', qty: 2, sub: 'Acoustics', status: 'TESTED', note: 'One working speaker; ERR-AUDIO-02/03 resolved by solder repair; second unverified' },
       { name: 'WS2812B 7-LED Ring', qty: 1, sub: 'Celestial Core', status: 'TESTED', note: 'P4 direct core smoke test recorded as passed' },
-      { name: 'WS2812B Rings (12/16/24 LEDs)', qty: 3, sub: 'Celestial Core', status: 'TESTED', note: 'All received and responding; user repaired 16-position ring with one-LED jumper. One dark position and white flashes remain; effects partial.' },
+      { name: 'WS2812B Rings (12/16/24 LEDs)', qty: 3, sub: 'Celestial Core', status: 'TESTED', note: '12/24 rings working; 16-position ring repaired earlier but ultimately discarded by user due to instability.' },
       { name: 'SN74AHCT125N Level Shifter', qty: 2, sub: 'Signal Protection', status: 'RECEIVED', note: '3.3V to 5V WS2812 data; integration pending' },
       { name: '~1000 uF electrolytic capacitor', qty: 'TBD', sub: 'Power Rail', status: 'RECEIVED', note: 'Bulk LED 5V capacitance' },
       { name: '~470 ohm series resistors', qty: 'TBD', sub: 'Data Line', status: 'RECEIVED', note: 'WS2812 DIN ringing damping' },
@@ -1875,33 +1872,21 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
           </table>
         `,
         code: `<pre class="code-block"># PIO0 SM1 generates the 800kHz WS2812 waveform.
-# Current main configures four rings, 59 reserved slots and a 4% brightness cap.
-# User confirms all four respond; repaired-ring flashes remain unresolved.
+# Current main configures three rings, 43 LEDs and an 18% brightness cap.
+# Fourth ring was discarded; current three-ring baseline is user-confirmed.
 # Proposed shifter wiring above is not a recorded physical pass.</pre>`,
         expected: 'Smooth breathing and rotation animations without flickering or brownouts.',
         fail: '1. Verify capacitor polarity (negative stripe to GND). 2. Check level shifter orientation. 3. Ensure common ground.'
       },
       P5: {
-        title: 'Four-Ring Core (59 Reserved Slots)',
-        goal: 'Preserve the existing 7→12→24→16 physical chain, resolve white flashes, then fully rewrite music-reactive lighting and effects for four logical rings.',
-        parts: '4x WS2812 rings (7+12+16+24), hookup wire.',
-        power: 'Disconnect power before soldering or wiring daisy chain.',
-        wiring: `
-          <table class="wiring-table">
-            <tr><th>Ring</th><th>LED Count</th><th>Data In (DIN)</th><th>Data Out (DOUT)</th></tr>
-            <tr><td>Core (Inner)</td><td>7</td><td>Existing GP15 data path</td><td>To 12-Ring DIN</td></tr>
-            <tr><td>Halo</td><td>12</td><td>From 7-Ring DOUT</td><td>To 24-Ring DIN</td></tr>
-            <tr><td>Outer</td><td>24</td><td>From 12-Ring DOUT</td><td>To repaired 16-Ring DIN</td></tr>
-            <tr><td>Repaired ring</td><td>16 positions; one dark</td><td>From 24-Ring DOUT</td><td>Free / end of chain</td></tr>
-          </table>
-        `,
-        code: `<pre class="code-block">#define TOTAL_LED_COUNT 59
-// Current main: DMA transfer, 300us reset, 4% brightness cap.
-// User jumper: common ring DIN to failed LED DOUT; original output remains attached.
-// Exact repaired-ring addressing and white flashes remain unresolved.
-// Full four-ring music-reactive lighting rewrite is prioritized in docs/tasks.md.</pre>`,
-        expected: 'Recorded: all four rings respond and COSMIC SNAKE looks good. Pending: stable rainbow without white flashes, black inactive backgrounds, and complete four-ring music-reactive lighting.',
-        fail: '1. Inspect solder joints between DOUT and DIN. 2. Verify 5V power feeds to all rings.'
+        title: 'Three-Ring Core (43 LEDs)',
+        goal: 'Preserve the stable 7→12→24 chain; fourth ring discarded by user.',
+        parts: 'Existing 7, 12 and 24 LED rings only.',
+        power: 'No wiring changes. Disconnect USB before any physical rewiring.',
+        wiring: '<table class="wiring-table"><tr><th>Ring</th><th>DIN</th><th>DO</th></tr><tr><td>7</td><td>Existing GP15 path</td><td>12 DIN</td></tr><tr><td>12</td><td>7 DO</td><td>24 DIN</td></tr><tr><td>24</td><td>12 DO</td><td>Free / end</td></tr></table>',
+        code: '<pre class="code-block">43 LEDs; DMA; 300us reset; 18% cap. Main CELESTIAL_FOUR_RINGS=0. Historical four-ring diagnostic is not the current setup.</pre>',
+        expected: 'Existing three-ring effects remain stable; recording, processing and speaking state patterns work.',
+        fail: 'Preserve the user-confirmed baseline; distinguish software state issues from physical wiring.'
       },
       P6: {
         title: 'INMP441 MEMS Microphone',
@@ -1948,10 +1933,10 @@ gpio_pull_up(PIN_QUERY_BTN);</pre>`,
 #define PIN_SPK_LRC  17
 #define PIN_SPK_DIN  18
 # Archived working audio 1.0.5: 16-bit stereo I2S, 16kHz frames.
-# Shared 40dB curve; current four-ring main starts silent at V0, ceiling 14400.
+# Shared 40dB curve; current three-ring main starts at V35, ceiling 14400.
 cmake --build firmware/build --target celestial_firmware --parallel 4
 .\\scripts\\check-audio.ps1
-# Current celestial_firmware.uf2 is 1.0.10-FOUR-RINGS: built, not flashed.
+# Current celestial_firmware.uf2 is 1.0.16-RESPONSE-FIX: prepared, hardware observation pending.
 # Previous audio 1.0.5 remains archived as celestial_audio_1.0.5.uf2.</pre>`,
         expected: 'User confirms repaired soldering restored working audio and encoder volume. COM9 confirms FW:1.0.5-AUDIO-GAIN, limit16:14400, 16-bit I2S, Vol:10%, startup peak:205, OLED ONLINE and TX stalls:0. Boot and encoder now use identical gain; startup V10 is +3.64dB from 1.0.4. Level preference awaits ordinary listening. See experiment 018.',
         fail: 'If grinding returns, stop at V0 or disconnect USB and inspect solder/continuity before changing I2S framing. Touch wires only with power disconnected. See experiment 017.'

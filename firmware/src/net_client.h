@@ -39,9 +39,10 @@ void net_client_cancel(void);
 // Response state from Brain Server
 bool net_client_is_receiving_response(void);
 bool net_client_has_response_ready(void);
-const int16_t* net_client_get_response_samples(size_t *out_sample_count);
 void net_client_consume_response(void);
 const char* net_client_get_response_text(void);
+bool net_client_response_failed(void);
+uint32_t net_client_response_progress_ms(void);
 
 #ifdef __cplusplus
 }

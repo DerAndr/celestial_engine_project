@@ -9,8 +9,8 @@ Key Features:
 - Non-blocking UDP heartbeat responder (Pico never loses connection during LLM/TTS generation)
 - Live synchronized model presets: Grok 2, DeepSeek V3, Llama 3.3, Ministral 8B
 - Multilingual dialects: Russian [RU], English [EN], Deutsch [DE], Auto-Detect [AUTO]
-- Deep resonant TTS (DmitryNeural for Russian, ChristopherNeural for English)
-- High-speed UDP streaming (2.5 ms pacing) with redundant start/end packets
+- Configured multilingual Edge-TTS voices and full-screen ASCII transcript
+- Protocol v2 response IDs, ACK/retry, absolute pacing and cancellable sessions
 """
 
 import socket
@@ -23,6 +23,8 @@ import json
 import asyncio
 import subprocess
 import threading
+import tempfile
+from brain_transport import BrainTransport, PORT
 
 try:
     import speech_recognition as sr
@@ -41,20 +43,6 @@ try:
     HAS_OPENAI = True
 except ImportError:
     HAS_OPENAI = False
-
-MAGIC = 0x454C4543  # 'C' 'E' 'L' 'E'
-VERSION = 1
-PORT = 5005
-
-MSG_HEARTBEAT   = 0x01
-MSG_QUERY_START = 0x02
-MSG_AUDIO_CHUNK = 0x03
-MSG_QUERY_END   = 0x04
-MSG_RESP_START  = 0x05
-MSG_RESP_CHUNK  = 0x06
-MSG_RESP_END    = 0x07
-MSG_CANCEL      = 0x08
-MSG_RESP_TEXT   = 0x09
 
 LANG_EN   = 0
 LANG_AUTO = 1
@@ -75,8 +63,6 @@ MODEL_PRESETS = {
     3: ("meta-llama/llama-3.3-70b-instruct", "Marvin (Llama 70B)")
 }
 
-HEADER_STRUCT = struct.Struct("<IBBHH")  # magic, version, msg_type, seq_num, payload_len
-HEADER_SIZE = HEADER_STRUCT.size
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "brain_config.json")
 
@@ -175,6 +161,7 @@ def transcribe_audio(wav_path, lang_code):
         return None, "ru-RU"
 
     r = sr.Recognizer()
+    r.operation_timeout = 15
     r.energy_threshold = 300
     r.dynamic_energy_threshold = True
 
@@ -268,17 +255,21 @@ def query_llm(user_text, lang_tag, lang_code, model_preset, config):
 
     print(f"  [LLM LIVE] Querying OpenRouter Core: {preset_name} ('{model}')...")
     try:
-        client = OpenAI(base_url=api_base, api_key=api_key)
+        client = OpenAI(base_url=api_base, api_key=api_key, timeout=45, max_retries=0)
         resp = client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": enforced_prompt},
                 {"role": "user", "content": user_text}
             ],
-            max_tokens=85,
+            max_tokens=384,
             temperature=0.7
         )
-        answer = resp.choices[0].message.content.strip()
+        if resp.choices[0].finish_reason == "length":
+            raise ValueError("Model exhausted answer budget; do not speak an unfinished sentence")
+        answer = (resp.choices[0].message.content or "").strip()
+        if not answer:
+            raise ValueError("Model returned no spoken answer")
         answer = answer.replace("*", "").replace("#", "").replace('`', '').replace('"', '').strip()
         return answer
     except Exception as e:
@@ -314,7 +305,7 @@ async def synthesize_speech_pcm(text, lang_tag, config):
     saved = False
     for attempt, voice in enumerate(voices_to_try):
         try:
-            comm = edge_tts.Communicate(clean_text, voice, rate="+12%")
+            comm = edge_tts.Communicate(clean_text, voice, rate="+12%", connect_timeout=10, receive_timeout=30)
             await comm.save(temp_mp3)
             if os.path.exists(temp_mp3) and os.path.getsize(temp_mp3) > 0:
                 saved = True
@@ -329,11 +320,17 @@ async def synthesize_speech_pcm(text, lang_tag, config):
 
     cmd = [
         "ffmpeg", "-y", "-i", temp_mp3,
-        "-af", "silenceremove=stop_periods=-1:stop_duration=0.25:stop_threshold=-45dB",
         "-f", "s16le", "-ar", "16000", "-ac", "1", "pipe:1"
     ]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    pcm_data, _ = proc.communicate()
+    try:
+        pcm_data, _ = proc.communicate(timeout=30)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
+        pcm_data = b""
+    if proc.returncode != 0:
+        pcm_data = b""
 
     try:
         if os.path.exists(temp_mp3):
@@ -341,78 +338,39 @@ async def synthesize_speech_pcm(text, lang_tag, config):
     except Exception:
         pass
 
-    # No artificial clamp: streaming ring buffer on Pico 2 W handles unlimited audio length!
+    # Full PCM is delivered with bounds, ordering and retries by brain_transport.
     return pcm_data
 
-def process_query_worker(sock, addr, query_buffer, current_lang_code, current_model_preset):
-    """Background worker: handles STT -> LLM -> TTS -> UDP streaming without blocking heartbeats!"""
-    out_dir = os.path.dirname(os.path.abspath(__file__))
-    query_wav_path = os.path.join(out_dir, "query.wav")
-
-    # 1. Clean DC offset and save WAV
-    cleaned_pcm = clean_pcm_samples(bytes(query_buffer))
-    with wave.open(query_wav_path, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(16000)
-        wf.writeframes(cleaned_pcm)
-
-    # 2. Transcribe (STT)
-    lang_str = LANG_NAMES.get(current_lang_code, "EN")
-    print(f"  [1/3 STT] Transcribing speech (Target: {lang_str})...")
-    user_text, detected_lang = transcribe_audio(query_wav_path, current_lang_code)
-
+def process_query_worker(transport, session):
+    """One captured request, one isolated WAV, no sends after cancellation."""
+    if not transport.active(session):
+        return
+    with tempfile.TemporaryDirectory(prefix="celestial-query-") as directory:
+        wav_path = os.path.join(directory, "query.wav")
+        with wave.open(wav_path, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(clean_pcm_samples(bytes(session.pcm)))
+        session.pcm.clear()
+        print(f"[REQUEST {session.request_id}] STT...")
+        user_text, detected_lang = transcribe_audio(wav_path, session.lang)
+    if not transport.active(session):
+        return
     config = load_config()
-
-    if not user_text:
-        print("  [STT WARN] Speech not recognized or query was quiet.")
-        ai_text = get_silence_answer(detected_lang)
-    else:
-        print(f"  [USER INPUT] \"{user_text}\" (Detected: {detected_lang})")
-        # 3. Query Cloud LLM
-        model_name = MODEL_PRESETS.get(current_model_preset, ("Custom", "Custom"))[1]
-        print(f"  [2/3 LLM] Generating answer via {model_name}...")
-        ai_text = query_llm(user_text, detected_lang, current_lang_code, current_model_preset, config)
-
-    print(f"  [ORACLE RESPONSE] \"{ai_text}\"")
-
-    # 4. Dynamically detect voice language based on generated ai_text!
-    response_lang = detect_language_from_text(ai_text)
-    print(f"  [3/3 TTS] Synthesizing speech for response dialect: {response_lang}...")
-    resp_pcm = asyncio.run(synthesize_speech_pcm(ai_text, response_lang, config))
-    duration_resp = len(resp_pcm) / 32000.0
-    print(f"  [TTS READY] Generated {len(resp_pcm)} bytes PCM ({duration_resp:.2f} s). Streaming to staff speaker...")
-
-    # 5. Send UTF-8 text transcript for OLED marquee ticker
-    oled_text = to_oled_ascii(ai_text)
-    text_bytes = oled_text.encode("ascii", "replace")[:500]
-    text_pkt = HEADER_STRUCT.pack(MAGIC, VERSION, MSG_RESP_TEXT, 0, len(text_bytes)) + text_bytes
-    for _ in range(2):
-        sock.sendto(text_pkt, addr)
-        time.sleep(0.004)
-
-    # 6. Stream audio chunks into Pico 2 W circular ring buffer
-    start_pkt = HEADER_STRUCT.pack(MAGIC, VERSION, MSG_RESP_START, 0, 0)
-    sock.sendto(start_pkt, addr)
-    time.sleep(0.005)
-    sock.sendto(start_pkt, addr)  # Send twice for reliability
-    time.sleep(0.008)
-
-    chunk_size = 512
-    resp_seq = 0
-    for offset in range(0, len(resp_pcm), chunk_size):
-        chunk = resp_pcm[offset:offset + chunk_size]
-        pkt = HEADER_STRUCT.pack(MAGIC, VERSION, MSG_RESP_CHUNK, resp_seq, len(chunk)) + chunk
-        sock.sendto(pkt, addr)
-        resp_seq += 1
-        time.sleep(0.013)  # 13 ms pacing (plays at 16 ms/chunk -> fills ring buffer smoothly without overflow)
-
-    end_pkt = HEADER_STRUCT.pack(MAGIC, VERSION, MSG_RESP_END, resp_seq, 0)
-    for _ in range(3):  # Send 3 times with tiny delay
-        sock.sendto(end_pkt, addr)
-        time.sleep(0.005)
-
-    print("  [TRANSMISSION COMPLETE] Staff is speaking! Ready for next query.\n")
+    ai_text = (query_llm(user_text, detected_lang, session.lang, session.model, config)
+               if user_text else get_silence_answer(detected_lang))
+    if not transport.active(session):
+        return
+    # Forced language takes precedence over the heuristic for short German replies.
+    response_lang = {LANG_EN: "en-US", LANG_DE: "de-DE", LANG_RU: "ru-RU"}.get(
+        session.lang, detect_language_from_text(ai_text))
+    print(f"[REQUEST {session.request_id}] TTS ({response_lang})...")
+    pcm = asyncio.run(synthesize_speech_pcm(ai_text, response_lang, config))
+    if not transport.active(session):
+        return
+    complete = transport.stream(session, pcm, to_oled_ascii(ai_text).encode("ascii", "replace"))
+    print(f"[REQUEST {session.request_id}] {'Delivered' if complete else 'Cancelled/failed'}; {len(pcm)} PCM bytes")
 
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -433,81 +391,21 @@ def main():
     print(f"  LLM Provider:          {config.get('api_base')}")
     api_key_set = bool(config.get("api_key") and config.get("api_key") != "YOUR_API_KEY_HERE")
     if api_key_set:
-        masked = config.get("api_key")[:7] + "..." + config.get("api_key")[-4:]
-        print(f"  OpenRouter Key:        {masked} [LIVE AI ACTIVE]")
+        print("  API key:               [SET; LIVE AI ACTIVE]")
     else:
         print("  OpenRouter Key:        [NOT SET — RUNNING OFFLINE FALLBACK]")
-    print("  Staff AI Core Presets: [0] Grok 2  [1] DeepSeek V3  [2] Llama 3.3  [3] Ministral 8B")
+    print("  Presets: [0] DeepSeek  [1] Ministral  [2] Grok  [3] Llama; UDP protocol v2")
     print(f"  Staff Dialects:        Russian [RU], English [EN], Deutsch [DE], Auto [AUTO]")
     print(f"  TTS Voices:            RU: {config.get('tts_voice_ru')}, EN: {config.get('tts_voice_en')}")
     print("=" * 68)
     print("Ready and listening for Pico 2 W queries (Hold QUERY on staff)...")
 
-    query_buffer = bytearray()
-    query_in_progress = False
-    current_lang_code = LANG_RU
-    current_model_preset = 0
-
-    while True:
-        try:
-            data, addr = sock.recvfrom(2048)
-            if len(data) < HEADER_SIZE:
-                continue
-
-            magic, version, msg_type, seq_num, payload_len = HEADER_STRUCT.unpack(data[:HEADER_SIZE])
-            if magic != MAGIC or version != VERSION:
-                continue
-
-            payload = data[HEADER_SIZE:HEADER_SIZE + payload_len]
-
-            # IMMEDIATE, NON-BLOCKING HEARTBEAT RESPONSE
-            if msg_type == MSG_HEARTBEAT:
-                resp = HEADER_STRUCT.pack(MAGIC, VERSION, MSG_HEARTBEAT, seq_num, 0)
-                sock.sendto(resp, addr)
-
-            elif msg_type == MSG_QUERY_START:
-                query_in_progress = True
-                query_buffer.clear()
-                current_lang_code = payload[0] if len(payload) > 0 else LANG_RU
-                current_model_preset = payload[1] if len(payload) > 1 else 0
-                lang_name = LANG_NAMES.get(current_lang_code, f"Code {current_lang_code}")
-                core_name = MODEL_PRESETS.get(current_model_preset, ("Custom", "Custom"))[1]
-                print(f"\n[QUERY START] Client {addr[0]}:{addr[1]} | Dialect: {lang_name} | AI Core: {core_name}")
-                print("  Live streaming audio buffers into memory in real time...")
-
-            elif msg_type == MSG_AUDIO_CHUNK:
-                if query_in_progress:
-                    query_buffer.extend(payload)
-                    duration_s = len(query_buffer) / 32000.0
-                    sys.stdout.write(f"\r  [STREAMING] {duration_s:.1f} s recorded ({len(query_buffer)} bytes)...")
-                    sys.stdout.flush()
-
-            elif msg_type == MSG_CANCEL:
-                query_in_progress = False
-                query_buffer.clear()
-                print(f"\n[QUERY CANCELLED] Query discarded (too short or silent).")
-
-            elif msg_type == MSG_QUERY_END:
-                query_in_progress = False
-                total_s = len(query_buffer) / 32000.0
-                print(f"\n[QUERY END] Recorded {total_s:.2f} s ({len(query_buffer)} bytes). Processing immediately...")
-
-                if len(query_buffer) == 0:
-                    continue
-
-                # Launch processing in a BACKGROUND THREAD so heartbeats keep responding!
-                t = threading.Thread(
-                    target=process_query_worker,
-                    args=(sock, addr, bytearray(query_buffer), current_lang_code, current_model_preset),
-                    daemon=True
-                )
-                t.start()
-
-        except KeyboardInterrupt:
-            print("\nShutting down AI Brain Server.")
-            break
-        except Exception as e:
-            print(f"[ERROR] {e}")
+    try:
+        BrainTransport(sock).serve(process_query_worker)
+    except KeyboardInterrupt:
+        print("\nShutting down AI Brain Server.")
+    finally:
+        sock.close()
 
 if __name__ == "__main__":
     main()

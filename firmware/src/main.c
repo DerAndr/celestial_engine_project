@@ -111,6 +111,7 @@ static int32_t prev_encoder_pos = 0;
 static absolute_time_t click_feedback_until;
 static absolute_time_t not_ready_feedback_until;
 static uint32_t processing_start_ms = 0;
+static uint32_t speaking_start_ms = 0;
 
 static void on_mic_stream_chunk(const int16_t *samples, size_t count) {
     if (net_client_is_connected()) {
@@ -179,41 +180,13 @@ static void draw_listening_screen(uint32_t hold_ms, int mode_idx, bool anim_blin
 }
 
 static void draw_speaking_screen(uint32_t dur_ms, bool anim_blink) {
-    (void)dur_ms;
     (void)anim_blink;
     if (!oled_ready) return;
 
     sh1106_clear();
-    sh1106_draw_rect(0, 0, 128, 64, true);
-
-    uint32_t now_ms = to_ms_since_boot(get_absolute_time());
-
-    // 1. Playback Header Banner
-    sh1106_fill_rect(2, 2, 124, 12, true);
-    sh1106_draw_string(8, 4, "[ THE GUIDE SPEAKS ]", false);
-
-    // 2. Oracle Response Marquee Box across screen
-    const char *resp_text = net_client_get_response_text();
-    if (resp_text == NULL || strlen(resp_text) == 0) {
-        resp_text = "ORACLE BROADCASTING SPEECH...";
-    }
-
-    sh1106_draw_rect(4, 16, 120, 17, true);
-    sh1106_draw_string(8, 18, "ORACLE:", true);
-    draw_marquee(25, resp_text, now_ms);
-
-    // 3. Animated Graphic Equalizer / Soundwave
-    for (int b = 0; b < 14; b++) {
-        int h = 2 + (rand() % 8);
-        sh1106_fill_rect(8 + b * 8, 46 - h, 5, h, true);
-    }
-    char vol_tag[16];
-    snprintf(vol_tag, sizeof(vol_tag), "V:%2d%%", (int)audio_get_volume());
-    sh1106_draw_string(88, 38, vol_tag, true);
-
-    // 4. Footer line
-    sh1106_draw_line(2, 50, 125, 50, true);
-    sh1106_draw_string(6, 53, "// SHARE & ENJOY //", true);
+    const char *text = net_client_get_response_text();
+    if (!text || !*text) text = "THE GUIDE SPEAKS";
+    sh1106_draw_response_marquee(text, dur_ms);
 
     oled_ready = sh1106_update();
 }
@@ -1092,7 +1065,7 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             sh1106_draw_line(2, 47, 125, 47, true);
             char srv_ticker[160];
             snprintf(srv_ticker, sizeof(srv_ticker),
-                     "// HARDWARE TELEMETRY // TARGET: RP2350 // MEMORY: 520KB SRAM // 144k AUDIO BUFFER // BUILD: %s //",
+                     "// HARDWARE TELEMETRY // TARGET: RP2350 // MEMORY: 520KB SRAM // 64k MIC + 64k STREAM // BUILD: %s //",
                      FIRMWARE_BUILD_DATE);
             draw_marquee(51, srv_ticker, now_ms);
             break;
@@ -1240,29 +1213,25 @@ int main(void) {
         // Check incoming Brain response or timeout in STATE_PROCESSING
         if (current_state == STATE_PROCESSING) {
             uint32_t now_ms = to_ms_since_boot(get_absolute_time());
-            // Real-time audio streaming playback trigger: start SPEAKING as soon as stream active!
-            if (audio_is_stream_playing()) {
+            if (net_client_response_failed()) {
+                net_client_cancel();
+                current_state = STATE_IDLE;
+                audio_play_tone(220.0f, 150);
+                need_display_update = true;
+            } else if (audio_is_stream_playing() ||
+                       (audio_get_volume() == 0 && net_client_is_receiving_response())) {
                 current_state = STATE_SPEAKING;
+                speaking_start_ms = now_ms;
                 need_display_update = true;
-            } else if (net_client_is_receiving_response()) {
-                processing_start_ms = now_ms;
-            } else if (net_client_has_response_ready()) {
-                size_t resp_count = 0;
-                const int16_t *resp_samples = net_client_get_response_samples(&resp_count);
-                if (audio_is_stream_playing()) {
-                    current_state = STATE_SPEAKING;
-                } else if (resp_samples && resp_count > 0) {
-                    audio_play_pcm16(resp_samples, resp_count);
-                    current_state = STATE_SPEAKING;
-                } else {
-                    LOG_INFO("NET", "AI query finished. Returning to IDLE.");
-                    current_state = STATE_IDLE;
-                    audio_play_chime();
-                }
+            } else if (net_client_has_response_ready() && !net_client_is_receiving_response()) {
+                /* No preview replay: the stream already played the full response. */
                 net_client_consume_response();
+                current_state = STATE_IDLE;
                 need_display_update = true;
-            } else if (now_ms - processing_start_ms > 45000) {
-                LOG_WARN("NET", "Brain server response timeout (45s). Returning to IDLE.");
+            } else if (now_ms - processing_start_ms > 180000 ||
+                       now_ms - net_client_response_progress_ms() > 15000) {
+                LOG_WARN("NET", "Response deadline exceeded; cancelling request and ignoring late packets.");
+                net_client_cancel();
                 current_state = STATE_IDLE;
                 audio_play_tone(220.0f, 150);
                 need_display_update = true;
@@ -1303,10 +1272,16 @@ int main(void) {
                              net_client_is_connected() ? "ONLINE" : "DISCONNECTED");
                     need_display_update = true;
                 } else {
+                    net_client_cancel();
+                    audio_stop_all();
                     current_state = STATE_LISTENING;
                     easter_egg_active = false;
                     mic_record_start();
-                    net_client_send_query_start((uint8_t)active_lang_idx, (uint8_t)active_ai_model_idx);
+                    if (!net_client_send_query_start((uint8_t)active_lang_idx, (uint8_t)active_ai_model_idx)) {
+                        mic_record_stop();
+                        current_state = STATE_IDLE;
+                        LOG_WARN("NET", "QUERY start send failed.");
+                    }
                     audio_play_tone(880.0f, 40); // Crisp high prompt chirp (A5): "Ready! Speak now!"
                     LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! Streaming to Brain Server (Lang: %s, Model: %s)... <<<",
                              LANG_NAMES[active_lang_idx], AI_MODEL_NAMES[active_ai_model_idx]);
@@ -1337,8 +1312,9 @@ int main(void) {
             } else {
                 LOG_INFO("NET", "Finishing live Wi-Fi UDP voice stream (%zu samples, %lu ms)...",
                          recorded_samples, (unsigned long)rec_ms);
-                net_client_send_query_end();
-                current_state = STATE_PROCESSING;
+                bool submitted = net_client_send_query_end();
+                current_state = submitted ? STATE_PROCESSING : STATE_IDLE;
+                if (!submitted) net_client_cancel();
                 processing_start_ms = to_ms_since_boot(get_absolute_time());
                 audio_play_blip(); // Crisp upload blip sound!
             }
@@ -1347,8 +1323,12 @@ int main(void) {
 
         // Return from SPEAKING to IDLE once PCM/stream playback finishes
         if (current_state == STATE_SPEAKING && !audio_is_stream_playing() && !audio_is_pcm16_playing() && !net_client_is_receiving_response()) {
+            net_client_consume_response();
             current_state = STATE_IDLE;
-            LOG_INFO("AUDIO", "Recorded voice playback finished. Returned to IDLE.");
+            if (net_client_response_failed()) {
+                LOG_WARN("NET", "Response stream failed; returned to IDLE without accepting late audio.");
+                audio_play_tone(220.0f, 150);
+            } else LOG_INFO("AUDIO", "Response playback finished. Returned to IDLE.");
             need_display_update = true;
         }
 
@@ -1611,7 +1591,7 @@ int main(void) {
                 draw_processing_screen(to_ms_since_boot(get_absolute_time()) - processing_start_ms, flash_phase);
                 need_display_update = true;
             } else if (current_state == STATE_SPEAKING) {
-                draw_speaking_screen(mic_get_recorded_duration_ms(), flash_phase);
+                draw_speaking_screen(to_ms_since_boot(get_absolute_time()) - speaking_start_ms, flash_phase);
                 need_display_update = true;
             } else if (easter_egg_active) {
                 draw_67_screen(flash_phase);

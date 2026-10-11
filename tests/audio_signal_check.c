@@ -174,6 +174,55 @@ static int check_dma_read_bounds(void) {
     return bounded && active_not_refilled && near_handoff_not_refilled ? 0 : 1;
 }
 
+static int check_stream_bounds(void) {
+    audio_stream_reset();
+    static int16_t input[AUDIO_STREAM_RING_SIZE + 1];
+    for (size_t i = 0; i < sizeof input / sizeof input[0]; ++i) input[i] = (int16_t)i;
+    audio_stream_push(input, AUDIO_STREAM_RING_SIZE);
+    uint32_t before = audio_stream_write_idx;
+    int16_t oldest = audio_stream_ring[0];
+    audio_stream_push(input + AUDIO_STREAM_RING_SIZE, 1);
+    if (audio_stream_write_idx != before || audio_stream_ring[0] != oldest) {
+        puts("FAIL: full response ring overwrites unplayed samples");
+        return 1;
+    }
+    audio_stream_reset();
+    puts("Response ring: backpressure preserves unplayed samples PASS");
+    audio_set_volume(0);
+    audio_stream_push(input, 512);
+    audio_stream_finish();
+    if (audio_is_stream_playing()) {
+        puts("FAIL: muted response waits forever for stopped DMA");
+        audio_set_volume(10);
+        audio_stream_reset();
+        return 1;
+    }
+    audio_set_volume(10);
+    audio_stream_reset();
+    return 0;
+}
+
+static int check_stream_dynamics(void) {
+    audio_stop_all();
+    audio_set_volume(100);
+    int16_t ramp[512];
+    for (size_t i = 0; i < 512; ++i) ramp[i] = (int16_t)(1000 + i * 20);
+    audio_stream_push(ramp, 512);
+    audio_stream_finish();
+    uint32_t words[512];
+    fill_audio_buffer(words, 512);
+    for (size_t i = 1; i < 512; ++i) {
+        if (left_sample(words, i) <= left_sample(words, i - 1)) {
+            puts("FAIL: full-scale server PCM gets microphone preamp and clips");
+            audio_stop_all();
+            return 1;
+        }
+    }
+    audio_stop_all();
+    puts("Server PCM: dynamic range preserved without microphone preamp PASS");
+    return 0;
+}
+
 int main(void) {
     next_dma = 0; audio_init();
     int failures = check_isolated_probe();
@@ -183,6 +232,21 @@ int main(void) {
     failures += check_volume_faults();
     failures += check_late_dma_irq();
     failures += check_dma_read_bounds();
+    failures += check_stream_bounds();
+    failures += check_stream_dynamics();
+    sh1106_clear();
+    sh1106_draw_response_marquee("HELLO FULL SCREEN", 0);
+    uint8_t first_frame[SH1106_BUF_SIZE];
+    memcpy(first_frame, display_buffer, sizeof first_frame);
+    size_t lit = 0;
+    for (size_t i = 0; i < sizeof display_buffer; ++i)
+        for (unsigned bit = 0; bit < 8; ++bit) lit += (display_buffer[i] >> bit) & 1;
+    sh1106_clear();
+    sh1106_draw_response_marquee("HELLO FULL SCREEN", 600);
+    if (lit < 1800 || !memcmp(first_frame, display_buffer, sizeof first_frame)) {
+        puts("FAIL: response must occupy full-height large glyphs and scroll");
+        ++failures;
+    } else puts("OLED response: full-height glyphs and moving frame PASS");
     failures += main_boot_sequence_probe();
     failures += main_boot_announcement_probe();
     printf("Configured boot mode: %s\n", !AUDIO_STARTUP_SOUNDS ? "muted; no automatic playback" : "chime then voice");

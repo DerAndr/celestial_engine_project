@@ -57,7 +57,7 @@ bool audio_is_pcm16_playing(void);
  * Allows infinite-duration streaming playback without length truncation.
  */
 void audio_stream_reset(void);
-void audio_stream_push(const int16_t *samples, size_t count);
+bool audio_stream_push(const int16_t *samples, size_t count);
 void audio_stream_finish(void);
 bool audio_is_stream_playing(void);
 

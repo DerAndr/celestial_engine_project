@@ -12,7 +12,7 @@ extern "C" {
 // Minimal, low-latency UDP binary protocol for voice streaming between Pico 2 W and Brain Server.
 
 #define CELESTIAL_NET_MAGIC         0x454C4543  // 'C' 'E' 'L' 'E' in Little-Endian
-#define CELESTIAL_NET_VERSION       1
+#define CELESTIAL_NET_VERSION       2
 #define CELESTIAL_NET_DEFAULT_PORT  5005
 
 typedef enum {
@@ -24,7 +24,10 @@ typedef enum {
     NET_MSG_RESP_CHUNK   = 0x06,  // Server audio data chunk for playback
     NET_MSG_RESP_END     = 0x07,  // Server finished response
     NET_MSG_CANCEL       = 0x08,  // Abort current transaction
-    NET_MSG_RESP_TEXT    = 0x09   // Server sends UTF-8 response transcript
+    NET_MSG_RESP_TEXT    = 0x09,  // Server sends ASCII response transcript
+    NET_MSG_ACK          = 0x0A,  // payload: acknowledged message type (one byte)
+    NET_MSG_PROGRESS     = 0x0B,  // Server is still generating this request
+    NET_MSG_ERROR        = 0x0C   // Explicit failure; never play a truncated success
 } net_msg_type_t;
 
 typedef enum {
@@ -50,8 +53,10 @@ typedef struct {
     uint8_t  msg_type;      // net_msg_type_t
     uint16_t seq_num;       // Monotonically increasing sequence number
     uint16_t payload_len;   // Byte count of payload following this header
+    uint32_t request_id;    // One transaction; heartbeat uses zero
 } net_packet_header_t;
 #pragma pack(pop)
+_Static_assert(sizeof(net_packet_header_t) == 14, "Protocol v2 header must match Python <IBBHHI");
 
 #define NET_MAX_PAYLOAD_SIZE 512  // 256 samples (16 ms) of 16-bit PCM = 512 bytes
 

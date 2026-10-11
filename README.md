@@ -1,35 +1,22 @@
 # CELESTIAL ENGINE Mk.V
 
-Start here:
+Current user baseline: a stable three-ring Pico staff with live voice requests and generated spoken answers from the PC brain server. **The fourth 16-LED ring was discarded by the user** after continuing instability; active chain is 7→12→24 (43 LEDs, 18% cap).
 
-1. Read [PROJECT.md](PROJECT.md) for current implementation, hardware and prototype sequence.
-2. Coding agents must read [AGENTS.md](AGENTS.md) before making changes.
-3. The [inventory](docs/hardware/inventory.md) tracks confirmed hardware state.
-4. The [master pinout](docs/wiring/pinout.md) is the wiring source of truth.
-5. The [interactive map](docs/interactive_map.html) presents milestones, pin assignments, inventory and the planned state flow. Open [map.html](map.html) from the repository root.
+Prepared update: **1.0.16-RESPONSE-FIX** + **brain protocol v2**. Fixes response-ring overwrite, duplicate START resets, late answers after cancellation/timeout, and replay of the old one-second preview. Response packets now have request IDs, ordering, ACK/retry and explicit completion. Server PCM no longer receives the microphone ×5 preamp. OLED response text uses the full screen with 56-pixel-high scrolling letters. New physical validation remains pending.
 
-**2026-10-11 checkpoint:** the user repaired the fourth ring with a jumper bypassing one failed LED; current physical chain is 7→12→24→16. Four-ring light response is confirmed, while white rainbow flashes and full four-ring effects remain unfinished. Next: finish an independently useful Pico staff, then build the Raspberry Pi brain separately and integrate them. [Prioritized tasks](docs/tasks.md) · [Saved session state](docs/checkpoints/2026-10-11.md). Tonight is documentation/commit/push only.
+Start here: [PROJECT](PROJECT.md), [tasks](docs/tasks.md), [review](docs/reviews/2026-10-11-streaming-review.md), [experiment 036](docs/experiments/036-response-review-and-fullscreen-text.md), [protocol](docs/protocol.md), [Pi 5 next stage](docs/pi5-next-stage.md), [pinout](docs/wiring/pinout.md), [inventory](docs/hardware/inventory.md), [interactive map](docs/interactive_map.html). Agents must read [AGENTS](AGENTS.md).
 
-Archived three-ring audio firmware is **1.0.5-AUDIO-GAIN**. **ERR-AUDIO-02/03 RESOLVED by user solder repair**: sound and encoder volume work. Startup and encoder now share one 40 dB gain curve. Startup V10 rises by +3.64 dB from 1.0.4; V100 retains the 14400 digital ceiling. Live COM9 confirms startup peak 205 (previously 135), zero TX stalls and OLED ONLINE. See [experiment 018](docs/experiments/018-volume-consistent-gain.md). The working 16-bit I2S format, default V10 and startup sounds are preserved.
-
-The user confirms one QUARKZMAN 4 ohm / 3 W speaker connected only to amplifier OUT+/OUT−; GAIN remains unconnected. Experiments 013–016 preserve the debugging history; no further isolated listening sequence is requested.
-
-**P7 audio revalidated; audio blocker cleared.** P0–P4, P6 and P7 retain passes. All four rings respond; P5 effects and P8 standalone integration remain partial.
-
-The [2026-10-10 code review](docs/reviews/2026-10-10-code-review.md) records software fixes and remaining limitations. The [regression experiment](docs/experiments/007-code-review-regression.md) contains the hardware test to run before further integration.
-
-From the repository root:
+From repository root on the existing Windows build environment:
 
 ```powershell
 cmake --build firmware/build --target celestial_firmware --parallel 4
-.\scripts\check-audio.ps1 -RingExperiment
-.\scripts\check-audio.ps1 -RingDiagnostic
+.\scripts\check-audio.ps1
+python -m unittest discover -s tests -p test_brain_transport.py -v
+python tools/ai_brain_server.py
 ```
 
-The checks compile actual production C with installed Visual Studio C Build Tools, without Python. `-RingExperiment` checks the current main four-ring profile; `-RingDiagnostic` checks the separate pure-RGB diagnostic. The default command still checks the legacy three-ring/audio profile. Firmware targets Pico 2 W / RP2350 with the official Pico SDK.
+Main UF2: **firmware/build/celestial_firmware.uf2**. Update firmware and restart the updated server together; v1 and v2 do not interoperate. The native C checks execute actual audio/control/display code. Three small Python checks cover the Python transport only, including a 14-second response with deliberately lost packet/ACK. The old four-ring diagnostic target is historical and is not the current setup.
 
-Current main binary: **firmware/build/celestial_firmware.uf2**, version **1.0.10-FOUR-RINGS**. The earlier 1.0.5 three-ring/audio UF2 is preserved exactly as **firmware/build/celestial_audio_1.0.5.uf2**.
+One MAX98357A drives one QUARKZMAN 4 Ω / 3 W speaker; GAIN remains unconnected. Audio solder repair history: [017](docs/experiments/017-audio-solder-repair-level.md), [018](docs/experiments/018-volume-consistent-gain.md). Shared volume curve and GPIO stay unchanged; removing erroneous server preamplification may make speech sound quieter and cleaner at the same VOLUME.
 
-2026-10-11: main and diagnostic builds pass, **not flashed while Pico is disconnected**. User reports good COSMIC SNAKE, blue/violet spare backgrounds in PULSAR/VOICE/VORTEX and individual white flashes in RAINBOW. Main sets inactive spare pixels to black in those three modes. White flashes remain unresolved: **firmware/build/celestial_ring_experiment.uf2** (1.0.10-RING-DIAGNOSTIC) holds pure red/green/blue on the spare, five seconds each in RAINBOW, to isolate the issue. Prior 1.0.9 is saved as **celestial_ring_experiment_1.0.9.uf2**, and the passed 1.0.7 hardware baseline remains. [Naming, effects, diagnostic observation and flashing](docs/experiments/025-main-build-and-ring-backgrounds.md).
-
-Experiment logs: [P0 Pico](docs/experiments/000-pico-alive.md), [P1 OLED](docs/experiments/001-oled-sh1106.md), [P2 encoder](docs/experiments/002-encoder-pec11r.md), [P3 QUERY](docs/experiments/003-query-button.md), [P7 audio](docs/experiments/004-audio-max98357a.md), [P6 mic](docs/experiments/005-mic-inmp441.md), [P4 LEDs](docs/experiments/006-ws2812-first-ring.md).
+Next: confirm the new pair on the PC, then run the same server independently on Pi 5 using existing Wi-Fi. The staff retains local controls, effects, music and phrases without the brain; QUERY requires a server. Hotspot, local AI and portable power follow separate milestones. Git contains source/docs; private Wi-Fi/API configuration and built UF2 are excluded.

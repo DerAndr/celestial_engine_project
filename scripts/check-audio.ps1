@@ -36,6 +36,10 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'C audio check did not compile.' }
         & .\audio_signal_check.exe
         if ($LASTEXITCODE -ne 0) { throw 'C audio signal check failed.' }
+        & cl.exe /nologo /std:c11 /O2 (Join-Path $audioRoot 'tests/net_response_check.c') /Fe:net_response_check.exe /Fo:net_response_check.obj
+        if ($LASTEXITCODE -ne 0) { throw 'Response gate check did not compile.' }
+        & .\net_response_check.exe
+        if ($LASTEXITCODE -ne 0) { throw 'Response gate check failed.' }
     } finally { Pop-Location }
 } finally {
     $env:PATH = $savedPath

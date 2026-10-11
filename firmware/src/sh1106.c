@@ -167,6 +167,23 @@ void sh1106_draw_char(int x, int y, char c, bool on) {
     }
 }
 
+/* A response owns the entire OLED; clip partly visible glyphs at both edges. */
+void sh1106_draw_response_marquee(const char *text, uint32_t elapsed_ms) {
+    if (!text || !*text) return;
+    const int scale = 8, step = 48;
+    int width = (int)strlen(text) * step;
+    int cycle = width + SH1106_WIDTH;
+    int offset = (int)((elapsed_ms / 12u) % (uint32_t)cycle);
+    for (int repeat = 0; repeat < 2; ++repeat) {
+        int base = -offset + repeat * cycle;
+        for (size_t i = 0; text[i]; ++i) {
+            int x = base + (int)i * step;
+            if (x < SH1106_WIDTH && x + 5 * scale > 0)
+                sh1106_draw_char_scaled(x, 4, text[i], scale, true);
+        }
+    }
+}
+
 void sh1106_draw_string(int x, int y, const char *str, bool on) {
     int cur_x = x;
     while (*str) {

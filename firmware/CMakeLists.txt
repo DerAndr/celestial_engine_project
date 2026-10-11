@@ -53,6 +53,7 @@ target_compile_options(celestial_firmware PRIVATE -Wall -Wextra)
 # Link standard libraries, CYW43 Wi-Fi architecture, I2C, PIO, DMA, and clocks
 target_link_libraries(celestial_firmware
     pico_stdlib
+    pico_rand
     pico_cyw43_arch_lwip_threadsafe_background
     hardware_gpio
     hardware_i2c
@@ -70,8 +71,8 @@ pico_enable_stdio_uart(celestial_firmware 0)
 # Generate UF2, HEX, and BIN outputs
 pico_add_extra_outputs(celestial_firmware)
 
-# Main output now matches the current four-ring wiring. Keep a separately named
-# diagnostic build: only the spare's RAINBOW output becomes static pure RGB.
+# Main follows the user's three-ring wiring; the discarded fourth ring is absent.
+# Retain the historical diagnostic target separately; it is not the active setup.
 get_target_property(CELESTIAL_APP_SOURCES celestial_firmware SOURCES)
 add_executable(celestial_ring_experiment ${CELESTIAL_APP_SOURCES})
 target_compile_definitions(celestial_ring_experiment PRIVATE CELESTIAL_FOUR_RINGS=1 CELESTIAL_RING_EXPERIMENT=1)
@@ -81,7 +82,7 @@ endforeach()
 target_include_directories(celestial_ring_experiment PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
 target_compile_options(celestial_ring_experiment PRIVATE -Wall -Wextra)
 target_link_libraries(celestial_ring_experiment
-    pico_stdlib
+    pico_stdlib pico_rand
     pico_cyw43_arch_lwip_threadsafe_background
     hardware_gpio hardware_i2c hardware_pio hardware_dma hardware_clocks
     pico_bootrom m

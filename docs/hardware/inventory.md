@@ -2,7 +2,7 @@
 
 Update status as parts arrive and are tested.
 
-Current main software: **1.0.15-THREE-RINGS**, standard celestial_firmware.uf2. Current profile uses 18% brightness cap, PIO-paced DMA on 43 LEDs, and 35% audio volume. User physically removed the 4th 16-LED ring due to instability/flickering. The 3 verified concentric rings (7 + 12 + 24 = 43 LEDs) form the active baseline.
+Current main software: **1.0.16-RESPONSE-FIX**, standard celestial_firmware.uf2. Current profile uses 18% brightness cap, PIO-paced DMA on 43 LEDs, and 35% audio volume. User physically removed the 4th 16-LED ring and discarded due to instability/flickering. The 3 verified concentric rings (7 + 12 + 24 = 43 LEDs) form the active baseline.
 
 Latest observation (2026-10-11): 4th ring removed by user. 3-ring array confirmed operational. Audio playback and streaming verified over Wi-Fi UDP.
 

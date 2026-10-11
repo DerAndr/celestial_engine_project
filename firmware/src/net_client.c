@@ -1,7 +1,9 @@
 #include "net_client.h"
 #include "net_protocol.h"
 #include "audio.h"
+#include "response_gate.h"
 #include "pico/stdlib.h"
+#include "pico/rand.h"
 #include "pico/cyw43_arch.h"
 #include "lwip/pbuf.h"
 #include "lwip/udp.h"
@@ -19,8 +21,12 @@
 #define BRAIN_SERVER_IP "192.168.178.100"
 #define BRAIN_SERVER_PORT 5005
 #endif
-
-#define RESP_BUFFER_MAX_SAMPLES 16000 // 1.0 second backward compatibility preview = 32 KB
+#ifndef BRAIN_SERVER_IP
+#define BRAIN_SERVER_IP "192.168.178.100"
+#endif
+#ifndef BRAIN_SERVER_PORT
+#define BRAIN_SERVER_PORT CELESTIAL_NET_DEFAULT_PORT
+#endif
 
 static net_status_t current_status = NET_STATUS_DISCONNECTED;
 static char current_ip_str[24] = "0.0.0.0";
@@ -30,8 +36,6 @@ static uint16_t tx_seq_counter = 0;
 static uint32_t last_status_check_ms = 0;
 
 // Response buffer & streaming state
-static int16_t resp_audio_buffer[RESP_BUFFER_MAX_SAMPLES];
-static volatile size_t resp_sample_count = 0;
 static volatile bool resp_is_receiving = false;
 static volatile bool resp_is_ready = false;
 static char resp_text_buffer[512] = "";
@@ -40,78 +44,116 @@ static uint32_t last_server_heartbeat_rx_ms = 0;
 static uint32_t last_heartbeat_tx_ms = 0;
 
 static uint32_t last_resp_chunk_rx_ms = 0;
+static response_gate_t response_gate;
+static uint32_t request_counter;
+static volatile bool response_failed;
+static volatile uint32_t response_progress_ms;
+static uint32_t response_expected_samples, response_received_samples;
+
+/* Called only inside the lwIP callback, which already owns the SDK lock. */
+static void acknowledge_response(const net_packet_header_t *received) {
+    struct pbuf *ack = pbuf_alloc(PBUF_TRANSPORT, sizeof(*received) + 1, PBUF_RAM);
+    if (!ack) return;
+    net_packet_header_t hdr = { CELESTIAL_NET_MAGIC, CELESTIAL_NET_VERSION,
+        NET_MSG_ACK, received->seq_num, 1, received->request_id };
+    memcpy(ack->payload, &hdr, sizeof hdr);
+    ((uint8_t *)ack->payload)[sizeof hdr] = received->msg_type;
+    udp_sendto(udp_client_pcb, ack, &server_ip_addr, BRAIN_SERVER_PORT);
+    pbuf_free(ack);
+}
 
 static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *p,
                                          const ip_addr_t *addr, u16_t port) {
     (void)arg;
     (void)pcb;
-    (void)addr;
-    (void)port;
-
-    if (p == NULL) {
+    if (!p) return;
+    net_packet_header_t hdr;
+    if (!ip_addr_cmp(addr, &server_ip_addr) || port != BRAIN_SERVER_PORT ||
+        p->tot_len < sizeof hdr || pbuf_copy_partial(p, &hdr, sizeof hdr, 0) != sizeof hdr ||
+        hdr.magic != CELESTIAL_NET_MAGIC || hdr.version != CELESTIAL_NET_VERSION ||
+        hdr.payload_len > NET_MAX_PAYLOAD_SIZE || p->tot_len != sizeof hdr + hdr.payload_len) {
+        pbuf_free(p);
         return;
     }
-
-    if (p->tot_len >= sizeof(net_packet_header_t)) {
-        net_packet_header_t hdr;
-        pbuf_copy_partial(p, &hdr, sizeof(hdr), 0);
-
-        if (hdr.magic == CELESTIAL_NET_MAGIC && hdr.version == CELESTIAL_NET_VERSION) {
-            uint32_t now = to_ms_since_boot(get_absolute_time());
-            if (hdr.msg_type == NET_MSG_HEARTBEAT) {
-                last_server_heartbeat_rx_ms = now;
-            } else if (hdr.msg_type == NET_MSG_RESP_TEXT) {
-                size_t len = hdr.payload_len;
-                if (len >= sizeof(resp_text_buffer)) {
-                    len = sizeof(resp_text_buffer) - 1;
-                }
-                if (len > 0) {
-                    pbuf_copy_partial(p, resp_text_buffer, len, sizeof(hdr));
-                }
-                resp_text_buffer[len] = '\0';
-            } else if (hdr.msg_type == NET_MSG_RESP_START) {
-                audio_stream_reset();
-                resp_sample_count = 0;
-                resp_is_receiving = true;
-                resp_is_ready = false;
-                last_resp_chunk_rx_ms = now;
-            } else if (hdr.msg_type == NET_MSG_RESP_CHUNK) {
-                // If START packet was dropped on Wi-Fi, auto-start receiving!
-                if (!resp_is_receiving && !resp_is_ready) {
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+    if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0) {
+        last_server_heartbeat_rx_ms = now;
+    } else if (response_gate_matches(&response_gate, hdr.request_id)) {
+        bool ack = false;
+        switch (hdr.msg_type) {
+        case NET_MSG_PROGRESS:
+            response_progress_ms = now;
+            break;
+        case NET_MSG_ERROR:
+            response_failed = true;
+            response_gate_cancel(&response_gate);
+            audio_stop_all();
+            resp_is_receiving = resp_is_ready = false;
+            break;
+        case NET_MSG_RESP_TEXT:
+            if (!response_gate.ended && hdr.payload_len < sizeof(resp_text_buffer)) {
+                pbuf_copy_partial(p, resp_text_buffer, hdr.payload_len, sizeof hdr);
+                resp_text_buffer[hdr.payload_len] = '\0';
+                ack = true;
+            }
+            break;
+        case NET_MSG_RESP_START:
+            if (hdr.payload_len == sizeof(uint32_t)) {
+                bool first = !response_gate.started;
+                ack = response_gate_start(&response_gate, hdr.request_id);
+                if (ack && first) {
+                    pbuf_copy_partial(p, &response_expected_samples, sizeof(uint32_t), sizeof hdr);
                     audio_stream_reset();
-                    resp_sample_count = 0;
+                    response_received_samples = 0;
                     resp_is_receiving = true;
-                }
-                if (resp_is_receiving && hdr.payload_len > 0) {
-                    size_t samples_in_chunk = hdr.payload_len / sizeof(int16_t);
-                    int16_t chunk_buf[NET_MAX_PAYLOAD_SIZE / sizeof(int16_t)];
-                    pbuf_copy_partial(p, chunk_buf, hdr.payload_len, sizeof(hdr));
-
-                    // Push to infinite streaming ring buffer
-                    audio_stream_push(chunk_buf, samples_in_chunk);
-
-                    // Maintain backward-compatible buffer copy if within capacity
-                    if (resp_sample_count + samples_in_chunk <= RESP_BUFFER_MAX_SAMPLES) {
-                        memcpy(&resp_audio_buffer[resp_sample_count], chunk_buf, hdr.payload_len);
-                        resp_sample_count += samples_in_chunk;
-                    }
+                    resp_is_ready = false;
                     last_resp_chunk_rx_ms = now;
                 }
-            } else if (hdr.msg_type == NET_MSG_RESP_END) {
-                if (resp_is_receiving) {
+            }
+            break;
+        case NET_MSG_RESP_CHUNK:
+            if (hdr.payload_len && !(hdr.payload_len & 1)) {
+                response_gate_t candidate = response_gate;
+                int accepted = response_gate_chunk(&candidate, hdr.request_id, hdr.seq_num);
+                if (accepted == 1) ack = true;
+                else if (accepted == 2) {
+                    int16_t chunk[NET_MAX_PAYLOAD_SIZE / 2];
+                    pbuf_copy_partial(p, chunk, hdr.payload_len, sizeof hdr);
+                    size_t count = hdr.payload_len / 2;
+                    if (response_received_samples + count <= response_expected_samples &&
+                        audio_stream_push(chunk, count)) {
+                        response_gate = candidate;
+                        response_received_samples += count;
+                        last_resp_chunk_rx_ms = now;
+                        ack = true;
+                    }
+                }
+            }
+            break;
+        case NET_MSG_RESP_END:
+            if (response_received_samples == response_expected_samples) {
+                bool first = !response_gate.ended;
+                ack = response_gate_end(&response_gate, hdr.request_id, hdr.seq_num);
+                if (ack && first) {
                     audio_stream_finish();
                     resp_is_receiving = false;
                     resp_is_ready = true;
                 }
             }
+            break;
+        default: break;
+        }
+        if (ack) {
+            response_progress_ms = now;
+            acknowledge_response(&hdr);
         }
     }
-
     pbuf_free(p);
 }
 
 void net_client_init(void) {
     ipaddr_aton(BRAIN_SERVER_IP, &server_ip_addr);
+    request_counter = get_rand_32(); /* Reboot must not reuse a still-running worker's ID. */
 
 #if HAVE_WIFI_CREDENTIALS
     if (strlen(WIFI_SSID) > 0) {
@@ -151,6 +193,10 @@ void net_client_update(void) {
         return;
     }
     last_status_check_ms = now;
+    cyw43_arch_lwip_begin();
+    bool stalled = resp_is_receiving && (now - last_resp_chunk_rx_ms > 10000);
+    cyw43_arch_lwip_end();
+    if (stalled) { net_client_cancel(); response_failed = true; }
 
     int link_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
     if (link_status == CYW43_LINK_UP) {
@@ -174,12 +220,6 @@ void net_client_update(void) {
             net_client_ping_server();
         }
 
-        // Auto-finalize if response chunks stopped arriving for 1500 ms (lost END packet safety net)
-        if (resp_is_receiving && (now - last_resp_chunk_rx_ms > 1500)) {
-            audio_stream_finish();
-            resp_is_receiving = false;
-            resp_is_ready = true;
-        }
     } else {
         if (link_status == CYW43_LINK_BADAUTH || link_status == CYW43_LINK_NONET) {
             current_status = NET_STATUS_ERROR;
@@ -235,6 +275,7 @@ static bool send_udp_packet(uint8_t msg_type, const void *payload, size_t payloa
     hdr->msg_type = msg_type;
     hdr->seq_num = tx_seq_counter++;
     hdr->payload_len = (uint16_t)payload_len;
+    hdr->request_id = msg_type == NET_MSG_HEARTBEAT ? 0 : response_gate.request_id;
 
     if (payload != NULL && payload_len > 0) {
         memcpy((uint8_t *)p->payload + sizeof(net_packet_header_t), payload, payload_len);
@@ -252,14 +293,19 @@ bool net_client_ping_server(void) {
 }
 
 bool net_client_send_query_start(uint8_t lang_code, uint8_t model_preset) {
-    tx_seq_counter = 0;
-    resp_is_ready = false;
-    resp_is_receiving = false;
-    resp_sample_count = 0;
+    net_client_cancel();
+    cyw43_arch_lwip_begin();
+    if (++request_counter == 0) ++request_counter;
+    response_gate_begin(&response_gate, request_counter);
+    resp_is_ready = resp_is_receiving = response_failed = false;
     resp_text_buffer[0] = '\0';
-    last_resp_chunk_rx_ms = to_ms_since_boot(get_absolute_time());
+    response_progress_ms = to_ms_since_boot(get_absolute_time());
+    cyw43_arch_lwip_end();
     uint8_t payload[2] = { lang_code, model_preset };
-    return send_udp_packet(NET_MSG_QUERY_START, payload, sizeof(payload));
+    bool sent = send_udp_packet(NET_MSG_QUERY_START, payload, sizeof payload);
+    if (sent) send_udp_packet(NET_MSG_QUERY_START, payload, sizeof payload);
+    else { net_client_cancel(); response_failed = true; }
+    return sent;
 }
 
 bool net_client_send_audio_chunk(const int16_t *samples, size_t sample_count) {
@@ -285,12 +331,20 @@ bool net_client_send_audio_chunk(const int16_t *samples, size_t sample_count) {
 }
 
 bool net_client_send_query_end(void) {
-    return send_udp_packet(NET_MSG_QUERY_END, NULL, 0);
+    bool sent = send_udp_packet(NET_MSG_QUERY_END, NULL, 0);
+    if (sent) {
+        send_udp_packet(NET_MSG_QUERY_END, NULL, 0);
+        send_udp_packet(NET_MSG_QUERY_END, NULL, 0);
+    }
+    return sent;
 }
 
 void net_client_cancel(void) {
+    cyw43_arch_lwip_begin();
+    response_gate_cancel(&response_gate);
+    cyw43_arch_lwip_end();
     send_udp_packet(NET_MSG_CANCEL, NULL, 0);
-    audio_stream_reset();
+    audio_stop_all();
     resp_is_receiving = false;
     resp_is_ready = false;
 }
@@ -303,19 +357,15 @@ bool net_client_has_response_ready(void) {
     return resp_is_ready;
 }
 
-const int16_t* net_client_get_response_samples(size_t *out_sample_count) {
-    if (out_sample_count != NULL) {
-        *out_sample_count = resp_sample_count;
-    }
-    return resp_audio_buffer;
-}
-
 void net_client_consume_response(void) {
     resp_is_ready = false;
     resp_is_receiving = false;
-    resp_sample_count = 0;
+    /* Keep the completed gate briefly so a retransmitted END can still be ACKed. */
 }
 
 const char* net_client_get_response_text(void) {
     return resp_text_buffer;
 }
+
+bool net_client_response_failed(void) { return response_failed; }
+uint32_t net_client_response_progress_ms(void) { return response_progress_ms; }

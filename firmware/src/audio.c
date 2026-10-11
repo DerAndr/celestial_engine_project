@@ -429,6 +429,7 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
     float gain = master_gain;
     float voice_gain = AUDIO_PCM16_PEAK / 128.0f;
     const float pcm16_gain = 5.0f; // Pre-amp gain boost (+14 dB) for natural microphone voice replay
+    const float stream_gain = AUDIO_PCM16_PEAK / 32768.0f; // Server PCM is already full scale.
     uint32_t buffer_peak = 0;
 
     for (size_t i = 0; i < count; i++) {
@@ -497,9 +498,9 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
 
         // 4. Mix streaming 16-bit PCM ring buffer if active
         if (audio_stream_active) {
-            if (audio_stream_read_idx < audio_stream_write_idx) {
+            if (audio_stream_read_idx != audio_stream_write_idx) {
                 int16_t s = audio_stream_ring[audio_stream_read_idx++ & AUDIO_STREAM_RING_MASK];
-                mixed_sample += (float)s * pcm16_gain;
+                mixed_sample += (float)s * stream_gain;
             } else if (audio_stream_eof) {
                 audio_stream_active = false;
             }
@@ -632,7 +633,11 @@ void audio_set_volume(uint8_t volume_percent) {
     uint32_t save = save_and_disable_interrupts();
     master_volume_percent = volume_percent;
     master_gain = gain;
-    if (volume_percent == 0 && dma_chan_a >= 0 && dma_chan_b >= 0) amp_sleep();
+    if (volume_percent == 0 && dma_chan_a >= 0 && dma_chan_b >= 0) {
+        audio_stream_read_idx = audio_stream_write_idx;
+        audio_stream_active = false;
+        amp_sleep();
+    }
     else if (volume_percent > 0 && audio_is_playing()) amp_wake();
     restore_interrupts(save);
 }
@@ -779,9 +784,18 @@ void audio_stream_reset(void) {
     restore_interrupts(save);
 }
 
-void audio_stream_push(const int16_t *samples, size_t count) {
-    if (samples == NULL || count == 0) return;
+bool audio_stream_push(const int16_t *samples, size_t count) {
+    if (samples == NULL || count == 0) return false;
     uint32_t save = save_and_disable_interrupts();
+    if (master_volume_percent == 0 && !audio_stream_eof) {
+        /* Muted packets still complete the transaction, without waking the DAC. */
+        restore_interrupts(save);
+        return true;
+    }
+    if (count > AUDIO_STREAM_RING_SIZE - (uint32_t)(audio_stream_write_idx - audio_stream_read_idx) || audio_stream_eof) {
+        restore_interrupts(save);
+        return false; /* Sender must retry; never overwrite queued speech. */
+    }
     for (size_t i = 0; i < count; i++) {
         audio_stream_ring[audio_stream_write_idx++ & AUDIO_STREAM_RING_MASK] = samples[i];
     }
@@ -791,12 +805,13 @@ void audio_stream_push(const int16_t *samples, size_t count) {
         amp_wake();
     }
     restore_interrupts(save);
+    return true;
 }
 
 void audio_stream_finish(void) {
     uint32_t save = save_and_disable_interrupts();
     audio_stream_eof = true;
-    if (audio_stream_write_idx > audio_stream_read_idx) {
+    if (audio_stream_write_idx != audio_stream_read_idx) {
         audio_stream_active = true;
         amp_wake();
     }
@@ -993,6 +1008,9 @@ void audio_stop_all(void) {
     audio_stop_chiptune();
     audio_stop_cosmic_sfx();
     audio_stop_voice();
+    pcm16_active = false;
+    active_pcm16_samples = NULL;
+    audio_stream_reset();
     diagnostic_sine = false;
     diagnostic_polarity = 0;
     playback_peak_pcm24 = 0;

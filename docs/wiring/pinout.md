@@ -4,7 +4,7 @@
 
 Reconciled through the 2026-10-11 update against `config.h`, drivers and user hardware modifications. 
 
-Current main: `1.0.15-THREE-RINGS` (`celestial_firmware.uf2`). Uses 16-bit stereo I2S, 512 kHz BCLK and 16 kHz LRC during playback. The 4th 16-LED ring was removed from the physical assembly. LED array reverted to the verified 3-ring chain (43 LEDs: 7 Core + 12 Inner + 24 Outer) with PIO-paced DMA and standard 18% brightness cap. No GPIO assignment changes.
+Current main: `1.0.16-RESPONSE-FIX` (`celestial_firmware.uf2`). Uses 16-bit stereo I2S, 512 kHz BCLK and 16 kHz LRC during playback. The 4th 16-LED ring was removed from the physical assembly. LED array reverted to the verified 3-ring chain (43 LEDs: 7 Core + 12 Inner + 24 Outer) with PIO-paced DMA and standard 18% brightness cap. No GPIO assignment changes.
 
 This global GPIO allocation satisfies all peripherals for the Celestial Engine staff:
 - OLED (I2C)
@@ -51,8 +51,8 @@ This global GPIO allocation satisfies all peripherals for the Celestial Engine s
 | **VBUS (5V USB)** | 5V Rail | Pin 40 | VBUS | 5.0 V USB supply (Amp / Level Shifter) | SYSTEM |
 
 ## RP2350 Audio Architecture Notes
-1. **Clock Domain Separation**: Microphone metering and speaker playback both run at 16 kHz with separate PIO state machines and GPIO clocks (GP10/11 vs GP16/17). Output carries signed PCM16 in 16-bit stereo slots: BCLK 512 kHz, LRCLK 16 kHz. Normal playback stops clocks after idle. Future TTS transport is not implemented.
+1. **Clock Domain Separation**: Microphone metering and speaker playback both run at 16 kHz with separate PIO state machines and GPIO clocks (GP10/11 vs GP16/17). Output carries signed PCM16 in 16-bit stereo slots: BCLK 512 kHz, LRCLK 16 kHz. Normal playback stops clocks after idle. Generated speech now returns through acknowledged UDP v2; new physical verification is pending.
 2. **PIO allocation**: Mic is PIO0 SM0; LEDs are PIO0 SM1; speaker is PIO1 SM0. Pico SDK 2.3.1's CYW43 allocator searches from PIO2 and claims a free state machine. Do not move LEDs onto the documented former PIO2 SM0 assignment without checking wireless resource ownership.
 3. **Level Shifting**: The SN74AHCT125N provides the planned reliable 3.3 V -> 5 V LED data path. The direct core-ring smoke test is recorded as passed; shifter/full-array validation is separate. Never connect 5 V directly to any Pico GPIO.
-4. **Current configured array**: Physical chain is 7→12→24→repaired 16-position ring, with 59 reserved serial slots and a 4% brightness cap. The user bypassed one failed LED with a common-DIN→failed-DOUT jumper; its original output remains attached and one position stays dark. All four rings respond, but exact repaired-ring addressing and individual white flashes remain unresolved. Final current and power validation is pending. Full four-ring lighting is a priority in [tasks](../tasks.md).
+4. **Current configured array**: 43 LEDs in 7→12→24 chain, PIO0 SM1 DMA, 18% cap and 300 µs reset. The user discarded the fourth 16-LED ring after instability; it is excluded from main. No GPIO changes.
 5. **Amplifier GAIN**: Left unconnected (default internal 9 dB gain). The normal application stops I2S clocks after idle; physical current, heating and acoustic behavior have not been measured. The isolated probe starts silent and stops clocks after one bounded transfer.

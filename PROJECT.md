@@ -5,29 +5,24 @@ Build a working interactive AI staff quickly from the hardware already purchased
 
 The coding agent must guide the user physically, one testable prototype at a time, and maintain the repository as an engineering notebook.
 
-## Checkpoint and next priorities — 2026-10-11
+## Current implementation — 2026-10-11 response review
 
-The user repaired the 16-position ring with a jumper bypassing one failed LED; it is installed last in the physical **7→12→24→16** chain. The damaged position remains dark. The user confirms that buggy bright flashes of light on the 4th ring are no longer visible, and inactive backgrounds in PULSAR/VOICE/VORTEX remain dark.
+User reports a generally stable staff with live requests and generated audio answers. The repaired fourth 16-LED ring was ultimately **discarded by the user because it remained unreliable**. Active physical chain: **7→12→24 = 43 LEDs**, GP15 / PIO0 SM1 / DMA, 300 µs reset, 18% brightness cap. The historical fourth-ring jumper repair remains in experiments 019–025; it is no longer the active hardware.
 
-Work order: **finish the standalone Pico staff first**, including a full rewrite of music/microphone lighting and effects for all four rings, unified state/UI behavior, bounded QUERY capture/local playback and a minimal versioned Wi-Fi contract. Then build the Raspberry Pi brain independently against that contract and join the two working systems. The staff must remain useful without the Pi or a network. See the [prioritized tasks](docs/tasks.md) and [end-of-session checkpoint](docs/checkpoints/2026-10-11.md).
-
-## Current implementation — 2026-10-11
-
-2026-10-11 current main: **1.0.11-VOICE-CAPTURE**, built/checked as **firmware/build/celestial_firmware.uf2**. Implements continuous 16 kHz 16-bit PCM microphone speech capture into RAM (up to 5.0 s, 160 KB) upon holding QUERY, and immediate playback via MAX98357A speaker upon release ([Experiment 026](docs/experiments/026-mic-record-ram-buffer.md)). Ring cosmetics postponed to backlog per user priority. Both files keep 59-word DMA, 300 µs reset, 4% cap, silent V0 and existing wiring.
-
-Archived three-ring application **1.0.5-AUDIO-GAIN** targets Pico 2 W / RP2350. **ERR-AUDIO-02/03 RESOLVED:** the user repaired bad soldering and confirms working sound/volume, including the encoder. That archived profile: 43 LEDs (7 + 12 + 24; defective 16-LED ring removed). Firmware uses official 16-bit stereo I2S, default V10 and startup sounds. Startup and encoder now share one 40 dB volume curve: startup V10 is +3.64 dB from 1.0.4; V100 still uses the 14400 digital ceiling. Build, flash verification and live COM9 confirm the new version and startup peak 205 (previously 135). See [consistent gain adjustment 018](docs/experiments/018-volume-consistent-gain.md); physical loudness preference awaits ordinary use. The audio blocker is cleared; further integration may resume.
+Current prepared main: **1.0.16-RESPONSE-FIX**, `firmware/build/celestial_firmware.uf2`. Pico 2 W / RP2350, official SDK 2.3.1. The preceding user baseline is 1.0.15-THREE-RINGS. New firmware/server pair uses [UDP protocol v2](docs/protocol.md): request IDs, idempotent START, ordered/acknowledged response packets, bounded ring writes, progress while generating, and cancellation of late responses. OLED speech text is a full-screen 8× marquee, with no header/equalizer during answers. New physical validation is pending; software checks are in [review 036](docs/experiments/036-response-review-and-fullscreen-text.md).
 
 | Area | Current behavior / status |
 |---|---|
-| Display and controls | SH1106 on I2C1; encoder A/B decoded in GPIO IRQ; QUERY press/release require 30 ms stability |
-| QUERY | Hold records voice into 160 KB RAM buffer; release stops recording and triggers speaker playback |
-| LEDs | Main four-ring profile: 59 reserved slots (7 + 12 + 24 + spare reserve 16), GP15 / PIO0 SM1 / DMA, 4% cap; backgrounds dark |
-| Microphone | 16 kHz live metering + continuous 16-bit PCM voice capture buffer (up to 5 s / 80k samples) |
-| Speaker | MAX98357A + one QUARKZMAN 4 ohm / 3 W, OUT+/OUT−; solder repair and shared gain work. Current four-ring startup V0; archived audio profile used V10 |
-| Mission Control | Web dashboard at http://localhost:5050 with one-click UF2 flasher, live telemetry stream, and presets |
-| Milestones | Historical P0–P4/P6/P7 passes retained; P5 four-ring data response confirmed, effects partial; P7 audio revalidated after user solder repair; P8 standalone integration remains partial |
+| Controls/display | SH1106 128×64; encoder/menu, language/model/volume selection; full-screen response marquee prepared |
+| QUERY/microphone | Hold streams 16 kHz PCM16 mono over Wi-Fi; release submits; 60 s capture limit; first 2 s retained in local 64 KB RAM buffer |
+| Brain | Current PC service: Google Web Speech STT → configured cloud LLM → Edge-TTS → ffmpeg PCM; separate worker keeps heartbeat responsive |
+| Response | 32768-sample streaming ring; complete ordered delivery with retries; older/cancelled IDs rejected; no one-second preview replay |
+| Speaker | One MAX98357A + QUARKZMAN 4 Ω / 3 W; GAIN unconnected; PCM16 stereo I2S, 512 kHz BCLK, 16 kHz LRC; V35 default, shared 40 dB curve |
+| LEDs | Three rings; recording vortex, processing data radar and speaking waves; fourth ring excluded |
+| Standalone | Local display, controls, effects, music and embedded phrases work without Pi; network QUERY requires reachable brain and shows OFFLINE otherwise |
+| Next stage | Validate new pair on PC, then move the same server to Pi 5 on existing Wi-Fi; local-model/hotspot changes later |
 
-See the [audio experiment 011](docs/experiments/011-audio-volume-fix.md), [three rings experiment 010](docs/experiments/010-three-rings-cosmic-effects.md), [pinout](docs/wiring/pinout.md), [inventory](docs/hardware/inventory.md) and [interactive map](docs/interactive_map.html).
+Audio solder repair resolved the earlier ERR-AUDIO-02/03 (017–018). New response clipping, late-answer and full-screen text fixes are separate; keep the established GPIO and hardware architecture. [Tasks](docs/tasks.md) · [Code review](docs/reviews/2026-10-11-streaming-review.md) · [Pi 5 handoff](docs/pi5-next-stage.md).
 
 ## System architecture
 There are two physically separate systems:
@@ -40,7 +35,7 @@ Communication is wireless over Wi-Fi. Do not introduce a physical data cable bet
 For now use the built-in Wi-Fi hardware already present on Pico 2 W and Raspberry Pi 5. Do not add another Wi-Fi adapter unless actual testing demonstrates a need.
 
 ## Halloween MVP
-The target interaction below is not yet implemented end to end:
+The voice loop now runs with the PC brain server. Moving that same loop to Pi 5 is the next hardware milestone:
 
 1. Hold QUERY.
 2. Staff enters LISTENING and records speech.
@@ -61,7 +56,7 @@ Reliability matters more than enclosure polish.
 - INMP441 I2S MEMS microphone
 - MAX98357A I2S mono Class-D amplifier
 - 4 ohm / 3 W mini speaker
-- WS2812B ring set: 7 + 12 + 16 + 24 LEDs = 59 LEDs total
+- Active WS2812B rings: 7 + 12 + 24 = 43 LEDs; purchased 16-LED ring discarded after instability
 - SN74AHCT125N level shifter(s)
 - ~470 ohm series resistor(s) for WS2812 data
 - ~1000 uF, >=10 V electrolytic capacitor(s)
@@ -129,7 +124,7 @@ Exceptional states:
 - OFFLINE
 - ERROR
 
-This is the target flow. Current state definitions are in `firmware/src/staff_state.h`, with local orchestration in `firmware/src/main.c`; unified state-driven LEDs and transport states remain incomplete.
+Current local/network interaction follows IDLE → LISTENING → PROCESSING → SPEAKING → IDLE; UPLOADING is implicit in live capture. Definitions are in `firmware/src/staff_state.h`, with local orchestration in `firmware/src/main.c`; recording/processing/speaking LED patterns are integrated. Full state-machine consolidation remains a future cleanup.
 
 ## Electrical constraints
 - Pico GPIO is 3.3 V.
@@ -198,24 +193,24 @@ Add momentary NO button. Log/display QUERY DOWN and QUERY UP; connect this to LI
 ### P4 — WS2812 Core Ring & Celestial Animations [PASSED / VERIFIED]
 Direct GP15 driving verified. Added seven animation modes (`[ LED EFFECTS ]`): Cosmic Breathe, Galaxy Vortex, Pulsar Pulse, Solar Plasma, Starry Night, Voice Reactive and Rainbow Wave. The revised frame, color and brightness handling awaits experiment 007.
 
-### P5 — Four-ring LED core [HARDWARE VERIFIED / EFFECTS UNIFICATION IN PROGRESS]
-All four rings are connected as 7→12→24→16; the user repaired the 16-LED ring with a jumper bypassing one failed LED. Four-ring light response is stable at 4% brightness cap; user confirmed buggy white flashes are gone and dark backgrounds in PULSAR/VOICE/VORTEX work properly. Next: rewrite all four-ring animation and music/mic lighting effects with unified logical geometry (7→12→16→24) decoupled from physical wiring offsets.
+### P5 — Three-ring core [ACTIVE / USER CONFIRMED]
+Fourth ring discarded by the user due to instability. Active chain is 7→12→24 (43 LEDs, 18% cap); no replacement or four-ring rewrite is required. Keep the working three-ring animations and state patterns.
 
 ### P6 — Microphone [PASSED / VERIFIED]
 INMP441 verified on RP2350 via PIO0 SM0 circular DMA. Live voice reaction verified in telemetry and integrated into LED voice-reactive animation mode.
 
 ### P7 — Speaker [REVALIDATED AFTER USER SOLDER REPAIR]
-MAX98357A + one 4 ohm/3 W speaker on PIO1 SM0. User repaired bad soldering and confirms sound and volume control work; ERR-AUDIO-02/03 are resolved. GAIN stays unconnected. Shared gain and 16-bit stereo I2S are preserved; current four-ring builds start silently at V0. Continue local audio/capture integration without reopening the historical speaker fault as an active blocker.
+MAX98357A + one 4 ohm/3 W speaker on PIO1 SM0. User repaired bad soldering and confirms sound and volume control work; ERR-AUDIO-02/03 are resolved. GAIN stays unconnected. Shared gain and 16-bit stereo I2S are preserved; current three-ring main retains V35 startup. Continue local audio/capture integration without reopening the historical speaker fault as an active blocker.
 
 ### P8 — Integrated staff [IN PROGRESS]
 Run OLED + controls + LEDs + microphone + speaker under the central state machine. Add multilingual selector (EN default, DE, RU) and canonical offline audio cues ("Celestial Sphere online" / "Himmelssphäre online" / "Небесная сфера в сети").
-The staff must operate independently of the brain/network, including local effects, music, settings and predictable QUERY handling. Complete the Pico side and its interface contract before building the Raspberry Pi service; transport and AI remain future work.
+The staff must operate independently of the brain/network, including local effects, music, settings and predictable QUERY handling. Live Wi-Fi requests, generation and response playback now run with the PC server. Validate response fixes, then move the same service to Pi 5; preserve offline local functionality.
 
-### P9 — Pi link
-Use built-in Wi-Fi. Start with PING/PONG and heartbeat, then state messages and audio transport.
+### P9 — Brain link [PC SERVICE WORKING / V2 FIXES PREPARED]
+Built-in Wi-Fi with heartbeat, live upload, cloud AI and acknowledged response streaming. Validate the v2 pair before changing network/provider deployment.
 
-### P10 — End-to-end voice
-QUERY hold -> capture -> release -> upload -> Pi STT -> agent -> TTS -> return audio -> playback -> IDLE.
+### P10 — Pi 5 deployment [NEXT]
+Move the existing brain service to Pi 5 on the same router; verify mock, then current cloud STT/LLM/TTS. See docs/pi5-next-stage.md. Local STT/TTS/LLM and hotspot remain separate future milestones.
 
 ### P11 — Portable operation
 Integrate/test Pi 5 portable power separately. Do not confuse it with staff power.
