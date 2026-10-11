@@ -36,8 +36,12 @@ int16_t mic_get_peak_amplitude(void);
 #include <stddef.h>
 
 #define MIC_SAMPLE_RATE         16000
-#define MIC_MAX_RECORD_SECONDS  5
-#define MIC_RECORD_MAX_SAMPLES  (MIC_SAMPLE_RATE * MIC_MAX_RECORD_SECONDS) // 80,000 samples (160 KB)
+#define MIC_MAX_RECORD_SECONDS  2
+#define MIC_RECORD_MAX_SAMPLES  (MIC_SAMPLE_RATE * MIC_MAX_RECORD_SECONDS) // 32,000 samples (64 KB)
+#define MIC_QUERY_MAX_SECONDS   60 // Maximum query duration for streaming (60 seconds)
+
+typedef void (*mic_stream_callback_t)(const int16_t *samples, size_t count);
+void mic_set_stream_callback(mic_stream_callback_t callback);
 
 /**
  * Start capturing continuous PCM16 microphone samples into memory.
@@ -75,6 +79,11 @@ uint32_t mic_get_recorded_duration_ms(void);
  * Clear recorded buffer.
  */
 void mic_record_clear(void);
+
+/**
+ * Get maximum absolute audio amplitude observed during the last/active recording session.
+ */
+int16_t mic_get_record_session_peak(void);
 
 #ifdef __cplusplus
 }

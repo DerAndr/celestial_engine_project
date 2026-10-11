@@ -16,6 +16,9 @@ typedef enum {
     LED_ANIM_PLASMA,         // 5. Living solar plasma & fire flames
     LED_ANIM_STARS,          // 6. Deep navy & diamond starlight sparkle
     LED_ANIM_VOICE,          // 7. Live audio/voice reactive VU halo
+    LED_ANIM_SOLAR,          // 8. Solar Orrery planetary rings
+    LED_ANIM_DATA_RECV,      // 9. Concentric data reception radar ripples
+    LED_ANIM_EXPAND_SPEECH,  // 10. Expanding sonic ripples from center outward to rims
     LED_ANIM_COUNT
 } led_anim_mode_t;
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include "pico/stdlib.h"
 #include "pico/bootrom.h"
 #include "pico/cyw43_arch.h"
@@ -13,6 +14,7 @@
 #include "mic.h"
 #include "leds.h"
 #include "staff_state.h"
+#include "net_client.h"
 
 #if __has_include("wifi_credentials.h")
     #include "wifi_credentials.h"
@@ -22,33 +24,71 @@
 #endif
 
 typedef enum {
-    MODE_ORACLE = 0,
-    MODE_GUIDE,
-    MODE_SCANNER,
-    MODE_CANDY_DETECTOR,
-    MODE_VOLUME,
-    MODE_MIC_TEST,
-    MODE_LED_CORE,
-    MODE_CHIPTUNE,
-    MODE_VOICE,
-    MODE_COSMIC_FX,
-    MODE_SYSTEM,
+    MODE_STATUS = 0,    // Main utilitarian status with derpy logo
+    MODE_GALAXY,        // Milky Way galaxy map with Sol marker
+    MODE_SOLAR,         // Solar System orrery with Earth marker
+    MODE_EARTH,         // Earth close-up planetary zoom
+    MODE_AI_MODEL,      // Target Cloud LLM Core selector
+    MODE_LANGUAGE,      // Language dialect selector
+    MODE_VOLUME,        // Master volume
+    MODE_LED_CORE,      // 3-ring LED animation selector
+    MODE_MIC_TEST,      // Mic live VU meter
+    MODE_CHIPTUNE,      // 8-bit chiptune jukebox
+    MODE_VOICE,         // Built-in speech phrases
+    MODE_SYSTEM,        // Hardware diagnostics
     MODE_COUNT
 } staff_mode_t;
 
 static const char *MODE_NAMES[MODE_COUNT] = {
-    "ORACLE",
     "GUIDE",
-    "SCANNER",
-    "CANDY DETECTOR",
+    "GALAXY",
+    "SOL SYSTEM",
+    "TERRA",
+    "AI CORE",
+    "LINGUA",
     "VOLUME",
-    "MIC TEST",
-    "LED EFFECTS",
-    "8-BIT CHIPTUNE",
-    "VOICE ORACLE",
-    "COSMIC FX DEMO",
+    "RUNE LEDS",
+    "MIC VU",
+    "JUKEBOX",
+    "ORACLE",
     "SYSTEM"
 };
+
+static const char *AI_MODEL_NAMES[AI_MODEL_COUNT] = {
+    "DEEP THOUGHT",
+    "EDDIE COMP",
+    "GROK 4.5",
+    "MARVIN 70B"
+};
+
+static const char *AI_MODEL_TAGS[AI_MODEL_COUNT] = {
+    "42",
+    "EDD",
+    "GRK",
+    "MRV"
+};
+
+static int active_ai_model_idx = AI_MODEL_DEEPSEEK; // Default: Deep Thought (DeepSeek V3, fast & cheap!)
+static int selected_ai_model_idx = AI_MODEL_DEEPSEEK;
+static bool ai_model_edit_mode = false;
+
+static const char *LANG_NAMES[LANG_COUNT] = {
+    "ENGLISH [EN]",
+    "AUTO-DETECT [AUTO]",
+    "DEUTSCH [DE]",
+    "RUSSIAN [RU]"
+};
+
+static const char *LANG_SHORT_TAGS[LANG_COUNT] = {
+    "EN",
+    "AUT",
+    "DE",
+    "RU"
+};
+
+static int active_lang_idx = LANG_RU;   // Default: Russian [RU]
+static int selected_lang_idx = LANG_RU;
+static bool lang_edit_mode = false;
 
 static bool oled_ready = false;
 static bool cyw43_ready = false;
@@ -62,13 +102,21 @@ static bool led_edit_mode = false;
 static bool chiptune_mode = false;
 static bool voice_mode = false;
 static bool cosmic_mode = false;
-static int active_anim_idx = 0;
+static int active_anim_idx = LED_ANIM_RAINBOW;
 static int active_track_idx = 0;
 static int active_voice_idx = 0;
 static int active_cosmic_idx = 0;
 static bool easter_egg_active = false;
 static int32_t prev_encoder_pos = 0;
 static absolute_time_t click_feedback_until;
+static absolute_time_t not_ready_feedback_until;
+static uint32_t processing_start_ms = 0;
+
+static void on_mic_stream_chunk(const int16_t *samples, size_t count) {
+    if (net_client_is_connected()) {
+        net_client_send_audio_chunk(samples, count);
+    }
+}
 
 static void draw_67_screen(bool flash_phase) {
     if (!oled_ready) return;
@@ -93,81 +141,209 @@ static void draw_67_screen(bool flash_phase) {
     oled_ready = sh1106_update();
 }
 
+static void draw_marquee(int y, const char *text, uint32_t ticker_ms);
+
 static void draw_listening_screen(uint32_t hold_ms, int mode_idx, bool anim_blink) {
+    (void)mode_idx;
     if (!oled_ready) return;
 
     sh1106_clear();
     sh1106_draw_rect(0, 0, 128, 64, true);
 
-    // Recording Header Banner
+    // Header banner with clean fit
     sh1106_fill_rect(2, 2, 124, 12, true);
-    if (anim_blink) {
-        sh1106_draw_string(14, 4, "[ MIC ] LISTENING", false);
-    } else {
-        sh1106_draw_string(14, 4, "[  *  ] LISTENING", false);
-    }
+    char hdr_buf[32];
+    snprintf(hdr_buf, sizeof(hdr_buf), "[%c] REC: LISTEN   [%s]",
+             anim_blink ? '*' : ' ',
+             LANG_SHORT_TAGS[active_lang_idx]);
+    sh1106_draw_string(6, 4, hdr_buf, false);
 
-    // Active mode line
-    char mode_buf[24];
-    snprintf(mode_buf, sizeof(mode_buf), "MODE: %s", MODE_NAMES[mode_idx]);
-    sh1106_draw_string(6, 17, mode_buf, true);
+    sh1106_draw_string(6, 17, "RECORDING VOICE...", true);
 
-    // Hold Duration Header
-    sh1106_draw_string(6, 27, "HOLD TIME:", true);
-
-    // Elapsed Recording Timer (large scale 2)
     char timer_buf[20];
     snprintf(timer_buf, sizeof(timer_buf), "%lu.%02lu s",
              (unsigned long)(hold_ms / 1000),
              (unsigned long)((hold_ms % 1000) / 10));
-    sh1106_draw_string_scaled(20, 37, timer_buf, 2, true);
+    sh1106_draw_string_scaled(26, 28, timer_buf, 2, true);
 
-    // Live audio level bar during recording (y=49..52)
     int mic_fill = (mic_get_level_percent() * 116) / 100;
-    sh1106_draw_rect(6, 48, 116, 4, true);
+    sh1106_draw_rect(6, 46, 116, 5, true);
     if (mic_fill > 0) {
-        sh1106_fill_rect(6, 48, mic_fill, 4, true);
+        sh1106_fill_rect(6, 46, mic_fill, 5, true);
     }
 
-    // Footer instruction
     sh1106_draw_line(2, 53, 125, 53, true);
-    sh1106_draw_string(4, 55, "RELEASE TO FINISH", true);
+    sh1106_draw_string(6, 55, "RELEASE TO ASK GUIDE", true);
 
     oled_ready = sh1106_update();
 }
 
 static void draw_speaking_screen(uint32_t dur_ms, bool anim_blink) {
+    (void)dur_ms;
+    (void)anim_blink;
     if (!oled_ready) return;
 
     sh1106_clear();
     sh1106_draw_rect(0, 0, 128, 64, true);
 
-    // Playback Header Banner
+    uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+
+    // 1. Playback Header Banner
     sh1106_fill_rect(2, 2, 124, 12, true);
-    if (anim_blink) {
-        sh1106_draw_string(14, 4, "[ SPK ] PLAYBACK", false);
-    } else {
-        sh1106_draw_string(14, 4, "[ >>> ] PLAYBACK", false);
+    sh1106_draw_string(8, 4, "[ THE GUIDE SPEAKS ]", false);
+
+    // 2. Oracle Response Marquee Box across screen
+    const char *resp_text = net_client_get_response_text();
+    if (resp_text == NULL || strlen(resp_text) == 0) {
+        resp_text = "ORACLE BROADCASTING SPEECH...";
     }
 
-    sh1106_draw_string(6, 17, "REPLAYING VOICE", true);
-    sh1106_draw_string(6, 27, "DURATION:", true);
+    sh1106_draw_rect(4, 16, 120, 17, true);
+    sh1106_draw_string(8, 18, "ORACLE:", true);
+    draw_marquee(25, resp_text, now_ms);
 
-    char timer_buf[20];
-    snprintf(timer_buf, sizeof(timer_buf), "%lu.%02lu s",
-             (unsigned long)(dur_ms / 1000),
-             (unsigned long)((dur_ms % 1000) / 10));
-    sh1106_draw_string_scaled(20, 37, timer_buf, 2, true);
+    // 3. Animated Graphic Equalizer / Soundwave
+    for (int b = 0; b < 14; b++) {
+        int h = 2 + (rand() % 8);
+        sh1106_fill_rect(8 + b * 8, 46 - h, 5, h, true);
+    }
+    char vol_tag[16];
+    snprintf(vol_tag, sizeof(vol_tag), "V:%2d%%", (int)audio_get_volume());
+    sh1106_draw_string(88, 38, vol_tag, true);
 
-    // Volume level indicator bar
-    int vol_fill = ((int)audio_get_volume() * 116) / 100;
-    sh1106_draw_rect(6, 48, 116, 4, true);
-    if (vol_fill > 0) {
-        sh1106_fill_rect(6, 48, vol_fill, 4, true);
+    // 4. Footer line
+    sh1106_draw_line(2, 50, 125, 50, true);
+    sh1106_draw_string(6, 53, "// SHARE & ENJOY //", true);
+
+    oled_ready = sh1106_update();
+}
+
+static void draw_not_ready_screen(void) {
+    if (!oled_ready) return;
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    sh1106_draw_string(6, 4, "[! SUB-ETHA OFFLINE !]", false);
+
+    if (!net_client_is_connected()) {
+        sh1106_draw_string(6, 17, "WI-FI DISCONNECTED", true);
+        sh1106_draw_string(6, 26, "CONNECTING TO ROUTER", true);
+        sh1106_draw_line(2, 47, 125, 47, true);
+        sh1106_draw_string(6, 51, "STATUS: DON'T PANIC...", true);
+    } else {
+        sh1106_draw_string(6, 17, "WI-FI: ONLINE (OK)", true);
+        sh1106_draw_string(6, 26, "SUB-ETHA HOST UNREACHABLE", true);
+        char host_buf[32];
+        snprintf(host_buf, sizeof(host_buf), "HOST: %s:5005", BRAIN_SERVER_IP);
+        sh1106_draw_string(6, 35, host_buf, true);
+        sh1106_draw_line(2, 47, 125, 47, true);
+        sh1106_draw_string(6, 51, "RUN: python ai_brain_server.py", true);
+    }
+    oled_ready = sh1106_update();
+}
+
+static void draw_processing_screen(uint32_t elapsed_ms, bool anim_blink) {
+    (void)anim_blink;
+    if (!oled_ready) return;
+
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    // Processing Header Banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    char hdr_buf[32];
+    snprintf(hdr_buf, sizeof(hdr_buf), "[ DEEP THOUGHT ]  [%s]",
+             AI_MODEL_TAGS[active_ai_model_idx]);
+    sh1106_draw_string(6, 4, hdr_buf, false);
+
+    sh1106_draw_string(6, 17, "CONSULTING GUIDE...", true);
+
+    char time_str[32];
+    snprintf(time_str, sizeof(time_str), "THINKING: %lu.%01lu s",
+             (unsigned long)(elapsed_ms / 1000),
+             (unsigned long)((elapsed_ms % 1000) / 100));
+    sh1106_draw_string(6, 27, time_str, true);
+
+    int progress_step = (int)((elapsed_ms / 15) % 116);
+    sh1106_draw_rect(6, 38, 116, 7, true);
+    if (progress_step > 0) {
+        sh1106_fill_rect(6, 38, progress_step, 7, true);
+    }
+
+    sh1106_draw_line(2, 49, 125, 49, true);
+    sh1106_draw_string(6, 53, "HAVE A CUP OF TEA...", true);
+
+    oled_ready = sh1106_update();
+}
+
+static void draw_ai_model_screen(int sel_model, int act_model) {
+    if (!oled_ready) return;
+
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    // Header banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    sh1106_draw_string(10, 4, "[05] TARGET AI CORE", false);
+
+    for (int i = 0; i < AI_MODEL_COUNT; i++) {
+        int y = 16 + i * 9;
+        bool is_selected = (i == sel_model);
+        bool is_active = (i == act_model);
+
+        if (is_selected) {
+            sh1106_fill_rect(4, y - 1, 120, 9, true);
+            char item_str[32];
+            snprintf(item_str, sizeof(item_str), "> %s %s",
+                     AI_MODEL_NAMES[i], is_active ? "*" : "");
+            sh1106_draw_string(6, y, item_str, false);
+        } else {
+            char item_str[32];
+            snprintf(item_str, sizeof(item_str), "  %s %s",
+                     AI_MODEL_NAMES[i], is_active ? "[ACTIVE]" : "");
+            sh1106_draw_string(6, y, item_str, true);
+        }
     }
 
     sh1106_draw_line(2, 53, 125, 53, true);
-    sh1106_draw_string(4, 55, "PLAYING RECORDING", true);
+    sh1106_draw_string(4, 55, "TURN:NAV  SW:CONFIRM", true);
+
+    oled_ready = sh1106_update();
+}
+
+static void draw_language_screen(int sel_lang, int act_lang) {
+    if (!oled_ready) return;
+
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    // Header banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    sh1106_draw_string(10, 4, "[ VOX DIALECT / LANG ]", false);
+
+    // List of 4 languages
+    for (int i = 0; i < LANG_COUNT; i++) {
+        int y = 16 + i * 9;
+        bool is_selected = (i == sel_lang);
+        bool is_active = (i == act_lang);
+
+        if (is_selected) {
+            sh1106_fill_rect(4, y - 1, 120, 9, true);
+            char item_str[32];
+            snprintf(item_str, sizeof(item_str), "> %s %s",
+                     LANG_NAMES[i], is_active ? "*" : "");
+            sh1106_draw_string(6, y, item_str, false);
+        } else {
+            char item_str[32];
+            snprintf(item_str, sizeof(item_str), "  %s %s",
+                     LANG_NAMES[i], is_active ? "[ACTIVE]" : "");
+            sh1106_draw_string(6, y, item_str, true);
+        }
+    }
+
+    // Footer divider and instruction
+    sh1106_draw_line(2, 53, 125, 53, true);
+    sh1106_draw_string(4, 55, "TURN:NAV  SW:CONFIRM", true);
 
     oled_ready = sh1106_update();
 }
@@ -385,70 +561,554 @@ static void draw_cosmic_screen(int sfx_idx, bool is_playing) {
     oled_ready = sh1106_update();
 }
 
+static void draw_marquee(int y, const char *text, uint32_t ticker_ms) {
+    if (text == NULL || !oled_ready) return;
+    size_t len = strlen(text);
+    if (len == 0) return;
+
+    int total_w = (int)len * 6;
+    if (total_w <= 120) {
+        int start_x = 4 + (120 - total_w) / 2;
+        sh1106_draw_string(start_x, y, text, true);
+        return;
+    }
+
+    int loop_gap = 24;
+    int cycle_w = total_w + loop_gap;
+    int scroll_px = (int)((ticker_ms / 45) % (uint32_t)cycle_w);
+
+    for (int rep = 0; rep < 2; rep++) {
+        int base_x = 4 - scroll_px + (rep * cycle_w);
+        if (base_x > 124 || base_x + total_w < 0) continue;
+        for (size_t i = 0; i < len; i++) {
+            int cx = base_x + (int)(i * 6);
+            if (cx >= 2 && cx <= 122) {
+                sh1106_draw_char(cx, y, text[i], true);
+            }
+        }
+    }
+}
+
+// 24x24 Derpy Celestial Star & Goofy Orb
+static const uint8_t CELESTIAL_LOGO_DERPY_24x24[72] = {
+    0x00, 0x18, 0x00,  // Row 0
+    0x00, 0x3C, 0x00,  // Row 1
+    0x02, 0x7E, 0x40,  // Row 2
+    0x07, 0xFF, 0xE0,  // Row 3
+    0x0E, 0x00, 0x70,  // Row 4
+    0x1C, 0x00, 0x38,  // Row 5
+    0x38, 0x70, 0x1C,  // Row 6
+    0x70, 0xF8, 0x0E,  // Row 7  - Left eye big (O), Right eye small (o)
+    0x70, 0xD8, 0x4E,  // Row 8  - Derpy pupils
+    0x70, 0xF8, 0xCE,  // Row 9
+    0xFE, 0x70, 0x7F,  // Row 10 - Horizontal side rays
+    0x70, 0x00, 0x0E,  // Row 11
+    0x70, 0x82, 0x0E,  // Row 12 - Smiling mouth \_/
+    0x70, 0x44, 0x0E,  // Row 13
+    0x38, 0x38, 0x1C,  // Row 14
+    0x1C, 0x00, 0x38,  // Row 15
+    0x0E, 0x00, 0x70,  // Row 16
+    0x07, 0xFF, 0xE0,  // Row 17
+    0x02, 0x7E, 0x40,  // Row 18
+    0x00, 0x3C, 0x00,  // Row 19
+    0x00, 0x18, 0x00,  // Row 20
+    0x00, 0x00, 0x00,  // Row 21
+    0x00, 0x00, 0x00,  // Row 22
+    0x00, 0x00, 0x00   // Row 23
+};
+
+// Milky Way Galaxy Star Map: Spiral arms with Sol (Orion Spur) location
+static void draw_galaxy_card(uint32_t now_ms, int32_t rot_pos) {
+    int cx = 38;
+    int cy = 30;
+
+    // Galactic center: Sagittarius A* core
+    sh1106_fill_rect(cx - 2, cy - 2, 5, 5, true);
+    sh1106_draw_pixel(cx - 3, cy, true);
+    sh1106_draw_pixel(cx + 3, cy, true);
+    sh1106_draw_pixel(cx, cy - 3, true);
+    sh1106_draw_pixel(cx, cy + 3, true);
+
+    // Dynamic rotation angle from time + encoder scrubbing
+    float rot_ang = (float)now_ms * 0.0006f + (float)rot_pos * 0.05f;
+
+    // 2 Spiral Arms (Perseus and Scutum-Centaurus)
+    for (int arm = 0; arm < 2; arm++) {
+        float arm_offset = (arm == 0) ? 0.0f : 3.14159f;
+        for (float theta = 0.8f; theta < 4.8f; theta += 0.22f) {
+            float r = 4.0f + 4.8f * theta;
+            float a = theta + rot_ang + arm_offset;
+            int px = cx + (int)(cosf(a) * r * 1.15f);
+            int py = cy + (int)(sinf(a) * r * 0.52f);
+            if (px >= 4 && px <= 74 && py >= 14 && py <= 46) {
+                sh1106_draw_pixel(px, py, true);
+            }
+        }
+    }
+
+    // Orion Spur / Sol position (~26 kly from center)
+    float sol_a = 1.35f + rot_ang;
+    int sol_x = cx + (int)(cosf(sol_a) * 19.0f * 1.15f);
+    int sol_y = cy + (int)(sinf(sol_a) * 19.0f * 0.52f);
+
+    // Blinking target crosshair reticle on SOL
+    if (((now_ms / 300) % 2) == 0) {
+        if (sol_x >= 5 && sol_x <= 73 && sol_y >= 15 && sol_y <= 45) {
+            sh1106_draw_pixel(sol_x, sol_y - 2, true);
+            sh1106_draw_pixel(sol_x, sol_y + 2, true);
+            sh1106_draw_pixel(sol_x - 2, sol_y, true);
+            sh1106_draw_pixel(sol_x + 2, sol_y, true);
+            sh1106_draw_pixel(sol_x, sol_y, true);
+        }
+    }
+
+    // Divider
+    sh1106_draw_line(77, 14, 77, 46, true);
+
+    // Telemetry on right side (x = 80..125)
+    sh1106_draw_string(80, 15, "MILKY WAY", true);
+    sh1106_draw_string(80, 23, "ORION SPUR", true);
+    sh1106_draw_string(80, 31, "R:26.4kly", true);
+    if (((now_ms / 400) % 2) == 0) {
+        sh1106_draw_string(80, 39, "SOL [HERE]", true);
+    } else {
+        sh1106_draw_string(80, 39, "YOU ARE HERE", true);
+    }
+
+    // Footer divider and marquee
+    sh1106_draw_line(2, 47, 125, 47, true);
+    draw_marquee(51, "// MILKY WAY GALAXY // 100,000 LY DIAMETER // SOL SYSTEM AT ORION SPUR // R: 26,400 LY TO SGR A* CORE //", now_ms);
+}
+
+// Solar System Orrery: Concentric planetary orbits with Earth targeted & coordinates
+static void draw_solar_system_card(uint32_t now_ms, int32_t rot_pos) {
+    // Center of planetary orbits
+    int cx = 40;
+    int cy = 30;
+
+    // Time variable: advances with time and manual encoder scrubbing!
+    float t = (float)now_ms * 0.0012f + (float)rot_pos * 0.08f;
+
+    // 1. Concentric elliptical orbits (semi-major a, semi-minor b):
+    // 0: Mercury (10, 4)
+    // 1: Venus   (18, 7)
+    // 2: Earth   (28, 11) -> TERRA
+    // 3: Mars    (37, 15)
+    const int orb_a[4] = { 10, 18, 28, 37 };
+    const int orb_b[4] = {  4,  7, 11, 15 };
+
+    for (int o = 0; o < 4; o++) {
+        int a = orb_a[o];
+        int b = orb_b[o];
+        for (int deg = 0; deg < 360; deg += 12) {
+            // Earth's orbit (o==2) is drawn denser so it's prominent
+            if (o != 2 && (deg % 24 != 0)) continue;
+            float rad = (float)deg * 0.0174533f;
+            int ox = cx + (int)(cosf(rad) * (float)a);
+            int oy = cy + (int)(sinf(rad) * (float)b);
+            if (ox >= 4 && ox <= 77 && oy >= 14 && oy <= 46) {
+                sh1106_draw_pixel(ox, oy, true);
+            }
+        }
+    }
+
+    // 2. The Sun (Sol) at center (cx, cy)
+    int sun_pulse = (int)((now_ms / 200) % 2);
+    sh1106_fill_rect(cx - 1, cy - 1, 3, 3, true);
+    sh1106_draw_pixel(cx - 3 - sun_pulse, cy, true);
+    sh1106_draw_pixel(cx + 3 + sun_pulse, cy, true);
+    sh1106_draw_pixel(cx, cy - 3 - sun_pulse, true);
+    sh1106_draw_pixel(cx, cy + 3 + sun_pulse, true);
+
+    // 3. Planet positions & rendering (Keplerian speeds)
+    float w_merc = t * 4.15f;
+    float w_ven  = t * 1.62f;
+    float w_ear  = t * 1.00f; // Earth: reference 1.0
+    float w_mar  = t * 0.53f;
+
+    // Mercury
+    int mx = cx + (int)(cosf(w_merc) * (float)orb_a[0]);
+    int my = cy + (int)(sinf(w_merc) * (float)orb_b[0]);
+    if (mx >= 4 && mx <= 77 && my >= 14 && my <= 46) {
+        sh1106_draw_pixel(mx, my, true);
+    }
+
+    // Venus
+    int vx = cx + (int)(cosf(w_ven) * (float)orb_a[1]);
+    int vy = cy + (int)(sinf(w_ven) * (float)orb_b[1]);
+    if (vx >= 4 && vx <= 77 && vy >= 14 && vy <= 46) {
+        sh1106_draw_pixel(vx, vy, true);
+    }
+
+    // Mars
+    int rx = cx + (int)(cosf(w_mar) * (float)orb_a[3]);
+    int ry = cy + (int)(sinf(w_mar) * (float)orb_b[3]);
+    if (rx >= 4 && rx <= 77 && ry >= 14 && ry <= 46) {
+        sh1106_draw_pixel(rx, ry, true);
+    }
+
+    // 4. EARTH (TERRA) - Focal Planet & Coordinates
+    int ex = cx + (int)(cosf(w_ear) * (float)orb_a[2]);
+    int ey = cy + (int)(sinf(w_ear) * (float)orb_b[2]);
+
+    if (ex >= 4 && ex <= 77 && ey >= 14 && ey <= 46) {
+        sh1106_fill_rect(ex - 1, ey - 1, 2, 2, true);
+
+        // Moon orbiting Earth at 3.5 px radius
+        float w_moon = t * 12.0f;
+        int lx = ex + (int)(cosf(w_moon) * 3.5f);
+        int ly = ey + (int)(sinf(w_moon) * 2.2f);
+        if (lx >= 4 && lx <= 77 && ly >= 14 && ly <= 46) {
+            sh1106_draw_pixel(lx, ly, true);
+        }
+
+        // 5. Dynamic Indicator Arrow pointing directly to Earth ("и стрелки - типа мы сейчас там")
+        bool arrow_visible = ((now_ms / 250) % 3) != 0;
+        if (arrow_visible) {
+            if (ey >= cy) {
+                // Earth is in lower half: arrow points UP to Earth
+                int tip_x = ex;
+                int tip_y = ey + 3;
+                if (tip_y <= 45) {
+                    sh1106_draw_line(tip_x, tip_y, tip_x, tip_y + 3, true);
+                    sh1106_draw_pixel(tip_x - 1, tip_y + 1, true);
+                    sh1106_draw_pixel(tip_x + 1, tip_y + 1, true);
+                }
+            } else {
+                // Earth is in upper half: arrow points DOWN to Earth
+                int tip_x = ex;
+                int tip_y = ey - 3;
+                if (tip_y >= 14) {
+                    sh1106_draw_line(tip_x, tip_y, tip_x, tip_y - 3, true);
+                    sh1106_draw_pixel(tip_x - 1, tip_y - 1, true);
+                    sh1106_draw_pixel(tip_x + 1, tip_y - 1, true);
+                }
+            }
+        }
+    }
+
+    // 6. HUD Telemetry Divider & Coordinates panel on right side (x = 78..125)
+    sh1106_draw_line(78, 14, 78, 46, true);
+
+    int earth_lon_deg = (int)(fmodf(w_ear * 57.2958f, 360.0f));
+    if (earth_lon_deg < 0) earth_lon_deg += 360;
+
+    sh1106_draw_string(82, 15, "TERRA", true);
+    sh1106_draw_string(82, 23, "1.00AU", true);
+    char lon_str[16];
+    snprintf(lon_str, sizeof(lon_str), "L:%3d*", earth_lon_deg);
+    sh1106_draw_string(82, 31, lon_str, true);
+
+    // Blinking "YOU ARE HERE" tag
+    if (((now_ms / 350) % 2) == 0) {
+        sh1106_draw_string(82, 39, "HERE <", true);
+    } else {
+        sh1106_draw_string(82, 39, "SOL-3", true);
+    }
+
+    // 7. Footer Divider & Marquee Ticker
+    sh1106_draw_line(2, 47, 125, 47, true);
+    char solar_ticker[160];
+    snprintf(solar_ticker, sizeof(solar_ticker),
+             "SOLAR ORRERY * SOL-3 [TERRA] * DIST: 1.000 AU (149.6M KM) * ORBIT: 365.25d * LON: %d DEG * YOU ARE HERE *",
+             earth_lon_deg);
+    draw_marquee(51, solar_ticker, now_ms);
+}
+
+// Earth Planetary Zoom: Close-up globe with continents, atmosphere, and target reticle
+static void draw_earth_card(uint32_t now_ms, int32_t rot_pos) {
+    int cx = 38;
+    int cy = 30;
+    int r = 14;
+
+    // Globe outline
+    for (int deg = 0; deg < 360; deg += 10) {
+        float rad = (float)deg * 0.0174533f;
+        int px = cx + (int)(cosf(rad) * (float)r);
+        int py = cy + (int)(sinf(rad) * (float)r);
+        sh1106_draw_pixel(px, py, true);
+    }
+
+    // Equator and latitude lines
+    for (int deg = 0; deg < 360; deg += 18) {
+        float rad = (float)deg * 0.0174533f;
+        int eq_x = cx + (int)(cosf(rad) * (float)r);
+        int eq_y = cy + (int)(sinf(rad) * 4.0f);
+        if (eq_x >= cx - r && eq_x <= cx + r && eq_y >= cy - r && eq_y <= cy + r) {
+            sh1106_draw_pixel(eq_x, eq_y, true);
+        }
+    }
+
+    // Rotating continents (landmass pixels)
+    float t_rot = (float)now_ms * 0.0008f + (float)rot_pos * 0.06f;
+    for (int p = 0; p < 8; p++) {
+        float lon = t_rot + (float)p * 0.785f;
+        float lat = ((p % 3) == 0) ? 0.35f : (((p % 2) == 0) ? -0.2f : 0.6f);
+        if (cosf(lon) > 0.1f) {
+            int lx = cx + (int)(sinf(lon) * (float)(r - 1) * cosf(lat));
+            int ly = cy - (int)(sinf(lat) * (float)(r - 1));
+            sh1106_fill_rect(lx - 1, ly - 1, 2, 2, true);
+        }
+    }
+
+    // Moon orbiting at radius 21
+    float m_ang = (float)now_ms * 0.0015f;
+    int mx = cx + (int)(cosf(m_ang) * 21.0f);
+    int my = cy + (int)(sinf(m_ang) * 9.0f);
+    if (mx >= 4 && mx <= 74 && my >= 14 && my <= 46) {
+        sh1106_draw_pixel(mx, my, true);
+    }
+
+    // Target crosshairs reticle on our location
+    if (((now_ms / 300) % 2) == 0) {
+        int tx = cx + 3;
+        int ty = cy - 5;
+        sh1106_draw_pixel(tx, ty - 2, true);
+        sh1106_draw_pixel(tx, ty + 2, true);
+        sh1106_draw_pixel(tx - 2, ty, true);
+        sh1106_draw_pixel(tx + 2, ty, true);
+    }
+
+    // Divider
+    sh1106_draw_line(77, 14, 77, 46, true);
+
+    // Telemetry on right side
+    sh1106_draw_string(80, 15, "PLANET", true);
+    sh1106_draw_string(80, 23, "TERRA/EARTH", true);
+    sh1106_draw_string(80, 31, "R: 6371km", true);
+    if (((now_ms / 350) % 2) == 0) {
+        sh1106_draw_string(80, 39, "HERE [x]", true);
+    } else {
+        sh1106_draw_string(80, 39, "CIVILIZATION", true);
+    }
+
+    // Footer marquee
+    sh1106_draw_line(2, 47, 125, 47, true);
+    draw_marquee(51, "// PLANET TERRA (SOL-3) // RADIUS: 6,371 KM // 1.0G GRAVITY // OXYGEN ATMOSPHERE // TARGET: YOU ARE HERE //", now_ms);
+}
+
 static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_feedback) {
     if (!oled_ready) return;
 
     sh1106_clear();
-
-    // Outer decorative border
     sh1106_draw_rect(0, 0, 128, 64, true);
 
-    // 1. Header (y=3..10)
-    sh1106_draw_string(6, 3, "CELESTIAL ENGINE", true);
-    sh1106_draw_string(106, 3, "P4", true);
+    uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+
+    // Corner HUD Reticle Ticks
+    sh1106_draw_pixel(2, 2, true);
+    sh1106_draw_pixel(3, 2, true);
+    sh1106_draw_pixel(2, 3, true);
+    sh1106_draw_pixel(125, 2, true);
+    sh1106_draw_pixel(124, 2, true);
+    sh1106_draw_pixel(125, 3, true);
+    sh1106_draw_pixel(2, 61, true);
+    sh1106_draw_pixel(3, 61, true);
+    sh1106_draw_pixel(2, 60, true);
+    sh1106_draw_pixel(125, 61, true);
+    sh1106_draw_pixel(124, 61, true);
+    sh1106_draw_pixel(125, 60, true);
+
+    // 1. Clean Utilitarian Header Bar (y=2..12)
+    char page_hdr[32];
+    snprintf(page_hdr, sizeof(page_hdr), "[%02d] %s", sel_idx + 1, MODE_NAMES[sel_idx]);
+    sh1106_draw_string(6, 3, page_hdr, true);
+
+    char lang_badge[16];
+    snprintf(lang_badge, sizeof(lang_badge), "[%s|%s]", LANG_SHORT_TAGS[active_lang_idx], AI_MODEL_TAGS[active_ai_model_idx]);
+    int badge_x = 124 - (int)(strlen(lang_badge) * 6);
+    sh1106_draw_string(badge_x, 3, lang_badge, true);
     sh1106_draw_line(2, 12, 125, 12, true);
 
-    // 2. Selected Mode (y=15..22)
-    char mode_buf[24];
-    snprintf(mode_buf, sizeof(mode_buf), "MODE: > %s", MODE_NAMES[sel_idx]);
-    sh1106_draw_string(6, 15, mode_buf, true);
+    // 2. Card Body (y=14..47)
+    switch (sel_idx) {
+        case MODE_STATUS: {
+            sh1106_draw_bitmap(5, 17, 24, 24, CELESTIAL_LOGO_DERPY_24x24, true);
+            if (net_client_is_connected()) {
+                sh1106_draw_string(33, 15, "NET: ONLINE", true);
+                char ip_b[24];
+                snprintf(ip_b, sizeof(ip_b), "%.15s", net_client_get_ip_str());
+                sh1106_draw_string(33, 23, ip_b, true);
+            } else {
+                sh1106_draw_string(33, 15, "NET: OFFLINE", true);
+                sh1106_draw_string(33, 23, "NO LINK", true);
+            }
+            char ai_pill[24];
+            snprintf(ai_pill, sizeof(ai_pill), "AI : %s",
+                     (active_ai_model_idx == AI_MODEL_DEEPSEEK) ? "DEEPSEEK" :
+                     (active_ai_model_idx == AI_MODEL_MISTRAL)  ? "MINISTRAL" :
+                     (active_ai_model_idx == AI_MODEL_GROK)     ? "GROK 4.5" : "LLAMA 70B");
+            sh1106_draw_string(33, 31, ai_pill, true);
+            char v_pill[24];
+            snprintf(v_pill, sizeof(v_pill), "VOL: %2d%% [%s]", (int)audio_get_volume(), LANG_SHORT_TAGS[active_lang_idx]);
+            sh1106_draw_string(33, 39, v_pill, true);
 
-    // 3. Volume indicator & Rotation counter (y=24..38)
-    char vol_buf[16];
-    snprintf(vol_buf, sizeof(vol_buf), "V:%2d%%", (int)audio_get_volume());
-    sh1106_draw_string_scaled(6, 24, vol_buf, 2, true);
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// DON'T PANIC // GRAB YOUR TOWEL // HOLD QUERY TO CONSULT GUIDE // ROTATE TO EXPLORE //", now_ms);
+            break;
+        }
 
-    char pos_buf[14];
-    snprintf(pos_buf, sizeof(pos_buf), "ROT:%+ld", (long)pos);
-    sh1106_draw_string(74, 24, pos_buf, true);
-    sh1106_draw_string(74, 33, "[IDLE]", true);
+        case MODE_GALAXY: {
+            draw_galaxy_card(now_ms, pos);
+            break;
+        }
 
-    // Divider (y=41)
-    sh1106_draw_line(2, 41, 125, 41, true);
+        case MODE_SOLAR: {
+            draw_solar_system_card(now_ms, pos);
+            break;
+        }
 
-    // 4. Live Pin Diagnostics (y=43..50)
-    bool raw_a = false, raw_b = false, raw_sw = false;
-    encoder_get_raw_pins(&raw_a, &raw_b, &raw_sw);
-    bool raw_qry = query_button_get_raw();
+        case MODE_EARTH: {
+            draw_earth_card(now_ms, pos);
+            break;
+        }
 
-    char diag_buf[26];
-    snprintf(diag_buf, sizeof(diag_buf), "ENC(SW=%d) QRY=%s",
-             raw_sw ? 1 : 0, raw_qry ? "UP" : "DN");
-    sh1106_draw_string(6, 43, diag_buf, true);
+        case MODE_AI_MODEL: {
+            char cur_str[32];
+            snprintf(cur_str, sizeof(cur_str), "CORE: %s", AI_MODEL_NAMES[active_ai_model_idx]);
+            sh1106_draw_string(6, 17, cur_str, true);
 
-    // 5. Action status banner (y=53..61)
-    if (!raw_qry) {
-        // QUERY actively held down
-        sh1106_fill_rect(2, 52, 124, 10, true);
-        sh1106_draw_string(8, 53, ">> QUERY MIC TEST <<", false);
-    } else if (click_feedback || sw_down) {
-        // High-contrast inverted bar when encoder switch clicked
-        sh1106_fill_rect(2, 52, 124, 10, true);
-        sh1106_draw_string(14, 53, ">> CLICK DETECTED! <<", false);
-    } else if (sel_idx == MODE_VOLUME) {
-        sh1106_draw_string(4, 53, "CLICK SW TO TUNE VOL", true);
-    } else if (sel_idx == MODE_MIC_TEST) {
-        sh1106_draw_string(4, 53, "CLICK SW TO TEST MIC", true);
-    } else if (sel_idx == MODE_LED_CORE) {
-        sh1106_draw_string(4, 53, "CLICK SW TO TUNE LED", true);
-    } else if (sel_idx == MODE_CHIPTUNE) {
-        sh1106_draw_string(4, 53, "CLICK SW: 8-BIT JUKEBOX", true);
-    } else if (sel_idx == MODE_VOICE) {
-        sh1106_draw_string(4, 53, "CLICK SW: VOICE ORACLE", true);
-    } else if (sel_idx == MODE_COSMIC_FX) {
-        sh1106_draw_string(4, 53, "CLICK SW: COSMIC FX DEMO", true);
-    } else {
-        sh1106_draw_string(6, 53, "HOLD QUERY: MIC TEST", true);
+            if (active_ai_model_idx == AI_MODEL_DEEPSEEK) {
+                sh1106_draw_string(6, 27, "MODEL: deepseek-chat", true);
+                sh1106_draw_string(6, 37, "STYLE: DEEP THOUGHT (42)", true);
+            } else if (active_ai_model_idx == AI_MODEL_MISTRAL) {
+                sh1106_draw_string(6, 27, "MODEL: ministral-8b", true);
+                sh1106_draw_string(6, 37, "STYLE: EDDIE COMPUTER", true);
+            } else if (active_ai_model_idx == AI_MODEL_GROK) {
+                sh1106_draw_string(6, 27, "MODEL: x-ai/grok-4.5", true);
+                sh1106_draw_string(6, 37, "STYLE: HITCHHIKER WIT", true);
+            } else if (active_ai_model_idx == AI_MODEL_LLAMA) {
+                sh1106_draw_string(6, 27, "MODEL: llama-3.3-70b", true);
+                sh1106_draw_string(6, 37, "STYLE: MARVIN ANDROID", true);
+            }
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// CLOUD LLM CORE // CLICK SW TO SELECT // DEEP THOUGHT -> EDDIE -> GROK -> MARVIN //", now_ms);
+            break;
+        }
+
+        case MODE_LANGUAGE: {
+            char cur_str[32];
+            snprintf(cur_str, sizeof(cur_str), "DIALECT: %s", LANG_NAMES[active_lang_idx]);
+            sh1106_draw_string(6, 16, cur_str, true);
+
+            if (active_lang_idx == LANG_EN) {
+                sh1106_draw_string(6, 26, "MODE: FORCED ENGLISH", true);
+                sh1106_draw_string(6, 36, "VOX : EN-US (CHRIS)", true);
+            } else if (active_lang_idx == LANG_AUTO) {
+                sh1106_draw_string(6, 26, "MODE: DYNAMIC SENSING", true);
+                sh1106_draw_string(6, 36, "VOX : AUTO MATCH", true);
+            } else if (active_lang_idx == LANG_DE) {
+                sh1106_draw_string(6, 26, "MODE: FORCED GERMAN", true);
+                sh1106_draw_string(6, 36, "VOX : DE-DE (CONRAD)", true);
+            } else if (active_lang_idx == LANG_RU) {
+                sh1106_draw_string(6, 26, "MODE: FORCED RUSSIAN", true);
+                sh1106_draw_string(6, 36, "VOX : RU-RU (SVETLANA)", true);
+            }
+
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// VOX LINGUA // CLICK SW TO CHANGE DIALECT // [EN] [AUTO] [DE] [RU] //", now_ms);
+            break;
+        }
+
+        case MODE_VOLUME: {
+            char vol_str[16];
+            snprintf(vol_str, sizeof(vol_str), "FLUX: %2d%%", (int)audio_get_volume());
+            sh1106_draw_string(6, 17, vol_str, true);
+            sh1106_draw_string(72, 17, "[-40..0dB]", true);
+            int vol_bar = ((int)audio_get_volume() * 116) / 100;
+            sh1106_draw_rect(6, 28, 116, 7, true);
+            if (vol_bar > 0) sh1106_fill_rect(6, 28, vol_bar, 7, true);
+            sh1106_draw_string(6, 38, "BUS : MAX98357A [OK]", true);
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// AETHERIC GAIN // CLICK SW TO TUNE // ROTATE TO ADJUST // QRY TO EXIT //", now_ms);
+            break;
+        }
+
+        case MODE_LED_CORE: {
+            char anim_str[32];
+            snprintf(anim_str, sizeof(anim_str), "> %s", leds_get_anim_name(active_anim_idx));
+            sh1106_draw_string(6, 17, anim_str, true);
+#if CELESTIAL_FOUR_RINGS
+            sh1106_draw_string(6, 27, "RUNE: 4 RINGS", true);
+            sh1106_draw_string(6, 37, "ARRAY: 59 LUMENS (4%)", true);
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// RUNE MATRIX // 59 WS2812B LEDS // PIO0 DMA PACED // CLICK SW TO SELECT RUNE //", now_ms);
+#else
+            sh1106_draw_string(6, 27, "RUNE: 3 RINGS", true);
+            sh1106_draw_string(6, 37, "ARRAY: 43 LUMENS (18%)", true);
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// RUNE MATRIX // 43 WS2812B LEDS // PIO0 DMA PACED // CLICK SW TO SELECT RUNE //", now_ms);
+#endif
+            break;
+        }
+
+        case MODE_MIC_TEST: {
+            char mic_str[32];
+            snprintf(mic_str, sizeof(mic_str), "VOX: %3d%%  PK:%5d", (int)mic_get_level_percent(), (int)mic_get_peak_amplitude());
+            sh1106_draw_string(6, 16, mic_str, true);
+            int mic_bar = ((int)mic_get_level_percent() * 116) / 100;
+            sh1106_draw_rect(6, 26, 116, 8, true);
+            if (mic_bar > 0) sh1106_fill_rect(6, 26, mic_bar, 8, true);
+            sh1106_draw_string(6, 37, "SENS: INMP441 [OK]", true);
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// VOX TRANSDUCER // SPEAK TO TEST // CLICK SW FOR FULL VU // QRY TO EXIT //", now_ms);
+            break;
+        }
+
+        case MODE_CHIPTUNE: {
+            char trk_str[32];
+            snprintf(trk_str, sizeof(trk_str), "WAVE: %d/%d %s",
+                     active_track_idx + 1, audio_get_chiptune_count(),
+                     audio_is_chiptune_playing() ? "[PLAY]" : "[IDLE]");
+            sh1106_draw_string(6, 17, trk_str, true);
+            sh1106_draw_string(6, 27, audio_get_chiptune_name(active_track_idx), true);
+            sh1106_draw_string(6, 37, "SYNTH: 8-BIT RETRO", true);
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// HARMONIC RESONATOR // CLICK SW TO PLAY/STOP // ROTATE TO SELECT //", now_ms);
+            break;
+        }
+
+        case MODE_VOICE: {
+            char v_str[32];
+            snprintf(v_str, sizeof(v_str), "VOX : %d/%d %s",
+                     active_voice_idx + 1, audio_get_voice_count(),
+                     audio_is_voice_playing() ? "[SPK]" : "[RDY]");
+            sh1106_draw_string(6, 17, v_str, true);
+            sh1106_draw_string(6, 27, audio_get_voice_name((voice_phrase_id_t)active_voice_idx), true);
+            sh1106_draw_string(6, 37, "BUF : FLASH AUDIO", true);
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// ARCANE LITURGY // CLICK SW TO SPEAK // ROTATE TO SELECT //", now_ms);
+            break;
+        }
+
+        case MODE_SYSTEM: {
+            sh1106_draw_string(6, 15, "MCU  : RP2350 M33", true);
+            char net_buf[32];
+            snprintf(net_buf, sizeof(net_buf), "IP   : %.15s", net_client_is_connected() ? net_client_get_ip_str() : "OFFLINE");
+            sh1106_draw_string(6, 23, net_buf, true);
+            sh1106_draw_string(6, 31, "AUDIO: I2S 16k [OK]", true);
+            sh1106_draw_string(6, 39, "STREAM: 64k RING [OK]", true);
+
+            sh1106_draw_line(2, 47, 125, 47, true);
+            char srv_ticker[160];
+            snprintf(srv_ticker, sizeof(srv_ticker),
+                     "// HARDWARE TELEMETRY // TARGET: RP2350 // MEMORY: 520KB SRAM // 144k AUDIO BUFFER // BUILD: %s //",
+                     FIRMWARE_BUILD_DATE);
+            draw_marquee(51, srv_ticker, now_ms);
+            break;
+        }
+
+        default:
+            break;
+    }
+
+    // High contrast overlay if switch was just clicked
+    if (click_feedback || sw_down) {
+        sh1106_fill_rect(2, 49, 124, 13, true);
+        sh1106_draw_string(14, 52, ">> CLICK DETECTED! <<", false);
+    } else if (query_button_is_held()) {
+        sh1106_fill_rect(2, 49, 124, 13, true);
+        sh1106_draw_string(14, 52, ">> QUERY HELD <<", false);
     }
 
     oled_ready = sh1106_update();
@@ -499,6 +1159,7 @@ int main(void) {
         LOG_INFO("SYS", "CYW43 initialized successfully.");
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
         cyw43_arch_enable_sta_mode();
+        net_client_init();
     }
 
     LOG_INFO("SYS", "Initializing MAX98357A I2S audio subsystem (GP16=BCLK, GP17=LRC, GP18=DIN)...");
@@ -506,6 +1167,7 @@ int main(void) {
 
     LOG_INFO("SYS", "Initializing INMP441 I2S microphone (GP10=SCK, GP11=WS, GP12=SD)...");
     mic_init();
+    mic_set_stream_callback(on_mic_stream_chunk);
 
     LOG_INFO("SYS", "Initializing WS2812 LED core (GP15=DATA, PIO0 SM1)...");
     leds_init();
@@ -518,6 +1180,9 @@ int main(void) {
     LOG_INFO("LED", "DIAGNOSTIC: RAINBOW spare holds pure R/G/B for %ums each; other effects unchanged",
              (unsigned)LED_DIAG_COLOR_MS);
 #endif
+#else
+    LOG_INFO("LED", "THREE-RING DMA: frames:%u (7+12+24) | brightness_cap:%u%% | reset:%uus",
+             (unsigned)LED_RING_COUNT, (unsigned)LED_BRIGHTNESS_LIMIT, (unsigned)LED_RESET_US);
 #endif
 
     bool boot_voice_pending = AUDIO_STARTUP_SOUNDS && !AUDIO_DIAGNOSTIC_BOOT;
@@ -547,15 +1212,74 @@ int main(void) {
             boot_voice_pending = false;
         }
         mic_update();
-        leds_update(easter_egg_active, led_edit_mode, active_anim_idx, mic_get_level_percent());
+
+        // Reactive LED state animations:
+        // - LISTENING (recording): Vortex suction into center RED REC indicator, voice reactive!
+        // - PROCESSING (sending/receiving): Concentric data reception radar ripples!
+        // - SPEAKING: Sonic shockwaves expanding from center outward to rims!
+        // - IDLE: User selected animation preset.
+        int anim_to_run = active_anim_idx;
+        if (current_state == STATE_LISTENING) {
+            anim_to_run = LED_ANIM_VORTEX;
+        } else if (current_state == STATE_PROCESSING) {
+            anim_to_run = LED_ANIM_DATA_RECV;
+        } else if (current_state == STATE_SPEAKING) {
+            anim_to_run = LED_ANIM_EXPAND_SPEECH;
+        } else if (current_mode_idx == MODE_SOLAR && !led_edit_mode) {
+            anim_to_run = LED_ANIM_SOLAR;
+        }
+        leds_update(easter_egg_active, led_edit_mode, anim_to_run, mic_get_level_percent());
 
         // Fast sampling of controls
         encoder_update();
         query_button_update();
 
+        // Service Wi-Fi & UDP networking
+        net_client_update();
+
+        // Check incoming Brain response or timeout in STATE_PROCESSING
+        if (current_state == STATE_PROCESSING) {
+            uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+            // Real-time audio streaming playback trigger: start SPEAKING as soon as stream active!
+            if (audio_is_stream_playing()) {
+                current_state = STATE_SPEAKING;
+                need_display_update = true;
+            } else if (net_client_is_receiving_response()) {
+                processing_start_ms = now_ms;
+            } else if (net_client_has_response_ready()) {
+                size_t resp_count = 0;
+                const int16_t *resp_samples = net_client_get_response_samples(&resp_count);
+                if (audio_is_stream_playing()) {
+                    current_state = STATE_SPEAKING;
+                } else if (resp_samples && resp_count > 0) {
+                    audio_play_pcm16(resp_samples, resp_count);
+                    current_state = STATE_SPEAKING;
+                } else {
+                    LOG_INFO("NET", "AI query finished. Returning to IDLE.");
+                    current_state = STATE_IDLE;
+                    audio_play_chime();
+                }
+                net_client_consume_response();
+                need_display_update = true;
+            } else if (now_ms - processing_start_ms > 45000) {
+                LOG_WARN("NET", "Brain server response timeout (45s). Returning to IDLE.");
+                current_state = STATE_IDLE;
+                audio_play_tone(220.0f, 150);
+                need_display_update = true;
+            }
+        }
+
         // 1. Check QUERY button events (Push-to-Talk or Exit sub-screen)
         if (query_button_just_pressed()) {
-            if (chiptune_mode) {
+            if (ai_model_edit_mode) {
+                ai_model_edit_mode = false;
+                LOG_INFO("AI_MODEL", "Exited AI Model menu via button.");
+                need_display_update = true;
+            } else if (lang_edit_mode) {
+                lang_edit_mode = false;
+                LOG_INFO("LANG", "Exited Language menu via button.");
+                need_display_update = true;
+            } else if (chiptune_mode) {
                 audio_stop_chiptune();
                 chiptune_mode = false;
                 LOG_INFO("CHIPTUNE", "Exited Jukebox via button.");
@@ -571,12 +1295,23 @@ int main(void) {
                 LOG_INFO("COSMIC", "Exited Cosmic FX Demo via button.");
                 need_display_update = true;
             } else {
-                current_state = STATE_LISTENING;
-                easter_egg_active = false;
-                mic_record_start();
-                audio_play_tone(392.00f, 25); // Soft warm start-beep (G4)
-                LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! Recording voice to RAM... <<<");
-                need_display_update = true;
+                // Readiness pre-check: verify network and Brain connection before recording!
+                if (!net_client_is_server_ready()) {
+                    audio_play_tone(220.0f, 150); // Low warning buzz: Brain not ready!
+                    not_ready_feedback_until = delayed_by_ms(get_absolute_time(), 2000);
+                    LOG_WARN("QUERY", "Cannot record: Brain Server not ready (Wi-Fi: %s, Server: OFFLINE)",
+                             net_client_is_connected() ? "ONLINE" : "DISCONNECTED");
+                    need_display_update = true;
+                } else {
+                    current_state = STATE_LISTENING;
+                    easter_egg_active = false;
+                    mic_record_start();
+                    net_client_send_query_start((uint8_t)active_lang_idx, (uint8_t)active_ai_model_idx);
+                    audio_play_tone(880.0f, 40); // Crisp high prompt chirp (A5): "Ready! Speak now!"
+                    LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! Streaming to Brain Server (Lang: %s, Model: %s)... <<<",
+                             LANG_NAMES[active_lang_idx], AI_MODEL_NAMES[active_ai_model_idx]);
+                    need_display_update = true;
+                }
             }
         }
 
@@ -584,23 +1319,34 @@ int main(void) {
         if (held_dur > 0 && current_state == STATE_LISTENING) {
             size_t recorded_samples = mic_record_stop();
             uint32_t rec_ms = mic_get_recorded_duration_ms();
-            LOG_INFO("QUERY", "QUERY RELEASED after %lu ms. Recorded %zu samples (%lu ms, %zu bytes). Starting local playback...",
+            int16_t session_peak = mic_get_record_session_peak();
+
+            LOG_INFO("QUERY", "QUERY RELEASED after %lu ms. Recorded %zu samples (%lu ms, peak: %d).",
                      (unsigned long)held_dur,
                      recorded_samples,
                      (unsigned long)rec_ms,
-                     recorded_samples * sizeof(int16_t));
-            if (recorded_samples > 0) {
-                current_state = STATE_SPEAKING;
-                audio_play_pcm16(mic_get_recorded_samples(NULL), recorded_samples);
-            } else {
+                     (int)session_peak);
+
+            // Reject and cancel if shorter than 1000 ms OR silent/empty (peak < 350)
+            if (rec_ms < 1000 || session_peak < 350) {
+                LOG_INFO("QUERY", "Recording rejected (duration %lu ms < 1000 ms or peak %d < 350). Query cancelled.",
+                         (unsigned long)rec_ms, (int)session_peak);
+                net_client_cancel();
                 current_state = STATE_IDLE;
-                audio_play_voice(VOICE_READY); // Speak "System ready"
+                audio_play_tone(220.0f, 60); // Short low blip: discarded
+            } else {
+                LOG_INFO("NET", "Finishing live Wi-Fi UDP voice stream (%zu samples, %lu ms)...",
+                         recorded_samples, (unsigned long)rec_ms);
+                net_client_send_query_end();
+                current_state = STATE_PROCESSING;
+                processing_start_ms = to_ms_since_boot(get_absolute_time());
+                audio_play_blip(); // Crisp upload blip sound!
             }
             need_display_update = true;
         }
 
-        // Return from SPEAKING to IDLE once PCM playback finishes
-        if (current_state == STATE_SPEAKING && !audio_is_pcm16_playing()) {
+        // Return from SPEAKING to IDLE once PCM/stream playback finishes
+        if (current_state == STATE_SPEAKING && !audio_is_stream_playing() && !audio_is_pcm16_playing() && !net_client_is_receiving_response()) {
             current_state = STATE_IDLE;
             LOG_INFO("AUDIO", "Recorded voice playback finished. Returned to IDLE.");
             need_display_update = true;
@@ -609,7 +1355,23 @@ int main(void) {
         // 3. Encoder rotation handling
         int32_t delta = encoder_get_delta();
         if (delta != 0 && current_state != STATE_LISTENING) {
-            if (volume_edit_mode) {
+            if (ai_model_edit_mode) {
+                selected_ai_model_idx = (selected_ai_model_idx + delta) % AI_MODEL_COUNT;
+                if (selected_ai_model_idx < 0) {
+                    selected_ai_model_idx += AI_MODEL_COUNT;
+                }
+                audio_play_blip();
+                LOG_INFO("AI_MODEL", "AI Model Core preview: [%s]", AI_MODEL_NAMES[selected_ai_model_idx]);
+                need_display_update = true;
+            } else if (lang_edit_mode) {
+                selected_lang_idx = (selected_lang_idx + delta) % LANG_COUNT;
+                if (selected_lang_idx < 0) {
+                    selected_lang_idx += LANG_COUNT;
+                }
+                audio_play_blip();
+                LOG_INFO("LANG", "Language dialect preview: [%s]", LANG_NAMES[selected_lang_idx]);
+                need_display_update = true;
+            } else if (volume_edit_mode) {
                 int cur_vol = (int)audio_get_volume();
                 cur_vol += delta; // 1 percentage point for quiet-level calibration.
                 if (cur_vol < 0) cur_vol = 0;
@@ -670,11 +1432,11 @@ int main(void) {
                 // Audio tick on each click detent
                 audio_play_blip();
 
-                // Check trigger: sequence 6 -> 7 OR counter reaches 67
-                if ((prev_encoder_pos == 6 && curr_pos == 7) || curr_pos == 67) {
+                // Easter egg: triggers ONLY at rotation position 67
+                if (curr_pos == 67) {
                     easter_egg_active = true;
                     audio_play_chime();
-                    LOG_INFO("EASTER_EGG", ">>> TRIGGERED! Sequence 6 -> 7 reached! Activating '!!! 67 !!!' <<<");
+                    LOG_INFO("EASTER_EGG", ">>> TRIGGERED! Encoder reached 67! Activating '!!! 67 !!!' <<<");
                 }
 
                 LOG_INFO("ENCODER", "Pos: %ld | Mode: [%s]",
@@ -692,6 +1454,20 @@ int main(void) {
                 easter_egg_active = false;
                 audio_play_tone(440.0f, 40);
                 LOG_INFO("EASTER_EGG", "Switch clicked: Exiting '!!! 67 !!!' screen.");
+            } else if (ai_model_edit_mode) {
+                ai_model_edit_mode = false;
+                active_ai_model_idx = selected_ai_model_idx;
+                click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                audio_play_chime();
+                LOG_INFO("AI_MODEL", "Confirmed AI Core: [%s]. Exited menu.",
+                         AI_MODEL_NAMES[active_ai_model_idx]);
+            } else if (lang_edit_mode) {
+                lang_edit_mode = false;
+                active_lang_idx = selected_lang_idx;
+                click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                audio_play_chime();
+                LOG_INFO("LANG", "Dialect confirmed: [%s]. Exited language menu.",
+                         LANG_NAMES[active_lang_idx]);
             } else if (volume_edit_mode) {
                 volume_edit_mode = false;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
@@ -709,6 +1485,18 @@ int main(void) {
                 audio_play_chime();
                 LOG_INFO("LEDS", "Effect confirmed: [%s]. Exited LED menu.",
                          leds_get_anim_name(active_anim_idx));
+            } else if (current_mode_idx == MODE_AI_MODEL) {
+                ai_model_edit_mode = true;
+                selected_ai_model_idx = active_ai_model_idx;
+                audio_play_tone(523.25f, 25);
+                LOG_INFO("AI_MODEL", "Entering AI Model Core selection (current: %s)",
+                         AI_MODEL_NAMES[active_ai_model_idx]);
+            } else if (current_mode_idx == MODE_LANGUAGE) {
+                lang_edit_mode = true;
+                selected_lang_idx = active_lang_idx;
+                audio_play_tone(523.25f, 25);
+                LOG_INFO("LANG", "Entering Language selection menu (current: %s)",
+                         LANG_NAMES[active_lang_idx]);
             } else if (current_mode_idx == MODE_VOLUME) {
                 volume_edit_mode = true;
                 audio_play_tone(523.25f, 25);
@@ -748,11 +1536,10 @@ int main(void) {
                 audio_play_voice((voice_phrase_id_t)active_voice_idx);
                 LOG_INFO("VOICE", "Entering Voice Oracle! Speaking %s",
                          audio_get_voice_name((voice_phrase_id_t)active_voice_idx));
-            } else if (current_mode_idx == MODE_COSMIC_FX) {
-                cosmic_mode = true;
-                audio_play_cosmic_sfx(active_cosmic_idx);
-                LOG_INFO("COSMIC", "Entering Cosmic FX Demo! Triggering %s",
-                         audio_get_cosmic_sfx_name(active_cosmic_idx));
+            } else if (current_mode_idx == MODE_GALAXY || current_mode_idx == MODE_SOLAR || current_mode_idx == MODE_EARTH) {
+                click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                audio_play_chime();
+                LOG_INFO("MAP", "Probed celestial coordinates in mode [%s]!", MODE_NAMES[current_mode_idx]);
             } else {
                 active_confirmed_mode = current_mode_idx;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
@@ -781,13 +1568,15 @@ int main(void) {
                 }
             }
 
-            LOG_INFO("HEARTBEAT", "Tick #%lu | OLED: %s | State: %s | Mode: [%s] | Vol: %d%% | Mic: %d%% | QRY: %s",
+            LOG_INFO("HEARTBEAT", "Tick #%lu | OLED: %s | State: %s | Mode: [%s] | Vol: %d%% | Net: %s (%s) | Brain: %s | QRY: %s",
                      (unsigned long)tick_count,
                      oled_ready ? "ONLINE" : "OFFLINE",
                      staff_state_name(current_state),
                      MODE_NAMES[active_confirmed_mode],
                      (int)audio_get_volume(),
-                     (int)mic_get_level_percent(),
+                     net_client_is_connected() ? "ONLINE" : (net_client_get_status() == NET_STATUS_CONNECTING ? "CONNECTING" : "OFFLINE"),
+                     net_client_get_ip_str(),
+                     net_client_is_server_ready() ? "READY" : "WAIT",
                      query_button_is_held() ? "HELD" : "UP");
             if (AUDIO_DIAGNOSTIC_BOOT) audio_print_diagnostics();
             need_display_update = true;
@@ -798,24 +1587,40 @@ int main(void) {
             last_flash_toggle = get_absolute_time();
             flash_phase = !flash_phase;
             if (current_state == STATE_LISTENING || current_state == STATE_SPEAKING || easter_egg_active || volume_edit_mode ||
-                mic_test_mode || led_edit_mode || chiptune_mode || voice_mode || cosmic_mode) {
+                ai_model_edit_mode || lang_edit_mode || mic_test_mode || led_edit_mode || chiptune_mode || voice_mode || cosmic_mode) {
                 need_display_update = true;
             }
         }
 
         // 7. Rate-limited display update (~20 Hz / 50 ms)
+        if (current_state == STATE_IDLE && !volume_edit_mode && !ai_model_edit_mode && !lang_edit_mode && !led_edit_mode && !chiptune_mode && !voice_mode && !cosmic_mode && !mic_test_mode) {
+            need_display_update = true; // Continuously advance smooth marquee ticker at 20 FPS
+        }
+
         if (need_display_update && absolute_time_diff_us(last_display_refresh, get_absolute_time()) >= 50000) {
             last_display_refresh = get_absolute_time();
             need_display_update = false;
 
-            if (current_state == STATE_LISTENING) {
+            if (absolute_time_diff_us(get_absolute_time(), not_ready_feedback_until) > 0) {
+                draw_not_ready_screen();
+                need_display_update = true;
+            } else if (current_state == STATE_LISTENING) {
                 draw_listening_screen(query_button_current_hold_ms(), active_confirmed_mode, flash_phase);
+                need_display_update = true;
+            } else if (current_state == STATE_PROCESSING) {
+                draw_processing_screen(to_ms_since_boot(get_absolute_time()) - processing_start_ms, flash_phase);
                 need_display_update = true;
             } else if (current_state == STATE_SPEAKING) {
                 draw_speaking_screen(mic_get_recorded_duration_ms(), flash_phase);
                 need_display_update = true;
             } else if (easter_egg_active) {
                 draw_67_screen(flash_phase);
+            } else if (ai_model_edit_mode) {
+                draw_ai_model_screen(selected_ai_model_idx, active_ai_model_idx);
+                need_display_update = true;
+            } else if (lang_edit_mode) {
+                draw_language_screen(selected_lang_idx, active_lang_idx);
+                need_display_update = true;
             } else if (volume_edit_mode) {
                 draw_volume_screen(audio_get_volume());
             } else if (mic_test_mode) {
@@ -836,6 +1641,7 @@ int main(void) {
                 bool click_feedback = absolute_time_diff_us(get_absolute_time(), click_feedback_until) > 0;
                 draw_dashboard(current_mode_idx,
                                 encoder_get_position(), encoder_switch_is_down(), click_feedback);
+                need_display_update = true;
             }
         }
 

@@ -18,11 +18,14 @@
 #if CELESTIAL_RING_EXPERIMENT
 #define FIRMWARE_VERSION       "1.0.10-RING-DIAGNOSTIC"
 #elif CELESTIAL_FOUR_RINGS
-#define FIRMWARE_VERSION       "1.0.11-VOICE-CAPTURE"
+#define FIRMWARE_VERSION       "1.0.14-FOUR-RINGS"
 #else
-#define FIRMWARE_VERSION       "1.0.5-AUDIO-GAIN"
+#define FIRMWARE_VERSION       "1.0.15-THREE-RINGS"
 #endif
 #define PROJECT_NAME           "Celestial Engine Mk.V"
+#define FIRMWARE_CODENAME      "AURA-STREAM"
+#define FIRMWARE_CHIP_TARGET   "RP2350 (ARM-S)"
+#define FIRMWARE_BUILD_DATE    "OCT 2026"
 
 /* Audio Configuration: Official Raspberry Pi 16-bit I2S Stereo with Hardware Sleep */
 #define AUDIO_DIAGNOSTIC_BOOT   0        // Normal application UI and peripherals.
@@ -31,7 +34,7 @@
 #define AUDIO_DEFAULT_VOLUME    35       // Audible default playback level (35%)
 #else
 #define AUDIO_STARTUP_SOUNDS    1        // Play gentle startup chime and announcement at boot.
-#define AUDIO_DEFAULT_VOLUME    10       // Startup and encoder share the same gain: V10 is -36.36 dB below ceiling.
+#define AUDIO_DEFAULT_VOLUME    35       // Audible default playback level (35%)
 #endif
 #define AUDIO_VOLUME_RANGE_DB   40.0f    // V1..V100: -40..0 dB; V0 is exact mute (experiment 018).
 #define AUDIO_I2S_SLOT_BITS     16       // Standard 16-bit stereo I2S (32 BCLKs per frame, 512 kHz).
@@ -73,7 +76,7 @@
 #else
 #define LED_RING_COUNT         LED_BASE_CHAIN_COUNT
 #define LED_BRIGHTNESS_LIMIT   18  // Percent cap for the current USB-powered prototype.
-#define LED_RESET_US           80
+#define LED_RESET_US           300 // Safe latch for all WS2812 revisions
 #endif
 #define TOTAL_LED_COUNT        LED_RING_COUNT
 

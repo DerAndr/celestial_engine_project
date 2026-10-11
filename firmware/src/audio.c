@@ -65,6 +65,15 @@ static volatile size_t pcm16_sample_count = 0;
 static volatile size_t pcm16_sample_idx = 0;
 static volatile bool pcm16_active = false;
 
+// Streaming 16-bit PCM ring buffer state (for infinite-duration live server speech playback)
+#define AUDIO_STREAM_RING_SIZE   32768 // 32,768 samples (65.5 KB = 2.048 seconds)
+#define AUDIO_STREAM_RING_MASK   (AUDIO_STREAM_RING_SIZE - 1)
+static int16_t audio_stream_ring[AUDIO_STREAM_RING_SIZE];
+static volatile uint32_t audio_stream_write_idx = 0;
+static volatile uint32_t audio_stream_read_idx = 0;
+static volatile bool audio_stream_active = false;
+static volatile bool audio_stream_eof = false;
+
 // Celestial chime sequence state (warm gentle octave 4 harmonics: C4, E4, G4, C5)
 typedef struct {
     float freq;
@@ -486,6 +495,16 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
             }
         }
 
+        // 4. Mix streaming 16-bit PCM ring buffer if active
+        if (audio_stream_active) {
+            if (audio_stream_read_idx < audio_stream_write_idx) {
+                int16_t s = audio_stream_ring[audio_stream_read_idx++ & AUDIO_STREAM_RING_MASK];
+                mixed_sample += (float)s * pcm16_gain;
+            } else if (audio_stream_eof) {
+                audio_stream_active = false;
+            }
+        }
+
         // Bound even simultaneous tone + voice to the configured digital ceiling.
         if (mixed_sample > AUDIO_PCM16_PEAK) mixed_sample = AUDIO_PCM16_PEAK;
         if (mixed_sample < -AUDIO_PCM16_PEAK) mixed_sample = -AUDIO_PCM16_PEAK;
@@ -750,6 +769,44 @@ bool audio_is_pcm16_playing(void) {
     return pcm16_active;
 }
 
+void audio_stream_reset(void) {
+    uint32_t save = save_and_disable_interrupts();
+    playback_peak_pcm24 = 0;
+    audio_stream_write_idx = 0;
+    audio_stream_read_idx = 0;
+    audio_stream_eof = false;
+    audio_stream_active = false;
+    restore_interrupts(save);
+}
+
+void audio_stream_push(const int16_t *samples, size_t count) {
+    if (samples == NULL || count == 0) return;
+    uint32_t save = save_and_disable_interrupts();
+    for (size_t i = 0; i < count; i++) {
+        audio_stream_ring[audio_stream_write_idx++ & AUDIO_STREAM_RING_MASK] = samples[i];
+    }
+    // Pre-buffer 0.25s (4000 samples) before kicking off DAC
+    if (!audio_stream_active && (audio_stream_write_idx - audio_stream_read_idx >= 4000)) {
+        audio_stream_active = true;
+        amp_wake();
+    }
+    restore_interrupts(save);
+}
+
+void audio_stream_finish(void) {
+    uint32_t save = save_and_disable_interrupts();
+    audio_stream_eof = true;
+    if (audio_stream_write_idx > audio_stream_read_idx) {
+        audio_stream_active = true;
+        amp_wake();
+    }
+    restore_interrupts(save);
+}
+
+bool audio_is_stream_playing(void) {
+    return audio_stream_active;
+}
+
 const char* audio_get_voice_name(voice_phrase_id_t phrase_id) {
     const voice_clip_t *clip = voice_get_clip(phrase_id);
     return (clip != NULL) ? clip->name : "UNKNOWN";
@@ -846,7 +903,8 @@ bool audio_is_playing(void) {
            (active_chiptune_track >= 0) ||
            (active_cosmic_sfx >= 0) ||
            voice_active ||
-           pcm16_active;
+           pcm16_active ||
+           audio_stream_active;
 }
 
 int audio_get_chiptune_count(void) {

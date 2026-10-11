@@ -14,6 +14,7 @@ static int interrupt_depth;
 static absolute_time_t get_absolute_time(void) { return test_now; }
 static int64_t absolute_time_diff_us(absolute_time_t a, absolute_time_t b) { return b-a; }
 static absolute_time_t delayed_by_ms(absolute_time_t t, uint32_t ms) { return t + (int64_t)ms*1000; }
+static inline uint32_t to_ms_since_boot(absolute_time_t t) { return (uint32_t)(t / 1000); }
 static uint32_t save_and_disable_interrupts(void) { return interrupt_depth++; }
 static void restore_interrupts(uint32_t n) { interrupt_depth = n; }
 #define __compiler_memory_barrier() do {} while (0)

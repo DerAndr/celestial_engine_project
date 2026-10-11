@@ -1,14 +1,10 @@
 # Master Pinout — Celestial Engine Mk.V
 
-**Status: GPIO allocation matches firmware; all four rings respond. Repaired-ring address mapping and white flashes remain unresolved.**
+**Status: GPIO allocation matches firmware; 3 concentric rings verified (43 LEDs: 7 Core + 12 Inner + 24 Outer). 4th 16-LED ring removed by user due to instability.**
 
-Reconciled through the 2026-10-11 checkpoint against `config.h`, the drivers and user observations in `PROJECT.md`. This is a documentation correction, not a new physical test.
+Reconciled through the 2026-10-11 update against `config.h`, drivers and user hardware modifications. 
 
-Current main: `1.0.10-FOUR-RINGS`, built but awaiting physical validation; earlier working audio `1.0.5-AUDIO-GAIN` is archived. Both use 16-bit stereo I2S, 512 kHz BCLK and 16 kHz LRC during playback. User solder repair resolved ERR-AUDIO-02/03; see [experiment 017](../experiments/017-audio-solder-repair-level.md). All GPIO/wiring assignments are preserved. Physical pin numbers and actual module markings take precedence over historical breadboard coordinates.
-
-User solder repair resolved the audio fault. [Experiment 018](../experiments/018-volume-consistent-gain.md) fixes boot/control gain consistency and raises startup V10 by +3.64 dB with the same maximum. GAIN remains unconnected. ONE QUARKZMAN 4-ohm / 3-W speaker is between OUT+/OUT−, neither wire to GND. No GPIO/wiring assignment changes.
-
-Spare 16-LED ring: existing **7→12→24→spare** serial wiring is retained. Spare DIN from 24-ring DO, spare DO free, removable +5 V/GND from the same rails. The common-DI→faulty DOUT bypass still leaves the old faulty output attached ([019](../experiments/019-ring-single-pixel-repair.md)); address mapping/output isolation remain unresolved. [022](../experiments/022-ring-dma-firmware.md) is the passed 1.0.7 baseline. [025](../experiments/025-main-build-and-ring-backgrounds.md): main 1.0.10-FOUR-RINGS uses the standard celestial_firmware.uf2 name; separate celestial_ring_experiment.uf2 holds pure RGB on the spare in RAINBOW. Both retain PIO0 SM1, dynamic DMA, 59 reserved slots, 300 µs reset and 4% cap. Main removes the spare backgrounds in PULSAR/VOICE/VORTEX; visual voice order remains 7→12→16→24. No GPIO or physical ring order changes. White flashes remain unresolved and new physical observation is pending.
+Current main: `1.0.15-THREE-RINGS` (`celestial_firmware.uf2`). Uses 16-bit stereo I2S, 512 kHz BCLK and 16 kHz LRC during playback. The 4th 16-LED ring was removed from the physical assembly. LED array reverted to the verified 3-ring chain (43 LEDs: 7 Core + 12 Inner + 24 Outer) with PIO-paced DMA and standard 18% brightness cap. No GPIO assignment changes.
 
 This global GPIO allocation satisfies all peripherals for the Celestial Engine staff:
 - OLED (I2C)
@@ -38,7 +34,7 @@ This global GPIO allocation satisfies all peripherals for the Celestial Engine s
 | **INMP441 WS** (LRCK) | WS | Pin 15 | GP11 (PIO0 SM0) | 3.3 V logic (I2S RX word select) | RECORDED PASS (P6) |
 | **INMP441 SD** (Data) | SD | Pin 16 | GP12 (PIO0 SM0) | 3.3 V logic (I2S data into Pico) | RECORDED PASS (P6) |
 | **GND** | GND | Pin 18 | GND | Common Ground | SYSTEM |
-| **WS2812 Data** | AHCT125 1A / verified direct core DIN | Pin 20 | GP15 (PIO0 SM1) | 3.3 V GPIO; actual shifter wiring remains unverified | FOUR-RING RESPONSE CONFIRMED; EFFECTS PARTIAL |
+| **WS2812 Data** | AHCT125 1A / verified direct core DIN | Pin 20 | GP15 (PIO0 SM1) | 3.3 V GPIO; actual shifter wiring remains unverified | THREE CONCENTRIC RINGS (43 LEDs) DMA PASS |
 | **MAX98357A BCLK** | BCLK | Pin 21 | GP16 (PIO1 SM0) | 3.3 V logic (I2S TX bit clock) | RECORDED PASS (P7) |
 | **MAX98357A LRC** | LRC | Pin 22 | GP17 (PIO1 SM0) | 3.3 V logic (I2S TX word select) | RECORDED PASS (P7) |
 | **GND** | GND | Pin 23 | GND | Common Ground | SYSTEM |

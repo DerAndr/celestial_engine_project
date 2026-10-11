@@ -7,6 +7,8 @@ build/
 *.hex
 *.map
 *.dis
+*.wav
+*.mp3
 tools/*.wav
 tools/*.mp3
 tools/gtts_audio/
@@ -22,3 +24,5 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+.env*
+tools/brain_config.json

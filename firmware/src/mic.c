@@ -28,6 +28,15 @@ static int16_t mic_record_buf[MIC_RECORD_MAX_SAMPLES];
 static volatile size_t mic_record_count = 0;
 static volatile bool mic_record_active = false;
 static size_t mic_record_drain_cursor = 0;
+static int16_t record_session_peak = 0;
+
+static mic_stream_callback_t mic_stream_cb = NULL;
+static int16_t stream_buf[256];
+static size_t stream_buf_count = 0;
+
+void mic_set_stream_callback(mic_stream_callback_t callback) {
+    mic_stream_cb = callback;
+}
 
 void mic_init(void) {
     mic_offset = pio_add_program(mic_pio, &mic_i2s_program);
@@ -92,20 +101,48 @@ void mic_update(void) {
         uintptr_t cur_write_addr = dma_channel_hw_addr(mic_dma_chan)->write_addr;
         size_t current_hw_idx = ((cur_write_addr - (uintptr_t)mic_ring_buf) / sizeof(mic_ring_buf[0])) % MIC_BUFFER_SAMPLES;
 
-        // 1. Drain new samples into the recording buffer if recording
+        // 1. Drain new samples into the recording buffer and streaming callback if recording
         if (mic_record_active) {
             int16_t drain_peak = 0;
-            while (mic_record_drain_cursor != current_hw_idx && mic_record_count < MIC_RECORD_MAX_SAMPLES) {
+            while (mic_record_drain_cursor != current_hw_idx) {
                 uint32_t raw = mic_ring_buf[mic_record_drain_cursor];
                 int16_t raw_sample = (int16_t)((int32_t)(raw << 1) >> 16);
                 int16_t sample = dc_block_filter(raw_sample);
-                mic_record_buf[mic_record_count++] = sample;
+
+                // Store in local RAM buffer for offline replay (up to MIC_RECORD_MAX_SAMPLES)
+                if (mic_record_count < MIC_RECORD_MAX_SAMPLES) {
+                    mic_record_buf[mic_record_count] = sample;
+                }
+                mic_record_count++; // Total session sample count
+
+                // Stream in 256-sample chunks (16 ms) over network callback
+                stream_buf[stream_buf_count++] = sample;
+                if (stream_buf_count >= 256) {
+                    if (mic_stream_cb != NULL) {
+                        mic_stream_cb(stream_buf, stream_buf_count);
+                    }
+                    stream_buf_count = 0;
+                }
+
                 int32_t abs_s = (sample < 0) ? -(int32_t)sample : sample;
                 if (abs_s > drain_peak) drain_peak = (int16_t)abs_s;
                 mic_record_drain_cursor = (mic_record_drain_cursor + 1) % MIC_BUFFER_SAMPLES;
+
+                // Enforce maximum query session limit of 60 seconds (960,000 samples)
+                if (mic_record_count >= (size_t)MIC_SAMPLE_RATE * MIC_QUERY_MAX_SECONDS) {
+                    if (stream_buf_count > 0 && mic_stream_cb != NULL) {
+                        mic_stream_cb(stream_buf, stream_buf_count);
+                        stream_buf_count = 0;
+                    }
+                    mic_record_active = false;
+                    break;
+                }
             }
             if (drain_peak > last_peak_amplitude) {
                 last_peak_amplitude = drain_peak;
+            }
+            if (drain_peak > record_session_peak) {
+                record_session_peak = drain_peak;
             }
         } else {
             mic_record_drain_cursor = current_hw_idx;
@@ -189,11 +226,19 @@ void mic_record_start(void) {
         mic_record_drain_cursor = 0;
     }
     mic_record_count = 0;
+    stream_buf_count = 0;
+    record_session_peak = 0;
     mic_record_active = true;
 }
 
 size_t mic_record_stop(void) {
-    mic_record_active = false;
+    if (mic_record_active) {
+        mic_record_active = false;
+        if (stream_buf_count > 0 && mic_stream_cb != NULL) {
+            mic_stream_cb(stream_buf, stream_buf_count);
+            stream_buf_count = 0;
+        }
+    }
     return mic_record_count;
 }
 
@@ -203,7 +248,8 @@ bool mic_is_recording(void) {
 
 const int16_t *mic_get_recorded_samples(size_t *out_sample_count) {
     if (out_sample_count) {
-        *out_sample_count = mic_record_count;
+        *out_sample_count = (mic_record_count > MIC_RECORD_MAX_SAMPLES) ?
+                            MIC_RECORD_MAX_SAMPLES : mic_record_count;
     }
     return mic_record_buf;
 }
@@ -220,4 +266,9 @@ void mic_record_clear(void) {
     mic_record_active = false;
     mic_record_count = 0;
     mic_record_drain_cursor = 0;
+    record_session_peak = 0;
+}
+
+int16_t mic_get_record_session_peak(void) {
+    return record_session_peak;
 }

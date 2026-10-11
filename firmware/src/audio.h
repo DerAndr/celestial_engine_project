@@ -53,6 +53,15 @@ void audio_stop_pcm16(void);
 bool audio_is_pcm16_playing(void);
 
 /**
+ * Streaming PCM16 ring buffer functions.
+ * Allows infinite-duration streaming playback without length truncation.
+ */
+void audio_stream_reset(void);
+void audio_stream_push(const int16_t *samples, size_t count);
+void audio_stream_finish(void);
+bool audio_is_stream_playing(void);
+
+/**
  * Non-blocking sequencer update; diagnostic builds keep silent I2S clocks running.
  * DMA IRQ0 fills ping-pong buffers; call this frequently from main loop.
  */

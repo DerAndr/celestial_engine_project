@@ -36,8 +36,9 @@ add_executable(celestial_firmware
     src/mic.c
     src/leds.c
     src/voice_data.c
+    src/net_client.c
 )
-target_compile_definitions(celestial_firmware PRIVATE CELESTIAL_FOUR_RINGS=1)
+target_compile_definitions(celestial_firmware PRIVATE CELESTIAL_FOUR_RINGS=0)
 
 pico_generate_pio_header(celestial_firmware ${CMAKE_CURRENT_LIST_DIR}/src/audio_i2s.pio)
 pico_generate_pio_header(celestial_firmware ${CMAKE_CURRENT_LIST_DIR}/src/mic_i2s.pio)

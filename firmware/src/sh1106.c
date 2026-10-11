@@ -207,3 +207,16 @@ void sh1106_draw_string_scaled(int x, int y, const char *str, int scale, bool on
         cur_x += char_step;
     }
 }
+
+void sh1106_draw_bitmap(int x, int y, int w, int h, const uint8_t *bitmap, bool on) {
+    if (bitmap == NULL) return;
+    int bytes_per_row = (w + 7) / 8;
+    for (int r = 0; r < h; r++) {
+        for (int c = 0; c < w; c++) {
+            uint8_t byte = bitmap[r * bytes_per_row + (c / 8)];
+            if (byte & (0x80 >> (c % 8))) {
+                sh1106_draw_pixel(x + c, y + r, on);
+            }
+        }
+    }
+}

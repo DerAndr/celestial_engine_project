@@ -17,6 +17,23 @@ static int test_printf(const char *fmt, ...) {
 #include "../firmware/src/mic.c"
 #include "../firmware/src/leds.c"
 #include "../firmware/src/voice_data.c"
+#include "../firmware/src/net_client.h"
+void net_client_init(void) {}
+void net_client_update(void) {}
+net_status_t net_client_get_status(void) { return NET_STATUS_DISCONNECTED; }
+bool net_client_is_connected(void) { return false; }
+bool net_client_is_server_ready(void) { return false; }
+bool net_client_ping_server(void) { return true; }
+const char* net_client_get_ip_str(void) { return "0.0.0.0"; }
+bool net_client_send_query_start(uint8_t l, uint8_t m) { (void)l; (void)m; return true; }
+bool net_client_send_audio_chunk(const int16_t *s, size_t c) { (void)s; (void)c; return true; }
+bool net_client_send_query_end(void) { return true; }
+void net_client_cancel(void) {}
+bool net_client_is_receiving_response(void) { return false; }
+bool net_client_has_response_ready(void) { return false; }
+const int16_t* net_client_get_response_samples(size_t *c) { if (c) *c = 0; return NULL; }
+void net_client_consume_response(void) {}
+const char* net_client_get_response_text(void) { return ""; }
 #define main firmware_main
 #include "../firmware/src/main.c"
 #undef main
