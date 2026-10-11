@@ -53,4 +53,12 @@ Inventory/pinout/PROJECT/tasks/map now show three rings and the discarded fourth
 
 Main local artifact: `firmware/build/celestial_firmware.uf2`; versioned copy `celestial_response_fix_1.0.16.uf2`. Git keeps source/docs; build artifacts stay local. User-confirmed preceding source milestone is preserved in commit `1e9ba65`.
 
-UF2 SHA-256: `21FBB63B7F53BBABBFA6C55D65DD4B4BFC1E25288534A3C98562C1462948FAE5`.
+## Iteration update (Oct 11, 2026 — Speech & Audio Tuning)
+1. **Marquee Speed & Layout**: Restored the dashboard marquee box with dancing equalizer audio bars and boosted scroll rate from 45 ms/px to 15 ms/px (~11 chars/s) matching natural spoken cadence.
+2. **Audio Volume Baseline**: Default boot volume set to 30% (`AUDIO_DEFAULT_VOLUME 30`), with a 26 dB curve (`AUDIO_VOLUME_RANGE_DB 26.0f`) and 1.15f stream gain, providing a clear, punchy baseline at 30% without clipping. Optional hardware boost: wire MAX98357A GAIN pin to VIN (5V) for 15 dB analog boost.
+3. **Response Length & Kin-dza-dza Flavor**: Expanded prompts to 2-3 lively sentences (~35-50 words) infused with retrofuturistic Gravitsappa hyperdrive enthusiasm, green tsak, and Douglas Adams wit.
+4. **Russian Synthesis & STT**: Added `gTTS` fallback to eliminate Edge-TTS 403 failures on Russian/German, and matched output dialect to detected Cyrillic in the generated response.
+5. **Galaxy, Earth & Halloween LED Animations**: Added `LED_ANIM_GALAXY` (Sagittarius A* core and orbiting Sol star), `LED_ANIM_EARTH` (rotating azure oceans, emerald land, polar aurora), and `LED_ANIM_HALLOWEEN` (Jack-o'-lantern candle flame, witch purple, toxic ectoplasm green).
+6. **Techno-Fantasy Logo**: Replaced derpy face with a detailed 24x24 celestial astrolabe runic sigil featuring cardinal energy spires and an arc-reactor diamond core.
+
+

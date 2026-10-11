@@ -24,6 +24,8 @@ import asyncio
 import subprocess
 import threading
 import tempfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from brain_transport import BrainTransport, PORT
 
 try:
@@ -43,6 +45,12 @@ try:
     HAS_OPENAI = True
 except ImportError:
     HAS_OPENAI = False
+
+try:
+    from gtts import gTTS
+    HAS_GTTS = True
+except ImportError:
+    HAS_GTTS = False
 
 LANG_EN   = 0
 LANG_AUTO = 1
@@ -185,19 +193,23 @@ def transcribe_audio(wav_path, lang_code):
     try:
         text = r.recognize_google(audio, language=target_lang)
         if text and len(text.strip()) > 0:
-            detected = detect_language_from_text(text) if lang_code == LANG_AUTO else target_lang
+            detected = detect_language_from_text(text)
             return text.strip(), detected
     except Exception:
         pass
 
-    if lang_code == LANG_AUTO:
-        for cand in ["en-US", "de-DE"]:
-            try:
-                text = r.recognize_google(audio, language=cand)
-                if text and len(text.strip()) > 0:
-                    return text.strip(), cand
-            except Exception:
-                pass
+    # Try other languages if primary target language didn't match
+    cands = ["ru-RU", "en-US", "de-DE"]
+    if target_lang in cands:
+        cands.remove(target_lang)
+    for cand in cands:
+        try:
+            text = r.recognize_google(audio, language=cand)
+            if text and len(text.strip()) > 0:
+                detected = detect_language_from_text(text)
+                return text.strip(), detected
+        except Exception:
+            pass
 
     return None, target_lang
 
@@ -249,8 +261,9 @@ def query_llm(user_text, lang_tag, lang_code, model_preset, config):
 
     enforced_prompt = (
         f"{sys_prompt}\n"
-        "CRITICAL INSTRUCTIONS: Answer in 1-2 punchy spoken sentences (strictly under 20-25 words). "
-        "Do not use markdown, emojis, asterisks, bullet points, or quotes. Speak in the sharp, witty style of The Hitchhiker's Guide to the Galaxy."
+        "CRITICAL INSTRUCTIONS: Give an enthusiastic, witty, and joyful spoken answer in 2-3 lively sentences (around 35-50 words). "
+        "Embrace retrofuturistic sci-fi charm and playful cosmic irony (Gravitsappa, Hitchhiker's Guide, 42, Ku!). "
+        "Do not use markdown, emojis, asterisks, bullet points, or quotes. Do not cut your thought short."
     )
 
     print(f"  [LLM LIVE] Querying OpenRouter Core: {preset_name} ('{model}')...")
@@ -262,7 +275,7 @@ def query_llm(user_text, lang_tag, lang_code, model_preset, config):
                 {"role": "system", "content": enforced_prompt},
                 {"role": "user", "content": user_text}
             ],
-            max_tokens=384,
+            max_tokens=512,
             temperature=0.7
         )
         if resp.choices[0].finish_reason == "length":
@@ -315,7 +328,19 @@ async def synthesize_speech_pcm(text, lang_tag, config):
             await asyncio.sleep(0.4)
 
     if not saved or not os.path.exists(temp_mp3) or os.path.getsize(temp_mp3) == 0:
-        print("  [TTS ERROR] Failed to synthesize audio with available voices.")
+        if HAS_GTTS:
+            print(f"  [TTS FALLBACK] Edge-TTS unavailable for {lang_tag}. Generating via gTTS...")
+            try:
+                short_code = "ru" if "ru" in lang_tag.lower() else ("de" if "de" in lang_tag.lower() else "en")
+                tts = gTTS(text=clean_text, lang=short_code)
+                tts.save(temp_mp3)
+                if os.path.exists(temp_mp3) and os.path.getsize(temp_mp3) > 0:
+                    saved = True
+            except Exception as ge:
+                print(f"  [TTS ERROR] gTTS fallback failed: {ge}")
+
+    if not saved or not os.path.exists(temp_mp3) or os.path.getsize(temp_mp3) == 0:
+        print("  [TTS ERROR] Failed to synthesize audio with available engines.")
         return b""
 
     cmd = [
@@ -357,14 +382,25 @@ def process_query_worker(transport, session):
         user_text, detected_lang = transcribe_audio(wav_path, session.lang)
     if not transport.active(session):
         return
+    if user_text:
+        print(f"  [USER INPUT] \"{user_text}\" (Detected: {detected_lang})")
     config = load_config()
     ai_text = (query_llm(user_text, detected_lang, session.lang, session.model, config)
                if user_text else get_silence_answer(detected_lang))
     if not transport.active(session):
         return
-    # Forced language takes precedence over the heuristic for short German replies.
-    response_lang = {LANG_EN: "en-US", LANG_DE: "de-DE", LANG_RU: "ru-RU"}.get(
-        session.lang, detect_language_from_text(ai_text))
+    print(f"  [ORACLE RESPONSE] \"{ai_text}\"")
+
+    detected_resp_lang = detect_language_from_text(ai_text)
+    if detected_resp_lang == "ru-RU":
+        response_lang = "ru-RU"
+    elif session.lang == LANG_DE or detected_resp_lang == "de-DE":
+        response_lang = "de-DE"
+    elif session.lang == LANG_EN and detected_resp_lang != "ru-RU":
+        response_lang = "en-US"
+    else:
+        response_lang = detected_resp_lang
+
     print(f"[REQUEST {session.request_id}] TTS ({response_lang})...")
     pcm = asyncio.run(synthesize_speech_pcm(ai_text, response_lang, config))
     if not transport.active(session):

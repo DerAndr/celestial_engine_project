@@ -19,6 +19,9 @@ typedef enum {
     LED_ANIM_SOLAR,          // 8. Solar Orrery planetary rings
     LED_ANIM_DATA_RECV,      // 9. Concentric data reception radar ripples
     LED_ANIM_EXPAND_SPEECH,  // 10. Expanding sonic ripples from center outward to rims
+    LED_ANIM_GALAXY,         // 11. Milky Way galactic spiral & Sol beacon
+    LED_ANIM_EARTH,          // 12. Terra globe: azure oceans, emerald land, aurora
+    LED_ANIM_HALLOWEEN,      // 13. Halloween Jack-o'-Lantern & spooky ectoplasm
     LED_ANIM_COUNT
 } led_anim_mode_t;
 

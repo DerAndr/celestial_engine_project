@@ -180,13 +180,41 @@ static void draw_listening_screen(uint32_t hold_ms, int mode_idx, bool anim_blin
 }
 
 static void draw_speaking_screen(uint32_t dur_ms, bool anim_blink) {
+    (void)dur_ms;
     (void)anim_blink;
     if (!oled_ready) return;
 
     sh1106_clear();
-    const char *text = net_client_get_response_text();
-    if (!text || !*text) text = "THE GUIDE SPEAKS";
-    sh1106_draw_response_marquee(text, dur_ms);
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+
+    // 1. Playback Header Banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    sh1106_draw_string(8, 4, "[ THE GUIDE SPEAKS ]", false);
+
+    // 2. Oracle Response Marquee Box across screen
+    const char *resp_text = net_client_get_response_text();
+    if (resp_text == NULL || strlen(resp_text) == 0) {
+        resp_text = "ORACLE BROADCASTING SPEECH...";
+    }
+
+    sh1106_draw_rect(4, 16, 120, 17, true);
+    sh1106_draw_string(8, 18, "ORACLE:", true);
+    draw_marquee(25, resp_text, now_ms);
+
+    // 3. Animated Graphic Equalizer / Soundwave
+    for (int b = 0; b < 14; b++) {
+        int h = 2 + (rand() % 8);
+        sh1106_fill_rect(8 + b * 8, 46 - h, 5, h, true);
+    }
+    char vol_tag[16];
+    snprintf(vol_tag, sizeof(vol_tag), "V:%2d%%", (int)audio_get_volume());
+    sh1106_draw_string(88, 38, vol_tag, true);
+
+    // 4. Footer line
+    sh1106_draw_line(2, 50, 125, 50, true);
+    sh1106_draw_string(6, 53, "// SHARE & ENJOY //", true);
 
     oled_ready = sh1106_update();
 }
@@ -548,7 +576,7 @@ static void draw_marquee(int y, const char *text, uint32_t ticker_ms) {
 
     int loop_gap = 24;
     int cycle_w = total_w + loop_gap;
-    int scroll_px = (int)((ticker_ms / 45) % (uint32_t)cycle_w);
+    int scroll_px = (int)((ticker_ms / 15) % (uint32_t)cycle_w);
 
     for (int rep = 0; rep < 2; rep++) {
         int base_x = 4 - scroll_px + (rep * cycle_w);
@@ -562,32 +590,32 @@ static void draw_marquee(int y, const char *text, uint32_t ticker_ms) {
     }
 }
 
-// 24x24 Derpy Celestial Star & Goofy Orb
-static const uint8_t CELESTIAL_LOGO_DERPY_24x24[72] = {
-    0x00, 0x18, 0x00,  // Row 0
-    0x00, 0x3C, 0x00,  // Row 1
-    0x02, 0x7E, 0x40,  // Row 2
-    0x07, 0xFF, 0xE0,  // Row 3
-    0x0E, 0x00, 0x70,  // Row 4
-    0x1C, 0x00, 0x38,  // Row 5
-    0x38, 0x70, 0x1C,  // Row 6
-    0x70, 0xF8, 0x0E,  // Row 7  - Left eye big (O), Right eye small (o)
-    0x70, 0xD8, 0x4E,  // Row 8  - Derpy pupils
-    0x70, 0xF8, 0xCE,  // Row 9
-    0xFE, 0x70, 0x7F,  // Row 10 - Horizontal side rays
-    0x70, 0x00, 0x0E,  // Row 11
-    0x70, 0x82, 0x0E,  // Row 12 - Smiling mouth \_/
-    0x70, 0x44, 0x0E,  // Row 13
-    0x38, 0x38, 0x1C,  // Row 14
-    0x1C, 0x00, 0x38,  // Row 15
-    0x0E, 0x00, 0x70,  // Row 16
-    0x07, 0xFF, 0xE0,  // Row 17
-    0x02, 0x7E, 0x40,  // Row 18
-    0x00, 0x3C, 0x00,  // Row 19
-    0x00, 0x18, 0x00,  // Row 20
-    0x00, 0x00, 0x00,  // Row 21
-    0x00, 0x00, 0x00,  // Row 22
-    0x00, 0x00, 0x00   // Row 23
+// 24x24 Techno-Fantasy Astrolabe & Runic Celestial Sigil
+static const uint8_t CELESTIAL_LOGO_TECHNO_24x24[72] = {
+    0x00, 0x18, 0x00,  // Row 0  - Northern Celestial Spire
+    0x00, 0x18, 0x00,  // Row 1
+    0x01, 0xFF, 0x80,  // Row 2  - Arcane Outer Ring Crown
+    0x03, 0x18, 0xC0,  // Row 3
+    0x0C, 0x18, 0x30,  // Row 4  - Concentric Dial Arc
+    0x08, 0x7E, 0x10,  // Row 5  - Upper Runic Focus
+    0x11, 0xDB, 0x88,  // Row 6  - Kinetic Energy Circuit
+    0x33, 0x18, 0xCC,  // Row 7  - Quadrant Notches
+    0x22, 0x18, 0x44,  // Row 8
+    0x26, 0x18, 0x64,  // Row 9  - Inner Stargate Portal
+    0x24, 0x3C, 0x24,  // Row 10 - Crystal Octahedron Top
+    0xFF, 0xFF, 0xFF,  // Row 11 - Equatorial Cardinal Beam
+    0xFF, 0xFF, 0xFF,  // Row 12 - Arc-Reactor Gravitsappa Core
+    0x24, 0x3C, 0x24,  // Row 13 - Crystal Octahedron Bottom
+    0x26, 0x18, 0x64,  // Row 14
+    0x22, 0x18, 0x44,  // Row 15
+    0x33, 0x18, 0xCC,  // Row 16 - Quadrant Notches
+    0x11, 0xDB, 0x88,  // Row 17 - Kinetic Energy Circuit
+    0x08, 0x7E, 0x10,  // Row 18 - Lower Runic Focus
+    0x0C, 0x18, 0x30,  // Row 19 - Concentric Dial Arc
+    0x03, 0x18, 0xC0,  // Row 20
+    0x01, 0xFF, 0x80,  // Row 21 - Arcane Outer Ring Base
+    0x00, 0x18, 0x00,  // Row 22
+    0x00, 0x18, 0x00   // Row 23 - Southern Celestial Spire
 };
 
 // Milky Way Galaxy Star Map: Spiral arms with Sol (Orion Spur) location
@@ -896,7 +924,7 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
     // 2. Card Body (y=14..47)
     switch (sel_idx) {
         case MODE_STATUS: {
-            sh1106_draw_bitmap(5, 17, 24, 24, CELESTIAL_LOGO_DERPY_24x24, true);
+            sh1106_draw_bitmap(5, 17, 24, 24, CELESTIAL_LOGO_TECHNO_24x24, true);
             if (net_client_is_connected()) {
                 sh1106_draw_string(33, 15, "NET: ONLINE", true);
                 char ip_b[24];
@@ -1198,8 +1226,12 @@ int main(void) {
             anim_to_run = LED_ANIM_DATA_RECV;
         } else if (current_state == STATE_SPEAKING) {
             anim_to_run = LED_ANIM_EXPAND_SPEECH;
+        } else if (current_mode_idx == MODE_GALAXY && !led_edit_mode) {
+            anim_to_run = LED_ANIM_GALAXY;
         } else if (current_mode_idx == MODE_SOLAR && !led_edit_mode) {
             anim_to_run = LED_ANIM_SOLAR;
+        } else if (current_mode_idx == MODE_EARTH && !led_edit_mode) {
+            anim_to_run = LED_ANIM_EARTH;
         }
         leds_update(easter_egg_active, led_edit_mode, anim_to_run, mic_get_level_percent());
 

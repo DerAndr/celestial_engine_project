@@ -53,7 +53,10 @@ static const char *ANIM_NAMES[LED_ANIM_COUNT] = {
     "VOICE REACTIVE",
     "SOLAR ORRERY",
     "DATA RECEPTION",
-    "SONIC EXPANSION"
+    "SONIC EXPANSION",
+    "MILKY WAY GALAXY",
+    "TERRA PLANET",
+    "HALLOWEEN SPOOK"
 };
 
 static inline uint32_t rgb_to_grb(uint8_t r, uint8_t g, uint8_t b) {
@@ -858,6 +861,130 @@ static void render_solar(uint32_t tick) {
 #endif
 }
 
+// 11. Milky Way Galaxy: Sagittarius A* Core, swirling cosmic purple/cyan bulge, and golden Sol beacon
+static void render_galaxy(uint32_t tick) {
+    // Ring 0 (0..6, 7 LEDs): Sagittarius A* Galactic Supermassive Core!
+    float core_flare = (sinf((float)tick * 0.18f) + 1.0f) * 0.5f;
+    pixels_r[0] = (uint8_t)(230 + 25.0f * core_flare); // Blinding center flare
+    pixels_g[0] = (uint8_t)(160 + 80.0f * core_flare);
+    pixels_b[0] = 255;
+    for (int i = 1; i <= 6; i++) {
+        float f = (sinf((float)(tick * 5 + i * 60) * 0.06f) + 1.0f) * 0.5f;
+        pixels_r[i] = (uint8_t)(140 + 70.0f * f); // Deep cosmic violet / magenta
+        pixels_g[i] = (uint8_t)(20  + 30.0f * f);
+        pixels_b[i] = (uint8_t)(200 + 55.0f * f);
+    }
+
+    // Ring 1 (7..18, 12 LEDs): Dense Inner Spiral Bulge & Bar
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        int rel = i - 7;
+        float arm = (sinf((float)(tick * 3 + rel * 60) * 0.08f) + 1.0f) * 0.5f;
+        pixels_r[i] = (uint8_t)(30  + 60.0f * arm);  // Soft cosmic dust & star cloud
+        pixels_g[i] = (uint8_t)(120 + 100.0f * arm); // Celestial cyan star clusters
+        pixels_b[i] = (uint8_t)(200 + 55.0f * arm);
+    }
+
+    // Ring 2 (19..42, 24 LEDs): Outer Spiral Arms & Sol System (Orion Spur)
+    int sol_idx = 19 + ((tick / 4) % 24);
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        if (i == sol_idx) {
+            // Sol System Beacon: Golden Yellow star beacon pulsing on Orion Spur!
+            bool pulse = ((tick / 2) % 3) == 0;
+            if (pulse) {
+                pixels_r[i] = 255; pixels_g[i] = 240; pixels_b[i] = 120;
+            } else {
+                pixels_r[i] = 255; pixels_g[i] = 180; pixels_b[i] = 20;
+            }
+        } else {
+            // Interstellar velvet void with subtle drifting star glints
+            if ((i * 5 + tick) % 13 == 0) {
+                pixels_r[i] = 10; pixels_g[i] = 20; pixels_b[i] = 50;
+            } else {
+                pixels_r[i] = 1;  pixels_g[i] = 1;  pixels_b[i] = 6;
+            }
+        }
+    }
+}
+
+// 12. Terra (Planet Earth): Geothermal core, revolving azure oceans & emerald continents, polar aurora
+static void render_earth(uint32_t tick) {
+    // Ring 0 (0..6, 7 LEDs): Molten Iron-Nickel Geothermal Core
+    float core_pulse = (sinf((float)tick * 0.10f) + 1.0f) * 0.5f;
+    for (int i = 0; i <= 6; i++) {
+        pixels_r[i] = (uint8_t)(220 + 35.0f * core_pulse);
+        pixels_g[i] = (uint8_t)(90  + 40.0f * core_pulse);
+        pixels_b[i] = (uint8_t)(10  + 15.0f * core_pulse);
+    }
+
+    // Ring 1 (7..18, 12 LEDs): Rotating Continents, Oceans, and Cloud Caps
+    int rot = (tick / 5) % 12;
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        int pos = (i - 7 + rot) % 12;
+        if (pos == 0 || pos == 1 || pos == 5 || pos == 6) {
+            // Azure Blue Oceans (Pacific / Atlantic)
+            pixels_r[i] = 0;   pixels_g[i] = 110; pixels_b[i] = 245;
+        } else if (pos == 2 || pos == 3 || pos == 7 || pos == 8) {
+            // Emerald & Jade Green Continents
+            pixels_r[i] = 20;  pixels_g[i] = 220; pixels_b[i] = 50;
+        } else if (pos == 4 || pos == 9) {
+            // Golden Savannah / Desert Sand
+            pixels_r[i] = 210; pixels_g[i] = 175; pixels_b[i] = 35;
+        } else {
+            // Polar Ice & Drifting White Clouds
+            pixels_r[i] = 220; pixels_g[i] = 240; pixels_b[i] = 255;
+        }
+    }
+
+    // Ring 2 (19..42, 24 LEDs): Upper Atmosphere & Dancing Aurora Borealis
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        int rel = i - 19;
+        float aurora = (sinf((float)(tick * 4 + rel * 45) * 0.07f) + 1.0f) * 0.5f;
+        pixels_r[i] = (uint8_t)(10  + 30.0f * aurora);
+        pixels_g[i] = (uint8_t)(140 + 115.0f * aurora); // Ethereal emerald / cyan
+        pixels_b[i] = (uint8_t)(90  + 120.0f * aurora);
+    }
+}
+
+// 13. Halloween Spook: Flickering Jack-o'-Lantern pumpkin, haunted witch purple, toxic ectoplasm
+static void render_halloween(uint32_t tick) {
+    // Ring 0 (0..6, 7 LEDs): Jack-o'-Lantern Candle Flame Flicker
+    uint8_t flicker = (uint8_t)((tick * 17) % 65);
+    pixels_r[0] = 255;
+    pixels_g[0] = 140 + flicker / 2;
+    pixels_b[0] = 10;
+    for (int i = 1; i <= 6; i++) {
+        uint8_t f = (uint8_t)(((tick * 11) + i * 29) % 55);
+        pixels_r[i] = 255;                // Pumpkin orange / fiery amber
+        pixels_g[i] = (uint8_t)(60 + f);
+        pixels_b[i] = 0;
+    }
+
+    // Ring 1 (7..18, 12 LEDs): Haunted Witch Cauldron & Amethyst Shadows
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        int rel = i - 7;
+        float wave = (sinf((float)(tick * 3 + rel * 60) * 0.08f) + 1.0f) * 0.5f;
+        pixels_r[i] = (uint8_t)(160 + 90.0f * wave); // Witch purple / eerie amethyst
+        pixels_g[i] = (uint8_t)(5   + 20.0f * wave);
+        pixels_b[i] = (uint8_t)(180 + 75.0f * wave);
+    }
+
+    // Ring 2 (19..42, 24 LEDs): Creepy Toxic Ectoplasm & Floating Phantoms
+    int ghost_idx = 19 + ((tick / 3) % 24);
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        if (i == ghost_idx || i == 19 + ((ghost_idx - 19 + 12) % 24)) {
+            // Ghostly wisp: Creepy toxic neon ectoplasm green!
+            pixels_r[i] = 30;  pixels_g[i] = 255; pixels_b[i] = 50;
+        } else {
+            // Shadowy haunted darkness with subtle toxic glow
+            if ((i * 3 + tick) % 7 == 0) {
+                pixels_r[i] = 5;  pixels_g[i] = 30;  pixels_b[i] = 10;
+            } else {
+                pixels_r[i] = 0;  pixels_g[i] = 0;   pixels_b[i] = 0;
+            }
+        }
+    }
+}
+
 #if CELESTIAL_FOUR_RINGS && CELESTIAL_RING_EXPERIMENT
 // Diagnostic build only: pure RGB cycle on spare during RAINBOW
 static void render_spare_ring(uint32_t tick, int mode, uint8_t mic_level_pct, bool music_active) {
@@ -949,6 +1076,15 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
                 break;
             case LED_ANIM_EXPAND_SPEECH:
                 render_expand_speech(anim_tick);
+                break;
+            case LED_ANIM_GALAXY:
+                render_galaxy(anim_tick);
+                break;
+            case LED_ANIM_EARTH:
+                render_earth(anim_tick);
+                break;
+            case LED_ANIM_HALLOWEEN:
+                render_halloween(anim_tick);
                 break;
             default:
                 render_rainbow_wave(anim_tick);

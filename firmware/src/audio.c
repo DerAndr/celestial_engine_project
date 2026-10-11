@@ -429,7 +429,7 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
     float gain = master_gain;
     float voice_gain = AUDIO_PCM16_PEAK / 128.0f;
     const float pcm16_gain = 5.0f; // Pre-amp gain boost (+14 dB) for natural microphone voice replay
-    const float stream_gain = AUDIO_PCM16_PEAK / 32768.0f; // Server PCM is already full scale.
+    const float stream_gain = 1.15f; // Server PCM playback gain without clipping
     uint32_t buffer_peak = 0;
 
     for (size_t i = 0; i < count; i++) {

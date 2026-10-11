@@ -31,12 +31,12 @@
 #define AUDIO_DIAGNOSTIC_BOOT   0        // Normal application UI and peripherals.
 #if CELESTIAL_FOUR_RINGS
 #define AUDIO_STARTUP_SOUNDS    0        // Retain the current four-ring build's quiet startup.
-#define AUDIO_DEFAULT_VOLUME    35       // Audible default playback level (35%)
+#define AUDIO_DEFAULT_VOLUME    30       // Default playback level (30%)
 #else
 #define AUDIO_STARTUP_SOUNDS    1        // Play gentle startup chime and announcement at boot.
-#define AUDIO_DEFAULT_VOLUME    35       // Audible default playback level (35%)
+#define AUDIO_DEFAULT_VOLUME    30       // Default playback level (30%)
 #endif
-#define AUDIO_VOLUME_RANGE_DB   40.0f    // V1..V100: -40..0 dB; V0 is exact mute (experiment 018).
+#define AUDIO_VOLUME_RANGE_DB   26.0f    // V1..V100: -26..0 dB curve gives a loud, punchy 30% baseline.
 #define AUDIO_I2S_SLOT_BITS     16       // Standard 16-bit stereo I2S (32 BCLKs per frame, 512 kHz).
 #define AUDIO_PCM16_PEAK        14400.0f // +1.58 dB from 12000; digital ceiling, not measured power.
 #define AUDIO_CONTINUOUS_CLOCKS 0        // Stop BCLK during silence (>80 ms) for total amplifier shutdown (<0.6 uA).
