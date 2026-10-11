@@ -16,6 +16,8 @@ bool sh1106_init(i2c_inst_t *i2c, uint8_t addr);
 void sh1106_clear(void);
 // Returns false on a command/data failure; every transaction has a timeout.
 bool sh1106_update(void);
+typedef void (*sh1106_yield_fn_t)(void);
+void sh1106_set_page_yield_callback(sh1106_yield_fn_t cb);
 
 // Drawing primitives
 void sh1106_draw_pixel(int x, int y, bool on);

@@ -7,22 +7,22 @@ The coding agent must guide the user physically, one testable prototype at a tim
 
 ## Checkpoint and next priorities — 2026-10-11
 
-The user repaired the 16-position ring with a jumper bypassing one failed LED; it is installed last in the physical **7→12→24→16** chain. The damaged position remains dark. The existing jumper runs from the ring common DIN to the damaged LED DOUT contact, with the old output still attached; exact addressing/isolation remain unverified. This is a user-performed repair with confirmed four-ring light response, not an LED replacement. Remaining white rainbow flashes are still open.
+The user repaired the 16-position ring with a jumper bypassing one failed LED; it is installed last in the physical **7→12→24→16** chain. The damaged position remains dark. The user confirms that buggy bright flashes of light on the 4th ring are no longer visible, and inactive backgrounds in PULSAR/VOICE/VORTEX remain dark.
 
-Work order: **finish the standalone Pico staff first**, including a full rewrite of music/microphone lighting and effects for all four rings, unified state/UI behavior, bounded QUERY capture/local playback and a minimal versioned Wi-Fi contract. Then build the Raspberry Pi brain independently against that contract and join the two working systems. The staff must remain useful without the Pi or a network. See the [prioritized tasks](docs/tasks.md) and [end-of-session checkpoint](docs/checkpoints/2026-10-11.md). User requested descriptions, commit and push only tonight; no further implementation or flashing.
+Work order: **finish the standalone Pico staff first**, including a full rewrite of music/microphone lighting and effects for all four rings, unified state/UI behavior, bounded QUERY capture/local playback and a minimal versioned Wi-Fi contract. Then build the Raspberry Pi brain independently against that contract and join the two working systems. The staff must remain useful without the Pi or a network. See the [prioritized tasks](docs/tasks.md) and [end-of-session checkpoint](docs/checkpoints/2026-10-11.md).
 
 ## Current implementation — 2026-10-11
 
-2026-10-11 current main: **1.0.10-FOUR-RINGS**, built/checked as **firmware/build/celestial_firmware.uf2**. The previously delivered 1.0.9 is saved as celestial_ring_experiment_1.0.9.uf2. User reports persistent fourth-ring backgrounds in PULSAR/VOICE/VORTEX, individual white flashes in RAINBOW, and good COSMIC SNAKE. Main removes the three backgrounds; snake, voice order 7→12→16→24 and encoder behavior remain. **celestial_ring_experiment.uf2** is now the separate **1.0.10-RING-DIAGNOSTIC**: RAINBOW holds pure RGB on the spare for five seconds per color. Both keep 59-word DMA, 300 µs reset, 4% cap, silent V0 and existing wiring. [Experiment 025](docs/experiments/025-main-build-and-ring-backgrounds.md). Both files are not flashed while Pico is disconnected; white flashes and spare repair/addressing remain unresolved. Passed 1.0.7 baseline remains available; old main 1.0.5 is preserved exactly as celestial_audio_1.0.5.uf2.
+2026-10-11 current main: **1.0.11-VOICE-CAPTURE**, built/checked as **firmware/build/celestial_firmware.uf2**. Implements continuous 16 kHz 16-bit PCM microphone speech capture into RAM (up to 5.0 s, 160 KB) upon holding QUERY, and immediate playback via MAX98357A speaker upon release ([Experiment 026](docs/experiments/026-mic-record-ram-buffer.md)). Ring cosmetics postponed to backlog per user priority. Both files keep 59-word DMA, 300 µs reset, 4% cap, silent V0 and existing wiring.
 
 Archived three-ring application **1.0.5-AUDIO-GAIN** targets Pico 2 W / RP2350. **ERR-AUDIO-02/03 RESOLVED:** the user repaired bad soldering and confirms working sound/volume, including the encoder. That archived profile: 43 LEDs (7 + 12 + 24; defective 16-LED ring removed). Firmware uses official 16-bit stereo I2S, default V10 and startup sounds. Startup and encoder now share one 40 dB volume curve: startup V10 is +3.64 dB from 1.0.4; V100 still uses the 14400 digital ceiling. Build, flash verification and live COM9 confirm the new version and startup peak 205 (previously 135). See [consistent gain adjustment 018](docs/experiments/018-volume-consistent-gain.md); physical loudness preference awaits ordinary use. The audio blocker is cleared; further integration may resume.
 
 | Area | Current behavior / status |
 |---|---|
 | Display and controls | SH1106 on I2C1; encoder A/B decoded in GPIO IRQ; QUERY press/release require 30 ms stability |
-| QUERY | Local microphone test: IDLE -> LISTENING -> IDLE; live meter and hold timer |
-| LEDs | Main four-ring profile: 59 reserved slots (7 + 12 + 24 + spare reserve 16), GP15 / PIO0 SM1 / DMA, 4% cap; 1.0.10 backgrounds fixed in code, physical validation pending |
-| Microphone | 16 kHz live metering, 256-sample circular DMA window; PIO0 SM0 |
+| QUERY | Hold records voice into 160 KB RAM buffer; release stops recording and triggers speaker playback |
+| LEDs | Main four-ring profile: 59 reserved slots (7 + 12 + 24 + spare reserve 16), GP15 / PIO0 SM1 / DMA, 4% cap; backgrounds dark |
+| Microphone | 16 kHz live metering + continuous 16-bit PCM voice capture buffer (up to 5 s / 80k samples) |
 | Speaker | MAX98357A + one QUARKZMAN 4 ohm / 3 W, OUT+/OUT−; solder repair and shared gain work. Current four-ring startup V0; archived audio profile used V10 |
 | Mission Control | Web dashboard at http://localhost:5050 with one-click UF2 flasher, live telemetry stream, and presets |
 | Milestones | Historical P0–P4/P6/P7 passes retained; P5 four-ring data response confirmed, effects partial; P7 audio revalidated after user solder repair; P8 standalone integration remains partial |
@@ -198,8 +198,8 @@ Add momentary NO button. Log/display QUERY DOWN and QUERY UP; connect this to LI
 ### P4 — WS2812 Core Ring & Celestial Animations [PASSED / VERIFIED]
 Direct GP15 driving verified. Added seven animation modes (`[ LED EFFECTS ]`): Cosmic Breathe, Galaxy Vortex, Pulsar Pulse, Solar Plasma, Starry Night, Voice Reactive and Rainbow Wave. The revised frame, color and brightness handling awaits experiment 007.
 
-### P5 — Four-ring LED core [DATA RESPONSE CONFIRMED / EFFECTS PARTIAL]
-All four rings are connected as 7→12→24→16; the user repaired the last ring with a jumper around one failed LED. Four-ring light response is confirmed at 4% in 022. Exact spare addressing, white rainbow flashes and final power/interface validation remain open. Finish that observation, then fully rewrite four-ring light/music effects with centralized logical rings separate from physical offsets; see priorities 1–2 in docs/tasks.md. Audio no longer blocks this milestone.
+### P5 — Four-ring LED core [HARDWARE VERIFIED / EFFECTS UNIFICATION IN PROGRESS]
+All four rings are connected as 7→12→24→16; the user repaired the 16-LED ring with a jumper bypassing one failed LED. Four-ring light response is stable at 4% brightness cap; user confirmed buggy white flashes are gone and dark backgrounds in PULSAR/VOICE/VORTEX work properly. Next: rewrite all four-ring animation and music/mic lighting effects with unified logical geometry (7→12→16→24) decoupled from physical wiring offsets.
 
 ### P6 — Microphone [PASSED / VERIFIED]
 INMP441 verified on RP2350 via PIO0 SM0 circular DMA. Live voice reaction verified in telemetry and integrated into LED voice-reactive animation mode.

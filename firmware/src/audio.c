@@ -59,6 +59,12 @@ static const voice_clip_t * volatile active_voice_clip = NULL;
 static volatile size_t voice_sample_idx = 0;
 static volatile bool voice_active = false;
 
+// 16-bit PCM playback state (for voice recording review and external speech)
+static const int16_t * volatile active_pcm16_samples = NULL;
+static volatile size_t pcm16_sample_count = 0;
+static volatile size_t pcm16_sample_idx = 0;
+static volatile bool pcm16_active = false;
+
 // Celestial chime sequence state (warm gentle octave 4 harmonics: C4, E4, G4, C5)
 typedef struct {
     float freq;
@@ -413,6 +419,7 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
 
     float gain = master_gain;
     float voice_gain = AUDIO_PCM16_PEAK / 128.0f;
+    const float pcm16_gain = 5.0f; // Pre-amp gain boost (+14 dB) for natural microphone voice replay
     uint32_t buffer_peak = 0;
 
     for (size_t i = 0; i < count; i++) {
@@ -465,6 +472,17 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
             } else {
                 voice_active = false;
                 active_voice_clip = NULL;
+            }
+        }
+
+        // 3. Mix 16-bit PCM playback if active
+        if (pcm16_active && active_pcm16_samples != NULL) {
+            if (pcm16_sample_idx < pcm16_sample_count) {
+                int16_t s = active_pcm16_samples[pcm16_sample_idx++];
+                mixed_sample += (float)s * pcm16_gain;
+            } else {
+                pcm16_active = false;
+                active_pcm16_samples = NULL;
             }
         }
 
@@ -706,6 +724,32 @@ bool audio_is_voice_playing(void) {
     return voice_active;
 }
 
+void audio_play_pcm16(const int16_t *samples, size_t count) {
+    if (samples != NULL && count > 0) {
+        uint32_t save = save_and_disable_interrupts();
+        playback_peak_pcm24 = 0;
+        active_pcm16_samples = samples;
+        pcm16_sample_count = count;
+        pcm16_sample_idx = 0;
+        pcm16_active = true;
+        amp_wake();
+        restore_interrupts(save);
+    }
+}
+
+void audio_stop_pcm16(void) {
+    uint32_t save = save_and_disable_interrupts();
+    pcm16_active = false;
+    active_pcm16_samples = NULL;
+    pcm16_sample_count = 0;
+    pcm16_sample_idx = 0;
+    restore_interrupts(save);
+}
+
+bool audio_is_pcm16_playing(void) {
+    return pcm16_active;
+}
+
 const char* audio_get_voice_name(voice_phrase_id_t phrase_id) {
     const voice_clip_t *clip = voice_get_clip(phrase_id);
     return (clip != NULL) ? clip->name : "UNKNOWN";
@@ -801,7 +845,8 @@ bool audio_is_playing(void) {
            (chime_index >= 0) ||
            (active_chiptune_track >= 0) ||
            (active_cosmic_sfx >= 0) ||
-           voice_active;
+           voice_active ||
+           pcm16_active;
 }
 
 int audio_get_chiptune_count(void) {

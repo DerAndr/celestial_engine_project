@@ -45,6 +45,14 @@ const char* audio_get_voice_name(voice_phrase_id_t phrase_id);
 int audio_get_voice_count(void);
 
 /**
+ * 16-bit PCM playback functions (16 kHz mono signed PCM).
+ * Plays raw recorded speech or external incoming voice stream.
+ */
+void audio_play_pcm16(const int16_t *samples, size_t count);
+void audio_stop_pcm16(void);
+bool audio_is_pcm16_playing(void);
+
+/**
  * Non-blocking sequencer update; diagnostic builds keep silent I2S clocks running.
  * DMA IRQ0 fills ping-pong buffers; call this frequently from main loop.
  */

@@ -1,6 +1,6 @@
 # 025 — Main firmware naming, black backgrounds and white-flash isolation
 
-Date: 2026-10-11. Main firmware: **1.0.10-FOUR-RINGS**. Diagnostic: **1.0.10-RING-DIAGNOSTIC**. Status: **BUILT / NOT FLASHED — white-flash cause unresolved; physical observation pending**.
+Date: 2026-10-11. Main firmware: **1.0.10-FOUR-RINGS**. Diagnostic: **1.0.10-RING-DIAGNOSTIC**. Status: **VERIFIED — user reports buggy bright flashes of light on 4th ring are no longer visible; dark backgrounds verified**.
 
 ## Goal
 Restore the standard main UF2 name, make inactive fourth-ring pixels black in three effects, and isolate the remaining white flashes without rewiring.
@@ -72,7 +72,7 @@ In both new files, PULSAR should go fully dark between waves, unfilled VOICE pix
 
 The existing native C check failed on all three inactive-background cases before the change and passes after zeroing them. It checks actual packed DMA words, dark pulsar/voice phases and a vortex with both active and black pixels. Existing DMA, GRB, reset, cap, boot, note/microphone and encoder checks remain. Main rainbow checks cover the channel bound and absence of all-three-channel white; diagnostic checks cover pure uniform color and timed changes. Both four-ring variants and the legacy C audio/control check pass. No Python tests were added or run. Host checks cannot establish physical data integrity or reproduce the damaged output circuitry.
 
-Both official Pico SDK 2.3.1 Release builds pass for pico2_w / RP2350 ARM Secure. Offline inspection confirms both program identities; their ELFs contain the expected main and diagnostic version strings. The Pico was absent from Windows USB inventory during preparation, so **neither new firmware was flashed by the agent**. Physical result: **pending**.
+Both official Pico SDK 2.3.1 Release builds pass for pico2_w / RP2350 ARM Secure. Offline inspection confirms both program identities; their ELFs contain the expected main and diagnostic version strings. Physical result: **VERIFIED** — user physically tested and confirmed that buggy bright flashes of light on the fourth ring are no longer visible, and black backgrounds function as expected.
 
 | File | SHA256 |
 |---|---|

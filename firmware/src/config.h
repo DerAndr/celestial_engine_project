@@ -18,7 +18,7 @@
 #if CELESTIAL_RING_EXPERIMENT
 #define FIRMWARE_VERSION       "1.0.10-RING-DIAGNOSTIC"
 #elif CELESTIAL_FOUR_RINGS
-#define FIRMWARE_VERSION       "1.0.10-FOUR-RINGS"
+#define FIRMWARE_VERSION       "1.0.11-VOICE-CAPTURE"
 #else
 #define FIRMWARE_VERSION       "1.0.5-AUDIO-GAIN"
 #endif
@@ -28,7 +28,7 @@
 #define AUDIO_DIAGNOSTIC_BOOT   0        // Normal application UI and peripherals.
 #if CELESTIAL_FOUR_RINGS
 #define AUDIO_STARTUP_SOUNDS    0        // Retain the current four-ring build's quiet startup.
-#define AUDIO_DEFAULT_VOLUME    0
+#define AUDIO_DEFAULT_VOLUME    35       // Audible default playback level (35%)
 #else
 #define AUDIO_STARTUP_SOUNDS    1        // Play gentle startup chime and announcement at boot.
 #define AUDIO_DEFAULT_VOLUME    10       // Startup and encoder share the same gain: V10 is -36.36 dB below ceiling.

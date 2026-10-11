@@ -136,6 +136,42 @@ static void draw_listening_screen(uint32_t hold_ms, int mode_idx, bool anim_blin
     oled_ready = sh1106_update();
 }
 
+static void draw_speaking_screen(uint32_t dur_ms, bool anim_blink) {
+    if (!oled_ready) return;
+
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    // Playback Header Banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    if (anim_blink) {
+        sh1106_draw_string(14, 4, "[ SPK ] PLAYBACK", false);
+    } else {
+        sh1106_draw_string(14, 4, "[ >>> ] PLAYBACK", false);
+    }
+
+    sh1106_draw_string(6, 17, "REPLAYING VOICE", true);
+    sh1106_draw_string(6, 27, "DURATION:", true);
+
+    char timer_buf[20];
+    snprintf(timer_buf, sizeof(timer_buf), "%lu.%02lu s",
+             (unsigned long)(dur_ms / 1000),
+             (unsigned long)((dur_ms % 1000) / 10));
+    sh1106_draw_string_scaled(20, 37, timer_buf, 2, true);
+
+    // Volume level indicator bar
+    int vol_fill = ((int)audio_get_volume() * 116) / 100;
+    sh1106_draw_rect(6, 48, 116, 4, true);
+    if (vol_fill > 0) {
+        sh1106_fill_rect(6, 48, vol_fill, 4, true);
+    }
+
+    sh1106_draw_line(2, 53, 125, 53, true);
+    sh1106_draw_string(4, 55, "PLAYING RECORDING", true);
+
+    oled_ready = sh1106_update();
+}
+
 static void draw_volume_screen(uint8_t vol_percent) {
     if (!oled_ready) return;
 
@@ -449,6 +485,7 @@ int main(void) {
     LOG_INFO("OLED", "Attempting initialization at 0x%02X...", target_addr);
     if (sh1106_init(OLED_I2C_INST, target_addr)) {
         oled_ready = true;
+        sh1106_set_page_yield_callback(mic_update);
         LOG_INFO("OLED", "SH1106 OLED initialized successfully!");
     } else {
         LOG_ERROR("OLED", "SH1106 initialization failed or no response!");
@@ -536,18 +573,36 @@ int main(void) {
             } else {
                 current_state = STATE_LISTENING;
                 easter_egg_active = false;
+                mic_record_start();
                 audio_play_tone(392.00f, 25); // Soft warm start-beep (G4)
-                LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! <<<");
+                LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! Recording voice to RAM... <<<");
                 need_display_update = true;
             }
         }
 
         uint32_t held_dur = query_button_just_released();
         if (held_dur > 0 && current_state == STATE_LISTENING) {
+            size_t recorded_samples = mic_record_stop();
+            uint32_t rec_ms = mic_get_recorded_duration_ms();
+            LOG_INFO("QUERY", "QUERY RELEASED after %lu ms. Recorded %zu samples (%lu ms, %zu bytes). Starting local playback...",
+                     (unsigned long)held_dur,
+                     recorded_samples,
+                     (unsigned long)rec_ms,
+                     recorded_samples * sizeof(int16_t));
+            if (recorded_samples > 0) {
+                current_state = STATE_SPEAKING;
+                audio_play_pcm16(mic_get_recorded_samples(NULL), recorded_samples);
+            } else {
+                current_state = STATE_IDLE;
+                audio_play_voice(VOICE_READY); // Speak "System ready"
+            }
+            need_display_update = true;
+        }
+
+        // Return from SPEAKING to IDLE once PCM playback finishes
+        if (current_state == STATE_SPEAKING && !audio_is_pcm16_playing()) {
             current_state = STATE_IDLE;
-            audio_play_voice(VOICE_READY); // Speak "System ready"
-            LOG_INFO("QUERY", "QUERY RELEASED after %lu ms. IDLE; audio capture/upload not implemented.",
-                     (unsigned long)held_dur);
+            LOG_INFO("AUDIO", "Recorded voice playback finished. Returned to IDLE.");
             need_display_update = true;
         }
 
@@ -742,7 +797,7 @@ int main(void) {
         if (absolute_time_diff_us(last_flash_toggle, get_absolute_time()) >= 400000) {
             last_flash_toggle = get_absolute_time();
             flash_phase = !flash_phase;
-            if (current_state == STATE_LISTENING || easter_egg_active || volume_edit_mode ||
+            if (current_state == STATE_LISTENING || current_state == STATE_SPEAKING || easter_egg_active || volume_edit_mode ||
                 mic_test_mode || led_edit_mode || chiptune_mode || voice_mode || cosmic_mode) {
                 need_display_update = true;
             }
@@ -755,6 +810,9 @@ int main(void) {
 
             if (current_state == STATE_LISTENING) {
                 draw_listening_screen(query_button_current_hold_ms(), active_confirmed_mode, flash_phase);
+                need_display_update = true;
+            } else if (current_state == STATE_SPEAKING) {
+                draw_speaking_screen(mic_get_recorded_duration_ms(), flash_phase);
                 need_display_update = true;
             } else if (easter_egg_active) {
                 draw_67_screen(flash_phase);

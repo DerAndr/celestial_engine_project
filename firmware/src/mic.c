@@ -23,6 +23,12 @@ static int16_t last_peak_amplitude = 0;
 static uint8_t rolling_level_percent = 0;
 static absolute_time_t last_metric_update;
 
+// Voice recording RAM buffer (up to 5.0 s @ 16 kHz = 80,000 samples = 160 KB)
+static int16_t mic_record_buf[MIC_RECORD_MAX_SAMPLES];
+static volatile size_t mic_record_count = 0;
+static volatile bool mic_record_active = false;
+static size_t mic_record_drain_cursor = 0;
+
 void mic_init(void) {
     mic_offset = pio_add_program(mic_pio, &mic_i2s_program);
     mic_i2s_program_init(mic_pio, mic_sm, mic_offset, PIN_MIC_SD, PIN_MIC_SCK);
@@ -78,8 +84,32 @@ static inline int16_t dc_block_filter(int16_t x) {
 void mic_update(void) {
     // RP2350 endless mode does not decrement a finite transfer count.
     // Restart only if the channel was stopped.
-    if (!dma_channel_is_busy(mic_dma_chan)) {
+    if (mic_dma_chan >= 0 && !dma_channel_is_busy(mic_dma_chan)) {
         dma_channel_set_trans_count(mic_dma_chan, dma_encode_endless_transfer_count(), true);
+    }
+
+    if (mic_dma_chan >= 0) {
+        uintptr_t cur_write_addr = dma_channel_hw_addr(mic_dma_chan)->write_addr;
+        size_t current_hw_idx = ((cur_write_addr - (uintptr_t)mic_ring_buf) / sizeof(mic_ring_buf[0])) % MIC_BUFFER_SAMPLES;
+
+        // 1. Drain new samples into the recording buffer if recording
+        if (mic_record_active) {
+            int16_t drain_peak = 0;
+            while (mic_record_drain_cursor != current_hw_idx && mic_record_count < MIC_RECORD_MAX_SAMPLES) {
+                uint32_t raw = mic_ring_buf[mic_record_drain_cursor];
+                int16_t raw_sample = (int16_t)((int32_t)(raw << 1) >> 16);
+                int16_t sample = dc_block_filter(raw_sample);
+                mic_record_buf[mic_record_count++] = sample;
+                int32_t abs_s = (sample < 0) ? -(int32_t)sample : sample;
+                if (abs_s > drain_peak) drain_peak = (int16_t)abs_s;
+                mic_record_drain_cursor = (mic_record_drain_cursor + 1) % MIC_BUFFER_SAMPLES;
+            }
+            if (drain_peak > last_peak_amplitude) {
+                last_peak_amplitude = drain_peak;
+            }
+        } else {
+            mic_record_drain_cursor = current_hw_idx;
+        }
     }
 
     // Update metrics every 20 ms (~50 Hz)
@@ -107,7 +137,6 @@ void mic_update(void) {
         }
     }
     if (!snapshot_ready) return;
-
 
     // DMA's next write position is the oldest sample in the full ring.
     size_t oldest = ((write_addr - (uintptr_t)mic_ring_buf) / sizeof(mic_ring_buf[0])) % MIC_BUFFER_SAMPLES;
@@ -150,4 +179,45 @@ uint8_t mic_get_level_percent(void) {
 
 int16_t mic_get_peak_amplitude(void) {
     return last_peak_amplitude;
+}
+
+void mic_record_start(void) {
+    if (mic_dma_chan >= 0) {
+        uintptr_t write_addr = dma_channel_hw_addr(mic_dma_chan)->write_addr;
+        mic_record_drain_cursor = ((write_addr - (uintptr_t)mic_ring_buf) / sizeof(mic_ring_buf[0])) % MIC_BUFFER_SAMPLES;
+    } else {
+        mic_record_drain_cursor = 0;
+    }
+    mic_record_count = 0;
+    mic_record_active = true;
+}
+
+size_t mic_record_stop(void) {
+    mic_record_active = false;
+    return mic_record_count;
+}
+
+bool mic_is_recording(void) {
+    return mic_record_active;
+}
+
+const int16_t *mic_get_recorded_samples(size_t *out_sample_count) {
+    if (out_sample_count) {
+        *out_sample_count = mic_record_count;
+    }
+    return mic_record_buf;
+}
+
+size_t mic_get_recorded_count(void) {
+    return mic_record_count;
+}
+
+uint32_t mic_get_recorded_duration_ms(void) {
+    return (uint32_t)((mic_record_count * 1000ULL) / MIC_SAMPLE_RATE);
+}
+
+void mic_record_clear(void) {
+    mic_record_active = false;
+    mic_record_count = 0;
+    mic_record_drain_cursor = 0;
 }

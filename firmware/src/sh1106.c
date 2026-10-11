@@ -9,6 +9,12 @@ static uint8_t driver_addr = 0x3C;
 static uint8_t display_buffer[SH1106_BUF_SIZE];
 #define I2C_TIMEOUT_US 10000
 
+static sh1106_yield_fn_t page_yield_callback = NULL;
+
+void sh1106_set_page_yield_callback(sh1106_yield_fn_t cb) {
+    page_yield_callback = cb;
+}
+
 // Command packet sender (Co = 0, D/C# = 0)
 static bool send_cmd(uint8_t cmd) {
     uint8_t pkt[2] = {0x00, cmd};
@@ -91,6 +97,9 @@ bool sh1106_update(void) {
                                  I2C_TIMEOUT_US) != (int)sizeof(payload)) {
             printf("[OLED] Frame transfer failed at page %u.\n", p);
             return false;
+        }
+        if (page_yield_callback) {
+            page_yield_callback();
         }
     }
     return true;
