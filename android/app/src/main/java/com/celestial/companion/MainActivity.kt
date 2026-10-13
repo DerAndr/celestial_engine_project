@@ -13,6 +13,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.celestial.companion.domain.repository.StaffRepository
+import com.celestial.companion.network.StaffUdpTransport
 import com.celestial.companion.ui.navigation.Screen
 import com.celestial.companion.ui.screens.chronos.ChronosScreen
 import com.celestial.companion.ui.screens.dashboard.DashboardScreen
@@ -31,8 +33,13 @@ class MainActivity : ComponentActivity() {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 val app = application as CelestialApp
+                val repo = if (app::staffRepository.isInitialized) {
+                    app.staffRepository
+                } else {
+                    StaffRepository(StaffUdpTransport())
+                }
                 @Suppress("UNCHECKED_CAST")
-                return DashboardViewModel(app.staffRepository) as T
+                return DashboardViewModel(repo) as T
             }
         }
     }

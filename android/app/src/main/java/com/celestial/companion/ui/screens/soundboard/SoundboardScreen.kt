@@ -10,9 +10,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -97,7 +96,7 @@ fun SoundboardScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Icon(
-                                if (sfx.isDroid) Icons.Default.SmartToy else Icons.Default.VolumeUp,
+                                if (sfx.isDroid) Icons.Default.Star else Icons.Default.PlayArrow,
                                 contentDescription = null,
                                 tint = if (sfx.isDroid) RunicGold else AetherCyan,
                                 modifier = Modifier.size(18.dp)

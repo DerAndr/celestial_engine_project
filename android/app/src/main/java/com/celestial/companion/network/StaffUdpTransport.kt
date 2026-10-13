@@ -1,5 +1,6 @@
 package com.celestial.companion.network
 
+import android.util.Log
 import com.celestial.companion.protocol.CelestialPacket
 import com.celestial.companion.protocol.NetMessageType
 import com.celestial.companion.protocol.ProtocolConstants
@@ -9,7 +10,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
+import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicInteger
+
+private const val TAG = "StaffUdpTransport"
 
 class StaffUdpTransport(
     private val localPort: Int = ProtocolConstants.DEFAULT_PORT
@@ -17,6 +21,7 @@ class StaffUdpTransport(
 
     private var socket: DatagramSocket? = null
     private val seqCounter = AtomicInteger(1)
+    @Volatile
     private var isRunning = false
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -28,29 +33,51 @@ class StaffUdpTransport(
         isRunning = true
 
         scope.launch {
-            try {
-                socket = DatagramSocket(localPort).apply {
-                    broadcast = true
-                    reuseAddress = true
-                }
-            } catch (e: Exception) {
-                // If standard port is in use, bind to ephemeral port for outbound control
-                socket = DatagramSocket().apply {
-                    broadcast = true
-                }
-            }
-
-            val rxBuffer = ByteArray(2048)
             while (isActive && isRunning) {
+                // Initialize socket if not already open
+                if (socket == null || socket?.isClosed == true) {
+                    try {
+                        // Create unbound socket first, then configure options and bind
+                        val s = DatagramSocket(null).apply {
+                            reuseAddress = true
+                            broadcast = true
+                            soTimeout = 2000 // 2s timeout so receive() unblocks periodically
+                        }
+                        try {
+                            s.bind(InetSocketAddress(localPort))
+                            Log.i(TAG, "Bound UDP listening socket to port $localPort")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Port $localPort busy, falling back to ephemeral port: ${e.message}")
+                            s.bind(InetSocketAddress(0))
+                        }
+                        socket = s
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to create DatagramSocket: ${e.message}", e)
+                        delay(2000)
+                        continue
+                    }
+                }
+
+                val currentSocket = socket
+                if (currentSocket == null || currentSocket.isClosed) {
+                    delay(1000)
+                    continue
+                }
+
+                val rxBuffer = ByteArray(2048)
                 try {
                     val datagram = DatagramPacket(rxBuffer, rxBuffer.size)
-                    socket?.receive(datagram)
+                    currentSocket.receive(datagram)
                     val packet = CelestialPacket.fromBytes(datagram.data, datagram.length)
                     if (packet != null) {
                         _incomingPackets.emit(packet)
                     }
+                } catch (e: java.net.SocketTimeoutException) {
+                    // Normal timeout for periodic check of isRunning / isActive
                 } catch (e: Exception) {
                     if (!isRunning) break
+                    Log.w(TAG, "UDP receive exception: ${e.message}")
+                    delay(500)
                 }
             }
         }
@@ -62,9 +89,10 @@ class StaffUdpTransport(
                 val bytes = packet.toBytes()
                 val targetAddr = InetAddress.getByName(targetIp)
                 val datagram = DatagramPacket(bytes, bytes.size, targetAddr, targetPort)
-                socket?.send(datagram)
+                val s = socket ?: DatagramSocket().apply { broadcast = true }
+                s.send(datagram)
             } catch (e: Exception) {
-                // Handle socket transmit error
+                Log.e(TAG, "UDP send failed to $targetIp:$targetPort: ${e.message}")
             }
         }
     }
@@ -83,7 +111,9 @@ class StaffUdpTransport(
 
     override fun stop() {
         isRunning = false
-        socket?.close()
+        try {
+            socket?.close()
+        } catch (_: Exception) {}
         socket = null
         scope.cancel()
     }
