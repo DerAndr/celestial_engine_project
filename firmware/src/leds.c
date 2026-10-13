@@ -56,7 +56,11 @@ static const char *ANIM_NAMES[LED_ANIM_COUNT] = {
     "SONIC EXPANSION",
     "MILKY WAY GALAXY",
     "TERRA PLANET",
-    "HALLOWEEN SPOOK"
+    "HALLOWEEN SPOOK",
+    "CELESTIAL CLOCK",
+    "AETHER HOURGLASS",
+    "CHROMA PRISMATIC",
+    "CELESTIAL ORRERY"
 };
 
 static inline uint32_t rgb_to_grb(uint8_t r, uint8_t g, uint8_t b) {
@@ -985,6 +989,450 @@ static void render_halloween(uint32_t tick) {
     }
 }
 
+// 14. Celestial Chronometer: 3 concentric time rings with central pulsing stone
+static uint8_t anim_clock_hours = 12;
+static uint8_t anim_clock_minutes = 0;
+static uint8_t anim_clock_seconds = 0;
+static uint16_t anim_clock_millis = 0;
+
+void leds_set_clock_time(uint8_t hours, uint8_t minutes, uint8_t seconds, uint16_t millis) {
+    anim_clock_hours = hours;
+    anim_clock_minutes = minutes;
+    anim_clock_seconds = seconds;
+    anim_clock_millis = millis;
+}
+
+static inline uint8_t add_sat_u8(uint8_t a, uint8_t b) {
+    uint16_t sum = (uint16_t)a + (uint16_t)b;
+    return (sum > 255) ? 255 : (uint8_t)sum;
+}
+
+static void render_clock(uint32_t tick) {
+    (void)tick;
+    // Ring 0 (Indices 0..6, 7 LEDs): Center Stone (Pendulum Heartbeat) & 10-Second Decan Accumulator
+    // Center Stone (Index 0): 1 Hz rhythmic pendulum heartbeat pulse
+    float sec_phase = (float)anim_clock_millis / 1000.0f;
+    float pulse = 0.5f + 0.5f * sinf(sec_phase * 6.2831853f - 1.5707963f);
+    bool minute_flare = (anim_clock_seconds == 0 && anim_clock_millis < 350);
+
+    if (minute_flare) {
+        // Supernova flare at top of minute!
+        pixels_r[0] = 255; pixels_g[0] = 255; pixels_b[0] = 230;
+    } else {
+        // Warm glowing Amber / Topaz heartbeat
+        pixels_r[0] = (uint8_t)(190 + 65.0f * pulse);
+        pixels_g[0] = (uint8_t)(110 + 70.0f * pulse);
+        pixels_b[0] = (uint8_t)(15  + 20.0f * pulse);
+    }
+
+    // Inner Ring (Indices 1..6, 6 LEDs): 10-Second Decans (0..59s)
+    int active_decan = anim_clock_seconds / 10; // 0..5
+    float decan_prog = (float)(anim_clock_seconds % 10) / 10.0f + (float)anim_clock_millis / 10000.0f;
+    for (int i = 1; i <= 6; i++) {
+        int dec_idx = i - 1;
+        if (minute_flare) {
+            // Outward ripple flash across inner ring
+            pixels_r[i] = 240; pixels_g[i] = 200; pixels_b[i] = 255;
+        } else if (dec_idx < active_decan) {
+            // Full decan: Celestial Amethyst / Violet
+            pixels_r[i] = 170; pixels_g[i] = 35;  pixels_b[i] = 220;
+        } else if (dec_idx == active_decan) {
+            // Advancing decan: Smooth accumulation glow
+            pixels_r[i] = 40 + (uint8_t)(130.0f * decan_prog);
+            pixels_g[i] = 10 + (uint8_t)(25.0f  * decan_prog);
+            pixels_b[i] = 60 + (uint8_t)(160.0f * decan_prog);
+        } else {
+            // Unlit decan marker: Soft starlight placeholder
+            pixels_r[i] = 3;   pixels_g[i] = 2;   pixels_b[i] = 8;
+        }
+    }
+
+    // Ring 1 (Indices 7..18, 12 LEDs): 12 Clock Hours Dial
+    // 12 LEDs = 12 hours (idx 7 = 12h, idx 8 = 1h, ... idx 18 = 11h)
+    int h12 = anim_clock_hours % 12;
+    int cur_h_led = 7 + h12;
+    int next_h_led = 7 + ((h12 + 1) % 12);
+    float m_fraction = (float)anim_clock_minutes / 60.0f;
+
+    // Fill 12-hour dial with celestial constellation markers
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        int h = i - 7;
+        if (h == 0 || h == 3 || h == 6 || h == 9) {
+            // Cardinal hours (12, 3, 6, 9 o'clock)
+            pixels_r[i] = 8;  pixels_g[i] = 16; pixels_b[i] = 45;
+        } else {
+            // Minor hours
+            pixels_r[i] = 3;  pixels_g[i] = 6;  pixels_b[i] = 20;
+        }
+    }
+
+    // Blend Hour Hand: Radiant Solar Gold
+    pixels_r[cur_h_led] = add_sat_u8(pixels_r[cur_h_led], (uint8_t)(255.0f * (1.0f - m_fraction * 0.65f)));
+    pixels_g[cur_h_led] = add_sat_u8(pixels_g[cur_h_led], (uint8_t)(175.0f * (1.0f - m_fraction * 0.65f)));
+    pixels_b[cur_h_led] = add_sat_u8(pixels_b[cur_h_led], (uint8_t)(20.0f  * (1.0f - m_fraction * 0.65f)));
+
+    pixels_r[next_h_led] = add_sat_u8(pixels_r[next_h_led], (uint8_t)(255.0f * (m_fraction * 0.65f)));
+    pixels_g[next_h_led] = add_sat_u8(pixels_g[next_h_led], (uint8_t)(175.0f * (m_fraction * 0.65f)));
+    pixels_b[next_h_led] = add_sat_u8(pixels_b[next_h_led], (uint8_t)(20.0f  * (m_fraction * 0.65f)));
+
+    // Ring 2 (Indices 19..42, 24 LEDs): Outer Perimeter Rim
+    // Dual Hands: Emerald Minute Marker + Sweeping Second Comet
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        int rel = i - 19;
+        if (rel % 6 == 0) {
+            // Quadrant ticks (0, 15, 30, 45 min)
+            pixels_r[i] = 4;  pixels_g[i] = 10; pixels_b[i] = 28;
+        } else {
+            pixels_r[i] = 1;  pixels_g[i] = 2;  pixels_b[i] = 8;
+        }
+    }
+
+    // Minute Marker Hand (Emerald / Electric Cyan beacon)
+    float min_pos = ((float)anim_clock_minutes * 24.0f / 60.0f) + ((float)anim_clock_seconds * 24.0f / 3600.0f);
+    int m0 = 19 + ((int)min_pos % 24);
+    int m1 = 19 + (((int)min_pos + 1) % 24);
+    float m_sub = min_pos - (float)((int)min_pos);
+
+    if (m0 < LED_RING_COUNT) {
+        pixels_g[m0] = add_sat_u8(pixels_g[m0], (uint8_t)(240.0f * (1.0f - m_sub)));
+        pixels_b[m0] = add_sat_u8(pixels_b[m0], (uint8_t)(180.0f * (1.0f - m_sub)));
+    }
+    if (m1 < LED_RING_COUNT) {
+        pixels_g[m1] = add_sat_u8(pixels_g[m1], (uint8_t)(240.0f * m_sub));
+        pixels_b[m1] = add_sat_u8(pixels_b[m1], (uint8_t)(180.0f * m_sub));
+    }
+
+    // Sweeping Second Comet (Diamond White head with electric azure fading tail)
+    float sec_pos = ((float)anim_clock_seconds * 24.0f / 60.0f) + ((float)anim_clock_millis * 24.0f / 60000.0f);
+    int s_head  = 19 + ((int)sec_pos % 24);
+    int s_tail1 = 19 + (((int)sec_pos - 1 + 24) % 24);
+    int s_tail2 = 19 + (((int)sec_pos - 2 + 24) % 24);
+    int s_tail3 = 19 + (((int)sec_pos - 3 + 24) % 24);
+
+    if (s_tail3 < LED_RING_COUNT) {
+        pixels_r[s_tail3] = add_sat_u8(pixels_r[s_tail3], 5);
+        pixels_g[s_tail3] = add_sat_u8(pixels_g[s_tail3], 15);
+        pixels_b[s_tail3] = add_sat_u8(pixels_b[s_tail3], 60);
+    }
+    if (s_tail2 < LED_RING_COUNT) {
+        pixels_r[s_tail2] = add_sat_u8(pixels_r[s_tail2], 20);
+        pixels_g[s_tail2] = add_sat_u8(pixels_g[s_tail2], 60);
+        pixels_b[s_tail2] = add_sat_u8(pixels_b[s_tail2], 170);
+    }
+    if (s_tail1 < LED_RING_COUNT) {
+        pixels_r[s_tail1] = add_sat_u8(pixels_r[s_tail1], 70);
+        pixels_g[s_tail1] = add_sat_u8(pixels_g[s_tail1], 160);
+        pixels_b[s_tail1] = add_sat_u8(pixels_b[s_tail1], 255);
+    }
+    if (s_head < LED_RING_COUNT) {
+        pixels_r[s_head] = add_sat_u8(pixels_r[s_head], 255);
+        pixels_g[s_head] = add_sat_u8(pixels_g[s_head], 255);
+        pixels_b[s_head] = add_sat_u8(pixels_b[s_head], 255);
+    }
+
+    // Tail slots beyond 43 (if present in four-ring mode)
+    for (int i = 43; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 2;  pixels_g[i] = 4;  pixels_b[i] = 12;
+    }
+}
+
+// 15. Aetheric Hourglass: Orientation-independent concentric ring accumulator
+// Middle Ring = 1..12 lit LEDs (Hours count)
+// Outer Ring = 0..24 lit LEDs (Minutes proportional liquid fill)
+// Inner Ring = 0..6 lit LEDs (10s of seconds decans)
+// Center Stone = 1 Hz pulsing pendulum heart
+static void render_hourglass(uint32_t tick) {
+    (void)tick;
+    // 1. Center Stone (Index 0): 1 Hz rhythmic pendulum heartbeat pulse
+    float sec_phase = (float)anim_clock_millis / 1000.0f;
+    float pulse = 0.5f + 0.5f * sinf(sec_phase * 6.2831853f - 1.5707963f);
+    bool minute_flare = (anim_clock_seconds == 0 && anim_clock_millis < 350);
+
+    if (minute_flare) {
+        pixels_r[0] = 255; pixels_g[0] = 255; pixels_b[0] = 240;
+    } else {
+        pixels_r[0] = (uint8_t)(190 + 65.0f * pulse);
+        pixels_g[0] = (uint8_t)(110 + 70.0f * pulse);
+        pixels_b[0] = (uint8_t)(15  + 20.0f * pulse);
+    }
+
+    // 2. Inner Ring (Indices 1..6, 6 LEDs): 10-Second Decans (0..59s)
+    int num_decans = anim_clock_seconds / 10; // 0..5
+    float decan_fraction = ((float)(anim_clock_seconds % 10) + (float)anim_clock_millis / 1000.0f) / 10.0f;
+    for (int i = 1; i <= 6; i++) {
+        int d = i - 1;
+        if (minute_flare) {
+            pixels_r[i] = 240; pixels_g[i] = 200; pixels_b[i] = 255;
+        } else if (d < num_decans) {
+            // Full decan: Celestial Amethyst / Violet
+            pixels_r[i] = 170; pixels_g[i] = 35;  pixels_b[i] = 220;
+        } else if (d == num_decans) {
+            // Advancing decan: Gradual accumulation
+            pixels_r[i] = 30 + (uint8_t)(140.0f * decan_fraction);
+            pixels_g[i] = 5  + (uint8_t)(30.0f  * decan_fraction);
+            pixels_b[i] = 50 + (uint8_t)(170.0f * decan_fraction);
+        } else {
+            pixels_r[i] = 3;   pixels_g[i] = 1;   pixels_b[i] = 8;
+        }
+    }
+
+    // 3. Middle Ring (Indices 7..18, 12 LEDs): Hours Count (1 to 12 lit LEDs)
+    int h = anim_clock_hours % 12;
+    if (h == 0) h = 12;
+    float m_prog = (float)anim_clock_minutes / 60.0f;
+
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        int step = i - 7; // 0..11
+        if (step < h) {
+            // Filled Hour LED: Radiant Solar Gold
+            pixels_r[i] = 255;
+            pixels_g[i] = 175;
+            pixels_b[i] = 20;
+        } else if (step == (h % 12)) {
+            // Frontier Hour LED: Warming up proportionally to minutes (0..59m)
+            pixels_r[i] = 3  + (uint8_t)(252.0f * (m_prog * 0.70f));
+            pixels_g[i] = 6  + (uint8_t)(169.0f * (m_prog * 0.70f));
+            pixels_b[i] = 18 + (uint8_t)(2.0f   * (m_prog * 0.70f));
+        } else {
+            // Unfilled: Dim velvet sapphire
+            pixels_r[i] = 3;
+            pixels_g[i] = 6;
+            pixels_b[i] = 18;
+        }
+    }
+
+    // 4. Outer Ring (Indices 19..42, 24 LEDs): Minutes Liquid-Fill Reservoir (0..24 LEDs)
+    float m_exact = (float)anim_clock_minutes * 24.0f / 60.0f + (float)anim_clock_seconds * 24.0f / 3600.0f;
+    int full_m_leds = (int)m_exact;
+    float m_sub = m_exact - (float)full_m_leds;
+
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        int rel = i - 19; // 0..23
+        if (rel < full_m_leds) {
+            // Filled Minutes Reservoir: Liquid Emerald / Cyan
+            pixels_r[i] = 0;
+            pixels_g[i] = 220;
+            pixels_b[i] = 160;
+        } else if (rel == full_m_leds) {
+            // Advancing liquid meniscus
+            uint8_t g_val = (uint8_t)(220.0f * m_sub);
+            uint8_t b_val = (uint8_t)(160.0f * m_sub);
+            // Glistening meniscus droplet
+            pixels_r[i] = (uint8_t)(40.0f * pulse);
+            pixels_g[i] = add_sat_u8(g_val, (uint8_t)(35.0f * pulse));
+            pixels_b[i] = add_sat_u8(b_val, (uint8_t)(60.0f * pulse));
+        } else {
+            // Unfilled reservoir
+            pixels_r[i] = 1;
+            pixels_g[i] = 2;
+            pixels_b[i] = 8;
+        }
+    }
+
+    // Tail slots beyond 43 (if present in four-ring mode)
+    for (int i = 43; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 2;  pixels_g[i] = 4;  pixels_b[i] = 12;
+    }
+}
+
+// 16. Chroma Prismatic: Full spectral color-encoded clock (Orientation-free)
+// Middle Ring (12 LEDs) = 12 Spectral Hues representing 12 Hours
+// Outer Ring (24 LEDs)  = 6 Decade Hues representing Minutes (fills proportionally 0..24 LEDs)
+// Inner Ring (6 LEDs)   = 6 Prismatic Gems representing 10s of seconds (0..6 lit LEDs)
+// Center Stone (LED 0)  = 1 Hz Chroma Heart pulsing in the 10-second decade hue
+static void render_prismatic(uint32_t tick) {
+    (void)tick;
+    // 12 Spectral Hues for 12 Hours (idx 0..11)
+    static const uint8_t HOUR_HUES[12][3] = {
+        { 255,   0, 160 }, // 12h: Royal Magenta
+        { 255,  15,  30 }, // 1h:  Ruby Red
+        { 255,  60,   0 }, // 2h:  Scarlet Flame
+        { 255, 115,   0 }, // 3h:  Solar Orange
+        { 255, 175,   0 }, // 4h:  Amber Topaz
+        { 240, 220,  15 }, // 5h:  Warm Gold
+        { 120, 255,  20 }, // 6h:  Lime Chrysolite
+        {   0, 255,  70 }, // 7h:  Emerald Green
+        {   0, 230, 170 }, // 8h:  Aquamarine Teal
+        {   0, 175, 255 }, // 9h:  Electric Azure
+        {  25,  75, 255 }, // 10h: Cobalt Sapphire
+        { 160,  20, 255 }  // 11h: Amethyst Purple
+    };
+
+    // 6 Decade Hues for Minutes & Seconds (0..5)
+    static const uint8_t DECADE_HUES[6][3] = {
+        {   0, 220, 255 }, // 0: Ice Cyan (00..09)
+        {  20, 255,  80 }, // 1: Jade Emerald (10..19)
+        { 255, 200,  15 }, // 2: Solar Gold (20..29)
+        { 255,  95,   0 }, // 3: Plasma Orange (30..39)
+        { 255,  30,  70 }, // 4: Coral Ruby (40..49)
+        { 190,  20, 255 }  // 5: Cosmic Amethyst (50..59)
+    };
+
+    float sec_phase = (float)anim_clock_millis / 1000.0f;
+    float pulse = 0.5f + 0.5f * sinf(sec_phase * 6.2831853f - 1.5707963f);
+    bool minute_flare = (anim_clock_seconds == 0 && anim_clock_millis < 350);
+
+    int s_decan = anim_clock_seconds / 10; if (s_decan > 5) s_decan = 5;
+    int m_decan = anim_clock_minutes / 10; if (m_decan > 5) m_decan = 5;
+    int h12 = anim_clock_hours % 12;
+
+    // 1. Center Stone (LED 0): 1 Hz Heartbeat in 10-Second Decade Hue
+    if (minute_flare) {
+        pixels_r[0] = 255; pixels_g[0] = 255; pixels_b[0] = 240;
+    } else {
+        const uint8_t *dh = DECADE_HUES[s_decan];
+        pixels_r[0] = (uint8_t)(dh[0] * (0.45f + 0.55f * pulse));
+        pixels_g[0] = (uint8_t)(dh[1] * (0.45f + 0.55f * pulse));
+        pixels_b[0] = (uint8_t)(dh[2] * (0.45f + 0.55f * pulse));
+    }
+
+    // 2. Inner Ring (LEDs 1..6): 10s of Seconds Decans (0..6 lit LEDs)
+    float decan_fraction = ((float)(anim_clock_seconds % 10) + (float)anim_clock_millis / 1000.0f) / 10.0f;
+    for (int i = 1; i <= 6; i++) {
+        int d = i - 1; // 0..5
+        const uint8_t *ch = DECADE_HUES[d];
+        if (minute_flare) {
+            pixels_r[i] = 240; pixels_g[i] = 220; pixels_b[i] = 255;
+        } else if (d < s_decan) {
+            pixels_r[i] = ch[0]; pixels_g[i] = ch[1]; pixels_b[i] = ch[2];
+        } else if (d == s_decan) {
+            pixels_r[i] = (uint8_t)(ch[0] * decan_fraction);
+            pixels_g[i] = (uint8_t)(ch[1] * decan_fraction);
+            pixels_b[i] = (uint8_t)(ch[2] * decan_fraction);
+        } else {
+            pixels_r[i] = (uint8_t)(ch[0] / 24);
+            pixels_g[i] = (uint8_t)(ch[1] / 24);
+            pixels_b[i] = (uint8_t)(ch[2] / 24);
+        }
+    }
+
+    // 3. Middle Ring (LEDs 7..18, 12 LEDs): Uniform Hour Spectral Wash
+    const uint8_t *hh = HOUR_HUES[h12];
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        pixels_r[i] = hh[0];
+        pixels_g[i] = hh[1];
+        pixels_b[i] = hh[2];
+    }
+
+    // 4. Outer Ring (LEDs 19..42, 24 LEDs): Minute Reservoir with Decade Hue
+    const uint8_t *mh = DECADE_HUES[m_decan];
+    float m_exact = (float)anim_clock_minutes * 24.0f / 60.0f + (float)anim_clock_seconds * 24.0f / 3600.0f;
+    int full_m_leds = (int)m_exact;
+    float m_sub = m_exact - (float)full_m_leds;
+
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        int rel = i - 19; // 0..23
+        if (rel < full_m_leds) {
+            pixels_r[i] = mh[0];
+            pixels_g[i] = mh[1];
+            pixels_b[i] = mh[2];
+        } else if (rel == full_m_leds) {
+            pixels_r[i] = (uint8_t)(mh[0] * m_sub);
+            pixels_g[i] = (uint8_t)(mh[1] * m_sub);
+            pixels_b[i] = (uint8_t)(mh[2] * m_sub);
+        } else {
+            pixels_r[i] = (uint8_t)(mh[0] / 30);
+            pixels_g[i] = (uint8_t)(mh[1] / 30);
+            pixels_b[i] = (uint8_t)(mh[2] / 30);
+        }
+    }
+
+    for (int i = 43; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 2; pixels_g[i] = 4; pixels_b[i] = 12;
+    }
+}
+
+// 17. Celestial Orrery: Kinematic Triple Orbital Clock (Orientation-free)
+// Center Stone (LED 0) = The Sun / Core Star with coronal flares
+// Inner Ring (1..6)    = Harmonic Hour Resonance Field
+// Middle Ring (7..18)  = Planetary Orbit for Minutes
+// Outer Ring (19..42)  = Sweeping Second Orbital Comet (1 rev / 60s)
+static void render_orrery(uint32_t tick) {
+    (void)tick;
+    float sec_phase = ((float)anim_clock_seconds * 1000.0f + (float)anim_clock_millis) / 60000.0f;
+
+    // 1. Center Stone (LED 0): The Sun
+    float sun_flare = 0.5f + 0.5f * sinf((float)anim_clock_millis * 0.012f);
+    pixels_r[0] = 255;
+    pixels_g[0] = (uint8_t)(185 + 60.0f * sun_flare);
+    pixels_b[0] = (uint8_t)(25  + 35.0f * sun_flare);
+
+    // 2. Inner Ring (1..6, 6 LEDs): Hour Resonance Field
+    int h12 = anim_clock_hours % 12; if (h12 == 0) h12 = 12;
+    int h_active = (h12 > 6) ? (h12 - 6) : h12;
+    bool is_pm = (anim_clock_hours >= 12);
+
+    for (int i = 1; i <= 6; i++) {
+        int d = i - 1;
+        if (d < h_active) {
+            if (is_pm) {
+                // Royal Violet in afternoon/evening
+                pixels_r[i] = 180; pixels_g[i] = 30; pixels_b[i] = 240;
+            } else {
+                // Solar Gold in morning
+                pixels_r[i] = 255; pixels_g[i] = 190; pixels_b[i] = 20;
+            }
+        } else {
+            pixels_r[i] = 2; pixels_g[i] = 4; pixels_b[i] = 12;
+        }
+    }
+
+    // 3. Middle Ring (7..18, 12 LEDs): Orbiting Minute Planet
+    float m_pos = ((float)anim_clock_minutes * 12.0f / 60.0f) + ((float)anim_clock_seconds * 12.0f / 3600.0f);
+    int p_lead = 7 + ((int)m_pos % 12);
+    int p_next = 7 + (((int)m_pos + 1) % 12);
+    float p_frac = m_pos - (float)((int)m_pos);
+
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 3; pixels_g[i] = 8; pixels_b[i] = 22; // Orbit path
+    }
+    if (p_lead < LED_RING_COUNT) {
+        pixels_r[p_lead] = add_sat_u8(pixels_r[p_lead], (uint8_t)(40.0f * (1.0f - p_frac)));
+        pixels_g[p_lead] = add_sat_u8(pixels_g[p_lead], (uint8_t)(220.0f * (1.0f - p_frac)));
+        pixels_b[p_lead] = add_sat_u8(pixels_b[p_lead], (uint8_t)(255.0f * (1.0f - p_frac)));
+    }
+    if (p_next < LED_RING_COUNT) {
+        pixels_r[p_next] = add_sat_u8(pixels_r[p_next], (uint8_t)(40.0f * p_frac));
+        pixels_g[p_next] = add_sat_u8(pixels_g[p_next], (uint8_t)(220.0f * p_frac));
+        pixels_b[p_next] = add_sat_u8(pixels_b[p_next], (uint8_t)(255.0f * p_frac));
+    }
+
+    // 4. Outer Ring (19..42, 24 LEDs): Sweeping Second Orbital Comet (1 turn / 60s)
+    float s_orbit = sec_phase * 24.0f;
+    int s_head = 19 + ((int)s_orbit % 24);
+    int s_t1   = 19 + (((int)s_orbit - 1 + 24) % 24);
+    int s_t2   = 19 + (((int)s_orbit - 2 + 24) % 24);
+    int s_t3   = 19 + (((int)s_orbit - 3 + 24) % 24);
+
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 1; pixels_g[i] = 3; pixels_b[i] = 10;
+    }
+    if (s_t3 < LED_RING_COUNT) {
+        pixels_r[s_t3] = add_sat_u8(pixels_r[s_t3], 15);
+        pixels_g[s_t3] = add_sat_u8(pixels_g[s_t3], 40);
+        pixels_b[s_t3] = add_sat_u8(pixels_b[s_t3], 90);
+    }
+    if (s_t2 < LED_RING_COUNT) {
+        pixels_r[s_t2] = add_sat_u8(pixels_r[s_t2], 40);
+        pixels_g[s_t2] = add_sat_u8(pixels_g[s_t2], 110);
+        pixels_b[s_t2] = add_sat_u8(pixels_b[s_t2], 200);
+    }
+    if (s_t1 < LED_RING_COUNT) {
+        pixels_r[s_t1] = add_sat_u8(pixels_r[s_t1], 100);
+        pixels_g[s_t1] = add_sat_u8(pixels_g[s_t1], 200);
+        pixels_b[s_t1] = add_sat_u8(pixels_b[s_t1], 255);
+    }
+    if (s_head < LED_RING_COUNT) {
+        pixels_r[s_head] = 255;
+        pixels_g[s_head] = 255;
+        pixels_b[s_head] = 255;
+    }
+
+    for (int i = 43; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 2; pixels_g[i] = 4; pixels_b[i] = 12;
+    }
+}
+
 #if CELESTIAL_FOUR_RINGS && CELESTIAL_RING_EXPERIMENT
 // Diagnostic build only: pure RGB cycle on spare during RAINBOW
 static void render_spare_ring(uint32_t tick, int mode, uint8_t mic_level_pct, bool music_active) {
@@ -1085,6 +1533,18 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
                 break;
             case LED_ANIM_HALLOWEEN:
                 render_halloween(anim_tick);
+                break;
+            case LED_ANIM_CLOCK:
+                render_clock(anim_tick);
+                break;
+            case LED_ANIM_HOURGLASS:
+                render_hourglass(anim_tick);
+                break;
+            case LED_ANIM_PRISMATIC:
+                render_prismatic(anim_tick);
+                break;
+            case LED_ANIM_ORRERY:
+                render_orrery(anim_tick);
                 break;
             default:
                 render_rainbow_wave(anim_tick);

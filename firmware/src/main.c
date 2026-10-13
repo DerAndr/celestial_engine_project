@@ -28,6 +28,7 @@ typedef enum {
     MODE_GALAXY,        // Milky Way galaxy map with Sol marker
     MODE_SOLAR,         // Solar System orrery with Earth marker
     MODE_EARTH,         // Earth close-up planetary zoom
+    MODE_CLOCK,         // Celestial Chronometer / Astronomical Clock
     MODE_AI_MODEL,      // Target Cloud LLM Core selector
     MODE_LANGUAGE,      // Language dialect selector
     MODE_VOLUME,        // Master volume
@@ -44,6 +45,7 @@ static const char *MODE_NAMES[MODE_COUNT] = {
     "GALAXY",
     "SOL SYSTEM",
     "TERRA",
+    "CHRONOS",
     "AI CORE",
     "LINGUA",
     "VOLUME",
@@ -76,14 +78,16 @@ static const char *LANG_NAMES[LANG_COUNT] = {
     "ENGLISH [EN]",
     "AUTO-DETECT [AUTO]",
     "DEUTSCH [DE]",
-    "RUSSIAN [RU]"
+    "RUSSIAN [RU]",
+    "ASTROMECH [R2]"
 };
 
 static const char *LANG_SHORT_TAGS[LANG_COUNT] = {
     "EN",
     "AUT",
     "DE",
-    "RU"
+    "RU",
+    "R2"
 };
 
 static int active_lang_idx = LANG_RU;   // Default: Russian [RU]
@@ -102,6 +106,44 @@ static bool led_edit_mode = false;
 static bool chiptune_mode = false;
 static bool voice_mode = false;
 static bool cosmic_mode = false;
+typedef enum {
+    CLOCK_STYLE_DIAL = 0,       // 0: Directional astronomical dial with hands & second comet
+    CLOCK_STYLE_HOURGLASS = 1,  // 1: Orientation-independent concentric ring accumulator
+    CLOCK_STYLE_PRISMATIC = 2,  // 2: Orientation-independent full spectral color-encoded clock
+    CLOCK_STYLE_ORRERY = 3,     // 3: Orientation-independent kinematic concentric triple orbital clock
+    CLOCK_STYLE_COUNT
+} clock_style_t;
+
+static const char *CLOCK_STYLE_NAMES[CLOCK_STYLE_COUNT] = {
+    "DIAL CHRONOS",
+    "AETHER HOURGLASS",
+    "CHROMA PRISMATIC",
+    "CELESTIAL ORRERY"
+};
+
+static const char *CLOCK_STYLE_SHORT[CLOCK_STYLE_COUNT] = {
+    "-> DIAL",
+    "-> H-GLS",
+    "-> CHROMA",
+    "-> ORRERY"
+};
+
+static int active_clock_style = CLOCK_STYLE_HOURGLASS; // Orientation-independent by default!
+static bool clock_edit_mode = false;
+static int clock_edit_phase = 0; // 0 = Adjust Style, 1 = Adjust Hours, 2 = Adjust Minutes
+static uint32_t clock_base_seconds = (19 * 3600 + 20 * 60 + 14); // 19:20:14 local initial time
+static uint32_t clock_boot_ms = 0;
+
+static void get_current_time(uint8_t *hours, uint8_t *minutes, uint8_t *seconds, uint16_t *millis) {
+    uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+    uint32_t elapsed_s = (now_ms - clock_boot_ms) / 1000;
+    uint32_t total_s = (clock_base_seconds + elapsed_s) % 86400;
+    *hours = (uint8_t)((total_s / 3600) % 24);
+    *minutes = (uint8_t)((total_s / 60) % 60);
+    *seconds = (uint8_t)(total_s % 60);
+    *millis = (uint16_t)((now_ms - clock_boot_ms) % 1000);
+}
+
 static int active_anim_idx = LED_ANIM_RAINBOW;
 static int active_track_idx = 0;
 static int active_voice_idx = 0;
@@ -144,6 +186,75 @@ static void draw_67_screen(bool flash_phase) {
 
 static void draw_marquee(int y, const char *text, uint32_t ticker_ms);
 
+static bool offline_oracle_mode = false;
+static char offline_oracle_prophecy[256] = "";
+
+static const char* const OFFLINE_PROPHECIES_EN[] = {
+    "THE GUIDE SAYS: DON'T PANIC! THE ANSWER TO LIFE AND EVERYTHING IS 42.",
+    "CELESTIAL SPHERE ONLINE: GRAVITSAPPA CHARGED AT MAXIMUM LUX!",
+    "STELLAR SENSORS CLEAR: NO VOGON CONSTRUCTOR FLEETS IN THIS SECTOR.",
+    "TOWEL IN PLACE: AETHERIC RELAY CALIBRATED AND READY FOR VOYAGE.",
+    "COSMIC ANOMALY HARMONIZED: ALL RUNIC FOCUS RINGS GLOW BRIGHT.",
+    "ORACLE SIGHT: PROBABILITY MATRIX BALANCED. KU! DON'T PANIC!"
+};
+
+static const char* const OFFLINE_PROPHECIES_DE[] = {
+    "DER REISEFUEHRER SAGT: KEINE PANIK! DIE ANTWORT LAUTET 42.",
+    "HIMMELSSPHAERE BEREIT: GRAVITSAPPA AUF MAXIMUM GELADEN!",
+    "KEINE VOGONISCHE BAUFLOTTE IN SICHT. HANDTUCH BEREITHALTEN.",
+    "KOSMISCHE ANOMALIE ERKANNT UND HARMONISIERT. RUNEN AKTIV.",
+    "ORAKEL VERKUENDE: SUB-ETHA MATRIX STABILISIERT. KU! 42!"
+};
+
+static const char* const OFFLINE_PROPHECIES_RU[] = {
+    "PUTEVODITEL: NE PANIKUY! OTVET NA GLAVNYI VOPROS BYTIYA -- 42.",
+    "NEBESNAYA SFERA V SETI: GRAVITSAPPA ZARYAZHENA, TSAK MIGAYET. KU!",
+    "SISTEMA GOTOVA: PEPELATS SMAZAN, LUTS YEST, SVYAZ SO ZVEZDAMI 100%.",
+    "OBNARUZHENA ANOMALIYA: VEROYATNOSTNYI DVIGATEL STABILIZIROVAN.",
+    "SPOKOYSTVIE I TOLKO SPOKOYSTVIE: KOSMOS V POLNOM PORYADKE.",
+    "ORAKUL VESHCHAYET: ZVEZDY BLAGOPRIYATSTVUYUT PUTESHESTVIYU. KU!"
+};
+
+static const char *OFFLINE_PROPHECIES_R2D2[] = {
+    "*BEEP-BOOP-WHISTLE!* [TRANSLATION: DON'T PANIC, THE ANSWER IS 42!]",
+    "*CHIRP-TRRR-DWOOP!* [TRANSLATION: ALL SYSTEMS NOMINAL, SASSY DROID ONLINE!]",
+    "*WHEEEEE-BLOOP-TWEET!* [TRANSLATION: HYPERDRIVE MOTIVATOR AT 100%!]",
+    "*EXCITED SQUEAK-CHATTER!* [TRANSLATION: SENSORS DETECT EXTREME AWESOMENESS!]",
+    "*DOOT-DOOT-TRRRR-BEEP!* [TRANSLATION: ASTROMECH CO-PILOT READY FOR ADVENTURE!]"
+};
+
+static void trigger_offline_oracle(int lang_idx) {
+    offline_oracle_mode = true;
+    uint32_t seed = to_ms_since_boot(get_absolute_time());
+
+    if (lang_idx == LANG_R2D2) {
+        audio_play_r2d2_random();
+        size_t count = sizeof(OFFLINE_PROPHECIES_R2D2) / sizeof(OFFLINE_PROPHECIES_R2D2[0]);
+        snprintf(offline_oracle_prophecy, sizeof(offline_oracle_prophecy), "%s", OFFLINE_PROPHECIES_R2D2[seed % count]);
+        return;
+    }
+
+    int phrase_roll = (int)(seed % 4);
+    voice_phrase_id_t phrase_id = VOICE_ORACLE;
+    if (phrase_roll == 0) phrase_id = VOICE_ONLINE;
+    else if (phrase_roll == 1) phrase_id = VOICE_READY;
+    else if (phrase_roll == 2) phrase_id = VOICE_WARNING;
+    else phrase_id = VOICE_ORACLE;
+
+    audio_play_voice(phrase_id);
+
+    if (lang_idx == LANG_EN) {
+        size_t count = sizeof(OFFLINE_PROPHECIES_EN) / sizeof(OFFLINE_PROPHECIES_EN[0]);
+        snprintf(offline_oracle_prophecy, sizeof(offline_oracle_prophecy), "%s", OFFLINE_PROPHECIES_EN[seed % count]);
+    } else if (lang_idx == LANG_DE) {
+        size_t count = sizeof(OFFLINE_PROPHECIES_DE) / sizeof(OFFLINE_PROPHECIES_DE[0]);
+        snprintf(offline_oracle_prophecy, sizeof(offline_oracle_prophecy), "%s", OFFLINE_PROPHECIES_DE[seed % count]);
+    } else {
+        size_t count = sizeof(OFFLINE_PROPHECIES_RU) / sizeof(OFFLINE_PROPHECIES_RU[0]);
+        snprintf(offline_oracle_prophecy, sizeof(offline_oracle_prophecy), "%s", OFFLINE_PROPHECIES_RU[seed % count]);
+    }
+}
+
 static void draw_listening_screen(uint32_t hold_ms, int mode_idx, bool anim_blink) {
     (void)mode_idx;
     if (!oled_ready) return;
@@ -154,12 +265,24 @@ static void draw_listening_screen(uint32_t hold_ms, int mode_idx, bool anim_blin
     // Header banner with clean fit
     sh1106_fill_rect(2, 2, 124, 12, true);
     char hdr_buf[32];
-    snprintf(hdr_buf, sizeof(hdr_buf), "[%c] REC: LISTEN   [%s]",
-             anim_blink ? '*' : ' ',
-             LANG_SHORT_TAGS[active_lang_idx]);
+    if (offline_oracle_mode) {
+        snprintf(hdr_buf, sizeof(hdr_buf), "[%c] OFFLINE ORACLE [%s]",
+                 anim_blink ? '*' : ' ',
+                 LANG_SHORT_TAGS[active_lang_idx]);
+    } else {
+        snprintf(hdr_buf, sizeof(hdr_buf), "[%c] REC: LISTEN   [%s]",
+                 anim_blink ? '*' : ' ',
+                 LANG_SHORT_TAGS[active_lang_idx]);
+    }
     sh1106_draw_string(6, 4, hdr_buf, false);
 
-    sh1106_draw_string(6, 17, "RECORDING VOICE...", true);
+    if (active_lang_idx == LANG_R2D2) {
+        sh1106_draw_string(6, 17, "*INQUISITIVE BEEP?*", true);
+    } else if (offline_oracle_mode) {
+        sh1106_draw_string(6, 17, "SENSING AETHER...", true);
+    } else {
+        sh1106_draw_string(6, 17, "RECORDING VOICE...", true);
+    }
 
     char timer_buf[20];
     snprintf(timer_buf, sizeof(timer_buf), "%lu.%02lu s",
@@ -174,7 +297,13 @@ static void draw_listening_screen(uint32_t hold_ms, int mode_idx, bool anim_blin
     }
 
     sh1106_draw_line(2, 53, 125, 53, true);
-    sh1106_draw_string(6, 55, "RELEASE TO ASK GUIDE", true);
+    if (active_lang_idx == LANG_R2D2) {
+        sh1106_draw_string(6, 55, "RELEASE FOR DROID CHATTER", true);
+    } else if (offline_oracle_mode) {
+        sh1106_draw_string(6, 55, "RELEASE FOR PROPHECY", true);
+    } else {
+        sh1106_draw_string(6, 55, "RELEASE TO ASK GUIDE", true);
+    }
 
     oled_ready = sh1106_update();
 }
@@ -191,10 +320,16 @@ static void draw_speaking_screen(uint32_t dur_ms, bool anim_blink) {
 
     // 1. Playback Header Banner
     sh1106_fill_rect(2, 2, 124, 12, true);
-    sh1106_draw_string(8, 4, "[ THE GUIDE SPEAKS ]", false);
+    if (active_lang_idx == LANG_R2D2) {
+        sh1106_draw_string(6, 4, "[ ASTROMECH SPEAKS ]", false);
+    } else if (offline_oracle_mode) {
+        sh1106_draw_string(6, 4, "[ OFFLINE ORACLE SPEAKS ]", false);
+    } else {
+        sh1106_draw_string(8, 4, "[ THE GUIDE SPEAKS ]", false);
+    }
 
     // 2. Oracle Response Marquee Box across screen
-    const char *resp_text = net_client_get_response_text();
+    const char *resp_text = offline_oracle_mode ? offline_oracle_prophecy : net_client_get_response_text();
     if (resp_text == NULL || strlen(resp_text) == 0) {
         resp_text = "ORACLE BROADCASTING SPEECH...";
     }
@@ -214,10 +349,15 @@ static void draw_speaking_screen(uint32_t dur_ms, bool anim_blink) {
 
     // 4. Footer line
     sh1106_draw_line(2, 50, 125, 50, true);
-    sh1106_draw_string(6, 53, "// SHARE & ENJOY //", true);
+    if (offline_oracle_mode) {
+        sh1106_draw_string(6, 53, "// STANDALONE ORACLE //", true);
+    } else {
+        sh1106_draw_string(6, 53, "// SHARE & ENJOY //", true);
+    }
 
     oled_ready = sh1106_update();
 }
+
 
 static void draw_not_ready_screen(void) {
     if (!oled_ready) return;
@@ -888,6 +1028,258 @@ static void draw_earth_card(uint32_t now_ms, int32_t rot_pos) {
     draw_marquee(51, "// PLANET TERRA (SOL-3) // RADIUS: 6,371 KM // 1.0G GRAVITY // OXYGEN ATMOSPHERE // TARGET: YOU ARE HERE //", now_ms);
 }
 
+// Celestial Chronometer: Dual-Style Clock (Directional Dial vs. Orientation-Independent Hourglass)
+static void draw_clock_card(uint32_t now_ms, int32_t rot_pos) {
+    (void)rot_pos;
+    uint8_t h, m, s;
+    uint16_t ms;
+    get_current_time(&h, &m, &s, &ms);
+
+    int cx = 38;
+    int cy = 30;
+
+    if (active_clock_style == CLOCK_STYLE_DIAL) {
+        // STYLE 0: Directional Astronomical Dial with 12 hour ticks and moving hands
+        int r = 16;
+        for (int deg = 0; deg < 360; deg += 15) {
+            float rad = (float)deg * 0.0174533f;
+            int px = cx + (int)(cosf(rad) * (float)r);
+            int py = cy + (int)(sinf(rad) * (float)r);
+            if (px >= 4 && px <= 74 && py >= 14 && py <= 46) {
+                sh1106_draw_pixel(px, py, true);
+            }
+        }
+        for (int tick_h = 0; tick_h < 12; tick_h++) {
+            float angle = ((float)tick_h * 30.0f - 90.0f) * 0.0174533f;
+            int len = (tick_h % 3 == 0) ? 3 : 2;
+            int x1 = cx + (int)(cosf(angle) * (float)(r - len));
+            int y1 = cy + (int)(sinf(angle) * (float)(r - len));
+            int x2 = cx + (int)(cosf(angle) * (float)(r - 1));
+            int y2 = cy + (int)(sinf(angle) * (float)(r - 1));
+            sh1106_draw_line(x1, y1, x2, y2, true);
+        }
+        sh1106_fill_rect(cx - 1, cy - 1, 3, 3, true);
+
+        // Hour Hand (~7.5 px)
+        float h_angle = (((float)(h % 12) + (float)m / 60.0f) * 30.0f - 90.0f) * 0.0174533f;
+        int hx = cx + (int)(cosf(h_angle) * 7.5f);
+        int hy = cy + (int)(sinf(h_angle) * 7.5f);
+        sh1106_draw_line(cx, cy, hx, hy, true);
+
+        // Minute Hand (~12 px)
+        float m_angle = (((float)m + (float)s / 60.0f) * 6.0f - 90.0f) * 0.0174533f;
+        int mx = cx + (int)(cosf(m_angle) * 12.0f);
+        int my = cy + (int)(sinf(m_angle) * 12.0f);
+        sh1106_draw_line(cx, cy, mx, my, true);
+
+        // Second Hand (~14 px)
+        float s_angle = (((float)s + (float)ms / 1000.0f) * 6.0f - 90.0f) * 0.0174533f;
+        int sx = cx + (int)(cosf(s_angle) * 14.0f);
+        int sy = cy + (int)(sinf(s_angle) * 14.0f);
+        int sx_tail = cx - (int)(cosf(s_angle) * 3.5f);
+        int sy_tail = cy - (int)(sinf(s_angle) * 3.5f);
+        sh1106_draw_line(sx_tail, sy_tail, sx, sy, true);
+    } else if (active_clock_style == CLOCK_STYLE_HOURGLASS) {
+        // STYLE 1: Orientation-Independent Concentric Liquid Arcs (Hourglass)
+        sh1106_fill_rect(cx - 1, cy - 1, 3, 3, true);
+
+        // Background concentric rings guide
+        for (int deg = 0; deg < 360; deg += 30) {
+            float rad = (float)deg * 0.0174533f;
+            sh1106_draw_pixel(cx + (int)(cosf(rad) * 6.0f),  cy + (int)(sinf(rad) * 6.0f),  true);
+            sh1106_draw_pixel(cx + (int)(cosf(rad) * 11.0f), cy + (int)(sinf(rad) * 11.0f), true);
+            sh1106_draw_pixel(cx + (int)(cosf(rad) * 16.0f), cy + (int)(sinf(rad) * 16.0f), true);
+        }
+
+        // 1. Inner Ring (r=6): Seconds Decans Fill Arc (0..360 deg)
+        int s_deg = (int)((((uint32_t)s * 1000 + ms) * 360) / 60000);
+        for (int deg = 0; deg <= s_deg && deg < 360; deg += 10) {
+            float rad = ((float)deg - 90.0f) * 0.0174533f;
+            int px = cx + (int)(cosf(rad) * 6.0f);
+            int py = cy + (int)(sinf(rad) * 6.0f);
+            if (px >= 4 && px <= 74 && py >= 14 && py <= 46) sh1106_draw_pixel(px, py, true);
+        }
+
+        // 2. Middle Ring (r=11): Hours Count Fill Arc (1..12)
+        int h12 = h % 12; if (h12 == 0) h12 = 12;
+        int h_deg = (h12 * 360) / 12;
+        for (int deg = 0; deg <= h_deg && deg < 360; deg += 6) {
+            float rad = ((float)deg - 90.0f) * 0.0174533f;
+            int px = cx + (int)(cosf(rad) * 11.0f);
+            int py = cy + (int)(sinf(rad) * 11.0f);
+            if (px >= 4 && px <= 74 && py >= 14 && py <= 46) {
+                sh1106_draw_pixel(px, py, true);
+                sh1106_draw_pixel(cx + (int)(cosf(rad) * 10.0f), cy + (int)(sinf(rad) * 10.0f), true);
+            }
+        }
+
+        // 3. Outer Ring (r=16): Minutes Fill Arc (0..60m)
+        int m_deg = ((int)m * 360) / 60;
+        for (int deg = 0; deg <= m_deg && deg < 360; deg += 4) {
+            float rad = ((float)deg - 90.0f) * 0.0174533f;
+            int px = cx + (int)(cosf(rad) * 16.0f);
+            int py = cy + (int)(sinf(rad) * 16.0f);
+            if (px >= 4 && px <= 74 && py >= 14 && py <= 46) sh1106_draw_pixel(px, py, true);
+        }
+    } else if (active_clock_style == CLOCK_STYLE_PRISMATIC) {
+        // STYLE 2: Orientation-Independent Chroma Prismatic (Spectral Clock)
+        sh1106_fill_rect(cx - 1, cy - 1, 3, 3, true);
+
+        // Ring guides with spectral ticks
+        for (int deg = 0; deg < 360; deg += 30) {
+            float rad = (float)deg * 0.0174533f;
+            sh1106_draw_pixel(cx + (int)(cosf(rad) * 11.0f), cy + (int)(sinf(rad) * 11.0f), true);
+            sh1106_draw_pixel(cx + (int)(cosf(rad) * 16.0f), cy + (int)(sinf(rad) * 16.0f), true);
+        }
+
+        // 6 Decan gems on inner ring (r=6)
+        int s_decan = s / 10;
+        for (int d = 0; d < 6; d++) {
+            float rad = ((float)d * 60.0f - 90.0f) * 0.0174533f;
+            int px = cx + (int)(cosf(rad) * 6.0f);
+            int py = cy + (int)(sinf(rad) * 6.0f);
+            if (d <= s_decan) {
+                sh1106_fill_rect(px - 1, py - 1, 2, 2, true);
+            } else {
+                sh1106_draw_pixel(px, py, true);
+            }
+        }
+
+        // Minute decade marker arc on outer ring (r=16)
+        int m_decan = m / 10;
+        int m_arc_deg = (m_decan + 1) * 60;
+        for (int deg = 0; deg <= m_arc_deg; deg += 10) {
+            float rad = ((float)deg - 90.0f) * 0.0174533f;
+            sh1106_draw_pixel(cx + (int)(cosf(rad) * 16.0f), cy + (int)(sinf(rad) * 16.0f), true);
+        }
+    } else {
+        // STYLE 3: Orientation-Independent Celestial Orrery (Planetary Gears)
+        // Center Sun with 4 coronal spikes
+        sh1106_fill_rect(cx - 1, cy - 1, 3, 3, true);
+        sh1106_draw_line(cx - 3, cy, cx + 3, cy, true);
+        sh1106_draw_line(cx, cy - 3, cx, cy + 3, true);
+
+        // Circular orbits (r=6, 11, 16)
+        for (int deg = 0; deg < 360; deg += 30) {
+            float rad = (float)deg * 0.0174533f;
+            sh1106_draw_pixel(cx + (int)(cosf(rad) * 6.0f),  cy + (int)(sinf(rad) * 6.0f),  true);
+            sh1106_draw_pixel(cx + (int)(cosf(rad) * 11.0f), cy + (int)(sinf(rad) * 11.0f), true);
+            sh1106_draw_pixel(cx + (int)(cosf(rad) * 16.0f), cy + (int)(sinf(rad) * 16.0f), true);
+        }
+
+        // Orbiting Minute Planet on middle ring (r=11)
+        float m_ang = ((float)m / 60.0f) * 6.2831853f - 1.5707963f;
+        int m_px = cx + (int)(cosf(m_ang) * 11.0f);
+        int m_py = cy + (int)(sinf(m_ang) * 11.0f);
+        sh1106_fill_rect(m_px - 1, m_py - 1, 3, 3, true);
+
+        // Orbiting Second Comet on outer ring (r=16)
+        float s_ang = (((float)s + (float)ms / 1000.0f) / 60.0f) * 6.2831853f - 1.5707963f;
+        int s_px = cx + (int)(cosf(s_ang) * 16.0f);
+        int s_py = cy + (int)(sinf(s_ang) * 16.0f);
+        sh1106_draw_pixel(s_px, s_py, true);
+        // Comet tail (3 trailing points)
+        for (int t = 1; t <= 3; t++) {
+            float t_ang = s_ang - (float)t * 0.12f;
+            sh1106_draw_pixel(cx + (int)(cosf(t_ang) * 16.0f), cy + (int)(sinf(t_ang) * 16.0f), true);
+        }
+    }
+
+    // Right Side Telemetry (x = 76..125)
+    sh1106_draw_line(76, 14, 76, 46, true);
+
+    if (active_clock_style == CLOCK_STYLE_DIAL) {
+        sh1106_draw_string(79, 15, "CHRONOS", true);
+    } else if (active_clock_style == CLOCK_STYLE_HOURGLASS) {
+        sh1106_draw_string(79, 15, "HOURGLASS", true);
+    } else if (active_clock_style == CLOCK_STYLE_PRISMATIC) {
+        sh1106_draw_string(79, 15, "CHROMA", true);
+    } else {
+        sh1106_draw_string(79, 15, "ORRERY", true);
+    }
+
+    char time_str[16];
+    snprintf(time_str, sizeof(time_str), "%02u:%02u:%02u", (unsigned)h, (unsigned)m, (unsigned)s);
+    sh1106_draw_string(79, 24, time_str, true);
+
+    // Edit indicator or live status
+    if (clock_edit_mode) {
+        if (((now_ms / 250) % 2) == 0) {
+            if (clock_edit_phase == 0) {
+                sh1106_draw_string(79, 34, "[STYLE]", true);
+            } else if (clock_edit_phase == 1) {
+                sh1106_draw_string(79, 34, "[SET HH]", true);
+            } else {
+                sh1106_draw_string(79, 34, "[SET MM]", true);
+            }
+        } else {
+            if (clock_edit_phase == 0) {
+                sh1106_draw_string(79, 34, CLOCK_STYLE_SHORT[active_clock_style], true);
+            } else {
+                sh1106_draw_string(79, 34, " TUNE ->", true);
+            }
+        }
+    } else {
+        if (active_clock_style == CLOCK_STYLE_DIAL) {
+            sh1106_draw_string(79, 33, "24H ASTR", true);
+            // Live swinging pendulum indicator
+            int pend_step = (int)((now_ms / 250) % 4);
+            int px = 79 + ((pend_step <= 2) ? pend_step * 5 : (4 - pend_step) * 5);
+            sh1106_draw_string(79, 41, "- - - -", true);
+            sh1106_draw_pixel(px + 1, 44, true);
+        } else if (active_clock_style == CLOCK_STYLE_HOURGLASS) {
+            sh1106_draw_string(79, 33, "RADIAL ACC", true);
+            int pend_step = (int)((now_ms / 250) % 4);
+            int px = 79 + ((pend_step <= 2) ? pend_step * 5 : (4 - pend_step) * 5);
+            sh1106_draw_string(79, 41, "- - - -", true);
+            sh1106_draw_pixel(px + 1, 44, true);
+        } else if (active_clock_style == CLOCK_STYLE_PRISMATIC) {
+            sh1106_draw_string(79, 33, "SPECTRUM", true);
+            // Dynamic 6-decade indicator tag: [R O Y G C V]
+            int s_dec = s / 10; if (s_dec > 5) s_dec = 5;
+            char dec_tag[16];
+            snprintf(dec_tag, sizeof(dec_tag), "[%c%c%c%c%c%c]",
+                     (s_dec == 0) ? '*' : 'R',
+                     (s_dec == 1) ? '*' : 'O',
+                     (s_dec == 2) ? '*' : 'Y',
+                     (s_dec == 3) ? '*' : 'G',
+                     (s_dec == 4) ? '*' : 'C',
+                     (s_dec == 5) ? '*' : 'V');
+            sh1106_draw_string(79, 41, dec_tag, true);
+        } else {
+            sh1106_draw_string(79, 33, "ASTRAL GEAR", true);
+            sh1106_draw_string(79, 41, "* ORBIT *", true);
+        }
+    }
+
+    // Footer Marquee Ticker
+    sh1106_draw_line(2, 47, 125, 47, true);
+    char clock_ticker[180];
+    if (active_lang_idx == LANG_R2D2) {
+        snprintf(clock_ticker, sizeof(clock_ticker),
+                 "// R2-D2 ASTROMECH CHRONOMETER // *BEEP-BOOP-WHISTLE* // TIME %02u:%02u:%02u // CLICK SW TO TUNE //",
+                 (unsigned)h, (unsigned)m, (unsigned)s);
+    } else if (active_clock_style == CLOCK_STYLE_DIAL) {
+        snprintf(clock_ticker, sizeof(clock_ticker),
+                 "// CELESTIAL CHRONOMETER // TIME %02u:%02u:%02u // 12H ASTRONOMICAL DIAL // COMET RIM // CLICK SW TO TUNE //",
+                 (unsigned)h, (unsigned)m, (unsigned)s);
+    } else if (active_clock_style == CLOCK_STYLE_HOURGLASS) {
+        int h12 = h % 12; if (h12 == 0) h12 = 12;
+        snprintf(clock_ticker, sizeof(clock_ticker),
+                 "// AETHERIC HOURGLASS // ORIENTATION-INDEPENDENT // RING 1: %u/12H // RING 2: %u/60m // RING 0: %u/60s // CLICK SW TO TUNE //",
+                 (unsigned)h12, (unsigned)m, (unsigned)s);
+    } else if (active_clock_style == CLOCK_STYLE_PRISMATIC) {
+        snprintf(clock_ticker, sizeof(clock_ticker),
+                 "// CHROMA PRISMATIC // TIME %02u:%02u:%02u // SPECTRUM TIME // R1:COLOR-HOUR // R2:DECADE-MIN // R0:DECADE-SEC // CLICK SW TO TUNE //",
+                 (unsigned)h, (unsigned)m, (unsigned)s);
+    } else {
+        snprintf(clock_ticker, sizeof(clock_ticker),
+                 "// CELESTIAL ORRERY // TIME %02u:%02u:%02u // KINEMATIC PLANETARY GEARS // SEC ORBIT // MIN PLANET // HR FIELD // CLICK SW TO TUNE //",
+                 (unsigned)h, (unsigned)m, (unsigned)s);
+    }
+    draw_marquee(51, clock_ticker, now_ms);
+}
+
 static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_feedback) {
     if (!oled_ready) return;
 
@@ -961,6 +1353,11 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
 
         case MODE_EARTH: {
             draw_earth_card(now_ms, pos);
+            break;
+        }
+
+        case MODE_CLOCK: {
+            draw_clock_card(now_ms, pos);
             break;
         }
 
@@ -1087,14 +1484,19 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             char net_buf[32];
             snprintf(net_buf, sizeof(net_buf), "IP   : %.15s", net_client_is_connected() ? net_client_get_ip_str() : "OFFLINE");
             sh1106_draw_string(6, 23, net_buf, true);
-            sh1106_draw_string(6, 31, "AUDIO: I2S 16k [OK]", true);
-            sh1106_draw_string(6, 39, "STREAM: 64k RING [OK]", true);
+            char ap_buf[32];
+            snprintf(ap_buf, sizeof(ap_buf), "AP   : %.15s", net_client_is_connected() ? net_client_get_active_ssid() : "DISCONNECTED");
+            sh1106_draw_string(6, 31, ap_buf, true);
+            char brain_buf[32];
+            snprintf(brain_buf, sizeof(brain_buf), "BRAIN: %s", net_client_is_server_ready() ? "READY" : "STANDALONE");
+            sh1106_draw_string(6, 39, brain_buf, true);
 
             sh1106_draw_line(2, 47, 125, 47, true);
             char srv_ticker[160];
             snprintf(srv_ticker, sizeof(srv_ticker),
-                     "// HARDWARE TELEMETRY // TARGET: RP2350 // MEMORY: 520KB SRAM // 64k MIC + 64k STREAM // BUILD: %s //",
-                     FIRMWARE_BUILD_DATE);
+                     "// TELEMETRY // AP: %s // HOST: %s:%d // BRAIN: %s // STANDALONE ORACLE READY // BUILD: %s //",
+                     net_client_get_active_ssid(), net_client_get_server_ip_str(), (int)net_client_get_server_port(),
+                     net_client_is_server_ready() ? "ONLINE" : "OFFLINE", FIRMWARE_BUILD_DATE);
             draw_marquee(51, srv_ticker, now_ms);
             break;
         }
@@ -1232,7 +1634,18 @@ int main(void) {
             anim_to_run = LED_ANIM_SOLAR;
         } else if (current_mode_idx == MODE_EARTH && !led_edit_mode) {
             anim_to_run = LED_ANIM_EARTH;
+        } else if (current_mode_idx == MODE_CLOCK && !led_edit_mode) {
+            anim_to_run = (active_clock_style == CLOCK_STYLE_HOURGLASS) ? LED_ANIM_HOURGLASS :
+                          (active_clock_style == CLOCK_STYLE_PRISMATIC) ? LED_ANIM_PRISMATIC :
+                          (active_clock_style == CLOCK_STYLE_ORRERY)    ? LED_ANIM_ORRERY :
+                                                                          LED_ANIM_CLOCK;
         }
+
+        uint8_t cur_h, cur_m, cur_s;
+        uint16_t cur_ms;
+        get_current_time(&cur_h, &cur_m, &cur_s, &cur_ms);
+        leds_set_clock_time(cur_h, cur_m, cur_s, cur_ms);
+
         leds_update(easter_egg_active, led_edit_mode, anim_to_run, mic_get_level_percent());
 
         // Fast sampling of controls
@@ -1295,15 +1708,25 @@ int main(void) {
                 cosmic_mode = false;
                 LOG_INFO("COSMIC", "Exited Cosmic FX Demo via button.");
                 need_display_update = true;
+            } else if (clock_edit_mode) {
+                clock_edit_mode = false;
+                clock_edit_phase = 0;
+                LOG_INFO("CLOCK", "Exited Clock adjust mode via button.");
+                need_display_update = true;
             } else {
-                // Readiness pre-check: verify network and Brain connection before recording!
+                // Readiness check: if Brain is online, stream to Cloud/Host; if not, enter Standalone Offline Oracle!
                 if (!net_client_is_server_ready()) {
-                    audio_play_tone(220.0f, 150); // Low warning buzz: Brain not ready!
-                    not_ready_feedback_until = delayed_by_ms(get_absolute_time(), 2000);
-                    LOG_WARN("QUERY", "Cannot record: Brain Server not ready (Wi-Fi: %s, Server: OFFLINE)",
-                             net_client_is_connected() ? "ONLINE" : "DISCONNECTED");
+                    offline_oracle_mode = true;
+                    audio_stop_all();
+                    current_state = STATE_LISTENING;
+                    easter_egg_active = false;
+                    mic_record_start();
+                    audio_play_tone(784.0f, 40); // G5 crisp prompt chirp: Offline Oracle listening!
+                    LOG_INFO("QUERY", ">>> QUERY PRESSED: Brain server offline -> Entering OFFLINE ORACLE mode (Lang: %s) <<<",
+                             LANG_NAMES[active_lang_idx]);
                     need_display_update = true;
                 } else {
+                    offline_oracle_mode = false;
                     net_client_cancel();
                     audio_stop_all();
                     current_state = STATE_LISTENING;
@@ -1338,9 +1761,17 @@ int main(void) {
             if (rec_ms < 1000 || session_peak < 350) {
                 LOG_INFO("QUERY", "Recording rejected (duration %lu ms < 1000 ms or peak %d < 350). Query cancelled.",
                          (unsigned long)rec_ms, (int)session_peak);
-                net_client_cancel();
+                if (!offline_oracle_mode) net_client_cancel();
                 current_state = STATE_IDLE;
+                offline_oracle_mode = false;
                 audio_play_tone(220.0f, 60); // Short low blip: discarded
+            } else if (offline_oracle_mode) {
+                LOG_INFO("OFFLINE_ORACLE", "Finishing local voice capture (%zu samples, %lu ms). Triggering prophecy...",
+                         recorded_samples, (unsigned long)rec_ms);
+                trigger_offline_oracle(active_lang_idx);
+                current_state = STATE_SPEAKING;
+                speaking_start_ms = to_ms_since_boot(get_absolute_time());
+                audio_play_blip();
             } else {
                 LOG_INFO("NET", "Finishing live Wi-Fi UDP voice stream (%zu samples, %lu ms)...",
                          recorded_samples, (unsigned long)rec_ms);
@@ -1354,9 +1785,10 @@ int main(void) {
         }
 
         // Return from SPEAKING to IDLE once PCM/stream playback finishes
-        if (current_state == STATE_SPEAKING && !audio_is_stream_playing() && !audio_is_pcm16_playing() && !net_client_is_receiving_response()) {
+        if (current_state == STATE_SPEAKING && !audio_is_stream_playing() && !audio_is_pcm16_playing() && !audio_is_voice_playing() && !net_client_is_receiving_response()) {
             net_client_consume_response();
             current_state = STATE_IDLE;
+            offline_oracle_mode = false;
             if (net_client_response_failed()) {
                 LOG_WARN("NET", "Response stream failed; returned to IDLE without accepting late audio.");
                 audio_play_tone(220.0f, 150);
@@ -1432,6 +1864,22 @@ int main(void) {
                          audio_get_cosmic_sfx_name(active_cosmic_idx),
                          active_cosmic_idx + 1, audio_get_cosmic_sfx_count());
                 need_display_update = true;
+            } else if (clock_edit_mode) {
+                if (clock_edit_phase == 0) {
+                    active_clock_style = (active_clock_style + delta) % CLOCK_STYLE_COUNT;
+                    if (active_clock_style < 0) active_clock_style += CLOCK_STYLE_COUNT;
+                    LOG_INFO("CLOCK", "Clock style: [%s]", CLOCK_STYLE_NAMES[active_clock_style]);
+                } else if (clock_edit_phase == 1) {
+                    int32_t new_sec = (int32_t)clock_base_seconds + (delta * 3600);
+                    while (new_sec < 0) new_sec += 86400;
+                    clock_base_seconds = (uint32_t)(new_sec % 86400);
+                } else {
+                    int32_t new_sec = (int32_t)clock_base_seconds + (delta * 60);
+                    while (new_sec < 0) new_sec += 86400;
+                    clock_base_seconds = (uint32_t)(new_sec % 86400);
+                }
+                audio_play_blip();
+                need_display_update = true;
             } else {
                 int32_t curr_pos = encoder_get_position();
 
@@ -1497,6 +1945,29 @@ int main(void) {
                 audio_play_chime();
                 LOG_INFO("LEDS", "Effect confirmed: [%s]. Exited LED menu.",
                          leds_get_anim_name(active_anim_idx));
+            } else if (clock_edit_mode) {
+                clock_edit_phase++;
+                if (clock_edit_phase >= 3) {
+                    clock_edit_mode = false;
+                    clock_edit_phase = 0;
+                    click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                    if (active_lang_idx == LANG_R2D2) {
+                        audio_play_r2d2_time_chime();
+                    } else {
+                        audio_play_chime();
+                    }
+                    LOG_INFO("CLOCK", "Confirmed clock settings (Style: %s)! Exited edit mode.",
+                             CLOCK_STYLE_NAMES[active_clock_style]);
+                } else {
+                    audio_play_tone(523.25f, 25);
+                    LOG_INFO("CLOCK", "Switched to adjusting %s",
+                             (clock_edit_phase == 1) ? "HOURS" : "MINUTES");
+                }
+            } else if (current_mode_idx == MODE_CLOCK) {
+                clock_edit_mode = true;
+                clock_edit_phase = 0;
+                audio_play_tone(523.25f, 25);
+                LOG_INFO("CLOCK", "Entering Clock Time adjustment mode.");
             } else if (current_mode_idx == MODE_AI_MODEL) {
                 ai_model_edit_mode = true;
                 selected_ai_model_idx = active_ai_model_idx;
@@ -1599,7 +2070,7 @@ int main(void) {
             last_flash_toggle = get_absolute_time();
             flash_phase = !flash_phase;
             if (current_state == STATE_LISTENING || current_state == STATE_SPEAKING || easter_egg_active || volume_edit_mode ||
-                ai_model_edit_mode || lang_edit_mode || mic_test_mode || led_edit_mode || chiptune_mode || voice_mode || cosmic_mode) {
+                ai_model_edit_mode || lang_edit_mode || mic_test_mode || led_edit_mode || chiptune_mode || voice_mode || cosmic_mode || clock_edit_mode) {
                 need_display_update = true;
             }
         }

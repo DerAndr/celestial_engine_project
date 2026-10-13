@@ -1,22 +1,73 @@
 # CELESTIAL ENGINE Mk.V
 
-Current user baseline: a stable three-ring Pico staff with live voice requests and generated spoken answers from the PC brain server. **The fourth 16-LED ring was discarded by the user** after continuing instability; active chain is 7→12→24 (43 LEDs, 18% cap).
+Interactive AI staff with embedded physical controls, 3D concentric WS2812B LED animations, I2S voice input/output, and a wireless companion Raspberry Pi 5 "Wearable Brain" server.
 
-Prepared update: **1.0.16-RESPONSE-FIX** + **brain protocol v2**. Fixes response-ring overwrite, duplicate START resets, late answers after cancellation/timeout, and replay of the old one-second preview. Response packets now have request IDs, ordering, ACK/retry and explicit completion. Server PCM no longer receives the microphone ×5 preamp. OLED response text uses the full screen with 56-pixel-high scrolling letters. New physical validation remains pending.
+---
 
-Start here: [PROJECT](PROJECT.md), [tasks](docs/tasks.md), [review](docs/reviews/2026-10-11-streaming-review.md), [experiment 036](docs/experiments/036-response-review-and-fullscreen-text.md), [protocol](docs/protocol.md), [Pi 5 next stage](docs/pi5-next-stage.md), [pinout](docs/wiring/pinout.md), [inventory](docs/hardware/inventory.md), [interactive map](docs/interactive_map.html). Agents must read [AGENTS](AGENTS.md).
+## 🧭 System Status Dashboard
 
-From repository root on the existing Windows build environment:
+| Subsystem | Target Hardware | Current State | Active Baseline / Key Document |
+|---|---|---|---|
+| **Staff Embedded Core** | Raspberry Pi Pico 2 W (RP2350) | **OPERATIONAL** | 43 LEDs (7→12→24), SH1106 OLED, INMP441 Mic, MAX98357A Amp |
+| **Staff Autonomy** | Standalone Offline Oracle | **OPERATIONAL** | Onboard voice bank, mic reactive vortex, retrofuturistic prophecies (EN/DE/RU) |
+| **Staff Firmware** | C/C++ (Pico SDK 2.3.1) | **1.0.17 Ready** | Protocol v2, dual-AP auto-failover, standalone oracle, full-screen marquee |
+| **AI Brain (Universal)**| Cloud VPS / Docker / Dev PC | **OPERATIONAL** | Host-agnostic Python 3.11, OpenRouter (DeepSeek/Grok), Edge-TTS |
+| **Mobile Deployment** | Any Smartphone / 4G Hotspot | **ZERO-APP READY** | Standard Wi-Fi tethering; no APK or phone apps needed |
+| **Wearable Brain (Pi 5)**| Raspberry Pi 5 (16 GB, Bookworm 64-bit) | **OPTIONAL / BASELINE** | MicroSD Lite baseline operational (`192.168.178.51`); awaiting Pimoroni PIM699 base |
 
+---
+
+## 📚 Quick Documentation Index
+
+- **Project Vision & Hardware Architecture:** [PROJECT.md](PROJECT.md)
+- **Agent Operational Rules & Safety:** [AGENTS.md](AGENTS.md)
+- **Hardware Inventory & Parts Matrix:** [docs/hardware/inventory.md](docs/hardware/inventory.md)
+- **Global GPIO Pinout:** [docs/wiring/pinout.md](docs/wiring/pinout.md)
+- **Tasks & Milestone Backlog:** [docs/tasks.md](docs/tasks.md)
+- **Wireless UDP Protocol v2:** [docs/protocol.md](docs/protocol.md)
+- **Universal Host-Agnostic Brain Architecture:** [docs/architecture/ai_dual_brain_architecture.md](docs/architecture/ai_dual_brain_architecture.md)
+- **Raspberry Pi 5 Server Migration Guide:** [docs/pi5-next-stage.md](docs/pi5-next-stage.md)
+- **Interactive System Architecture Map:** [docs/interactive_map.html](docs/interactive_map.html)
+
+### Recent Technical Milestones & Post-Mortems
+- [Experiment 037 — RPi 5 NVMe Migration & Diagnostics](docs/experiments/037-rpi5-nvme-stand-alone-migration.md)
+- [Technical Post-Mortem: RPi 5 + Lexar NM790 Power Delivery Resolution](docs/hardware/rpi5_nvme_migration_incident_report.md)
+- [Experiment 036 — Voice Protocol v2 & Fullscreen Response Text](docs/experiments/036-response-review-and-fullscreen-text.md)
+
+---
+
+## 🛠️ Quick Start & Developer Commands
+
+### 1. Build Pico 2 W Firmware (Windows / PowerShell)
 ```powershell
 cmake --build firmware/build --target celestial_firmware --parallel 4
 .\scripts\check-audio.ps1
-python -m unittest discover -s tests -p test_brain_transport.py -v
+```
+*Outputs: `firmware/build/celestial_firmware.uf2`*
+
+### 2. Run Brain Transport Tests
+```powershell
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+### 3. Launch AI Brain Server (PC / Local Dev)
+```powershell
 python tools/ai_brain_server.py
 ```
 
-Main UF2: **firmware/build/celestial_firmware.uf2**. Update firmware and restart the updated server together; v1 and v2 do not interoperate. The native C checks execute actual audio/control/display code. Three small Python checks cover the Python transport only, including a 14-second response with deliberately lost packet/ACK. The old four-ring diagnostic target is historical and is not the current setup.
+### 4. Deploy Cloud AI Brain Server (Docker / Cloud VPS)
+```bash
+docker compose -f tools/docker-compose.yml up -d
+```
 
-One MAX98357A drives one QUARKZMAN 4 Ω / 3 W speaker; GAIN remains unconnected. Audio solder repair history: [017](docs/experiments/017-audio-solder-repair-level.md), [018](docs/experiments/018-volume-consistent-gain.md). Shared volume curve and GPIO stay unchanged; removing erroneous server preamplification may make speech sound quieter and cleaner at the same VOLUME.
+### 5. Optional Deploy on Raspberry Pi 5 (SSH)
+```bash
+ssh andr@192.168.178.51
+cd ~/celestial_engine_project
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r tools/requirements-brain.txt
+python tools/mock_brain_server.py
+```
+*(See [docs/pi5-next-stage.md](docs/pi5-next-stage.md) for full systemd service setup)*.
 
-Next: confirm the new pair on the PC, then run the same server independently on Pi 5 using existing Wi-Fi. The staff retains local controls, effects, music and phrases without the brain; QUERY requires a server. Hotspot, local AI and portable power follow separate milestones. Git contains source/docs; private Wi-Fi/API configuration and built UF2 are excluded.

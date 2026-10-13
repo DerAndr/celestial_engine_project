@@ -35,6 +35,7 @@ typedef enum {
     LANG_AUTO = 1,  // Auto-detect on server
     LANG_DE   = 2,  // Deutsch
     LANG_RU   = 3,  // Russian
+    LANG_R2D2 = 4,  // Astromech Droid [R2]
     LANG_COUNT
 } staff_lang_id_t;
 

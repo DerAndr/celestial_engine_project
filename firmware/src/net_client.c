@@ -27,6 +27,50 @@
 #ifndef BRAIN_SERVER_PORT
 #define BRAIN_SERVER_PORT CELESTIAL_NET_DEFAULT_PORT
 #endif
+#ifndef WIFI_FALLBACK_SSID
+#define WIFI_FALLBACK_SSID ""
+#endif
+#ifndef WIFI_FALLBACK_PASSWORD
+#define WIFI_FALLBACK_PASSWORD ""
+#endif
+#ifndef BRAIN_FALLBACK_SERVER_IP
+#define BRAIN_FALLBACK_SERVER_IP BRAIN_SERVER_IP
+#endif
+#ifndef BRAIN_FALLBACK_SERVER_PORT
+#define BRAIN_FALLBACK_SERVER_PORT BRAIN_SERVER_PORT
+#endif
+
+static int active_ap_profile = 0; /* 0 = Primary, 1 = Fallback Hotspot */
+static int ap_connect_failures = 0;
+static uint16_t active_server_port = BRAIN_SERVER_PORT;
+
+static const char* get_current_ssid(void) {
+    if (active_ap_profile == 1 && strlen(WIFI_FALLBACK_SSID) > 0) {
+        return WIFI_FALLBACK_SSID;
+    }
+    return WIFI_SSID;
+}
+
+static const char* get_current_password(void) {
+    if (active_ap_profile == 1 && strlen(WIFI_FALLBACK_SSID) > 0) {
+        return WIFI_FALLBACK_PASSWORD;
+    }
+    return WIFI_PASSWORD;
+}
+
+static const char* get_current_server_ip_str(void) {
+    if (active_ap_profile == 1 && strlen(WIFI_FALLBACK_SSID) > 0 && strlen(BRAIN_FALLBACK_SERVER_IP) > 0) {
+        return BRAIN_FALLBACK_SERVER_IP;
+    }
+    return BRAIN_SERVER_IP;
+}
+
+static uint16_t get_current_server_port(void) {
+    if (active_ap_profile == 1 && strlen(WIFI_FALLBACK_SSID) > 0) {
+        return BRAIN_FALLBACK_SERVER_PORT;
+    }
+    return BRAIN_SERVER_PORT;
+}
 
 static net_status_t current_status = NET_STATUS_DISCONNECTED;
 static char current_ip_str[24] = "0.0.0.0";
@@ -58,7 +102,7 @@ static void acknowledge_response(const net_packet_header_t *received) {
         NET_MSG_ACK, received->seq_num, 1, received->request_id };
     memcpy(ack->payload, &hdr, sizeof hdr);
     ((uint8_t *)ack->payload)[sizeof hdr] = received->msg_type;
-    udp_sendto(udp_client_pcb, ack, &server_ip_addr, BRAIN_SERVER_PORT);
+    udp_sendto(udp_client_pcb, ack, &server_ip_addr, active_server_port);
     pbuf_free(ack);
 }
 
@@ -68,13 +112,14 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
     (void)pcb;
     if (!p) return;
     net_packet_header_t hdr;
-    if (!ip_addr_cmp(addr, &server_ip_addr) || port != BRAIN_SERVER_PORT ||
+    if (!ip_addr_cmp(addr, &server_ip_addr) || port != active_server_port ||
         p->tot_len < sizeof hdr || pbuf_copy_partial(p, &hdr, sizeof hdr, 0) != sizeof hdr ||
         hdr.magic != CELESTIAL_NET_MAGIC || hdr.version != CELESTIAL_NET_VERSION ||
         hdr.payload_len > NET_MAX_PAYLOAD_SIZE || p->tot_len != sizeof hdr + hdr.payload_len) {
         pbuf_free(p);
         return;
     }
+
     uint32_t now = to_ms_since_boot(get_absolute_time());
     if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0) {
         last_server_heartbeat_rx_ms = now;
@@ -152,11 +197,15 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
 }
 
 void net_client_init(void) {
-    ipaddr_aton(BRAIN_SERVER_IP, &server_ip_addr);
+    active_ap_profile = 0;
+    ap_connect_failures = 0;
+    active_server_port = get_current_server_port();
+    ipaddr_aton(get_current_server_ip_str(), &server_ip_addr);
     request_counter = get_rand_32(); /* Reboot must not reuse a still-running worker's ID. */
 
 #if HAVE_WIFI_CREDENTIALS
-    if (strlen(WIFI_SSID) > 0) {
+    const char *ssid = get_current_ssid();
+    if (strlen(ssid) > 0) {
         // CYW43 architecture is already initialized in main.c; enable station mode
         cyw43_arch_enable_sta_mode();
 
@@ -173,7 +222,7 @@ void net_client_init(void) {
         cyw43_arch_lwip_end();
 
         // Connect asynchronously without blocking main thread
-        int err = cyw43_arch_wifi_connect_async(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK);
+        int err = cyw43_arch_wifi_connect_async(ssid, get_current_password(), CYW43_AUTH_WPA2_AES_PSK);
         if (err == 0) {
             current_status = NET_STATUS_CONNECTING;
         } else {
@@ -200,8 +249,11 @@ void net_client_update(void) {
 
     int link_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
     if (link_status == CYW43_LINK_UP) {
+        ap_connect_failures = 0;
         if (current_status != NET_STATUS_CONNECTED) {
             current_status = NET_STATUS_CONNECTED;
+            active_server_port = get_current_server_port();
+            ipaddr_aton(get_current_server_ip_str(), &server_ip_addr);
         }
         if (udp_client_pcb == NULL) {
             cyw43_arch_lwip_begin();
@@ -228,9 +280,22 @@ void net_client_update(void) {
         }
 
 #if HAVE_WIFI_CREDENTIALS
-        if (strlen(WIFI_SSID) > 0 && (now - last_reconnect_attempt_ms > 4000)) {
+        if (now - last_reconnect_attempt_ms > 4000) {
             last_reconnect_attempt_ms = now;
-            cyw43_arch_wifi_connect_async(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK);
+            ap_connect_failures++;
+            if (strlen(WIFI_FALLBACK_SSID) > 0 && ap_connect_failures >= 3) {
+                // Toggle between primary (0) and fallback (1)
+                active_ap_profile = (active_ap_profile == 0) ? 1 : 0;
+                ap_connect_failures = 0;
+                active_server_port = get_current_server_port();
+                ipaddr_aton(get_current_server_ip_str(), &server_ip_addr);
+                printf("[NET] Failing over to AP profile %d: [%s] (Target Server: %s:%d)\n",
+                       active_ap_profile, get_current_ssid(), get_current_server_ip_str(), (int)active_server_port);
+            }
+            const char *ssid = get_current_ssid();
+            if (strlen(ssid) > 0) {
+                cyw43_arch_wifi_connect_async(ssid, get_current_password(), CYW43_AUTH_WPA2_AES_PSK);
+            }
         }
 #endif
     }
@@ -254,6 +319,18 @@ bool net_client_is_server_ready(void) {
 
 const char* net_client_get_ip_str(void) {
     return current_ip_str;
+}
+
+const char* net_client_get_active_ssid(void) {
+    return get_current_ssid();
+}
+
+const char* net_client_get_server_ip_str(void) {
+    return get_current_server_ip_str();
+}
+
+uint16_t net_client_get_server_port(void) {
+    return active_server_port;
 }
 
 static bool send_udp_packet(uint8_t msg_type, const void *payload, size_t payload_len) {
@@ -281,8 +358,9 @@ static bool send_udp_packet(uint8_t msg_type, const void *payload, size_t payloa
         memcpy((uint8_t *)p->payload + sizeof(net_packet_header_t), payload, payload_len);
     }
 
-    err_t err = udp_sendto(udp_client_pcb, p, &server_ip_addr, BRAIN_SERVER_PORT);
+    err_t err = udp_sendto(udp_client_pcb, p, &server_ip_addr, active_server_port);
     pbuf_free(p);
+
     cyw43_arch_lwip_end();
 
     return (err == ERR_OK);

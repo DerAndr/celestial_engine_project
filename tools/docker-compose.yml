@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  celestial-brain:
+    build:
+      context: ..
+      dockerfile: tools/Dockerfile
+    container_name: celestial-brain
+    restart: unless-stopped
+    ports:
+      - "5005:5005/udp"
+    environment:
+      - PORT=5005
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - BRAIN_API_KEY=${BRAIN_API_KEY:-}
+      - BRAIN_API_BASE=${BRAIN_API_BASE:-https://openrouter.ai/api/v1}
+      - BRAIN_MODEL=${BRAIN_MODEL:-deepseek/deepseek-chat}
+    volumes:
+      - ./brain_config.json:/app/tools/brain_config.json:ro

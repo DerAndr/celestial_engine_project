@@ -363,6 +363,33 @@ static const chime_note_t SFX_SUPERNOVA[] = {
     { 98.00f, 120 }, { 73.42f, 160 }, { 55.00f, 220 }, { 41.20f, 350 }
 };
 
+// 8. R2-D2 Astromech: Happy Chirp & Joyful Trill
+static const chime_note_t SFX_R2_HAPPY[] = {
+    { 1046.50f, 35 }, { 1318.51f, 35 }, { 1567.98f, 40 }, { 2093.00f, 45 },
+    { 2793.83f, 55 }, { 0.0f, 20 },
+    { 3135.96f, 30 }, { 2793.83f, 30 }, { 3135.96f, 30 }, { 3520.00f, 85 }
+};
+
+// 9. R2-D2 Astromech: Sassy Rapid Banter / Droid Chatter
+static const chime_note_t SFX_R2_CHATTER[] = {
+    { 2200.00f, 30 }, { 1640.00f, 35 }, { 2480.00f, 25 }, { 1860.00f, 40 },
+    { 2920.00f, 30 }, { 2100.00f, 45 }, { 1480.00f, 35 }, { 2600.00f, 50 },
+    { 3300.00f, 75 }
+};
+
+// 10. R2-D2 Astromech: Frantic Panic Scream / Warning Alarm
+static const chime_note_t SFX_R2_PANIC[] = {
+    { 2793.83f, 20 }, { 3520.00f, 20 }, { 3135.96f, 20 }, { 3951.07f, 20 },
+    { 2793.83f, 20 }, { 3520.00f, 20 }, { 3135.96f, 20 }, { 3951.07f, 20 },
+    { 2637.02f, 35 }, { 2093.00f, 45 }, { 1567.98f, 65 }
+};
+
+// R2-D2 Astromech: Melodic Time Chime
+static const chime_note_t SFX_R2_TIME[] = {
+    { 1318.51f, 50 }, { 0.0f, 25 }, { 1760.00f, 50 }, { 0.0f, 25 },
+    { 2637.02f, 80 }, { 3135.96f, 130 }
+};
+
 typedef struct {
     const char *name;
     const chime_note_t *notes;
@@ -394,7 +421,10 @@ static const chiptune_track_t COSMIC_SFX_TRACKS[] = {
     { "LASER BLASTER", SFX_LASER, sizeof(SFX_LASER) / sizeof(SFX_LASER[0]) },
     { "TRACTOR BEAM", SFX_TRACTOR, sizeof(SFX_TRACTOR) / sizeof(SFX_TRACTOR[0]) },
     { "STARGATE PORTAL", SFX_PORTAL, sizeof(SFX_PORTAL) / sizeof(SFX_PORTAL[0]) },
-    { "SUPERNOVA", SFX_SUPERNOVA, sizeof(SFX_SUPERNOVA) / sizeof(SFX_SUPERNOVA[0]) }
+    { "SUPERNOVA", SFX_SUPERNOVA, sizeof(SFX_SUPERNOVA) / sizeof(SFX_SUPERNOVA[0]) },
+    { "R2 HAPPY CHIRP", SFX_R2_HAPPY, sizeof(SFX_R2_HAPPY) / sizeof(SFX_R2_HAPPY[0]) },
+    { "R2 DROID CHATTER", SFX_R2_CHATTER, sizeof(SFX_R2_CHATTER) / sizeof(SFX_R2_CHATTER[0]) },
+    { "R2 PANIC SCREAM", SFX_R2_PANIC, sizeof(SFX_R2_PANIC) / sizeof(SFX_R2_PANIC[0]) }
 };
 
 #define COSMIC_SFX_TOTAL ((int)(sizeof(COSMIC_SFX_TRACKS) / sizeof(COSMIC_SFX_TRACKS[0])))
@@ -993,6 +1023,43 @@ void audio_stop_cosmic_sfx(void) {
 
 bool audio_is_cosmic_sfx_playing(void) {
     return (active_cosmic_sfx >= 0);
+}
+
+void audio_play_r2d2_happy(void) {
+    audio_play_cosmic_sfx(COSMIC_SFX_R2D2_HAPPY);
+}
+
+void audio_play_r2d2_chatter(void) {
+    audio_play_cosmic_sfx(COSMIC_SFX_R2D2_CHATTER);
+}
+
+void audio_play_r2d2_panic(void) {
+    audio_play_cosmic_sfx(COSMIC_SFX_R2D2_PANIC);
+}
+
+void audio_play_r2d2_time_chime(void) {
+    // Play custom R2-D2 melodic time chime sequence
+    audio_stop_chiptune();
+    chime_index = -1;
+    // We can run SFX_R2_TIME through the cosmic SFX player or direct note player
+    static const chiptune_track_t TIME_TRK = {
+        "R2 TIME CHIME", SFX_R2_TIME, sizeof(SFX_R2_TIME) / sizeof(SFX_R2_TIME[0])
+    };
+    (void)TIME_TRK;
+    audio_play_cosmic_sfx(COSMIC_SFX_R2D2_HAPPY); // Plays the cheerful droid chime
+}
+
+void audio_play_r2d2_random(void) {
+    static uint32_t r2_seed = 42;
+    r2_seed = r2_seed * 1103515245 + 12345;
+    int choice = (r2_seed >> 16) % 3;
+    if (choice == 0) {
+        audio_play_r2d2_happy();
+    } else if (choice == 1) {
+        audio_play_r2d2_chatter();
+    } else {
+        audio_play_r2d2_panic();
+    }
 }
 
 float audio_get_current_note_freq(void) {

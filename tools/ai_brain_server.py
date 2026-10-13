@@ -56,12 +56,14 @@ LANG_EN   = 0
 LANG_AUTO = 1
 LANG_DE   = 2
 LANG_RU   = 3
+LANG_R2D2 = 4
 
 LANG_NAMES = {
     LANG_EN:   "English [EN]",
     LANG_AUTO: "Auto-Detect [AUTO]",
     LANG_DE:   "Deutsch [DE]",
-    LANG_RU:   "Russian [RU]"
+    LANG_RU:   "Russian [RU]",
+    LANG_R2D2: "Astromech Droid [R2]"
 }
 
 MODEL_PRESETS = {
@@ -103,13 +105,26 @@ def load_config():
 
     cfg_key = default_config.get("api_key", "").strip().strip('"').strip("'")
     if not cfg_key or cfg_key == "YOUR_API_KEY_HERE":
-        env_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        env_key = (os.environ.get("BRAIN_API_KEY") or
+                   os.environ.get("OPENROUTER_API_KEY") or
+                   os.environ.get("DEEPSEEK_API_KEY") or
+                   os.environ.get("OPENAI_API_KEY"))
         if env_key:
             default_config["api_key"] = env_key.strip().strip('"').strip("'")
     else:
         default_config["api_key"] = cfg_key
 
+    # Environment overrides for Cloud / Container deployments
+    if os.environ.get("BRAIN_API_BASE"):
+        default_config["api_base"] = os.environ.get("BRAIN_API_BASE")
+    elif os.environ.get("OPENAI_BASE_URL"):
+        default_config["api_base"] = os.environ.get("OPENAI_BASE_URL")
+
+    if os.environ.get("BRAIN_MODEL"):
+        default_config["model"] = os.environ.get("BRAIN_MODEL")
+
     return default_config
+
 
 def clean_pcm_samples(raw_bytes):
     """Cancels microphone DC offset before Speech Recognition."""
@@ -409,8 +424,9 @@ def process_query_worker(transport, session):
     print(f"[REQUEST {session.request_id}] {'Delivered' if complete else 'Cancelled/failed'}; {len(pcm)} PCM bytes")
 
 def main():
+    port = int(os.environ.get("BRAIN_PORT") or os.environ.get("PORT") or PORT)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(("0.0.0.0", PORT))
+    sock.bind(("0.0.0.0", port))
 
     hostname = socket.gethostname()
     try:
@@ -422,7 +438,8 @@ def main():
     print("=" * 68)
     print("  CELESTIAL ENGINE Mk.V — AI BRAIN SERVER (Multi-Core OpenRouter)")
     print("=" * 68)
-    print(f"  Listening on UDP Port: {PORT}")
+    print(f"  Listening on UDP Port: {port}")
+
     print(f"  Host IPs:              {', '.join(local_ips)}")
     print(f"  LLM Provider:          {config.get('api_base')}")
     api_key_set = bool(config.get("api_key") and config.get("api_key") != "YOUR_API_KEY_HERE")

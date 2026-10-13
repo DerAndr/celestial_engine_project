@@ -20,7 +20,7 @@
 #elif CELESTIAL_FOUR_RINGS
 #define FIRMWARE_VERSION       "1.0.14-FOUR-RINGS"
 #else
-#define FIRMWARE_VERSION       "1.0.16-RESPONSE-FIX"
+#define FIRMWARE_VERSION       "1.0.17-HOST-AGNOSTIC"
 #endif
 #define PROJECT_NAME           "Celestial Engine Mk.V"
 #define FIRMWARE_CODENAME      "AURA-STREAM"

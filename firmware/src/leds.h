@@ -22,6 +22,10 @@ typedef enum {
     LED_ANIM_GALAXY,         // 11. Milky Way galactic spiral & Sol beacon
     LED_ANIM_EARTH,          // 12. Terra globe: azure oceans, emerald land, aurora
     LED_ANIM_HALLOWEEN,      // 13. Halloween Jack-o'-Lantern & spooky ectoplasm
+    LED_ANIM_CLOCK,          // 14. Celestial Chronometer: 3-ring astronomical clock with central stone
+    LED_ANIM_HOURGLASS,      // 15. Aetheric Hourglass: orientation-independent concentric ring accumulator
+    LED_ANIM_PRISMATIC,      // 16. Chroma Prismatic: full spectral color-encoded clock (orientation-free)
+    LED_ANIM_ORRERY,         // 17. Celestial Orrery: kinematic concentric triple orbital clock
     LED_ANIM_COUNT
 } led_anim_mode_t;
 
@@ -83,5 +87,10 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
  * Set brightness percent, clamped to the configured LED_BRIGHTNESS_LIMIT.
  */
 void leds_set_brightness(uint8_t brightness_pct);
+
+/**
+ * Set current time for the Celestial Chronometer clock animation.
+ */
+void leds_set_clock_time(uint8_t hours, uint8_t minutes, uint8_t seconds, uint16_t millis);
 
 #endif /* CELESTIAL_LEDS_H */

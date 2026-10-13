@@ -25,27 +25,29 @@ Current prepared main: **1.0.16-RESPONSE-FIX**, `firmware/build/celestial_firmwa
 Audio solder repair resolved the earlier ERR-AUDIO-02/03 (017–018). New response clipping, late-answer and full-screen text fixes are separate; keep the established GPIO and hardware architecture. [Tasks](docs/tasks.md) · [Code review](docs/reviews/2026-10-11-streaming-review.md) · [Pi 5 handoff](docs/pi5-next-stage.md).
 
 ## System architecture
-There are two physically separate systems:
+There are two physically separate subsystems:
 
-1. **STAFF** — Raspberry Pi Pico 2 W embedded controller handling controls, display, LEDs, microphone, speaker and Wi-Fi.
-2. **WEARABLE BRAIN** — Raspberry Pi 5 handling STT, agent/LLM/tools, TTS and orchestration.
+1. **STAFF** — Raspberry Pi Pico 2 W embedded controller handling controls, display, LEDs, microphone, speaker and Wi-Fi. Features complete **Standalone Offline Oracle** autonomy when no host is connected.
+2. **AI BRAIN (Universal Host-Agnostic & Cloud Architecture)** — handles neural processing, orchestration and speech return:
+   - **Mode 1 (Field Zero-App Hotspot + Cloud Brain):** Smartphone or 4G router acts strictly as a standard Wi-Fi Hotspot (tethering) without any apps. The brain server (`tools/ai_brain_server.py`) runs in the Cloud (VPS, Docker, Cloud Run, or Home Server tunnel) via OpenRouter / OpenAI / Groq + Edge-TTS. No phone app needed!
+   - **Mode 2 (Home / Studio Dev PC):** Brain server runs locally on the developer's PC, Mac, or laptop over local Wi-Fi.
+   - **Mode 3 (Standalone Offline Oracle):** Zero external host. The staff operates completely self-contained with onboard microphone sensing, concentric LED vortex, local voice phrases from flash (EN, DE, RU), cosmic sound effects, and OLED retrofuturistic prophecies.
+   - **Mode 4 (Wearable SBC — Optional Pi 5):** Optional standalone backpack/belt node on Geekworm X1209 UPS + Pimoroni PIM699 + Lexar NM790.
+   - See [Universal Brain Architecture Specification](docs/architecture/ai_dual_brain_architecture.md).
 
-Communication is wireless over Wi-Fi. Do not introduce a physical data cable between Pi 5 and the staff.
-
-For now use the built-in Wi-Fi hardware already present on Pico 2 W and Raspberry Pi 5. Do not add another Wi-Fi adapter unless actual testing demonstrates a need.
+Communication is wireless over Wi-Fi (UDP protocol v2 on port 5005). Do not introduce a physical data cable between the host and the staff. The staff firmware is completely agnostic to whether Cloud, PC, phone hotspot, or Pi 5 is answering.
 
 ## Halloween MVP
-The voice loop now runs with the PC brain server. Moving that same loop to Pi 5 is the next hardware milestone:
+The voice loop runs with the host-agnostic brain server (Cloud or PC) and has standalone fallback:
 
 1. Hold QUERY.
-2. Staff enters LISTENING and records speech.
-3. Release QUERY.
-4. Staff sends audio to Pi 5 over Wi-Fi.
-5. Pi performs STT -> agent -> TTS.
-6. Staff enters SPEAKING and plays the response.
-7. OLED and LEDs represent system state throughout.
+2. If Brain is online: Staff enters LISTENING and streams audio to Cloud/Host.
+3. If Brain is offline: Staff enters OFFLINE ORACLE and samples audio locally.
+4. Release QUERY.
+5. If Brain is online: Server performs STT -> LLM -> TTS and streams synthesized voice into staff speaker.
+6. If Brain is offline: Staff plays local voice phrase in selected language [EN/DE/RU], triggers concentric LED shockwaves, and displays cosmic oracle marquee on OLED.
+7. Reliability and autonomy matter more than enclosure polish.
 
-Reliability matters more than enclosure polish.
 
 ## Purchased / selected hardware
 ### Staff
@@ -74,9 +76,15 @@ Reliability matters more than enclosure polish.
 Important geometry: the 16-LED ring can pass through the 52 mm opening of the 24-LED ring. The 12-LED ring cannot pass through the 32 mm opening of the 16-LED ring. Final mechanical geometry is deliberately not fixed yet.
 
 ### Wearable brain
-Already owned:
-- Raspberry Pi 5
+Already owned & operational:
+- Raspberry Pi 5 (16 GB RAM, Bookworm Lite 64-bit baseline)
 - official Raspberry Pi Active Cooler
+- official Raspberry Pi 27W USB-C PSU
+- Lexar NM790 1 TB M.2 NVMe SSD (healthy; waiting for PIM699)
+
+Storage subsystem update (2026-10-13):
+- Geekworm X1002 V1.1 & P580-V2 retired due to 3.3V write brownout on Gen 4 SSD.
+- Pimoroni PIM699 (NVMe Base) selected to replace X1002 (see [Incident Report](docs/hardware/rpi5_nvme_migration_incident_report.md)).
 
 Portable power subsystem planned/ordered separately:
 - Geekworm X1209 V1.0

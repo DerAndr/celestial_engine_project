@@ -25,6 +25,9 @@ bool net_client_is_connected(void) { return false; }
 bool net_client_is_server_ready(void) { return false; }
 bool net_client_ping_server(void) { return true; }
 const char* net_client_get_ip_str(void) { return "0.0.0.0"; }
+const char* net_client_get_active_ssid(void) { return "TEST_SSID"; }
+const char* net_client_get_server_ip_str(void) { return "127.0.0.1"; }
+uint16_t net_client_get_server_port(void) { return 5005; }
 bool net_client_send_query_start(uint8_t l, uint8_t m) { (void)l; (void)m; return true; }
 bool net_client_send_audio_chunk(const int16_t *s, size_t c) { (void)s; (void)c; return true; }
 bool net_client_send_query_end(void) { return true; }
@@ -35,6 +38,7 @@ void net_client_consume_response(void) {}
 const char* net_client_get_response_text(void) { return ""; }
 bool net_client_response_failed(void) { return false; }
 uint32_t net_client_response_progress_ms(void) { return to_ms_since_boot(get_absolute_time()); }
+
 #define main firmware_main
 #include "../firmware/src/main.c"
 #undef main
@@ -187,7 +191,7 @@ EXPORT int main_cyw43_failure_probe(void) {
 }
 EXPORT int main_listening_switch_probe(void) {
     reset_gpio(); cyw43_fail=0; next_dma=0; main_scenario=1; main_loop_count=0;
-    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=false;
+    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=clock_edit_mode=false;
     easter_egg_active=false; active_track_idx=0;
     if (!setjmp(main_exit)) firmware_main();
     main_scenario=0;
@@ -196,7 +200,7 @@ EXPORT int main_listening_switch_probe(void) {
 EXPORT int main_query_release_probe(void) {
     reset_gpio(); cyw43_fail=0; cyw43_ready=false; next_dma=0;
     main_scenario=3; main_loop_count=0; current_state=STATE_IDLE;
-    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=false;
+    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=clock_edit_mode=false;
     test_logs[0]=0;
     if (!setjmp(main_exit)) firmware_main();
     main_scenario=0;
@@ -218,7 +222,7 @@ EXPORT int main_boot_announcement_probe(void) {
     main_scenario=6; main_loop_count=0; current_state=STATE_IDLE;
     voice_active=false; active_voice_clip=NULL; active_chiptune_track=-1;
     chime_index=-1; audio_set_volume(AUDIO_DEFAULT_VOLUME);
-    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=false;
+    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=clock_edit_mode=false;
     if (!setjmp(main_exit)) firmware_main();
     main_scenario=0;
     if (AUDIO_DIAGNOSTIC_BOOT || !AUDIO_STARTUP_SOUNDS) return chime_index == -1 && !voice_active && audio_get_volume() == 0 ? 0 : 1;

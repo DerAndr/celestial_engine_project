@@ -29,6 +29,10 @@ bool net_client_is_connected(void);
 bool net_client_is_server_ready(void);
 bool net_client_ping_server(void);
 const char* net_client_get_ip_str(void);
+const char* net_client_get_active_ssid(void);
+const char* net_client_get_server_ip_str(void);
+uint16_t net_client_get_server_port(void);
+
 
 // Voice query streaming to Brain Server (passes selected language and model preset)
 bool net_client_send_query_start(uint8_t lang_code, uint8_t model_preset);

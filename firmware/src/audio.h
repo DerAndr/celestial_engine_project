@@ -103,6 +103,9 @@ typedef enum {
     COSMIC_SFX_TRACTOR,      // 5. Gravitational tractor beam (vibrato hum)
     COSMIC_SFX_PORTAL,       // 6. Stargate portal (harmonic shimmer)
     COSMIC_SFX_SUPERNOVA,    // 7. Supernova rumble (deep sub-bass rumble)
+    COSMIC_SFX_R2D2_HAPPY,   // 8. R2-D2 Happy Chirp & Whistle
+    COSMIC_SFX_R2D2_CHATTER, // 9. R2-D2 Sassy Astromech Banter
+    COSMIC_SFX_R2D2_PANIC,   // 10. R2-D2 Panicked Alarm Scream
     COSMIC_SFX_COUNT
 } cosmic_sfx_id_t;
 
@@ -111,6 +114,15 @@ const char* audio_get_cosmic_sfx_name(int sfx_id);
 void audio_play_cosmic_sfx(int sfx_id);
 void audio_stop_cosmic_sfx(void);
 bool audio_is_cosmic_sfx_playing(void);
+
+/**
+ * Astromech / R2-D2 Robotic Voice Synthesizer
+ */
+void audio_play_r2d2_happy(void);
+void audio_play_r2d2_chatter(void);
+void audio_play_r2d2_panic(void);
+void audio_play_r2d2_time_chime(void);
+void audio_play_r2d2_random(void);
 
 /* Fault-isolation controls: fixed 440 Hz sine, stop all sources, IRQ/FIFO stats. */
 void audio_play_diagnostic_tone(void);
