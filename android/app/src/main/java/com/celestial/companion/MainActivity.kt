@@ -33,13 +33,8 @@ class MainActivity : ComponentActivity() {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 val app = application as CelestialApp
-                val repo = if (app::staffRepository.isInitialized) {
-                    app.staffRepository
-                } else {
-                    StaffRepository(StaffUdpTransport())
-                }
                 @Suppress("UNCHECKED_CAST")
-                return DashboardViewModel(repo) as T
+                return DashboardViewModel(app.staffRepository) as T
             }
         }
     }

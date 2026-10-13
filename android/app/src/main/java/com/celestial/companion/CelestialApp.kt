@@ -12,8 +12,10 @@ private const val TAG = "CelestialApp"
 
 class CelestialApp : Application() {
 
-    lateinit var staffRepository: StaffRepository
-        private set
+    private var _staffRepository: StaffRepository? = null
+
+    val staffRepository: StaffRepository
+        get() = _staffRepository ?: StaffRepository(StaffUdpTransport()).also { _staffRepository = it }
 
     override fun onCreate() {
         super.onCreate()
