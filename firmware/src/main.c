@@ -35,6 +35,7 @@ typedef enum {
     MODE_LED_CORE,      // 3-ring LED animation selector
     MODE_MIC_TEST,      // Mic live VU meter
     MODE_CHIPTUNE,      // 8-bit chiptune jukebox
+    MODE_COSMIC,        // Cosmic Sci-Fi & Astromech SFX Demos
     MODE_VOICE,         // Built-in speech phrases
     MODE_SYSTEM,        // Hardware diagnostics
     MODE_COUNT
@@ -52,6 +53,7 @@ static const char *MODE_NAMES[MODE_COUNT] = {
     "RUNE LEDS",
     "MIC VU",
     "JUKEBOX",
+    "COSMIC FX",
     "ORACLE",
     "SYSTEM"
 };
@@ -78,16 +80,14 @@ static const char *LANG_NAMES[LANG_COUNT] = {
     "ENGLISH [EN]",
     "AUTO-DETECT [AUTO]",
     "DEUTSCH [DE]",
-    "RUSSIAN [RU]",
-    "ASTROMECH [R2]"
+    "RUSSIAN [RU]"
 };
 
 static const char *LANG_SHORT_TAGS[LANG_COUNT] = {
     "EN",
     "AUT",
     "DE",
-    "RU",
-    "R2"
+    "RU"
 };
 
 static int active_lang_idx = LANG_RU;   // Default: Russian [RU]
@@ -106,6 +106,7 @@ static bool led_edit_mode = false;
 static bool chiptune_mode = false;
 static bool voice_mode = false;
 static bool cosmic_mode = false;
+
 typedef enum {
     CLOCK_STYLE_DIAL = 0,       // 0: Directional astronomical dial with hands & second comet
     CLOCK_STYLE_HOURGLASS = 1,  // 1: Orientation-independent concentric ring accumulator
@@ -122,15 +123,19 @@ static const char *CLOCK_STYLE_NAMES[CLOCK_STYLE_COUNT] = {
 };
 
 static const char *CLOCK_STYLE_SHORT[CLOCK_STYLE_COUNT] = {
-    "-> DIAL",
-    "-> H-GLS",
-    "-> CHROMA",
-    "-> ORRERY"
+    "DIAL",
+    "HOURGLASS",
+    "CHROMA",
+    "ORRERY"
 };
 
+#define CLOCK_MENU_ITEMS 5 // 0..3 styles, 4 = ADJUST TIME
+
 static int active_clock_style = CLOCK_STYLE_HOURGLASS; // Orientation-independent by default!
-static bool clock_edit_mode = false;
-static int clock_edit_phase = 0; // 0 = Adjust Style, 1 = Adjust Hours, 2 = Adjust Minutes
+static int selected_clock_style = CLOCK_STYLE_HOURGLASS;
+static bool clock_style_edit_mode = false;  // Style Selection menu
+static bool clock_time_edit_mode = false;   // Time Setup mode
+static int clock_time_edit_phase = 0;       // 0 = Hours, 1 = Minutes
 static uint32_t clock_base_seconds = (19 * 3600 + 20 * 60 + 14); // 19:20:14 local initial time
 static uint32_t clock_boot_ms = 0;
 
@@ -215,24 +220,9 @@ static const char* const OFFLINE_PROPHECIES_RU[] = {
     "ORAKUL VESHCHAYET: ZVEZDY BLAGOPRIYATSTVUYUT PUTESHESTVIYU. KU!"
 };
 
-static const char *OFFLINE_PROPHECIES_R2D2[] = {
-    "*BEEP-BOOP-WHISTLE!* [TRANSLATION: DON'T PANIC, THE ANSWER IS 42!]",
-    "*CHIRP-TRRR-DWOOP!* [TRANSLATION: ALL SYSTEMS NOMINAL, SASSY DROID ONLINE!]",
-    "*WHEEEEE-BLOOP-TWEET!* [TRANSLATION: HYPERDRIVE MOTIVATOR AT 100%!]",
-    "*EXCITED SQUEAK-CHATTER!* [TRANSLATION: SENSORS DETECT EXTREME AWESOMENESS!]",
-    "*DOOT-DOOT-TRRRR-BEEP!* [TRANSLATION: ASTROMECH CO-PILOT READY FOR ADVENTURE!]"
-};
-
 static void trigger_offline_oracle(int lang_idx) {
     offline_oracle_mode = true;
     uint32_t seed = to_ms_since_boot(get_absolute_time());
-
-    if (lang_idx == LANG_R2D2) {
-        audio_play_r2d2_random();
-        size_t count = sizeof(OFFLINE_PROPHECIES_R2D2) / sizeof(OFFLINE_PROPHECIES_R2D2[0]);
-        snprintf(offline_oracle_prophecy, sizeof(offline_oracle_prophecy), "%s", OFFLINE_PROPHECIES_R2D2[seed % count]);
-        return;
-    }
 
     int phrase_roll = (int)(seed % 4);
     voice_phrase_id_t phrase_id = VOICE_ORACLE;
@@ -276,9 +266,7 @@ static void draw_listening_screen(uint32_t hold_ms, int mode_idx, bool anim_blin
     }
     sh1106_draw_string(6, 4, hdr_buf, false);
 
-    if (active_lang_idx == LANG_R2D2) {
-        sh1106_draw_string(6, 17, "*INQUISITIVE BEEP?*", true);
-    } else if (offline_oracle_mode) {
+    if (offline_oracle_mode) {
         sh1106_draw_string(6, 17, "SENSING AETHER...", true);
     } else {
         sh1106_draw_string(6, 17, "RECORDING VOICE...", true);
@@ -297,9 +285,7 @@ static void draw_listening_screen(uint32_t hold_ms, int mode_idx, bool anim_blin
     }
 
     sh1106_draw_line(2, 53, 125, 53, true);
-    if (active_lang_idx == LANG_R2D2) {
-        sh1106_draw_string(6, 55, "RELEASE FOR DROID CHATTER", true);
-    } else if (offline_oracle_mode) {
+    if (offline_oracle_mode) {
         sh1106_draw_string(6, 55, "RELEASE FOR PROPHECY", true);
     } else {
         sh1106_draw_string(6, 55, "RELEASE TO ASK GUIDE", true);
@@ -320,9 +306,7 @@ static void draw_speaking_screen(uint32_t dur_ms, bool anim_blink) {
 
     // 1. Playback Header Banner
     sh1106_fill_rect(2, 2, 124, 12, true);
-    if (active_lang_idx == LANG_R2D2) {
-        sh1106_draw_string(6, 4, "[ ASTROMECH SPEAKS ]", false);
-    } else if (offline_oracle_mode) {
+    if (offline_oracle_mode) {
         sh1106_draw_string(6, 4, "[ OFFLINE ORACLE SPEAKS ]", false);
     } else {
         sh1106_draw_string(8, 4, "[ THE GUIDE SPEAKS ]", false);
@@ -1203,21 +1187,24 @@ static void draw_clock_card(uint32_t now_ms, int32_t rot_pos) {
     sh1106_draw_string(79, 24, time_str, true);
 
     // Edit indicator or live status
-    if (clock_edit_mode) {
-        if (((now_ms / 250) % 2) == 0) {
-            if (clock_edit_phase == 0) {
-                sh1106_draw_string(79, 34, "[STYLE]", true);
-            } else if (clock_edit_phase == 1) {
-                sh1106_draw_string(79, 34, "[SET HH]", true);
-            } else {
-                sh1106_draw_string(79, 34, "[SET MM]", true);
-            }
+    if (clock_style_edit_mode) {
+        sh1106_draw_string(79, 33, "> STYLE <", true);
+        if (selected_clock_style < CLOCK_STYLE_COUNT) {
+            sh1106_draw_string(79, 41, CLOCK_STYLE_SHORT[selected_clock_style], true);
         } else {
-            if (clock_edit_phase == 0) {
-                sh1106_draw_string(79, 34, CLOCK_STYLE_SHORT[active_clock_style], true);
-            } else {
-                sh1106_draw_string(79, 34, " TUNE ->", true);
-            }
+            sh1106_draw_string(79, 41, "SET TIME", true);
+        }
+    } else if (clock_time_edit_mode) {
+        if (clock_time_edit_phase == 0) {
+            sh1106_draw_string(79, 33, "SET HOUR", true);
+            char h_buf[16];
+            snprintf(h_buf, sizeof(h_buf), "[%02u]:%02u", (unsigned)h, (unsigned)m);
+            sh1106_draw_string(79, 41, h_buf, true);
+        } else {
+            sh1106_draw_string(79, 33, "SET MIN", true);
+            char m_buf[16];
+            snprintf(m_buf, sizeof(m_buf), "%02u:[%02u]", (unsigned)h, (unsigned)m);
+            sh1106_draw_string(79, 41, m_buf, true);
         }
     } else {
         if (active_clock_style == CLOCK_STYLE_DIAL) {
@@ -1255,27 +1242,24 @@ static void draw_clock_card(uint32_t now_ms, int32_t rot_pos) {
     // Footer Marquee Ticker
     sh1106_draw_line(2, 47, 125, 47, true);
     char clock_ticker[180];
-    if (active_lang_idx == LANG_R2D2) {
+    if (clock_style_edit_mode) {
         snprintf(clock_ticker, sizeof(clock_ticker),
-                 "// R2-D2 ASTROMECH CHRONOMETER // *BEEP-BOOP-WHISTLE* // TIME %02u:%02u:%02u // CLICK SW TO TUNE //",
-                 (unsigned)h, (unsigned)m, (unsigned)s);
+                 "// CHOOSE CLOCK STYLE // TURN: ROTATE // CLICK SW: CONFIRM // QRY: CANCEL //");
+    } else if (clock_time_edit_mode) {
+        snprintf(clock_ticker, sizeof(clock_ticker),
+                 "// ADJUST TIME // TURN: TUNE // CLICK SW: NEXT/SAVE // QRY: CANCEL //");
     } else if (active_clock_style == CLOCK_STYLE_DIAL) {
         snprintf(clock_ticker, sizeof(clock_ticker),
-                 "// CELESTIAL CHRONOMETER // TIME %02u:%02u:%02u // 12H ASTRONOMICAL DIAL // COMET RIM // CLICK SW TO TUNE //",
-                 (unsigned)h, (unsigned)m, (unsigned)s);
+                 "// CELESTIAL CHRONOMETER // 12H ASTRONOMICAL DIAL // CLICK SW TO CHOOSE STYLE //");
     } else if (active_clock_style == CLOCK_STYLE_HOURGLASS) {
-        int h12 = h % 12; if (h12 == 0) h12 = 12;
         snprintf(clock_ticker, sizeof(clock_ticker),
-                 "// AETHERIC HOURGLASS // ORIENTATION-INDEPENDENT // RING 1: %u/12H // RING 2: %u/60m // RING 0: %u/60s // CLICK SW TO TUNE //",
-                 (unsigned)h12, (unsigned)m, (unsigned)s);
+                 "// AETHERIC HOURGLASS // ORIENTATION-INDEPENDENT // CLICK SW TO CHOOSE STYLE //");
     } else if (active_clock_style == CLOCK_STYLE_PRISMATIC) {
         snprintf(clock_ticker, sizeof(clock_ticker),
-                 "// CHROMA PRISMATIC // TIME %02u:%02u:%02u // SPECTRUM TIME // R1:COLOR-HOUR // R2:DECADE-MIN // R0:DECADE-SEC // CLICK SW TO TUNE //",
-                 (unsigned)h, (unsigned)m, (unsigned)s);
+                 "// CHROMA PRISMATIC // SPECTRUM TIME // CLICK SW TO CHOOSE STYLE //");
     } else {
         snprintf(clock_ticker, sizeof(clock_ticker),
-                 "// CELESTIAL ORRERY // TIME %02u:%02u:%02u // KINEMATIC PLANETARY GEARS // SEC ORBIT // MIN PLANET // HR FIELD // CLICK SW TO TUNE //",
-                 (unsigned)h, (unsigned)m, (unsigned)s);
+                 "// CELESTIAL ORRERY // KINEMATIC PLANETARY GEARS // CLICK SW TO CHOOSE STYLE //");
     }
     draw_marquee(51, clock_ticker, now_ms);
 }
@@ -1466,6 +1450,19 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             break;
         }
 
+        case MODE_COSMIC: {
+            char fx_str[32];
+            snprintf(fx_str, sizeof(fx_str), "SFX : %d/%d %s",
+                     active_cosmic_idx + 1, audio_get_cosmic_sfx_count(),
+                     audio_is_cosmic_sfx_playing() ? "[PLAY]" : "[RDY]");
+            sh1106_draw_string(6, 17, fx_str, true);
+            sh1106_draw_string(6, 27, audio_get_cosmic_sfx_name(active_cosmic_idx), true);
+            sh1106_draw_string(6, 37, "SUITE: COSMIC & R2-D2", true);
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// SCI-FI FX & R2-D2 DEMO // CLICK SW TO ENTER // ROTATE TO SELECT //", now_ms);
+            break;
+        }
+
         case MODE_VOICE: {
             char v_str[32];
             snprintf(v_str, sizeof(v_str), "VOX : %d/%d %s",
@@ -1635,10 +1632,12 @@ int main(void) {
         } else if (current_mode_idx == MODE_EARTH && !led_edit_mode) {
             anim_to_run = LED_ANIM_EARTH;
         } else if (current_mode_idx == MODE_CLOCK && !led_edit_mode) {
-            anim_to_run = (active_clock_style == CLOCK_STYLE_HOURGLASS) ? LED_ANIM_HOURGLASS :
-                          (active_clock_style == CLOCK_STYLE_PRISMATIC) ? LED_ANIM_PRISMATIC :
-                          (active_clock_style == CLOCK_STYLE_ORRERY)    ? LED_ANIM_ORRERY :
-                                                                          LED_ANIM_CLOCK;
+            int style_to_show = (clock_style_edit_mode && selected_clock_style < CLOCK_STYLE_COUNT) ?
+                                selected_clock_style : active_clock_style;
+            anim_to_run = (style_to_show == CLOCK_STYLE_HOURGLASS) ? LED_ANIM_HOURGLASS :
+                          (style_to_show == CLOCK_STYLE_PRISMATIC) ? LED_ANIM_PRISMATIC :
+                          (style_to_show == CLOCK_STYLE_ORRERY)    ? LED_ANIM_ORRERY :
+                                                                     LED_ANIM_CLOCK;
         }
 
         uint8_t cur_h, cur_m, cur_s;
@@ -1708,10 +1707,14 @@ int main(void) {
                 cosmic_mode = false;
                 LOG_INFO("COSMIC", "Exited Cosmic FX Demo via button.");
                 need_display_update = true;
-            } else if (clock_edit_mode) {
-                clock_edit_mode = false;
-                clock_edit_phase = 0;
-                LOG_INFO("CLOCK", "Exited Clock adjust mode via button.");
+            } else if (clock_style_edit_mode) {
+                clock_style_edit_mode = false;
+                LOG_INFO("CLOCK", "Exited Clock Style menu via button.");
+                need_display_update = true;
+            } else if (clock_time_edit_mode) {
+                clock_time_edit_mode = false;
+                clock_time_edit_phase = 0;
+                LOG_INFO("CLOCK", "Cancelled Clock Time setup via button.");
                 need_display_update = true;
             } else {
                 // Readiness check: if Brain is online, stream to Cloud/Host; if not, enter Standalone Offline Oracle!
@@ -1864,12 +1867,16 @@ int main(void) {
                          audio_get_cosmic_sfx_name(active_cosmic_idx),
                          active_cosmic_idx + 1, audio_get_cosmic_sfx_count());
                 need_display_update = true;
-            } else if (clock_edit_mode) {
-                if (clock_edit_phase == 0) {
-                    active_clock_style = (active_clock_style + delta) % CLOCK_STYLE_COUNT;
-                    if (active_clock_style < 0) active_clock_style += CLOCK_STYLE_COUNT;
-                    LOG_INFO("CLOCK", "Clock style: [%s]", CLOCK_STYLE_NAMES[active_clock_style]);
-                } else if (clock_edit_phase == 1) {
+            } else if (clock_style_edit_mode) {
+                selected_clock_style = (selected_clock_style + delta) % 5;
+                if (selected_clock_style < 0) selected_clock_style += 5;
+                if (selected_clock_style < CLOCK_STYLE_COUNT) {
+                    active_clock_style = selected_clock_style;
+                }
+                audio_play_blip();
+                need_display_update = true;
+            } else if (clock_time_edit_mode) {
+                if (clock_time_edit_phase == 0) {
                     int32_t new_sec = (int32_t)clock_base_seconds + (delta * 3600);
                     while (new_sec < 0) new_sec += 86400;
                     clock_base_seconds = (uint32_t)(new_sec % 86400);
@@ -1945,29 +1952,47 @@ int main(void) {
                 audio_play_chime();
                 LOG_INFO("LEDS", "Effect confirmed: [%s]. Exited LED menu.",
                          leds_get_anim_name(active_anim_idx));
-            } else if (clock_edit_mode) {
-                clock_edit_phase++;
-                if (clock_edit_phase >= 3) {
-                    clock_edit_mode = false;
-                    clock_edit_phase = 0;
+            } else if (clock_style_edit_mode) {
+                if (selected_clock_style < CLOCK_STYLE_COUNT) {
+                    active_clock_style = selected_clock_style;
+                    clock_style_edit_mode = false;
                     click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
-                    if (active_lang_idx == LANG_R2D2) {
-                        audio_play_r2d2_time_chime();
-                    } else {
-                        audio_play_chime();
-                    }
-                    LOG_INFO("CLOCK", "Confirmed clock settings (Style: %s)! Exited edit mode.",
+                    audio_play_chime();
+                    LOG_INFO("CLOCK", "Confirmed style: [%s]. Exited menu.",
                              CLOCK_STYLE_NAMES[active_clock_style]);
                 } else {
+                    // Selected item 4: ADJUST TIME
+                    clock_style_edit_mode = false;
+                    clock_time_edit_mode = true;
+                    clock_time_edit_phase = 0;
                     audio_play_tone(523.25f, 25);
-                    LOG_INFO("CLOCK", "Switched to adjusting %s",
-                             (clock_edit_phase == 1) ? "HOURS" : "MINUTES");
+                    LOG_INFO("CLOCK", "Entering Clock Time setup (HOURS).");
                 }
+                need_display_update = true;
+            } else if (clock_time_edit_mode) {
+                if (clock_time_edit_phase == 0) {
+                    clock_time_edit_phase = 1;
+                    audio_play_tone(659.25f, 25);
+                    LOG_INFO("CLOCK", "Switched to adjusting MINUTES.");
+                } else {
+                    clock_time_edit_mode = false;
+                    clock_time_edit_phase = 0;
+                    uint8_t h, m, s; uint16_t ms;
+                    get_current_time(&h, &m, &s, &ms);
+                    clock_base_seconds = (h * 3600 + m * 60);
+                    clock_boot_ms = to_ms_since_boot(get_absolute_time());
+                    click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                    audio_play_chime();
+                    LOG_INFO("CLOCK", "Time saved: %02u:%02u:00! Exited setup.",
+                             (unsigned)h, (unsigned)m);
+                }
+                need_display_update = true;
             } else if (current_mode_idx == MODE_CLOCK) {
-                clock_edit_mode = true;
-                clock_edit_phase = 0;
+                clock_style_edit_mode = true;
+                selected_clock_style = active_clock_style;
                 audio_play_tone(523.25f, 25);
-                LOG_INFO("CLOCK", "Entering Clock Time adjustment mode.");
+                LOG_INFO("CLOCK", "Entering Clock Style menu (current: %s)",
+                         CLOCK_STYLE_NAMES[active_clock_style]);
             } else if (current_mode_idx == MODE_AI_MODEL) {
                 ai_model_edit_mode = true;
                 selected_ai_model_idx = active_ai_model_idx;
@@ -2014,6 +2039,11 @@ int main(void) {
                 audio_play_chiptune(active_track_idx);
                 LOG_INFO("CHIPTUNE", "Entering 8-bit Jukebox! Playing %s",
                          audio_get_chiptune_name(active_track_idx));
+            } else if (current_mode_idx == MODE_COSMIC) {
+                cosmic_mode = true;
+                audio_play_cosmic_sfx(active_cosmic_idx);
+                LOG_INFO("COSMIC", "Entering Cosmic FX Demo! Playing %s",
+                         audio_get_cosmic_sfx_name(active_cosmic_idx));
             } else if (current_mode_idx == MODE_VOICE) {
                 voice_mode = true;
                 audio_play_voice((voice_phrase_id_t)active_voice_idx);
@@ -2070,7 +2100,7 @@ int main(void) {
             last_flash_toggle = get_absolute_time();
             flash_phase = !flash_phase;
             if (current_state == STATE_LISTENING || current_state == STATE_SPEAKING || easter_egg_active || volume_edit_mode ||
-                ai_model_edit_mode || lang_edit_mode || mic_test_mode || led_edit_mode || chiptune_mode || voice_mode || cosmic_mode || clock_edit_mode) {
+                ai_model_edit_mode || lang_edit_mode || mic_test_mode || led_edit_mode || chiptune_mode || voice_mode || cosmic_mode || clock_style_edit_mode || clock_time_edit_mode) {
                 need_display_update = true;
             }
         }

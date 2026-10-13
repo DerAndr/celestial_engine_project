@@ -191,7 +191,7 @@ EXPORT int main_cyw43_failure_probe(void) {
 }
 EXPORT int main_listening_switch_probe(void) {
     reset_gpio(); cyw43_fail=0; next_dma=0; main_scenario=1; main_loop_count=0;
-    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=clock_edit_mode=false;
+    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=clock_style_edit_mode=clock_time_edit_mode=false;
     easter_egg_active=false; active_track_idx=0;
     if (!setjmp(main_exit)) firmware_main();
     main_scenario=0;
@@ -200,7 +200,7 @@ EXPORT int main_listening_switch_probe(void) {
 EXPORT int main_query_release_probe(void) {
     reset_gpio(); cyw43_fail=0; cyw43_ready=false; next_dma=0;
     main_scenario=3; main_loop_count=0; current_state=STATE_IDLE;
-    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=clock_edit_mode=false;
+    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=clock_style_edit_mode=clock_time_edit_mode=false;
     test_logs[0]=0;
     if (!setjmp(main_exit)) firmware_main();
     main_scenario=0;
@@ -222,7 +222,7 @@ EXPORT int main_boot_announcement_probe(void) {
     main_scenario=6; main_loop_count=0; current_state=STATE_IDLE;
     voice_active=false; active_voice_clip=NULL; active_chiptune_track=-1;
     chime_index=-1; audio_set_volume(AUDIO_DEFAULT_VOLUME);
-    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=clock_edit_mode=false;
+    volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=clock_style_edit_mode=clock_time_edit_mode=false;
     if (!setjmp(main_exit)) firmware_main();
     main_scenario=0;
     if (AUDIO_DIAGNOSTIC_BOOT || !AUDIO_STARTUP_SOUNDS) return chime_index == -1 && !voice_active && audio_get_volume() == 0 ? 0 : 1;

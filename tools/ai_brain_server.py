@@ -56,14 +56,12 @@ LANG_EN   = 0
 LANG_AUTO = 1
 LANG_DE   = 2
 LANG_RU   = 3
-LANG_R2D2 = 4
 
 LANG_NAMES = {
     LANG_EN:   "English [EN]",
     LANG_AUTO: "Auto-Detect [AUTO]",
     LANG_DE:   "Deutsch [DE]",
-    LANG_RU:   "Russian [RU]",
-    LANG_R2D2: "Astromech Droid [R2]"
+    LANG_RU:   "Russian [RU]"
 }
 
 MODEL_PRESETS = {
