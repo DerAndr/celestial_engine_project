@@ -13,6 +13,7 @@ tools/*.wav
 tools/*.mp3
 tools/gtts_audio/
 tools/neural_raw/
+tools/platform-tools/
 __pycache__/
 *.pyc
 firmware/src/wifi_credentials.h

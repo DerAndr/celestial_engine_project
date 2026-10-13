@@ -9,13 +9,14 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    object Dashboard : Screen("dashboard", "Dashboard", Icons.Default.Home)
-    object Chronos : Screen("chronos", "Chronos", Icons.Default.DateRange)
-    object Leds : Screen("leds", "Runes", Icons.Default.Star)
-    object Soundboard : Screen("soundboard", "Audio", Icons.Default.PlayArrow)
-    object Terminal : Screen("terminal", "Oracle", Icons.Default.Info)
+    data object Dashboard : Screen("dashboard", "Dashboard", Icons.Default.Home)
+    data object Chronos : Screen("chronos", "Chronos", Icons.Default.DateRange)
+    data object Leds : Screen("leds", "Runes", Icons.Default.Star)
+    data object Soundboard : Screen("soundboard", "Audio", Icons.Default.PlayArrow)
+    data object Terminal : Screen("terminal", "Oracle", Icons.Default.Info)
 
     companion object {
-        val bottomNavScreens = listOf(Dashboard, Chronos, Leds, Soundboard, Terminal)
+        val bottomNavScreens: List<Screen>
+            get() = listOf(Dashboard, Chronos, Leds, Soundboard, Terminal)
     }
 }

@@ -1,8 +1,6 @@
 package com.celestial.companion
 
 import android.os.Bundle
-import android.widget.ScrollView
-import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -31,30 +29,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        try {
-            val app = application as CelestialApp
-            val repository = app.staffRepository
 
-            setContent {
-                val viewModel: DashboardViewModel = viewModel {
-                    DashboardViewModel(repository)
-                }
-                CelestialCompanionTheme {
-                    MainAppScaffold(viewModel = viewModel)
-                }
+        val app = application as CelestialApp
+        val repository = app.staffRepository
+
+        setContent {
+            val viewModel: DashboardViewModel = viewModel {
+                DashboardViewModel(repository)
             }
-        } catch (t: Throwable) {
-            val scrollView = ScrollView(this).apply {
-                setBackgroundColor(0xFF0B0F19.toInt())
+            CelestialCompanionTheme {
+                MainAppScaffold(viewModel = viewModel)
             }
-            val tv = TextView(this).apply {
-                text = "CELESTIAL COMPANION - STARTUP DIAGNOSTIC\n\nError: ${t.javaClass.name}\nMessage: ${t.message}\n\nStack Trace:\n${t.stackTraceToString()}"
-                setTextColor(0xFFFF5252.toInt())
-                setPadding(40, 60, 40, 60)
-                textSize = 13f
-            }
-            scrollView.addView(tv)
-            setContentView(scrollView)
         }
     }
 }
