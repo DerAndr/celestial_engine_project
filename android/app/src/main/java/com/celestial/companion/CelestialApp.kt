@@ -35,7 +35,7 @@ class CelestialApp : Application() {
 
         try {
             val udpTransport = StaffUdpTransport()
-            staffRepository = StaffRepository(udpTransport)
+            _staffRepository = StaffRepository(udpTransport)
             Log.i(TAG, "Celestial Engine companion initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing StaffRepository: ${e.message}", e)
