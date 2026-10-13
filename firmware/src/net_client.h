@@ -48,6 +48,19 @@ const char* net_client_get_response_text(void);
 bool net_client_response_failed(void);
 uint32_t net_client_response_progress_ms(void);
 
+// Companion App Remote Control (Authenticated by CELESTIAL_AUTH_SECRET)
+typedef struct {
+    uint8_t cmd_code;       // 'M'=mode, 'V'=volume, 'L'=LED, 'K'=clock, 'C'=sfx, 'T'=track, 'P'=phrase, 'S'=stop, 'X'=time sync
+    uint8_t param;
+    uint32_t val32;
+    uint32_t val32_extra;
+    bool has_command;
+} remote_cmd_t;
+
+bool net_client_poll_remote_command(remote_cmd_t *cmd);
+void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style);
+bool net_client_has_paired_companion(void);
+
 #ifdef __cplusplus
 }
 #endif

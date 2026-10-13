@@ -21,6 +21,16 @@ class StaffRepository(
     val telemetry: StateFlow<StaffTelemetry> = _telemetry.asStateFlow()
 
     private var activeStaffIp: String = "192.168.178.101" // Default staff fallback IP
+    var passkey: String = ""
+
+    fun computeAuthToken(): Int {
+        var hash = 0x811c9dc5.toInt()
+        for (b in passkey.toByteArray(Charsets.UTF_8)) {
+            hash = hash xor (b.toInt() and 0xFF)
+            hash *= 0x01000193
+        }
+        return hash
+    }
 
     init {
         transport.start()
@@ -51,6 +61,9 @@ class StaffRepository(
 
     private fun handleIncomingPacket(packet: CelestialPacket) {
         val now = System.currentTimeMillis()
+        if (packet.senderIp.isNotEmpty() && packet.senderIp != "0.0.0.0") {
+            activeStaffIp = packet.senderIp
+        }
         when (packet.msgType) {
             NetMessageType.HEARTBEAT -> {
                 _telemetry.value = _telemetry.value.copy(
@@ -96,25 +109,27 @@ class StaffRepository(
     }
 
     suspend fun executeCommand(command: StaffCommand) {
+        val token = computeAuthToken()
         when (command) {
             is StaffCommand.SetMode -> {
-                transport.sendCommand(activeStaffIp, 'M'.code.toByte(), command.mode.id.toByte())
+                transport.sendCommand(activeStaffIp, 'M'.code.toByte(), command.mode.id.toByte(), token)
                 _telemetry.value = _telemetry.value.copy(mode = command.mode)
             }
             is StaffCommand.SetVolume -> {
-                transport.sendCommand(activeStaffIp, 'V'.code.toByte(), command.volumePercent.toByte())
+                transport.sendCommand(activeStaffIp, 'V'.code.toByte(), command.volumePercent.toByte(), token)
                 _telemetry.value = _telemetry.value.copy(volumePercent = command.volumePercent)
             }
             is StaffCommand.SetLedAnimation -> {
-                transport.sendCommand(activeStaffIp, 'L'.code.toByte(), command.animation.id.toByte())
+                transport.sendCommand(activeStaffIp, 'L'.code.toByte(), command.animation.id.toByte(), token)
                 _telemetry.value = _telemetry.value.copy(activeLedAnim = command.animation)
             }
             is StaffCommand.SetClockStyle -> {
-                transport.sendCommand(activeStaffIp, 'K'.code.toByte(), command.style.id.toByte())
+                transport.sendCommand(activeStaffIp, 'K'.code.toByte(), command.style.id.toByte(), token)
                 _telemetry.value = _telemetry.value.copy(clockStyle = command.style)
             }
             is StaffCommand.SyncTime -> {
-                val payload = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
+                val payload = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN)
+                    .putInt(token)
                     .putInt(command.epochSeconds.toInt())
                     .putInt(command.millis)
                     .array()
@@ -128,16 +143,16 @@ class StaffRepository(
                 transport.sendPacket(activeStaffIp, ProtocolConstants.DEFAULT_PORT, packet)
             }
             is StaffCommand.PlaySfx -> {
-                transport.sendCommand(activeStaffIp, 'C'.code.toByte(), command.sfxId.toByte())
+                transport.sendCommand(activeStaffIp, 'C'.code.toByte(), command.sfxId.toByte(), token)
             }
             is StaffCommand.PlayChiptune -> {
-                transport.sendCommand(activeStaffIp, 'T'.code.toByte(), command.trackId.toByte())
+                transport.sendCommand(activeStaffIp, 'T'.code.toByte(), command.trackId.toByte(), token)
             }
             is StaffCommand.PlayVoice -> {
-                transport.sendCommand(activeStaffIp, 'P'.code.toByte(), command.phraseId.toByte())
+                transport.sendCommand(activeStaffIp, 'P'.code.toByte(), command.phraseId.toByte(), token)
             }
             is StaffCommand.StopAudio -> {
-                transport.sendCommand(activeStaffIp, 'S'.code.toByte(), 0.toByte())
+                transport.sendCommand(activeStaffIp, 'S'.code.toByte(), 0.toByte(), token)
             }
         }
     }

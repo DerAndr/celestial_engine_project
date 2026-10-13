@@ -22,7 +22,8 @@ data class CelestialPacket(
     val seqNum: Int,
     val payloadLen: Int,
     val requestId: Long,
-    val payload: ByteArray = ByteArray(0)
+    val payload: ByteArray = ByteArray(0),
+    val senderIp: String = ""
 ) {
     /**
      * Serialize header and payload into a byte array in Little-Endian byte order.
@@ -76,7 +77,7 @@ data class CelestialPacket(
          * Deserialize raw UDP bytes into a CelestialPacket.
          * Returns null if magic doesn't match or buffer is truncated.
          */
-        fun fromBytes(bytes: ByteArray, length: Int = bytes.size): CelestialPacket? {
+        fun fromBytes(bytes: ByteArray, length: Int = bytes.size, senderIp: String = ""): CelestialPacket? {
             if (length < ProtocolConstants.HEADER_SIZE) return null
 
             val buffer = ByteBuffer.wrap(bytes, 0, length).apply {
@@ -107,7 +108,8 @@ data class CelestialPacket(
                 seqNum = seqNum,
                 payloadLen = payloadLen,
                 requestId = requestId,
-                payload = payload
+                payload = payload,
+                senderIp = senderIp
             )
         }
     }

@@ -149,6 +149,12 @@ static void get_current_time(uint8_t *hours, uint8_t *minutes, uint8_t *seconds,
     *millis = (uint16_t)((now_ms - clock_boot_ms) % 1000);
 }
 
+static void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis) {
+    uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+    clock_boot_ms = now_ms - (millis % 1000);
+    clock_base_seconds = (epoch_seconds % 86400);
+}
+
 static int active_anim_idx = LED_ANIM_RAINBOW;
 static int active_track_idx = 0;
 static int active_voice_idx = 0;
@@ -1653,6 +1659,57 @@ int main(void) {
 
         // Service Wi-Fi & UDP networking
         net_client_update();
+
+        // Process authenticated Companion App remote commands
+        remote_cmd_t rem_cmd;
+        if (net_client_poll_remote_command(&rem_cmd)) {
+            switch (rem_cmd.cmd_code) {
+                case 'M': // Set mode
+                    if (rem_cmd.param < MODE_COUNT) {
+                        current_mode_idx = rem_cmd.param;
+                        active_confirmed_mode = rem_cmd.param;
+                        need_display_update = true;
+                    }
+                    break;
+                case 'V': // Set volume
+                    audio_set_volume(rem_cmd.param);
+                    need_display_update = true;
+                    break;
+                case 'L': // Set LED animation
+                    if (rem_cmd.param < LED_ANIM_COUNT) {
+                        active_anim_idx = rem_cmd.param;
+                        need_display_update = true;
+                    }
+                    break;
+                case 'K': // Set clock style
+                    if (rem_cmd.param < CLOCK_STYLE_COUNT) {
+                        active_clock_style = rem_cmd.param;
+                        need_display_update = true;
+                    }
+                    break;
+                case 'C': // Play SFX
+                    audio_play_cosmic_sfx(rem_cmd.param);
+                    break;
+                case 'T': // Play chiptune
+                    audio_play_chiptune(rem_cmd.param);
+                    break;
+                case 'P': // Play voice
+                    audio_play_voice((voice_phrase_id_t)rem_cmd.param);
+                    break;
+                case 'S': // Stop audio
+                    audio_stop_all();
+                    break;
+                case 'X': // Time sync
+                    set_current_time_epoch(rem_cmd.val32, (uint16_t)rem_cmd.val32_extra);
+                    need_display_update = true;
+                    break;
+                default:
+                    break;
+            }
+            net_client_send_telemetry((uint8_t)current_mode_idx, (uint8_t)current_state,
+                                      audio_get_volume(), (uint8_t)active_anim_idx,
+                                      (uint8_t)active_clock_style);
+        }
 
         // Check incoming Brain response or timeout in STATE_PROCESSING
         if (current_state == STATE_PROCESSING) {

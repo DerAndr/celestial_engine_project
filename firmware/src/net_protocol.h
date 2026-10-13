@@ -27,7 +27,10 @@ typedef enum {
     NET_MSG_RESP_TEXT    = 0x09,  // Server sends ASCII response transcript
     NET_MSG_ACK          = 0x0A,  // payload: acknowledged message type (one byte)
     NET_MSG_PROGRESS     = 0x0B,  // Server is still generating this request
-    NET_MSG_ERROR        = 0x0C   // Explicit failure; never play a truncated success
+    NET_MSG_ERROR        = 0x0C,  // Explicit failure; never play a truncated success
+    NET_MSG_APP_COMMAND  = 0x20,  // Companion App Command (signed with auth token)
+    NET_MSG_APP_TIME_SYNC = 0x21, // Time Sync from Companion App
+    NET_MSG_APP_TELEMETRY = 0x22  // Staff Telemetry to Companion App
 } net_msg_type_t;
 
 typedef enum {

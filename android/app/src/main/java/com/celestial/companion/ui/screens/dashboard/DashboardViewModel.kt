@@ -19,6 +19,22 @@ class DashboardViewModel(
 
     fun getStaffIp(): String = repository.getTargetStaffIp()
 
+    fun setPasskey(key: String) {
+        repository.passkey = key
+    }
+
+    fun getPasskey(): String = repository.passkey
+
+    fun saveConnectionSettings(context: android.content.Context, ip: String, passkey: String) {
+        setStaffIp(ip)
+        setPasskey(passkey)
+        context.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putString("staff_ip", ip)
+            .putString("auth_passkey", passkey)
+            .apply()
+    }
+
     fun selectMode(mode: StaffMode) {
         viewModelScope.launch {
             repository.executeCommand(StaffCommand.SetMode(mode))

@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.celestial.companion.domain.model.StaffMode
@@ -106,8 +107,13 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     TelemetryItem(label = "TARGET IP", value = viewModel.getStaffIp(), onClick = { showIpDialog = true })
+                    TelemetryItem(
+                        label = "AUTH KEY",
+                        value = if (viewModel.getPasskey().isEmpty()) "CLICK TO SET" else "PROTECTED",
+                        onClick = { showIpDialog = true }
+                    )
                     TelemetryItem(label = "STATE", value = telemetry.state.displayName)
-                    TelemetryItem(label = "VOLUME", value = "${telemetry.volumePercent}%")
+                    TelemetryItem(label = "VOL", value = "${telemetry.volumePercent}%")
                     TelemetryItem(label = "TICK", value = "#${telemetry.tickNumber}")
                 }
             }
@@ -240,21 +246,37 @@ fun DashboardScreen(
     }
 
     if (showIpDialog) {
+        val context = LocalContext.current
         var ipInput by remember { mutableStateOf(viewModel.getStaffIp()) }
+        var passkeyInput by remember { mutableStateOf(viewModel.getPasskey()) }
         AlertDialog(
             onDismissRequest = { showIpDialog = false },
-            title = { Text("Staff Target IP", color = TextPrimary) },
+            title = { Text("Staff Connection & Security", color = TextPrimary) },
             text = {
-                OutlinedTextField(
-                    value = ipInput,
-                    onValueChange = { ipInput = it },
-                    label = { Text("IP Address") },
-                    singleLine = true
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = ipInput,
+                        onValueChange = { ipInput = it },
+                        label = { Text("IP Address (or auto-discover)") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = passkeyInput,
+                        onValueChange = { passkeyInput = it },
+                        label = { Text("Security Passkey") },
+                        placeholder = { Text("Enter secret key") },
+                        singleLine = true
+                    )
+                    Text(
+                        text = "Leave blank if staff has no passkey, or enter your secret passkey. Never leaks to cloud/git.",
+                        color = TextMuted,
+                        fontSize = 11.sp
+                    )
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.setStaffIp(ipInput)
+                    viewModel.saveConnectionSettings(context, ipInput, passkeyInput)
                     showIpDialog = false
                 }) {
                     Text("Save", color = AetherCyan)

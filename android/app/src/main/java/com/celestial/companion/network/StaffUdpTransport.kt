@@ -67,7 +67,8 @@ class StaffUdpTransport(
                 try {
                     val datagram = DatagramPacket(rxBuffer, rxBuffer.size)
                     currentSocket.receive(datagram)
-                    val packet = CelestialPacket.fromBytes(datagram.data, datagram.length)
+                    val senderIp = datagram.address?.hostAddress ?: ""
+                    val packet = CelestialPacket.fromBytes(datagram.data, datagram.length, senderIp)
                     if (packet != null) {
                         _incomingPackets.emit(packet)
                     }
@@ -98,8 +99,15 @@ class StaffUdpTransport(
         }
     }
 
-    override suspend fun sendCommand(targetIp: String, cmdCode: Byte, param: Byte) {
-        val payload = byteArrayOf(cmdCode, param)
+    override suspend fun sendCommand(targetIp: String, cmdCode: Byte, param: Byte, authToken: Int) {
+        val payload = ByteArray(6)
+        payload[0] = (authToken and 0xFF).toByte()
+        payload[1] = ((authToken shr 8) and 0xFF).toByte()
+        payload[2] = ((authToken shr 16) and 0xFF).toByte()
+        payload[3] = ((authToken shr 24) and 0xFF).toByte()
+        payload[4] = cmdCode
+        payload[5] = param
+
         val packet = CelestialPacket(
             msgType = NetMessageType.APP_COMMAND,
             seqNum = seqCounter.getAndIncrement() and 0xFFFF,

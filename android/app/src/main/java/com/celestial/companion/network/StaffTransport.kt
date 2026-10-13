@@ -7,6 +7,6 @@ interface StaffTransport {
     val incomingPackets: SharedFlow<CelestialPacket>
     fun start()
     suspend fun sendPacket(targetIp: String, targetPort: Int, packet: CelestialPacket)
-    suspend fun sendCommand(targetIp: String, cmdCode: Byte, param: Byte)
+    suspend fun sendCommand(targetIp: String, cmdCode: Byte, param: Byte, authToken: Int = 0)
     fun stop()
 }

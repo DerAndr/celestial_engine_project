@@ -39,6 +39,23 @@
 #ifndef BRAIN_FALLBACK_SERVER_PORT
 #define BRAIN_FALLBACK_SERVER_PORT BRAIN_SERVER_PORT
 #endif
+#ifndef CELESTIAL_AUTH_SECRET
+#define CELESTIAL_AUTH_SECRET ""
+#endif
+
+static inline uint32_t compute_auth_token(const char *key) {
+    uint32_t hash = 0x811c9dc5u;
+    while (*key) {
+        hash ^= (uint8_t)*key++;
+        hash *= 0x01000193u;
+    }
+    return hash;
+}
+
+static ip_addr_t companion_ip_addr;
+static u16_t companion_port = 0;
+static bool has_paired_companion = false;
+static remote_cmd_t pending_remote_cmd = {0};
 
 static int active_ap_profile = 0; /* 0 = Primary, 1 = Fallback Hotspot */
 static int ap_connect_failures = 0;
@@ -112,10 +129,64 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
     (void)pcb;
     if (!p) return;
     net_packet_header_t hdr;
-    if (!ip_addr_cmp(addr, &server_ip_addr) || port != active_server_port ||
-        p->tot_len < sizeof hdr || pbuf_copy_partial(p, &hdr, sizeof hdr, 0) != sizeof hdr ||
+    if (p->tot_len < sizeof hdr || pbuf_copy_partial(p, &hdr, sizeof hdr, 0) != sizeof hdr ||
         hdr.magic != CELESTIAL_NET_MAGIC || hdr.version != CELESTIAL_NET_VERSION ||
         hdr.payload_len > NET_MAX_PAYLOAD_SIZE || p->tot_len != sizeof hdr + hdr.payload_len) {
+        pbuf_free(p);
+        return;
+    }
+
+    // Companion App Remote Control (Signed with CELESTIAL_AUTH_SECRET)
+    if (hdr.msg_type == NET_MSG_APP_COMMAND) {
+        if (hdr.payload_len >= 6) {
+            uint8_t payload[8];
+            pbuf_copy_partial(p, payload, 6, sizeof hdr);
+            uint32_t token = (uint32_t)payload[0] | ((uint32_t)payload[1] << 8) |
+                            ((uint32_t)payload[2] << 16) | ((uint32_t)payload[3] << 24);
+            uint32_t expected = compute_auth_token(CELESTIAL_AUTH_SECRET);
+            if (strlen(CELESTIAL_AUTH_SECRET) == 0 || token == expected) {
+                companion_ip_addr = *addr;
+                companion_port = port;
+                has_paired_companion = true;
+                pending_remote_cmd.cmd_code = payload[4];
+                pending_remote_cmd.param = payload[5];
+                pending_remote_cmd.has_command = true;
+                printf("[SECURITY] Accepted authorized command '%c' (param %d) from %s:%d\n",
+                       payload[4], payload[5], ip4addr_ntoa(addr), (int)port);
+            } else {
+                printf("[SECURITY] Rejected unauthorized command from %s:%d (auth token 0x%08X != expected 0x%08X)\n",
+                       ip4addr_ntoa(addr), (int)port, (unsigned int)token, (unsigned int)expected);
+            }
+        }
+        pbuf_free(p);
+        return;
+    }
+
+    if (hdr.msg_type == NET_MSG_APP_TIME_SYNC) {
+        if (hdr.payload_len >= 12) {
+            uint8_t payload[12];
+            pbuf_copy_partial(p, payload, 12, sizeof hdr);
+            uint32_t token = (uint32_t)payload[0] | ((uint32_t)payload[1] << 8) |
+                            ((uint32_t)payload[2] << 16) | ((uint32_t)payload[3] << 24);
+            uint32_t expected = compute_auth_token(CELESTIAL_AUTH_SECRET);
+            if (strlen(CELESTIAL_AUTH_SECRET) == 0 || token == expected) {
+                companion_ip_addr = *addr;
+                companion_port = port;
+                has_paired_companion = true;
+                pending_remote_cmd.cmd_code = 'X';
+                pending_remote_cmd.val32 = (uint32_t)payload[4] | ((uint32_t)payload[5] << 8) |
+                                          ((uint32_t)payload[6] << 16) | ((uint32_t)payload[7] << 24);
+                pending_remote_cmd.val32_extra = (uint32_t)payload[8] | ((uint32_t)payload[9] << 8) |
+                                                ((uint32_t)payload[10] << 16) | ((uint32_t)payload[11] << 24);
+                pending_remote_cmd.has_command = true;
+                printf("[SECURITY] Accepted time sync from %s:%d\n", ip4addr_ntoa(addr), (int)port);
+            }
+        }
+        pbuf_free(p);
+        return;
+    }
+
+    if (!ip_addr_cmp(addr, &server_ip_addr) || port != active_server_port) {
         pbuf_free(p);
         return;
     }
@@ -217,6 +288,7 @@ void net_client_init(void) {
         }
         udp_client_pcb = udp_new();
         if (udp_client_pcb != NULL) {
+            udp_bind(udp_client_pcb, IP_ADDR_ANY, CELESTIAL_NET_DEFAULT_PORT);
             udp_recv(udp_client_pcb, net_client_udp_recv_callback, NULL);
         }
         cyw43_arch_lwip_end();
@@ -259,6 +331,7 @@ void net_client_update(void) {
             cyw43_arch_lwip_begin();
             udp_client_pcb = udp_new();
             if (udp_client_pcb != NULL) {
+                udp_bind(udp_client_pcb, IP_ADDR_ANY, CELESTIAL_NET_DEFAULT_PORT);
                 udp_recv(udp_client_pcb, net_client_udp_recv_callback, NULL);
             }
             cyw43_arch_lwip_end();
@@ -367,7 +440,30 @@ static bool send_udp_packet(uint8_t msg_type, const void *payload, size_t payloa
 }
 
 bool net_client_ping_server(void) {
-    return send_udp_packet(NET_MSG_HEARTBEAT, NULL, 0);
+    // 1. Unicast ping to Brain Server
+    send_udp_packet(NET_MSG_HEARTBEAT, NULL, 0);
+
+    // 2. Broadcast Discovery Beacon to subnet (255.255.255.255:5005) so Companion App discovers staff
+    if (udp_client_pcb != NULL && current_status == NET_STATUS_CONNECTED) {
+        size_t total_len = sizeof(net_packet_header_t);
+        cyw43_arch_lwip_begin();
+        struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, total_len, PBUF_RAM);
+        if (p != NULL) {
+            net_packet_header_t *hdr = (net_packet_header_t *)p->payload;
+            hdr->magic = CELESTIAL_NET_MAGIC;
+            hdr->version = CELESTIAL_NET_VERSION;
+            hdr->msg_type = NET_MSG_HEARTBEAT;
+            hdr->seq_num = tx_seq_counter++;
+            hdr->payload_len = 0;
+            hdr->request_id = 0;
+            ip_addr_t bcast;
+            ip_addr_set_ip4_u32(&bcast, IPADDR_BROADCAST);
+            udp_sendto(udp_client_pcb, p, &bcast, CELESTIAL_NET_DEFAULT_PORT);
+            pbuf_free(p);
+        }
+        cyw43_arch_lwip_end();
+    }
+    return true;
 }
 
 bool net_client_send_query_start(uint8_t lang_code, uint8_t model_preset) {
@@ -447,3 +543,39 @@ const char* net_client_get_response_text(void) {
 
 bool net_client_response_failed(void) { return response_failed; }
 uint32_t net_client_response_progress_ms(void) { return response_progress_ms; }
+
+bool net_client_poll_remote_command(remote_cmd_t *cmd) {
+    if (!pending_remote_cmd.has_command) {
+        return false;
+    }
+    *cmd = pending_remote_cmd;
+    pending_remote_cmd.has_command = false;
+    return true;
+}
+
+bool net_client_has_paired_companion(void) {
+    return has_paired_companion;
+}
+
+void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style) {
+    if (!has_paired_companion || udp_client_pcb == NULL || current_status != NET_STATUS_CONNECTED) {
+        return;
+    }
+    uint8_t payload[6] = { mode, state, volume, anim, clock_style, 0 };
+    size_t total_len = sizeof(net_packet_header_t) + sizeof(payload);
+    cyw43_arch_lwip_begin();
+    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, total_len, PBUF_RAM);
+    if (p != NULL) {
+        net_packet_header_t *hdr = (net_packet_header_t *)p->payload;
+        hdr->magic = CELESTIAL_NET_MAGIC;
+        hdr->version = CELESTIAL_NET_VERSION;
+        hdr->msg_type = NET_MSG_APP_TELEMETRY;
+        hdr->seq_num = tx_seq_counter++;
+        hdr->payload_len = sizeof(payload);
+        hdr->request_id = 0;
+        memcpy((uint8_t *)p->payload + sizeof(*hdr), payload, sizeof(payload));
+        udp_sendto(udp_client_pcb, p, &companion_ip_addr, companion_port);
+        pbuf_free(p);
+    }
+    cyw43_arch_lwip_end();
+}
