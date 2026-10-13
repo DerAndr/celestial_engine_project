@@ -1,9 +1,10 @@
 package com.celestial.companion
 
 import android.os.Bundle
+import android.widget.ScrollView
+import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -11,10 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import com.celestial.companion.domain.repository.StaffRepository
-import com.celestial.companion.network.StaffUdpTransport
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.celestial.companion.ui.navigation.Screen
 import com.celestial.companion.ui.screens.chronos.ChronosScreen
 import com.celestial.companion.ui.screens.dashboard.DashboardScreen
@@ -29,22 +27,32 @@ import com.celestial.companion.ui.theme.SpaceBlack
 
 class MainActivity : ComponentActivity() {
 
-    private val viewModel: DashboardViewModel by viewModels {
-        object : ViewModelProvider.Factory {
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                val app = application as CelestialApp
-                @Suppress("UNCHECKED_CAST")
-                return DashboardViewModel(app.staffRepository) as T
-            }
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            CelestialCompanionTheme {
-                MainAppScaffold(viewModel = viewModel)
+        try {
+            val app = application as CelestialApp
+            val repository = app.staffRepository
+
+            setContent {
+                val viewModel: DashboardViewModel = viewModel {
+                    DashboardViewModel(repository)
+                }
+                CelestialCompanionTheme {
+                    MainAppScaffold(viewModel = viewModel)
+                }
             }
+        } catch (t: Throwable) {
+            val scrollView = ScrollView(this).apply {
+                setBackgroundColor(0xFF0B0F19.toInt())
+            }
+            val tv = TextView(this).apply {
+                text = "CELESTIAL COMPANION - STARTUP DIAGNOSTIC\n\nError: ${t.javaClass.name}\nMessage: ${t.message}\n\nStack Trace:\n${t.stackTraceToString()}"
+                setTextColor(0xFFFF5252.toInt())
+                setPadding(40, 60, 40, 60)
+                textSize = 13f
+            }
+            scrollView.addView(tv)
+            setContentView(scrollView)
         }
     }
 }

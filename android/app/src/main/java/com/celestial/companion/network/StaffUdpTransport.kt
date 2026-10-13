@@ -37,22 +37,21 @@ class StaffUdpTransport(
                 // Initialize socket if not already open
                 if (socket == null || socket?.isClosed == true) {
                     try {
-                        // Create unbound socket first, then configure options and bind
-                        val s = DatagramSocket(null).apply {
-                            reuseAddress = true
-                            broadcast = true
-                            soTimeout = 2000 // 2s timeout so receive() unblocks periodically
-                        }
+                        val s = DatagramSocket(null)
+                        s.reuseAddress = true
                         try {
                             s.bind(InetSocketAddress(localPort))
-                            Log.i(TAG, "Bound UDP listening socket to port $localPort")
+                            Log.i(TAG, "Bound UDP socket to port $localPort")
                         } catch (e: Exception) {
-                            Log.w(TAG, "Port $localPort busy, falling back to ephemeral port: ${e.message}")
+                            Log.w(TAG, "Port $localPort busy, binding to ephemeral port: ${e.message}")
                             s.bind(InetSocketAddress(0))
                         }
+                        // Set broadcast and timeout strictly after binding
+                        s.broadcast = true
+                        s.soTimeout = 2000
                         socket = s
                     } catch (e: Exception) {
-                        Log.e(TAG, "Failed to create DatagramSocket: ${e.message}", e)
+                        Log.e(TAG, "Failed to initialize DatagramSocket: ${e.message}", e)
                         delay(2000)
                         continue
                     }
@@ -73,7 +72,7 @@ class StaffUdpTransport(
                         _incomingPackets.emit(packet)
                     }
                 } catch (e: java.net.SocketTimeoutException) {
-                    // Normal timeout for periodic check of isRunning / isActive
+                    // Periodic timeout to evaluate isRunning/isActive
                 } catch (e: Exception) {
                     if (!isRunning) break
                     Log.w(TAG, "UDP receive exception: ${e.message}")
@@ -89,7 +88,9 @@ class StaffUdpTransport(
                 val bytes = packet.toBytes()
                 val targetAddr = InetAddress.getByName(targetIp)
                 val datagram = DatagramPacket(bytes, bytes.size, targetAddr, targetPort)
-                val s = socket ?: DatagramSocket().apply { broadcast = true }
+                val s = socket ?: DatagramSocket().apply {
+                    broadcast = true
+                }
                 s.send(datagram)
             } catch (e: Exception) {
                 Log.e(TAG, "UDP send failed to $targetIp:$targetPort: ${e.message}")
