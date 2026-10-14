@@ -74,8 +74,8 @@ static const char *AI_MODEL_TAGS[AI_MODEL_COUNT] = {
     "LOC"
 };
 
-static int active_ai_model_idx = AI_MODEL_DEEPSEEK; // Default: Deep Thought (DeepSeek V3, fast & cheap!)
-static int selected_ai_model_idx = AI_MODEL_DEEPSEEK;
+static int active_ai_model_idx = AI_MODEL_LOCAL; // Default: Raspberry Pi 5 Autonomous Offline Core
+static int selected_ai_model_idx = AI_MODEL_LOCAL;
 static bool ai_model_edit_mode = false;
 
 static const char *LANG_NAMES[LANG_COUNT] = {

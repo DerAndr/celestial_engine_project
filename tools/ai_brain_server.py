@@ -537,10 +537,14 @@ def process_query_worker(transport, session):
             wf.setsampwidth(2)
             wf.setframerate(16000)
             wf.writeframes(cleaned_pcm)
-        # STT Selection: local if requested, or cloud with local fallback
+        config = load_config()
+        force_local = config.get("force_local_ai", True)
+        use_local = (force_local or session.model == 4) and HAS_LOCAL_AI
+
+        # STT Selection: local if forced or requested (model 4), or cloud with fallback
         user_text = None
         detected_lang = "ru-RU"
-        if session.model == 4 and HAS_LOCAL_AI:
+        if use_local:
             print(f"[REQUEST {session.request_id}] Running 100% Local STT (whisper.cpp)...")
             user_text, detected_lang = local_ai_engine.local_transcribe(wav_path, session.lang)
         else:
@@ -554,16 +558,16 @@ def process_query_worker(transport, session):
     if user_text:
         print(f"  [USER INPUT] \"{user_text}\" (Detected: {detected_lang})")
 
-    # LLM Selection: local if requested, or cloud with local fallback
-    config = load_config()
+    # LLM Selection
     is_toggle, toggle_ans = check_adult_mode_toggle(user_text, detected_lang, config)
     if is_toggle:
         ai_text = toggle_ans
     else:
         adult_mode = config.get("adult_mode", False)
         mode_label = "18+ ADULT" if adult_mode else "PG-13 SAFE"
-        if session.model == 4 and HAS_LOCAL_AI:
-            print(f"[REQUEST {session.request_id}] Querying Local Pi 5 LLM Core (Ollama) [{mode_label}]...")
+        if use_local:
+            local_model = config.get("local_model", "gemma2:2b")
+            print(f"[REQUEST {session.request_id}] Querying Local Pi 5 Core ({local_model}) [{mode_label}]...")
             ai_text = (local_ai_engine.local_query_llm(user_text, detected_lang, adult_mode=adult_mode)
                        if user_text else get_silence_answer(detected_lang))
         else:
@@ -593,7 +597,7 @@ def process_query_worker(transport, session):
 
     print(f"[REQUEST {session.request_id}] TTS ({response_lang})...")
     pcm = b""
-    if session.model == 4 and HAS_LOCAL_AI:
+    if use_local:
         pcm = local_ai_engine.local_synthesize_pcm(ai_text, response_lang)
     else:
         pcm = asyncio.run(synthesize_speech_pcm(ai_text, response_lang, config))
@@ -617,20 +621,22 @@ def main():
     except Exception:
         local_ips = ["127.0.0.1"]
     config = load_config()
+    force_local = config.get("force_local_ai", True)
     adult_mode = config.get("adult_mode", False)
     safety_label = "[18+ ADULT MODE ACTIVE]" if adult_mode else "[PG-13 FAMILY SAFE — NO PROFANITY]"
+    local_m = config.get("local_model", "gemma2:2b")
 
     print("=" * 64)
-    print("  CELESTIAL ENGINE Mk.V — AI BRAIN SERVER (Multi-Core Engine)")
+    print("  CELESTIAL ENGINE Mk.V — 100% AUTONOMOUS LOCAL AI SERVER")
     print("=" * 64)
-    print(f"  UDP Port : {port} | Host IP: {', '.join(local_ips)}")
-    print(f"  Provider : {config.get('api_base')}")
-    api_key_set = bool(config.get("api_key") and config.get("api_key") != "YOUR_API_KEY_HERE")
-    print(f"  API Key  : {'[LIVE AI ACTIVE]' if api_key_set else '[OFFLINE ONLY]'}")
-    print("  Models   : DeepSeek, Ministral, Grok, Llama, Pi 5 Local")
-    print(f"  Offline  : {'Whisper + Ollama + Piper [READY]' if HAS_LOCAL_AI else '[OFFLINE]'}")
-    print(f"  Dialects : Russian [RU], English [EN], Deutsch [DE]")
-    print(f"  Safety   : {safety_label}")
+    print(f"  Architecture : 100% Offline Edge Pipeline (Raspberry Pi 5)")
+    print(f"  Local STT    : Whisper.cpp (ARM NEON SIMD) [Offline]")
+    print(f"  Local LLM    : Ollama -> {local_m} (Google Gemma 2 / Qwen 2.5)")
+    print(f"  Local TTS    : Piper C++ Standalone (VITS ONNX) [Offline]")
+    print(f"  Safety       : {safety_label}")
+    print(f"  UDP Port     : {port} (Protocol v2) | Host IP: {', '.join(local_ips)}")
+    cloud_status = "Standby (100% Offline Mode Active)" if force_local else "Enabled (OpenRouter Fallback)"
+    print(f"  Cloud Link   : {cloud_status}")
     print("=" * 64)
     print("Ready and listening for Pico 2 W queries (Hold QUERY on staff)...")
 
