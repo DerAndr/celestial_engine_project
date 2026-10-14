@@ -24,6 +24,7 @@ import asyncio
 import subprocess
 import threading
 import tempfile
+import math
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from brain_transport import BrainTransport, PORT
@@ -201,15 +202,21 @@ def transcribe_audio(wav_path, lang_code):
     elif lang_code == LANG_RU:
         target_lang = "ru-RU"
     else:
-        target_lang = "ru-RU"  # Default auto priority: Russian first
+        target_lang = "ru-RU"
 
+    print(f"  [STT] Processing audio ({audio.sample_rate}Hz, {audio.sample_width}B/s). Target: {target_lang}...")
     try:
         text = r.recognize_google(audio, language=target_lang)
         if text and len(text.strip()) > 0:
             detected = detect_language_from_text(text)
+            print(f"  [STT SUCCESS] \"{text}\" (detected: {detected})")
             return text.strip(), detected
-    except Exception:
-        pass
+    except sr.UnknownValueError:
+        print(f"  [STT] Google Speech: No words recognized in {target_lang}")
+    except sr.RequestError as e:
+        print(f"  [STT NETWORK ERROR] Google Speech API request failed: {e}")
+    except Exception as e:
+        print(f"  [STT ERROR] {type(e).__name__}: {e}")
 
     # Try other languages if primary target language didn't match
     cands = ["ru-RU", "en-US", "de-DE"]
@@ -220,10 +227,14 @@ def transcribe_audio(wav_path, lang_code):
             text = r.recognize_google(audio, language=cand)
             if text and len(text.strip()) > 0:
                 detected = detect_language_from_text(text)
+                print(f"  [STT SUCCESS FALLBACK] \"{text}\" (detected: {detected})")
                 return text.strip(), detected
-        except Exception:
+        except sr.UnknownValueError:
             pass
+        except Exception as e:
+            print(f"  [STT ERROR {cand}] {type(e).__name__}: {e}")
 
+    print("  [STT FAILED] Audio evaluated as silence / no clear speech.")
     return None, target_lang
 
 def get_fallback_answer(lang_tag):
@@ -275,7 +286,7 @@ def query_llm(user_text, lang_tag, lang_code, model_preset, config):
     enforced_prompt = (
         f"{sys_prompt}\n"
         "CRITICAL INSTRUCTIONS: Give an enthusiastic, witty, and joyful spoken answer in 2-3 lively sentences (around 35-50 words). "
-        "Embrace retrofuturistic sci-fi charm and playful cosmic irony (Gravitsappa, Hitchhiker's Guide, 42, Ku!). "
+        "Embrace retro-space sci-fi charm and playful cosmic irony (star charts, analog gauges, space anomalies, sub-space relays, 42). "
         "Do not use markdown, emojis, asterisks, bullet points, or quotes. Do not cut your thought short."
     )
 
@@ -385,13 +396,35 @@ def process_query_worker(transport, session):
         return
     with tempfile.TemporaryDirectory(prefix="celestial-query-") as directory:
         wav_path = os.path.join(directory, "query.wav")
+        raw_pcm = bytes(session.pcm)
+        session.pcm.clear()
+        dur = len(raw_pcm) / 32000.0
+        cleaned_pcm = clean_pcm_samples(raw_pcm)
+
+        count = len(cleaned_pcm) // 2
+        if count > 0:
+            samples = list(struct.unpack(f"<{count}h", cleaned_pcm[:count * 2]))
+            min_s = min(samples)
+            max_s = max(samples)
+            rms_s = int(math.sqrt(sum(s*s for s in samples) / count))
+            print(f"[REQUEST {session.request_id}] {len(raw_pcm)} bytes ({dur:.2f}s). Stats: min={min_s}, max={max_s}, RMS={rms_s}")
+        else:
+            print(f"[REQUEST {session.request_id}] 0 bytes received!")
+
+        try:
+            with wave.open("/home/andr/last_query.wav", "wb") as wf_dbg:
+                wf_dbg.setnchannels(1)
+                wf_dbg.setsampwidth(2)
+                wf_dbg.setframerate(16000)
+                wf_dbg.writeframes(cleaned_pcm)
+        except Exception:
+            pass
+
         with wave.open(wav_path, "wb") as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)
             wf.setframerate(16000)
-            wf.writeframes(clean_pcm_samples(bytes(session.pcm)))
-        session.pcm.clear()
-        print(f"[REQUEST {session.request_id}] STT...")
+            wf.writeframes(cleaned_pcm)
         user_text, detected_lang = transcribe_audio(wav_path, session.lang)
     if not transport.active(session):
         return

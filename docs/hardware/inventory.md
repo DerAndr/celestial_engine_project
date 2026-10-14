@@ -31,10 +31,10 @@ Status values: `ORDERED`, `RECEIVED`, `TESTED`, `INSTALLED`, `FAILED`, `REMOVED`
 | 26 AWG multicolor wire | 1 set | RECEIVED | Signals |
 | Raspberry Pi 5 | 1 | TESTED | 16 GB RAM; wearable brain; verified on MicroSD Lite 64-bit |
 | Raspberry Pi Active Cooler | 1 | TESTED | Operational on Pi 5 |
-| Lexar NM790 1 TB NVMe SSD | 1 | TESTED | M.2 2280 PCIe 4.0; 100% healthy (0 media errors, 453 MB/s read); awaiting PIM699 |
+| Lexar NM790 1 TB NVMe SSD | 1 | TESTED | M.2 2280 PCIe 4.0; 100% healthy; active primary OS boot disk on PIM699 |
 | Geekworm X1002 V1.1 NVMe HAT | 1 | FAILED / RETIRED | Power delivery brownout on high-current write bursts (D3cold lockup); retired |
 | Geekworm P580-V2 metal case | 1 | RETIRED | Form factor tied to X1002; retired |
-| Pimoroni PIM699 (NVMe Base) | 1 | PLANNED / ORDERED | High-capacity power delivery NVMe base; certified for Lexar NM790 |
+| Pimoroni PIM699 (NVMe Base) | 1 | TESTED | High-capacity power delivery NVMe base; verified with Lexar NM790 1 TB; standalone boot active |
 | Geekworm X1209 V1.0 | 1 | ORDERED | Pi 5 portable power only |
 | Geekworm X12-A1 + X12-A3 | 1 | ORDERED | Pi 5 portable power only |
 | Molicel INR18650-M35A 3500 mAh flat-top | 4 | ORDERED | Pi 5 portable power only |

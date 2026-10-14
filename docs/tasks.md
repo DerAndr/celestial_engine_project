@@ -35,8 +35,9 @@
 - [ ] Проверено автоматическое переключение на точку доступа смартфона (`WIFI_FALLBACK_SSID`).
 - [ ] Проверен облачный / удаленный запуск `ai_brain_server.py` (через Docker / VPS).
 - [x] Завершена чистая установка Bookworm Lite 64-bit на MicroSD и локализована причина NVMe read-only по [037](experiments/037-rpi5-nvme-stand-alone-migration.md).
-- [ ] Ожидание адаптера **Pimoroni PIM699 (NVMe Base)** для финализации standalone NVMe boot на Lexar NM790 1 TB.
-- [ ] На Pi 5 (пока с MicroSD) развернуть и проверить сервер `ai_brain_server.py` в локальной сети.
+- [x] Адаптер **Pimoroni PIM699 (NVMe Base)** установлен, стабильность питания 3.3V/4A подтверждена стресс-тестом записи (393 MB/s с fsync, 0 ошибок) по [037](experiments/037-rpi5-nvme-stand-alone-migration.md).
+- [x] Развернуть и проверить сервер `ai_brain_server.py` на автономном Raspberry Pi 5 в локальной сети (`celestial-brain.service` активен на `192.168.178.51:5005`, OpenRouter DeepSeek V3 + Edge-TTS 7.3.1 проверены).
+- [ ] Прошить Pico 2 W собранной прошивкой `celestial_firmware.uf2` (с адресом `192.168.178.51`) и проверить голосовой цикл на физическом посохе.
 
 
 Переписывание светомузыки **на четыре кольца снято с активного плана**, поскольку четвёртого кольца больше нет. Косметика текущих трёх колец остаётся в бэклоге и не блокирует переход к Pi.

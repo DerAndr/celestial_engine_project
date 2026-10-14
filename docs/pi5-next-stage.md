@@ -8,7 +8,7 @@ Pi 5 питается отдельно от посоха; использоват
 
 ```bash
 sudo apt update
-sudo apt install python3-venv ffmpeg
+sudo apt install python3-venv ffmpeg flac
 python3 -m venv .venv
 .venv/bin/python -m pip install -r tools/requirements-brain.txt
 hostname -I

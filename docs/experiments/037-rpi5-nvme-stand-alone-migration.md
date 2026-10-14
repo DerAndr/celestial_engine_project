@@ -1,7 +1,7 @@
 # Experiment 037 — Raspberry Pi 5 NVMe Migration and Standalone Setup
 
-**Date**: 2026-10-12 – 2026-10-13  
-**Status**: PAUSED (Milestone 1 Complete: Hardware Root Cause Isolated; MicroSD Baseline Operational; Awaiting Pimoroni PIM699 for Final NVMe Boot Cutover)  
+**Date**: 2026-10-12 – 2026-10-14  
+**Status**: PASSED / VERIFIED (Standalone NVMe Boot Active on Pimoroni PIM699 + Lexar NM790 1 TB; MicroSD Removed)  
 **Target Hardware**: Raspberry Pi 5 (BCM2712, 16GB RAM, Active Cooler, Official 27W PSU, Lexar NM790 1TB NVMe, Pimoroni PIM699 NVMe Base)  
 **Associated Post-Mortem Report**: [`docs/hardware/rpi5_nvme_migration_incident_report.md`](../hardware/rpi5_nvme_migration_incident_report.md)
 
@@ -51,28 +51,41 @@ Establish a clean, high-performance Linux environment on the Raspberry Pi 5 wear
 
 ---
 
-## 4. Next Milestone: Pimoroni PIM699 Cutover Checklist
+## 4. Milestone 2: Pimoroni PIM699 Hardware Validation (PASSED)
 
-When the Pimoroni PIM699 arrives:
-1. [ ] Mount Pimoroni NVMe Base beneath Raspberry Pi 5 using supplied standoffs and shielded FPC ribbon.
-2. [ ] Install Lexar NM790 1 TB into the M.2 Key-M slot.
-3. [ ] Keep `config.txt` parameters:
-   ```ini
-   dtparam=nvme
-   dtparam=pciex1_gen=3
-   ```
-4. [ ] Keep `cmdline.txt` deep-sleep prevention parameter:
-   ```text
-   nvme_core.default_ps_max_latency_us=0
-   ```
-5. [ ] Clone stable OS from MicroSD to NVMe:
-   ```bash
-   sudo rpi-clone nvme0n1 -U -p 512M
-   ```
-6. [ ] Reconfigure EEPROM for standalone NVMe boot:
-   ```bash
-   sudo rpi-eeprom-config -o /tmp/bootconf.txt
-   sudo sed -i 's/BOOT_ORDER=.*/BOOT_ORDER=0xf416/' /tmp/bootconf.txt
-   sudo rpi-eeprom-config --apply /tmp/bootconf.txt
-   ```
-7. [ ] Remove MicroSD and boot standalone at 750–850 MB/s!
+- **Date**: 2026-10-14
+- **Hardware Configuration**:
+  - Raspberry Pi 5 (16 GB RAM, Bookworm Lite 64-bit)
+  - Pimoroni PIM699 (NVMe Base for Raspberry Pi 5)
+  - Lexar NM790 1 TB M.2 NVMe SSD
+  - Official 27W USB-C Power Supply
+- **Observed Telemetry**:
+  - `lspci`: `0001:01:00.0 Non-Volatile memory controller: Shenzhen Longsys Electronics Co., Ltd. Lexar NM790 NVME SSD (DRAM-less) (rev 01)`
+  - `lsblk`: `nvme0n1` (953.9 GB) detected cleanly.
+  - SMART Health: `temperature: 27 °C`, `available_spare: 100%`, `media_errors: 0`, `critical_warning: 0`.
+  - **Sustained Write Stress-Test (`dd conv=fsync`)**:
+    - `524288000 bytes (524 MB, 500 MiB) copied, 1.33569 s, 393 MB/s`
+    - **Result**: Zero power dropouts, zero kernel `D3cold` stalls, Wi-Fi remained 100% stable. The 3.3V/4A buck converter on Pimoroni PIM699 completely resolved the Geekworm X1002 power starvation issue.
+
+---
+
+## 5. Milestone 3: OS Clone and Standalone NVMe Boot Cutover (PASSED)
+
+Checklist:
+1. [x] Mount Pimoroni NVMe Base beneath Raspberry Pi 5 using supplied standoffs and shielded FPC ribbon.
+2. [x] Install Lexar NM790 1 TB into the M.2 Key-M slot.
+3. [x] Verify sustained write power delivery under `dd conv=fsync` (393 MB/s, PASS).
+4. [x] Fix spacing in `cmdline.txt` and enable PCIe Gen 3 in `config.txt` (`dtparam=pciex1_gen=3`).
+5. [x] Clone clean MicroSD OS to NVMe (`rpi-clone nvme0n1 -f -p 512M`).
+6. [x] Reconfigure EEPROM for standalone NVMe boot (`BOOT_ORDER=0xf416`).
+7. [x] Remove MicroSD card physically and boot standalone directly into `/dev/nvme0n1p2` (VERIFIED via `findmnt /`).
+
+---
+
+## 6. Final Status
+Raspberry Pi 5 Wearable Brain hardware storage foundation is **100% OPERATIONAL**.
+- Host: `rpi-15` (192.168.178.51)
+- Storage: Lexar NM790 1 TB PCIe NVMe SSD on Pimoroni PIM699 Base
+- OS Root: `/dev/nvme0n1p2` (ext4, rw, noatime)
+- MicroSD slot: EMPTY
+- Ready for Milestone P10 (`ai_brain_server.py` deployment).
