@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Celestial Engine Mk.V — Tmux Mission Control Launcher
+# Launches a 3-pane split monitoring dashboard on Raspberry Pi 5:
+#   Pane 0 (Left):   btop (Full-screen real-time CPU, RAM, NVMe I/O, process graphs)
+#   Pane 1 (Top R):  pipeline_hud.py (Pi 5 thermals, Ollama model state, AI core telemetry)
+#   Pane 2 (Bot R):  journalctl -u celestial-brain.service -f (Live voice transaction logs)
+
+SESSION_NAME="celestial"
+
+# If session already exists, attach to it
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    echo "Attaching to existing '$SESSION_NAME' tmux session..."
+    tmux attach -t "$SESSION_NAME"
+    exit 0
+fi
+
+echo "Initializing Celestial Engine Mission Control in tmux..."
+
+# Create new detached session with btop in pane 0
+tmux new-session -d -s "$SESSION_NAME" -n "Dashboard" "btop"
+
+# Split window horizontally: 55% left (btop), 45% right
+tmux split-window -h -t "$SESSION_NAME:0.0" -p 45 "python3 /home/andr/celestial_engine_project/tools/pipeline_hud.py"
+
+# Split right pane vertically: 50% top (HUD), 50% bottom (logs)
+tmux split-window -v -t "$SESSION_NAME:0.1" -p 50 "sudo journalctl -u celestial-brain.service -f -o cat"
+
+# Select pane 0 as active
+tmux select-pane -t "$SESSION_NAME:0.0"
+
+# Attach to session
+tmux attach -t "$SESSION_NAME"

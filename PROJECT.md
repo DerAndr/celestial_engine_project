@@ -5,24 +5,25 @@ Build a working interactive AI staff quickly from the hardware already purchased
 
 The coding agent must guide the user physically, one testable prototype at a time, and maintain the repository as an engineering notebook.
 
-## Current implementation — 2026-10-11 response review
+## Current implementation — 2026-10-14 Standalone NVMe Boot & Offline AI Core
 
-User reports a generally stable staff with live requests and generated audio answers. The repaired fourth 16-LED ring was ultimately **discarded by the user because it remained unreliable**. Active physical chain: **7→12→24 = 43 LEDs**, GP15 / PIO0 SM1 / DMA, 300 µs reset, 18% brightness cap. The historical fourth-ring jumper repair remains in experiments 019–025; it is no longer the active hardware.
+Active physical staff: **7→12→24 = 43 LEDs**, GP15 / PIO0 SM1 / DMA, 300 µs reset, 18% brightness cap, SH1106 OLED, INMP441 Mic, MAX98357A Amp.
+Firmware baseline: **1.0.18-LOCAL-AI**, `firmware/build/celestial_firmware.uf2`. Pico 2 W / RP2350, official SDK 2.3.1. Features 5 selectable AI models: DeepSeek, Ministral, Grok, Llama 70B, and **PI 5 LOCAL** (100% offline).
 
-Current prepared main: **1.0.16-RESPONSE-FIX**, `firmware/build/celestial_firmware.uf2`. Pico 2 W / RP2350, official SDK 2.3.1. The preceding user baseline is 1.0.15-THREE-RINGS. New firmware/server pair uses [UDP protocol v2](docs/protocol.md): request IDs, idempotent START, ordered/acknowledged response packets, bounded ring writes, progress while generating, and cancellation of late responses. OLED speech text is a full-screen 8× marquee, with no header/equalizer during answers. New physical validation is pending; software checks are in [review 036](docs/experiments/036-response-review-and-fullscreen-text.md).
+Wearable SBC Node: **Raspberry Pi 5 (16 GB RAM)** on **Pimoroni PIM699 Base** with **Lexar NM790 1 TB NVMe SSD** running in **PCIe Gen 3** mode (688 MB/s sustained write, 0x0 throttling, MicroSD completely removed, pure NVMe boot).
+AI Brain Service: Active systemd daemon `celestial-brain.service` listening on UDP port 5005. Features both **100% Autonomous Offline AI** (`whisper.cpp` + Ollama `llama3.2:1b`/`gemma2:2b` + `piper` C++ ONNX) and **Hybrid Cloud Core** (OpenRouter + Edge-TTS) with seamless automatic failover.
+Mission Control: `tools/start_monitor.sh` multi-pane tmux HUD combining `btop`, `pipeline_hud.py`, and live voice transaction logs.
 
 | Area | Current behavior / status |
 |---|---|
-| Controls/display | SH1106 128×64; encoder/menu, language/model/volume selection; full-screen response marquee prepared |
+| Controls/display | SH1106 128×64; encoder/menu, language/model/volume selection; full-screen response marquee; 5 AI presets |
 | QUERY/microphone | Hold streams 16 kHz PCM16 mono over Wi-Fi; release submits; 60 s capture limit; first 2 s retained in local 64 KB RAM buffer |
-| Brain | Current PC service: Google Web Speech STT → configured cloud LLM → Edge-TTS → ffmpeg PCM; separate worker keeps heartbeat responsive |
-| Response | 32768-sample streaming ring; complete ordered delivery with retries; older/cancelled IDs rejected; no one-second preview replay |
-| Speaker | One MAX98357A + QUARKZMAN 4 Ω / 3 W; GAIN unconnected; PCM16 stereo I2S, 512 kHz BCLK, 16 kHz LRC; V35 default, shared 40 dB curve |
-| LEDs | Three rings; recording vortex, processing data radar and speaking waves; fourth ring excluded |
-| Standalone | Local display, controls, effects, music and embedded phrases work without Pi; network QUERY requires reachable brain and shows OFFLINE otherwise |
-| Next stage | Validate new pair on PC, then move the same server to Pi 5 on existing Wi-Fi; local-model/hotspot changes later |
-
-Audio solder repair resolved the earlier ERR-AUDIO-02/03 (017–018). New response clipping, late-answer and full-screen text fixes are separate; keep the established GPIO and hardware architecture. [Tasks](docs/tasks.md) · [Code review](docs/reviews/2026-10-11-streaming-review.md) · [Pi 5 handoff](docs/pi5-next-stage.md).
+| Brain Server (Pi 5) | Active systemd daemon on UDP 5005; supports 100% Offline (Whisper+Ollama+Piper) and Cloud (OpenRouter+EdgeTTS) |
+| Offline Latency | ~1.5s STT (Whisper Tiny) + ~2.1-5.6s LLM (Llama 1B / Gemma 2B) + ~0.5-0.8s TTS (Piper C++) = ~4.5-8.9s total |
+| NVMe Subsystem | Pimoroni PIM699 + Lexar NM790 1 TB; PCIe Gen 3; 688 MB/s; standalone boot from /dev/nvme0n1p2; 35°C; throttled=0x0 |
+| Speaker | MAX98357A + QUARKZMAN 4 Ω / 3 W; PCM16 stereo I2S, 512 kHz BCLK, 16 kHz LRC; V35 default, shared 40 dB curve |
+| LEDs | Three rings (43 LEDs); recording vortex, processing data radar and speaking waves |
+| Mission Control | Multi-pane tmux HUD: `btop` (CPU, RAM, NVMe I/O) + `pipeline_hud.py` (thermals, pipeline step) + `journalctl` |
 
 ## System architecture
 There are two physically separate subsystems:
