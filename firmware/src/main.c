@@ -1995,6 +1995,7 @@ int main(void) {
                     audio_stop_all();
                     current_state = STATE_LISTENING;
                     easter_egg_active = false;
+                    mic_record_start();
                     uint8_t mid = net_client_get_model_id(active_ai_model_idx);
                     if (!net_client_send_query_start((uint8_t)active_lang_idx, mid)) {
                         mic_record_stop();
@@ -2021,9 +2022,9 @@ int main(void) {
                      (unsigned long)rec_ms,
                      (int)session_peak);
 
-            // Reject and cancel if shorter than 1000 ms OR silent/empty (peak < 350)
-            if (rec_ms < 1000 || session_peak < 350) {
-                LOG_INFO("QUERY", "Recording rejected (duration %lu ms < 1000 ms or peak %d < 350). Query cancelled.",
+            // Reject and cancel if shorter than 300 ms OR silent/empty (peak < 100)
+            if (rec_ms < 300 || session_peak < 100) {
+                LOG_INFO("QUERY", "Recording rejected (duration %lu ms < 300 ms or peak %d < 100). Query cancelled.",
                          (unsigned long)rec_ms, (int)session_peak);
                 if (!offline_oracle_mode) net_client_cancel();
                 current_state = STATE_IDLE;
