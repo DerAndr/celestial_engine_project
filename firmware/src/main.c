@@ -62,14 +62,16 @@ static const char *AI_MODEL_NAMES[AI_MODEL_COUNT] = {
     "DEEP THOUGHT",
     "EDDIE COMP",
     "GROK 4.5",
-    "MARVIN 70B"
+    "MARVIN 70B",
+    "PI 5 LOCAL"
 };
 
 static const char *AI_MODEL_TAGS[AI_MODEL_COUNT] = {
     "42",
     "EDD",
     "GRK",
-    "MRV"
+    "MRV",
+    "LOC"
 };
 
 static int active_ai_model_idx = AI_MODEL_DEEPSEEK; // Default: Deep Thought (DeepSeek V3, fast & cheap!)
@@ -1320,7 +1322,8 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             snprintf(ai_pill, sizeof(ai_pill), "AI : %s",
                      (active_ai_model_idx == AI_MODEL_DEEPSEEK) ? "DEEPSEEK" :
                      (active_ai_model_idx == AI_MODEL_MISTRAL)  ? "MINISTRAL" :
-                     (active_ai_model_idx == AI_MODEL_GROK)     ? "GROK 4.5" : "LLAMA 70B");
+                     (active_ai_model_idx == AI_MODEL_GROK)     ? "GROK 4.5" :
+                     (active_ai_model_idx == AI_MODEL_LLAMA)    ? "LLAMA 70B" : "PI 5 LOCAL");
             sh1106_draw_string(33, 31, ai_pill, true);
             char v_pill[24];
             snprintf(v_pill, sizeof(v_pill), "VOL: %2d%% [%s]", (int)audio_get_volume(), LANG_SHORT_TAGS[active_lang_idx]);
@@ -1368,9 +1371,12 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             } else if (active_ai_model_idx == AI_MODEL_LLAMA) {
                 sh1106_draw_string(6, 27, "MODEL: llama-3.3-70b", true);
                 sh1106_draw_string(6, 37, "STYLE: MARVIN ANDROID", true);
+            } else if (active_ai_model_idx == AI_MODEL_LOCAL) {
+                sh1106_draw_string(6, 27, "MODEL: llama3.2 / gemma", true);
+                sh1106_draw_string(6, 37, "STYLE: PI 5 OFFLINE AI", true);
             }
             sh1106_draw_line(2, 47, 125, 47, true);
-            draw_marquee(51, "// CLOUD LLM CORE // CLICK SW TO SELECT // DEEP THOUGHT -> EDDIE -> GROK -> MARVIN //", now_ms);
+            draw_marquee(51, "// CLOUD OR OFFLINE // CLICK SW TO SELECT // DEEPSEEK -> EDDIE -> GROK -> MARVIN -> LOCAL //", now_ms);
             break;
         }
 

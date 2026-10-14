@@ -53,6 +53,12 @@ try:
 except ImportError:
     HAS_GTTS = False
 
+try:
+    import local_ai_engine
+    HAS_LOCAL_AI = local_ai_engine.is_local_ai_available()
+except Exception:
+    HAS_LOCAL_AI = False
+
 LANG_EN   = 0
 LANG_AUTO = 1
 LANG_DE   = 2
@@ -69,7 +75,8 @@ MODEL_PRESETS = {
     0: ("deepseek/deepseek-chat", "Deep Thought (DeepSeek V3)"),
     1: ("mistralai/ministral-8b-2512", "Eddie (Ministral 8B)"),
     2: ("x-ai/grok-4.5", "Grok 4.5"),
-    3: ("meta-llama/llama-3.3-70b-instruct", "Marvin (Llama 70B)")
+    3: ("meta-llama/llama-3.3-70b-instruct", "Marvin (Llama 70B)"),
+    4: ("local/llama3.2:1b", "Local Pi 5 (Offline Autonomous)")
 }
 
 
@@ -425,14 +432,39 @@ def process_query_worker(transport, session):
             wf.setsampwidth(2)
             wf.setframerate(16000)
             wf.writeframes(cleaned_pcm)
-        user_text, detected_lang = transcribe_audio(wav_path, session.lang)
+        # STT Selection: local if requested, or cloud with local fallback
+        user_text = None
+        detected_lang = "ru-RU"
+        if session.model == 4 and HAS_LOCAL_AI:
+            print(f"[REQUEST {session.request_id}] Running 100% Local STT (whisper.cpp)...")
+            user_text, detected_lang = local_ai_engine.local_transcribe(wav_path, session.lang)
+        else:
+            user_text, detected_lang = transcribe_audio(wav_path, session.lang)
+            if not user_text and HAS_LOCAL_AI:
+                print(f"[REQUEST {session.request_id}] Cloud STT silent/failed; trying Local Whisper fallback...")
+                user_text, detected_lang = local_ai_engine.local_transcribe(wav_path, session.lang)
+
     if not transport.active(session):
         return
     if user_text:
         print(f"  [USER INPUT] \"{user_text}\" (Detected: {detected_lang})")
+
+    # LLM Selection: local if requested, or cloud with local fallback
     config = load_config()
-    ai_text = (query_llm(user_text, detected_lang, session.lang, session.model, config)
-               if user_text else get_silence_answer(detected_lang))
+    if session.model == 4 and HAS_LOCAL_AI:
+        print(f"[REQUEST {session.request_id}] Querying Local Pi 5 LLM Core (Ollama)...")
+        ai_text = (local_ai_engine.local_query_llm(user_text, detected_lang)
+                   if user_text else get_silence_answer(detected_lang))
+    else:
+        ai_text = (query_llm(user_text, detected_lang, session.lang, session.model, config)
+                   if user_text else get_silence_answer(detected_lang))
+        # If cloud returned connection fallback message and local AI is available, use local AI
+        if user_text and HAS_LOCAL_AI and any(k in ai_text.lower() for k in ["связь с ядром прервана", "temporarily offline", "sub-etha-relais"]):
+            print(f"[REQUEST {session.request_id}] Cloud LLM unreachable; falling back to Local Pi 5 LLM...")
+            local_ans = local_ai_engine.local_query_llm(user_text, detected_lang)
+            if local_ans:
+                ai_text = local_ans
+
     if not transport.active(session):
         return
     print(f"  [ORACLE RESPONSE] \"{ai_text}\"")
@@ -448,7 +480,15 @@ def process_query_worker(transport, session):
         response_lang = detected_resp_lang
 
     print(f"[REQUEST {session.request_id}] TTS ({response_lang})...")
-    pcm = asyncio.run(synthesize_speech_pcm(ai_text, response_lang, config))
+    pcm = b""
+    if session.model == 4 and HAS_LOCAL_AI:
+        pcm = local_ai_engine.local_synthesize_pcm(ai_text, response_lang)
+    else:
+        pcm = asyncio.run(synthesize_speech_pcm(ai_text, response_lang, config))
+        if not pcm and HAS_LOCAL_AI:
+            print(f"[REQUEST {session.request_id}] Cloud TTS failed; falling back to Local Piper TTS...")
+            pcm = local_ai_engine.local_synthesize_pcm(ai_text, response_lang)
+
     if not transport.active(session):
         return
     complete = transport.stream(session, pcm, to_oled_ascii(ai_text).encode("ascii", "replace"))
@@ -478,7 +518,8 @@ def main():
         print("  API key:               [SET; LIVE AI ACTIVE]")
     else:
         print("  OpenRouter Key:        [NOT SET — RUNNING OFFLINE FALLBACK]")
-    print("  Presets: [0] DeepSeek  [1] Ministral  [2] Grok  [3] Llama; UDP protocol v2")
+    print("  Presets: [0] DeepSeek  [1] Ministral  [2] Grok  [3] Llama  [4] Local Pi 5; UDP v2")
+    print(f"  Local Offline AI:      {'[READY; Whisper + Ollama + Piper]' if HAS_LOCAL_AI else '[UNAVAILABLE]'}")
     print(f"  Staff Dialects:        Russian [RU], English [EN], Deutsch [DE], Auto [AUTO]")
     print(f"  TTS Voices:            RU: {config.get('tts_voice_ru')}, EN: {config.get('tts_voice_en')}")
     print("=" * 68)

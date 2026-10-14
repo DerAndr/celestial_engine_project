@@ -46,6 +46,7 @@ typedef enum {
     AI_MODEL_MISTRAL  = 1,  // mistralai/ministral-8b-2512 (Eddie the Ship Computer)
     AI_MODEL_GROK     = 2,  // x-ai/grok-4.5 (Grok 4.5 Hitchhiker)
     AI_MODEL_LLAMA    = 3,  // meta-llama/llama-3.3-70b-instruct (Marvin 70B)
+    AI_MODEL_LOCAL    = 4,  // Local Pi 5 Autonomous Core (100% Offline)
     AI_MODEL_COUNT
 } staff_ai_model_id_t;
 
