@@ -728,7 +728,7 @@ static void draw_marquee(int y, const char *text, uint32_t ticker_ms) {
 }
 
 // 24x24 Techno-Fantasy Astrolabe & Runic Celestial Sigil
-static const uint8_t CELESTIAL_LOGO_TECHNO_24x24[72] = {
+static const uint8_t CELESTIAL_LOGO_TECHNO_24x24[72] __attribute__((unused)) = {
     0x00, 0x18, 0x00,  // Row 0  - Northern Celestial Spire
     0x00, 0x18, 0x00,  // Row 1
     0x01, 0xFF, 0x80,  // Row 2  - Arcane Outer Ring Crown
@@ -1279,113 +1279,71 @@ static void draw_clock_card(uint32_t now_ms, int32_t rot_pos) {
 
 static void draw_fun_card(uint32_t now_ms) {
     // -------------------------------------------------------------
-    // 1. Human Cosmic Adventurer with Celestial Staff (Left: x=4..24)
+    // Compact 3-Node Architecture: YOU (Staff) <---> Pi 5 <---> PHONE
     // -------------------------------------------------------------
-    // Space Helmet with visor
-    sh1106_draw_rect(6, 15, 8, 8, true);
-    sh1106_draw_line(8, 18, 11, 18, true); // visor slit
-    sh1106_draw_pixel(9, 19, true);
 
-    // Torso / Space Suit
-    sh1106_draw_rect(6, 23, 8, 9, true);
-    sh1106_draw_pixel(8, 26, true); // chest badge
-
-    // Legs & Space Boots
-    sh1106_draw_line(7, 32, 6, 41, true);
-    sh1106_draw_line(5, 41, 7, 41, true); // left boot
-    sh1106_draw_line(12, 32, 13, 41, true);
-    sh1106_draw_line(12, 41, 14, 41, true); // right boot
-
+    // 1. Human with Staff (Left: x=10..30)
+    // Helmet
+    sh1106_draw_rect(10, 16, 7, 7, true);
+    sh1106_draw_pixel(13, 19, true); // visor
+    // Suit & Body
+    sh1106_draw_rect(10, 23, 7, 8, true);
+    // Boots
+    sh1106_draw_line(11, 31, 10, 38, true);
+    sh1106_draw_line(15, 31, 16, 38, true);
     // Arm holding staff
-    sh1106_draw_line(14, 25, 19, 27, true);
-
-    // Celestial Staff (Pico 2 W)
-    sh1106_draw_line(20, 16, 20, 43, true);
-    // Concentric Rune Orbs at top of staff
-    sh1106_draw_line(19, 14, 21, 14, true);
-    sh1106_draw_line(18, 15, 22, 15, true);
-    sh1106_draw_line(18, 17, 22, 17, true);
-    sh1106_draw_line(19, 18, 21, 18, true);
-    sh1106_draw_pixel(20, 16, true);
-    // Animated energy sparkle
+    sh1106_draw_line(17, 24, 22, 26, true);
+    // Celestial Staff
+    sh1106_draw_line(23, 15, 23, 39, true);
+    // Staff glowing orb
+    sh1106_draw_rect(21, 15, 5, 5, true);
+    sh1106_draw_pixel(23, 17, true);
     if ((now_ms / 200) % 2 == 0) {
-        sh1106_draw_pixel(20, 12, true);
-        sh1106_draw_pixel(17, 15, true);
-        sh1106_draw_pixel(23, 15, true);
+        sh1106_draw_pixel(23, 12, true); // energy spark
     }
+    sh1106_draw_string(9, 40, "STAFF", true);
 
-    sh1106_draw_string(5, 42, "YOU", true);
-
-    // -------------------------------------------------------------
-    // 2. Animated Wireless Link: Staff <~UDP~> Pi 5 (x=24..39)
-    // -------------------------------------------------------------
-    int pkt1 = 23 + (int)((now_ms / 120) % 15);
+    // 2. Wireless Link: Staff <~> Pi 5 (x=31..49)
+    sh1106_draw_line(30, 26, 48, 26, true);
+    int pkt1 = 30 + (int)((now_ms / 80) % 18);
+    sh1106_draw_pixel(pkt1, 25, true);
     sh1106_draw_pixel(pkt1, 26, true);
-    sh1106_draw_pixel(pkt1 + 1, 26, true);
-    sh1106_draw_string(25, 17, "UDP", true);
+    sh1106_draw_pixel(pkt1, 27, true);
 
-    // -------------------------------------------------------------
-    // 3. Wearable Raspberry Pi 5 AI Brain (Center: x=41..69)
-    // -------------------------------------------------------------
-    // Pi 5 Chassis box
-    sh1106_draw_rect(41, 18, 27, 19, true);
-    // Active Heatsink fins
-    for (int fx = 44; fx <= 65; fx += 4) {
+    // 3. Wearable Raspberry Pi 5 Brain (Center: x=50..74)
+    sh1106_draw_rect(50, 18, 24, 18, true);
+    // Heatsink fins
+    for (int fx = 53; fx <= 70; fx += 4) {
         sh1106_draw_line(fx, 15, fx, 18, true);
     }
-    // "Pi 5" Text
-    sh1106_draw_string(44, 23, "Pi 5", true);
-    // Blinking activity LED
+    sh1106_draw_string(53, 23, "Pi5", true);
     if ((now_ms / 250) % 2 == 0) {
-        sh1106_draw_pixel(64, 23, true);
-        sh1106_draw_pixel(64, 24, true);
+        sh1106_draw_pixel(69, 23, true); // status LED
     }
-    sh1106_draw_string(42, 42, "BRAIN", true);
+    sh1106_draw_string(50, 40, "BRAIN", true);
 
-    // -------------------------------------------------------------
-    // 4. Animated Link: Pi 5 <~Net~> Phone (x=69..81)
-    // -------------------------------------------------------------
-    int pkt2 = 69 + (int)((now_ms / 150) % 11);
+    // 4. Wireless Link: Pi 5 <~> Phone (x=76..94)
+    sh1106_draw_line(76, 26, 94, 26, true);
+    int pkt2 = 76 + (int)((now_ms / 80) % 18);
+    sh1106_draw_pixel(pkt2, 25, true);
     sh1106_draw_pixel(pkt2, 26, true);
-    sh1106_draw_string(71, 17, "NET", true);
+    sh1106_draw_pixel(pkt2, 27, true);
+
+    // 5. Android Phone Companion (Right: x=96..114)
+    sh1106_draw_rect(97, 16, 16, 22, true);
+    sh1106_draw_rect(99, 18, 12, 16, true); // screen
+    sh1106_draw_line(103, 36, 107, 36, true); // home bar
+    sh1106_draw_string(97, 40, "PHONE", true);
+
+    // 6. Hitchhiker "42" Badge (Top Right: x=116..125)
+    sh1106_draw_string(116, 16, "42", true);
 
     // -------------------------------------------------------------
-    // 5. Android Companion Phone (Right: x=82..101)
+    // Footer: Clean Marquee Ticker
     // -------------------------------------------------------------
-    // Phone Bezel
-    sh1106_draw_rect(82, 16, 18, 25, true);
-    // Screen Area
-    sh1106_draw_rect(84, 18, 14, 19, true);
-    // Notch / Speaker
-    sh1106_draw_line(89, 17, 92, 17, true);
-    // Home Indicator bar
-    sh1106_draw_line(88, 39, 93, 39, true);
-    // Screen content
-    sh1106_draw_string(86, 21, "APP", true);
-    sh1106_draw_string(83, 42, "PHONE", true);
-
-    // -------------------------------------------------------------
-    // 6. Flying UFO / Hitchhiker "42" (Far Right: x=104..125)
-    // -------------------------------------------------------------
-    sh1106_draw_line(114, 15, 116, 15, true);
-    sh1106_draw_line(113, 16, 117, 16, true); // saucer dome
-    sh1106_draw_line(108, 19, 122, 19, true); // saucer rim
-    sh1106_draw_line(110, 20, 120, 20, true);
-    // Tractor beam rays
-    sh1106_draw_line(112, 21, 109, 31, true);
-    sh1106_draw_line(118, 21, 121, 31, true);
-    // "42" inside the beam
-    sh1106_draw_string(110, 24, "42", true);
-    sh1106_draw_string(106, 42, "GUIDE", true);
-
-    // -------------------------------------------------------------
-    // 7. Footer: Legendary Hitchhiker & Celestial Lore Marquee Ticker
-    // -------------------------------------------------------------
-    sh1106_draw_line(2, 50, 125, 50, true);
-    draw_marquee(53,
-        "// CELESTIAL Mk.V // PICO 2 W (STAFF) <---> PI 5 (AI BRAIN) <---> PHONE (APP) <---> COSMIC HUMAN // "
-        "DON'T PANIC! // THE ANSWER IS 42 // A TOWEL IS ABOUT THE MOST USEFUL THING AN INTERSTELLAR HITCHHIKER CAN HAVE // "
-        "SHARE AND ENJOY! // TIME IS AN ILLUSION. LUNCHTIME DOUBLY SO //",
+    sh1106_draw_line(2, 49, 125, 49, true);
+    draw_marquee(52,
+        "// CELESTIAL Mk.V // STAFF <---> PI 5 BRAIN <---> PHONE // DON'T PANIC! // 42 // SHARE & ENJOY! //",
         now_ms);
 }
 
@@ -1429,40 +1387,43 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             uint16_t cur_ms;
             get_current_time(&cur_h, &cur_m, &cur_s, &cur_ms);
 
-            // Left: Techno logo icon (x=5..28, y=17..40)
-            sh1106_draw_bitmap(5, 17, 24, 24, CELESTIAL_LOGO_TECHNO_24x24, true);
-
-            // Right side stats:
-            // 1. Digital Clock HH:MM:SS
-            char time_buf[20];
+            // Row 1 (y=16): Digital Clock + Link Badge (clean fit, no clipping)
+            char time_buf[24];
             snprintf(time_buf, sizeof(time_buf), "TIME: %02u:%02u:%02u", cur_h, cur_m, cur_s);
-            sh1106_draw_string(33, 15, time_buf, true);
+            sh1106_draw_string(6, 16, time_buf, true);
 
-            // 2. Wi-Fi status and IP
             if (net_client_is_connected()) {
-                char ip_b[24];
-                snprintf(ip_b, sizeof(ip_b), "IP: %.15s", net_client_get_ip_str());
-                sh1106_draw_string(33, 24, ip_b, true);
+                sh1106_draw_string(84, 16, "[ONLINE]", true);
             } else {
-                sh1106_draw_string(33, 24, "NET: SEARCHING...", true);
+                sh1106_draw_string(80, 16, "[NO LINK]", true);
             }
 
-            // 3. Active AI Model Pill
-            char ai_pill[24];
-            snprintf(ai_pill, sizeof(ai_pill), "AI : %s",
+            // Row 2 (y=26): AI Model Core
+            char ai_buf[24];
+            snprintf(ai_buf, sizeof(ai_buf), "CORE: %s",
                      (active_ai_model_idx == AI_MODEL_DEEPSEEK) ? "DEEP THOUGHT" :
                      (active_ai_model_idx == AI_MODEL_MISTRAL)  ? "EDDIE (8B)" :
                      (active_ai_model_idx == AI_MODEL_GROK)     ? "GROK 4.5" :
                      (active_ai_model_idx == AI_MODEL_LLAMA)    ? "MARVIN (70B)" : "PI 5 LOCAL");
-            sh1106_draw_string(33, 33, ai_pill, true);
+            sh1106_draw_string(6, 26, ai_buf, true);
 
-            // 4. Volume & Dialect badge
-            char v_pill[24];
-            snprintf(v_pill, sizeof(v_pill), "VOL:%2d%% | %s", (int)audio_get_volume(), LANG_SHORT_TAGS[active_lang_idx]);
-            sh1106_draw_string(33, 42, v_pill, true);
+            // Row 3 (y=35): Server Host / IP
+            char net_buf[24];
+            if (net_client_is_connected()) {
+                snprintf(net_buf, sizeof(net_buf), "HOST: %.15s", net_client_get_ip_str());
+            } else {
+                snprintf(net_buf, sizeof(net_buf), "HOST: DISCONNECTED");
+            }
+            sh1106_draw_string(6, 35, net_buf, true);
 
-            // 5. Clean, stationary, non-scrolling status bar at bottom (saves space, zero clutter)
-            sh1106_draw_line(2, 51, 125, 51, true);
+            // Row 4 (y=44): Audio Gain & Language
+            char aud_buf[24];
+            snprintf(aud_buf, sizeof(aud_buf), "VOL : %2d%%     VOX: [%s]",
+                     (int)audio_get_volume(), LANG_SHORT_TAGS[active_lang_idx]);
+            sh1106_draw_string(6, 44, aud_buf, true);
+
+            // Footer Bar (y=52..63): Stationary status (no running ticker)
+            sh1106_draw_line(2, 52, 125, 52, true);
             if (current_state == STATE_LISTENING) {
                 sh1106_draw_string(6, 54, "[*] RECORDING VOICE...", true);
             } else if (current_state == STATE_PROCESSING) {
@@ -1470,7 +1431,7 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             } else if (current_state == STATE_SPEAKING) {
                 sh1106_draw_string(6, 54, "[#] ORACLE SPEAKING...", true);
             } else {
-                sh1106_draw_string(6, 54, "READY :: HOLD QUERY", true);
+                sh1106_draw_string(14, 54, "READY :: HOLD QUERY", true);
             }
             break;
         }
