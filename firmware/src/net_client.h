@@ -34,6 +34,16 @@ const char* net_client_get_server_ip_str(void);
 uint16_t net_client_get_server_port(void);
 
 
+// Dynamic AI Host & Model Catalog
+net_host_type_t net_client_get_host_type(void);
+const char* net_client_get_host_name(void);
+uint8_t net_client_get_model_count(void);
+const char* net_client_get_model_name(uint8_t idx);
+const char* net_client_get_model_tag(uint8_t idx);
+uint8_t net_client_get_model_theme(uint8_t idx);
+uint8_t net_client_get_model_id(uint8_t idx);
+bool net_client_request_catalog(void);
+
 // Voice query streaming to Brain Server (passes selected language and model preset)
 bool net_client_send_query_start(uint8_t lang_code, uint8_t model_preset);
 bool net_client_send_audio_chunk(const int16_t *samples, size_t sample_count);

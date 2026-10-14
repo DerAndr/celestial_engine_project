@@ -12,7 +12,15 @@ data class StaffTelemetry(
     val lastSeenTimestamp: Long = 0,
     val lastRecognizedText: String = "",
     val lastAiResponseText: String = "",
-    val roundTripTimeMs: Long = 0
+    val roundTripTimeMs: Long = 0,
+    val activeHost: String = "STANDALONE"
+)
+
+data class PhoneAiModel(
+    val id: Int,
+    val themeIdx: Int,
+    val name: String,
+    val tag: String
 )
 
 sealed class StaffCommand {
@@ -24,5 +32,6 @@ sealed class StaffCommand {
     data class PlaySfx(val sfxId: Int) : StaffCommand()
     data class PlayChiptune(val trackId: Int) : StaffCommand()
     data class PlayVoice(val phraseId: Int) : StaffCommand()
+    data class BroadcastCatalog(val models: List<PhoneAiModel> = emptyList()) : StaffCommand()
     object StopAudio : StaffCommand()
 }

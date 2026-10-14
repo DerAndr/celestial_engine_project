@@ -57,6 +57,34 @@ static u16_t companion_port = 0;
 static bool has_paired_companion = false;
 static remote_cmd_t pending_remote_cmd = {0};
 
+static ip_addr_t pi5_server_ip_addr;
+static uint16_t pi5_server_port = BRAIN_SERVER_PORT;
+static uint32_t last_pi5_heartbeat_rx_ms = 0;
+static uint32_t last_phone_heartbeat_rx_ms = 0;
+static uint32_t last_catalog_req_ms = 0;
+
+static net_host_type_t active_host_type = HOST_TYPE_NONE;
+static char active_host_name[16] = "STANDBY";
+
+static const net_catalog_resp_t DEFAULT_STANDALONE_CATALOG = {
+    .host_type = HOST_TYPE_NONE,
+    .host_name = "STANDALONE",
+    .model_count = 5,
+    .models = {
+        { 0, 0, "DEEP THOUGHT", "42" },
+        { 1, 1, "EDDIE (8B)",   "EDD" },
+        { 2, 2, "GROK 4.5",     "GRK" },
+        { 3, 3, "MARVIN (70B)", "MRV" },
+        { 4, 4, "PI 5 LOCAL",   "LOC" }
+    }
+};
+
+static net_catalog_resp_t active_catalog;
+static net_catalog_resp_t pi5_catalog_cache;
+static bool has_pi5_catalog = false;
+static net_catalog_resp_t phone_catalog_cache;
+static bool has_phone_catalog = false;
+
 static int active_ap_profile = 0; /* 0 = Primary, 1 = Fallback Hotspot */
 static int ap_connect_failures = 0;
 static uint16_t active_server_port = BRAIN_SERVER_PORT;
@@ -186,14 +214,111 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
         return;
     }
 
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+
+    if (hdr.msg_type == NET_MSG_CATALOG_RESP) {
+        if (hdr.payload_len >= 17) {
+            uint8_t payload[NET_MAX_PAYLOAD_SIZE];
+            pbuf_copy_partial(p, payload, hdr.payload_len, sizeof(hdr));
+            uint8_t h_type = payload[0];
+            char h_name[16];
+            memcpy(h_name, &payload[1], 15);
+            h_name[15] = '\0';
+            uint8_t m_count = payload[16];
+            if (m_count > NET_MAX_CATALOG_MODELS) m_count = NET_MAX_CATALOG_MODELS;
+
+            net_catalog_resp_t cat;
+            memset(&cat, 0, sizeof(cat));
+            memcpy(cat.host_name, h_name, sizeof(cat.host_name) - 1);
+            cat.host_name[sizeof(cat.host_name) - 1] = '\0';
+            cat.model_count = m_count;
+
+            size_t offset = 17;
+            for (uint8_t i = 0; i < m_count && (offset + 26 <= hdr.payload_len); i++) {
+                cat.models[i].model_id = payload[offset];
+                cat.models[i].theme_idx = payload[offset + 1];
+                memcpy(cat.models[i].name, &payload[offset + 2], 18);
+                cat.models[i].name[17] = '\0';
+                memcpy(cat.models[i].tag, &payload[offset + 20], 6);
+                cat.models[i].tag[5] = '\0';
+                offset += 26;
+            }
+
+            if (h_type == HOST_TYPE_PI5) {
+                last_pi5_heartbeat_rx_ms = now;
+                last_server_heartbeat_rx_ms = now;
+                memcpy(&pi5_catalog_cache, &cat, sizeof(cat));
+                has_pi5_catalog = true;
+                active_host_type = HOST_TYPE_PI5;
+                server_ip_addr = *addr;
+                active_server_port = port;
+                memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
+                strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
+                printf("[NET] Active Host: PI 5 (%s, %d models)\n", ip4addr_ntoa(addr), m_count);
+            } else if (h_type == HOST_TYPE_PHONE) {
+                last_phone_heartbeat_rx_ms = now;
+                companion_ip_addr = *addr;
+                companion_port = port;
+                has_paired_companion = true;
+                memcpy(&phone_catalog_cache, &cat, sizeof(cat));
+                has_phone_catalog = true;
+
+                // If Pi 5 is not responding, switch to Phone immediately!
+                if (now - last_pi5_heartbeat_rx_ms > 4000 || active_host_type != HOST_TYPE_PI5) {
+                    active_host_type = HOST_TYPE_PHONE;
+                    server_ip_addr = *addr;
+                    active_server_port = port;
+                    memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
+                    strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+                    printf("[NET] Active Host: ANDROID PHONE (%s, %d models)\n", ip4addr_ntoa(addr), m_count);
+                } else {
+                    printf("[NET] Cached Phone Catalog (%d models), Pi 5 remains active\n", m_count);
+                }
+            }
+        }
+        pbuf_free(p);
+        return;
+    }
+
+    // Check if heartbeat came from Pi 5 (even if server_ip_addr was temporarily pointing to Phone)
+    if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0 &&
+        ip_addr_cmp(addr, &pi5_server_ip_addr) && port == pi5_server_port) {
+        last_pi5_heartbeat_rx_ms = now;
+        last_server_heartbeat_rx_ms = now;
+        if (active_host_type != HOST_TYPE_PI5) {
+            active_host_type = HOST_TYPE_PI5;
+            server_ip_addr = pi5_server_ip_addr;
+            active_server_port = pi5_server_port;
+            if (has_pi5_catalog) {
+                memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
+                strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
+            }
+            printf("[NET] Restored Active Host to PI 5 (%s)\n", ip4addr_ntoa(&server_ip_addr));
+        }
+        if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
+            uint32_t server_epoch = 0;
+            pbuf_copy_partial(p, &server_epoch, sizeof(uint32_t), sizeof(hdr));
+            if (server_epoch > 1700000000) {
+                extern void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis);
+                set_current_time_epoch(server_epoch, 0);
+            }
+        }
+        pbuf_free(p);
+        return;
+    }
+
     if (!ip_addr_cmp(addr, &server_ip_addr) || port != active_server_port) {
         pbuf_free(p);
         return;
     }
 
-    uint32_t now = to_ms_since_boot(get_absolute_time());
     if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0) {
         last_server_heartbeat_rx_ms = now;
+        if (active_host_type == HOST_TYPE_PHONE) {
+            last_phone_heartbeat_rx_ms = now;
+        } else if (active_host_type == HOST_TYPE_PI5) {
+            last_pi5_heartbeat_rx_ms = now;
+        }
         if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
             uint32_t server_epoch = 0;
             pbuf_copy_partial(p, &server_epoch, sizeof(uint32_t), sizeof(hdr));
@@ -280,6 +405,11 @@ void net_client_init(void) {
     ap_connect_failures = 0;
     active_server_port = get_current_server_port();
     ipaddr_aton(get_current_server_ip_str(), &server_ip_addr);
+    ipaddr_aton(BRAIN_SERVER_IP, &pi5_server_ip_addr);
+    pi5_server_port = BRAIN_SERVER_PORT;
+    memcpy(&active_catalog, &DEFAULT_STANDALONE_CATALOG, sizeof(active_catalog));
+    active_host_type = HOST_TYPE_NONE;
+    strncpy(active_host_name, "STANDBY", sizeof(active_host_name));
     request_counter = get_rand_32(); /* Reboot must not reuse a still-running worker's ID. */
 
 #if HAVE_WIFI_CREDENTIALS
@@ -353,6 +483,31 @@ void net_client_update(void) {
             net_client_ping_server();
         }
 
+        // Host auto-failover watchdog:
+        if (active_host_type == HOST_TYPE_PI5) {
+            if (now - last_server_heartbeat_rx_ms > 4500) {
+                // Pi 5 has gone silent!
+                if (has_phone_catalog && (now - last_phone_heartbeat_rx_ms < 15000)) {
+                    active_host_type = HOST_TYPE_PHONE;
+                    server_ip_addr = companion_ip_addr;
+                    active_server_port = companion_port;
+                    memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
+                    strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+                    printf("[NET] FAILOVER: Pi 5 heartbeat timed out. Switched AI Host to ANDROID PHONE (%s)\n",
+                           ip4addr_ntoa(&server_ip_addr));
+                } else {
+                    active_host_type = HOST_TYPE_NONE;
+                    strncpy(active_host_name, "STANDBY", sizeof(active_host_name));
+                }
+            }
+        }
+
+        // Periodic dynamic model catalog query every 4.0 s
+        if (now - last_catalog_req_ms >= 4000) {
+            last_catalog_req_ms = now;
+            net_client_request_catalog();
+        }
+
     } else {
         if (link_status == CYW43_LINK_BADAUTH || link_status == CYW43_LINK_NONET) {
             current_status = NET_STATUS_ERROR;
@@ -407,6 +562,9 @@ const char* net_client_get_active_ssid(void) {
 }
 
 const char* net_client_get_server_ip_str(void) {
+    if (active_host_type != HOST_TYPE_NONE) {
+        return ip4addr_ntoa(&server_ip_addr);
+    }
     return get_current_server_ip_str();
 }
 
@@ -448,10 +606,29 @@ static bool send_udp_packet(uint8_t msg_type, const void *payload, size_t payloa
 }
 
 bool net_client_ping_server(void) {
-    // 1. Unicast ping to Brain Server
+    // 1. Unicast ping to current active server
     send_udp_packet(NET_MSG_HEARTBEAT, NULL, 0);
 
-    // 2. Broadcast Discovery Beacon to subnet (255.255.255.255:5005) so Companion App discovers staff
+    // 2. If active server is NOT Pi 5, also probe Pi 5 to detect when it powers back on
+    if (active_host_type != HOST_TYPE_PI5 && udp_client_pcb != NULL && current_status == NET_STATUS_CONNECTED) {
+        size_t total_len = sizeof(net_packet_header_t);
+        cyw43_arch_lwip_begin();
+        struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, total_len, PBUF_RAM);
+        if (p != NULL) {
+            net_packet_header_t *hdr = (net_packet_header_t *)p->payload;
+            hdr->magic = CELESTIAL_NET_MAGIC;
+            hdr->version = CELESTIAL_NET_VERSION;
+            hdr->msg_type = NET_MSG_HEARTBEAT;
+            hdr->seq_num = tx_seq_counter++;
+            hdr->payload_len = 0;
+            hdr->request_id = 0;
+            udp_sendto(udp_client_pcb, p, &pi5_server_ip_addr, pi5_server_port);
+            pbuf_free(p);
+        }
+        cyw43_arch_lwip_end();
+    }
+
+    // 3. Broadcast Discovery Beacon to subnet (255.255.255.255:5005) so Companion App discovers staff
     if (udp_client_pcb != NULL && current_status == NET_STATUS_CONNECTED) {
         size_t total_len = sizeof(net_packet_header_t);
         cyw43_arch_lwip_begin();
@@ -586,4 +763,72 @@ void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint
         pbuf_free(p);
     }
     cyw43_arch_lwip_end();
+}
+
+bool net_client_request_catalog(void) {
+    if (udp_client_pcb == NULL || current_status != NET_STATUS_CONNECTED) {
+        return false;
+    }
+    cyw43_arch_lwip_begin();
+    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, sizeof(net_packet_header_t), PBUF_RAM);
+    if (p != NULL) {
+        net_packet_header_t *hdr = (net_packet_header_t *)p->payload;
+        hdr->magic = CELESTIAL_NET_MAGIC;
+        hdr->version = CELESTIAL_NET_VERSION;
+        hdr->msg_type = NET_MSG_CATALOG_REQ;
+        hdr->seq_num = tx_seq_counter++;
+        hdr->payload_len = 0;
+        hdr->request_id = 0;
+
+        // 1. Send query to Pi 5
+        udp_sendto(udp_client_pcb, p, &pi5_server_ip_addr, pi5_server_port);
+
+        // 2. If phone companion is known, send query to phone
+        if (has_paired_companion) {
+            udp_sendto(udp_client_pcb, p, &companion_ip_addr, companion_port);
+        }
+
+        // 3. If in fallback hotspot profile, query fallback gateway
+        if (active_ap_profile == 1) {
+            ip_addr_t fb_ip;
+            ipaddr_aton(BRAIN_FALLBACK_SERVER_IP, &fb_ip);
+            udp_sendto(udp_client_pcb, p, &fb_ip, BRAIN_FALLBACK_SERVER_PORT);
+        }
+        pbuf_free(p);
+    }
+    cyw43_arch_lwip_end();
+    return true;
+}
+
+net_host_type_t net_client_get_host_type(void) {
+    return active_host_type;
+}
+
+const char* net_client_get_host_name(void) {
+    return active_host_name;
+}
+
+uint8_t net_client_get_model_count(void) {
+    if (active_catalog.model_count == 0) return 1;
+    return active_catalog.model_count;
+}
+
+const char* net_client_get_model_name(uint8_t idx) {
+    if (idx >= active_catalog.model_count) return "UNKNOWN";
+    return active_catalog.models[idx].name;
+}
+
+const char* net_client_get_model_tag(uint8_t idx) {
+    if (idx >= active_catalog.model_count) return "???";
+    return active_catalog.models[idx].tag;
+}
+
+uint8_t net_client_get_model_theme(uint8_t idx) {
+    if (idx >= active_catalog.model_count) return 0;
+    return active_catalog.models[idx].theme_idx;
+}
+
+uint8_t net_client_get_model_id(uint8_t idx) {
+    if (idx >= active_catalog.model_count) return 0;
+    return active_catalog.models[idx].model_id;
 }

@@ -16,6 +16,8 @@ enum class NetMessageType(val code: Int) {
     ACK(0x0A),
     PROGRESS(0x0B),
     ERROR(0x0C),
+    CATALOG_REQ(0x0D),     // Staff queries active AI catalog & host identity
+    CATALOG_RESP(0x0E),    // Host responds with available models & host identity
 
     // Extensions for Android Companion Remote Control:
     APP_COMMAND(0x20),     // Set mode, animation, volume, SFX

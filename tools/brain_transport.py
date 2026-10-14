@@ -15,8 +15,37 @@ HEADER_SIZE = HEADER_STRUCT.size
 MSG_HEARTBEAT, MSG_QUERY_START, MSG_AUDIO_CHUNK, MSG_QUERY_END = range(1, 5)
 MSG_RESP_START, MSG_RESP_CHUNK, MSG_RESP_END, MSG_CANCEL = range(5, 9)
 MSG_RESP_TEXT, MSG_ACK, MSG_PROGRESS, MSG_ERROR = range(9, 13)
+MSG_CATALOG_REQ = 0x0D
+MSG_CATALOG_RESP = 0x0E
 MAX_PAYLOAD = 512
 MAX_QUERY_BYTES = 16000 * 2 * 60
+
+def build_catalog_payload(host_type=1, host_name="PI 5 BRAIN", models=None):
+    """Packs net_catalog_resp_t matching Pico 2 W binary layout:
+    uint8_t host_type (1=PI5, 2=PHONE)
+    char host_name[15]
+    uint8_t model_count
+    net_model_info_t models[8] (each 26 bytes: model_id: uint8, theme_idx: uint8, name: 18s, tag: 6s)
+    """
+    if models is None:
+        models = [
+            (0, 0, "Deep Thought", "42"),
+            (1, 1, "Eddie (8B)", "EDD"),
+            (2, 2, "Grok 4.5", "GRK"),
+            (3, 3, "Marvin (70B)", "MRV"),
+            (4, 4, "Pi 5 Local", "LOC")
+        ]
+    h_bytes = host_name.encode('ascii')[:14]
+    h_bytes = h_bytes + b'\x00' * (15 - len(h_bytes))
+    m_count = min(len(models), 8)
+    payload = bytearray([host_type]) + h_bytes + bytearray([m_count])
+    for mid, theme, name, tag in models[:8]:
+        n_bytes = name.encode('ascii')[:17]
+        n_bytes = n_bytes + b'\x00' * (18 - len(n_bytes))
+        t_bytes = tag.encode('ascii')[:5]
+        t_bytes = t_bytes + b'\x00' * (6 - len(t_bytes))
+        payload += bytearray([mid, theme]) + n_bytes + t_bytes
+    return bytes(payload)
 
 def packet(kind, request_id=0, seq=0, payload=b''):
     if len(payload) > MAX_PAYLOAD:
@@ -81,6 +110,10 @@ class BrainTransport:
         if kind == MSG_HEARTBEAT and rid == 0:
             local_epoch = int(time.mktime(time.localtime()))
             self.sock.sendto(packet(MSG_HEARTBEAT, seq=seq, payload=struct.pack("<I", local_epoch)), addr)
+            return None
+        if kind == MSG_CATALOG_REQ:
+            resp_payload = build_catalog_payload()
+            self.sock.sendto(packet(MSG_CATALOG_RESP, seq=seq, payload=resp_payload), addr)
             return None
         with self.lock:
             current = self.sessions.get(addr)

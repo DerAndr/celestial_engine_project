@@ -28,10 +28,36 @@ typedef enum {
     NET_MSG_ACK          = 0x0A,  // payload: acknowledged message type (one byte)
     NET_MSG_PROGRESS     = 0x0B,  // Server is still generating this request
     NET_MSG_ERROR        = 0x0C,  // Explicit failure; never play a truncated success
+    NET_MSG_CATALOG_REQ  = 0x0D,  // Request dynamic model catalog from active host
+    NET_MSG_CATALOG_RESP = 0x0E,  // Host returns available models & host identity
     NET_MSG_APP_COMMAND  = 0x20,  // Companion App Command (signed with auth token)
     NET_MSG_APP_TIME_SYNC = 0x21, // Time Sync from Companion App
     NET_MSG_APP_TELEMETRY = 0x22  // Staff Telemetry to Companion App
 } net_msg_type_t;
+
+typedef enum {
+    HOST_TYPE_NONE  = 0,
+    HOST_TYPE_PI5   = 1,
+    HOST_TYPE_PHONE = 2
+} net_host_type_t;
+
+#define NET_MAX_CATALOG_MODELS 8
+
+#pragma pack(push, 1)
+typedef struct {
+    uint8_t  model_id;       // ID sent back in QUERY_START
+    uint8_t  theme_idx;      // 0=Azure, 1=Amber, 2=Magenta, 3=Steel, 4=Emerald
+    char     name[18];       // Null-terminated display name, e.g. "Gemma 2 (2B)"
+    char     tag[6];         // Null-terminated short badge, e.g. "GEMMA"
+} net_model_info_t;
+
+typedef struct {
+    uint8_t          host_type;     // net_host_type_t (1=PI5, 2=PHONE)
+    char             host_name[15]; // Null-terminated host name, e.g. "Pi 5 Brain"
+    uint8_t          model_count;   // Number of models (1..8)
+    net_model_info_t models[NET_MAX_CATALOG_MODELS];
+} net_catalog_resp_t;
+#pragma pack(pop)
 
 typedef enum {
     LANG_EN   = 0,  // English (Default)

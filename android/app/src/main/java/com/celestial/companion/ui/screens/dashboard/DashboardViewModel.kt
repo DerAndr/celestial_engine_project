@@ -12,6 +12,18 @@ class DashboardViewModel(
 ) : ViewModel() {
 
     val telemetry: StateFlow<StaffTelemetry> = repository.telemetry
+    val phoneBrainActive: StateFlow<Boolean> = repository.phoneBrainActive
+    val phoneModels: StateFlow<List<PhoneAiModel>> = repository.phoneModels
+
+    fun togglePhoneBrain(active: Boolean) {
+        repository.setPhoneBrainActive(active)
+    }
+
+    fun broadcastPhoneCatalog() {
+        viewModelScope.launch {
+            repository.executeCommand(StaffCommand.BroadcastCatalog())
+        }
+    }
 
     fun setStaffIp(ip: String) {
         repository.setTargetStaffIp(ip)

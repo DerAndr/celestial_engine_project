@@ -59,6 +59,64 @@ class StaffRepository(
 
     fun getTargetStaffIp(): String = activeStaffIp
 
+    private val _phoneBrainActive = MutableStateFlow(true)
+    val phoneBrainActive: StateFlow<Boolean> = _phoneBrainActive.asStateFlow()
+
+    private val _phoneModels = MutableStateFlow(
+        listOf(
+            PhoneAiModel(0, 4, "Gemma 2B Mobile", "GEMMA"),
+            PhoneAiModel(1, 1, "Qwen 1.5B Mobile", "QWEN"),
+            PhoneAiModel(2, 0, "Gemini Flash", "FLASH"),
+            PhoneAiModel(3, 2, "Claude Sonnet", "CLAUDE")
+        )
+    )
+    val phoneModels: StateFlow<List<PhoneAiModel>> = _phoneModels.asStateFlow()
+
+    fun setPhoneBrainActive(active: Boolean) {
+        _phoneBrainActive.value = active
+    }
+
+    fun buildPhoneCatalogPayload(models: List<PhoneAiModel> = _phoneModels.value): ByteArray {
+        val hostType: Byte = 2 // HOST_TYPE_PHONE
+        val hostName = "PHONE BRAIN"
+        val count = models.size.coerceAtMost(8)
+
+        val buffer = ByteBuffer.allocate(17 + count * 26).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.put(hostType)
+        val nameBytes = hostName.toByteArray(Charsets.US_ASCII)
+        val namePadded = ByteArray(15)
+        System.arraycopy(nameBytes, 0, namePadded, 0, nameBytes.size.coerceAtMost(14))
+        buffer.put(namePadded)
+        buffer.put(count.toByte())
+
+        for (m in models.take(8)) {
+            buffer.put(m.id.toByte())
+            buffer.put(m.themeIdx.toByte())
+            val mNameBytes = m.name.toByteArray(Charsets.US_ASCII)
+            val mNamePadded = ByteArray(18)
+            System.arraycopy(mNameBytes, 0, mNamePadded, 0, mNameBytes.size.coerceAtMost(17))
+            buffer.put(mNamePadded)
+
+            val mTagBytes = m.tag.toByteArray(Charsets.US_ASCII)
+            val mTagPadded = ByteArray(6)
+            System.arraycopy(mTagBytes, 0, mTagPadded, 0, mTagBytes.size.coerceAtMost(5))
+            buffer.put(mTagPadded)
+        }
+        return buffer.array()
+    }
+
+    suspend fun sendPhoneCatalog(targetIp: String = activeStaffIp) {
+        val payload = buildPhoneCatalogPayload()
+        val packet = CelestialPacket(
+            msgType = NetMessageType.CATALOG_RESP,
+            seqNum = 1,
+            payloadLen = payload.size,
+            requestId = 0L,
+            payload = payload
+        )
+        transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, packet)
+    }
+
     private fun handleIncomingPacket(packet: CelestialPacket) {
         val now = System.currentTimeMillis()
         if (packet.senderIp.isNotEmpty() && packet.senderIp != "0.0.0.0") {
@@ -71,6 +129,23 @@ class StaffRepository(
                     lastSeenTimestamp = now,
                     tickNumber = packet.seqNum.toLong()
                 )
+            }
+            NetMessageType.CATALOG_REQ -> {
+                if (_phoneBrainActive.value) {
+                    val target = if (packet.senderIp.isNotEmpty() && packet.senderIp != "0.0.0.0") packet.senderIp else activeStaffIp
+                    scope.launch {
+                        sendPhoneCatalog(target)
+                    }
+                }
+            }
+            NetMessageType.CATALOG_RESP -> {
+                if (packet.payload.size >= 17) {
+                    val hostType = packet.payload[0].toInt() and 0xFF
+                    val hostName = String(packet.payload, 1, 15, Charsets.US_ASCII).trim('\u0000', ' ')
+                    _telemetry.value = _telemetry.value.copy(
+                        activeHost = hostName.ifEmpty { if (hostType == 1) "PI 5 BRAIN" else "PHONE BRAIN" }
+                    )
+                }
             }
             NetMessageType.RESP_TEXT -> {
                 val text = String(packet.payload, Charsets.UTF_8)
@@ -153,6 +228,9 @@ class StaffRepository(
             }
             is StaffCommand.StopAudio -> {
                 transport.sendCommand(activeStaffIp, 'S'.code.toByte(), 0.toByte(), token)
+            }
+            is StaffCommand.BroadcastCatalog -> {
+                sendPhoneCatalog(activeStaffIp)
             }
         }
     }

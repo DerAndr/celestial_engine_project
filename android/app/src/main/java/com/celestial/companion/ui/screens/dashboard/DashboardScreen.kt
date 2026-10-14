@@ -182,7 +182,128 @@ fun DashboardScreen(
             }
         }
 
-        // 3. Audio & Volume Control
+        // 3. Dynamic AI Host & Mobile Catalog Card
+        val phoneBrainActive by viewModel.phoneBrainActive.collectAsState()
+        val phoneModels by viewModel.phoneModels.collectAsState()
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "AI BRAIN HOST",
+                            color = TextSecondary,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = telemetry.activeHost,
+                            color = if (telemetry.activeHost.contains("PI")) RunicGold else AetherCyan,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = if (phoneBrainActive) "Phone Brain ON" else "Phone Brain OFF",
+                            color = if (phoneBrainActive) EmeraldGreen else TextMuted,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Switch(
+                            checked = phoneBrainActive,
+                            onCheckedChange = { viewModel.togglePhoneBrain(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = AetherCyan,
+                                checkedTrackColor = Color(0x3300E5FF)
+                            )
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = CardBorder, thickness = 1.dp)
+
+                Text(
+                    text = "Phone Mobile Models (Auto-Advertised to Staff):",
+                    color = TextPrimary,
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+
+                // List of phone models
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    phoneModels.forEach { m ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(DeepVoid)
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = m.name,
+                                color = TextPrimary,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0x3300E5FF))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = m.tag,
+                                    color = AetherCyan,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = { viewModel.broadcastPhoneCatalog() },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = DeepVoid),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AetherCyan)
+                ) {
+                    Icon(Icons.Default.CloudSync, contentDescription = null, tint = AetherCyan)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "PUSH PHONE MODELS TO STAFF",
+                        color = AetherCyan,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+
+        // 4. Audio & Volume Control
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),

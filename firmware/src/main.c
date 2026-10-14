@@ -60,24 +60,8 @@ static const char *MODE_NAMES[MODE_COUNT] = {
     "SYSTEM"
 };
 
-static const char *AI_MODEL_NAMES[AI_MODEL_COUNT] = {
-    "DEEP THOUGHT",
-    "EDDIE COMP",
-    "GROK 4.5",
-    "MARVIN 70B",
-    "PI 5 LOCAL"
-};
-
-static const char *AI_MODEL_TAGS[AI_MODEL_COUNT] = {
-    "42",
-    "EDD",
-    "GRK",
-    "MRV",
-    "LOC"
-};
-
-static int active_ai_model_idx = AI_MODEL_LOCAL; // Default: Raspberry Pi 5 Autonomous Offline Core
-static int selected_ai_model_idx = AI_MODEL_LOCAL;
+static int active_ai_model_idx = 0; // Default index into dynamic host catalog
+static int selected_ai_model_idx = 0;
 static bool ai_model_edit_mode = false;
 
 static const char *LANG_NAMES[LANG_COUNT] = {
@@ -387,8 +371,9 @@ static void draw_processing_screen(uint32_t elapsed_ms, bool anim_blink) {
     // Processing Header Banner
     sh1106_fill_rect(2, 2, 124, 12, true);
     char hdr_buf[32];
-    snprintf(hdr_buf, sizeof(hdr_buf), "[ DEEP THOUGHT ]  [%s]",
-             AI_MODEL_TAGS[active_ai_model_idx]);
+    snprintf(hdr_buf, sizeof(hdr_buf), "[ %-10.10s ]  [%s]",
+             net_client_get_host_name(),
+             net_client_get_model_tag(active_ai_model_idx));
     sh1106_draw_string(6, 4, hdr_buf, false);
 
     sh1106_draw_string(6, 17, "CONSULTING GUIDE...", true);
@@ -417,33 +402,46 @@ static void draw_ai_model_screen(int sel_model, int act_model) {
     sh1106_clear();
     sh1106_draw_rect(0, 0, 128, 64, true);
 
-    // Header banner (y=2..11)
+    // Header banner with active Host identity (y=2..11)
     sh1106_fill_rect(2, 2, 124, 10, true);
-    sh1106_draw_string(14, 3, "[ TARGET AI CORE ]", false);
+    char hdr_str[32];
+    net_host_type_t host = net_client_get_host_type();
+    if (host == HOST_TYPE_PI5) {
+        snprintf(hdr_str, sizeof(hdr_str), "[ AI CORES : PI 5 ]");
+    } else if (host == HOST_TYPE_PHONE) {
+        snprintf(hdr_str, sizeof(hdr_str), "[ AI CORES : PHONE ]");
+    } else {
+        snprintf(hdr_str, sizeof(hdr_str), "[ AI CORES : STANDALONE ]");
+    }
+    sh1106_draw_string(8, 3, hdr_str, false);
 
-    // List of 5 AI Models spaced cleanly at 10px intervals without overlapping the bottom
-    for (int i = 0; i < AI_MODEL_COUNT; i++) {
+    uint8_t count = net_client_get_model_count();
+    if (count == 0) count = 1;
+
+    // List models dynamically reported by active host (up to 5 items spaced evenly)
+    for (int i = 0; i < count && i < 5; i++) {
         int y = 14 + i * 10;
         bool is_selected = (i == sel_model);
         bool is_active = (i == act_model);
+        const char *name = net_client_get_model_name(i);
 
         if (is_selected) {
             sh1106_fill_rect(4, y - 1, 116, 9, true);
             char item_str[32];
             snprintf(item_str, sizeof(item_str), "> %s %s",
-                     AI_MODEL_NAMES[i], is_active ? "*" : "");
+                     name, is_active ? "*" : "");
             sh1106_draw_string(6, y, item_str, false);
         } else {
             char item_str[32];
             snprintf(item_str, sizeof(item_str), "  %s %s",
-                     AI_MODEL_NAMES[i], is_active ? "[ACTIVE]" : "");
+                     name, is_active ? "[ACTIVE]" : "");
             sh1106_draw_string(6, y, item_str, true);
         }
     }
 
     // Vertical scrollbar track on right border (x: 122..124)
     sh1106_draw_rect(122, 14, 3, 48, true);
-    int thumb_y = 15 + (sel_model * 38) / (AI_MODEL_COUNT > 1 ? (AI_MODEL_COUNT - 1) : 1);
+    int thumb_y = 15 + (sel_model * 38) / (count > 1 ? (count - 1) : 1);
     sh1106_fill_rect(122, thumb_y, 3, 9, true);
 
     oled_ready = sh1106_update();
@@ -1375,7 +1373,9 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
     sh1106_draw_string(6, 3, page_hdr, true);
 
     char lang_badge[16];
-    snprintf(lang_badge, sizeof(lang_badge), "[%s|%s]", LANG_SHORT_TAGS[active_lang_idx], AI_MODEL_TAGS[active_ai_model_idx]);
+    snprintf(lang_badge, sizeof(lang_badge), "[%s|%s]",
+             LANG_SHORT_TAGS[active_lang_idx],
+             net_client_get_model_tag(active_ai_model_idx));
     int badge_x = 124 - (int)(strlen(lang_badge) * 6);
     sh1106_draw_string(badge_x, 3, lang_badge, true);
     sh1106_draw_line(2, 12, 125, 12, true);
@@ -1392,25 +1392,28 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             snprintf(time_buf, sizeof(time_buf), "TIME: %02u:%02u:%02u", cur_h, cur_m, cur_s);
             sh1106_draw_string(6, 16, time_buf, true);
 
-            if (net_client_is_connected()) {
-                sh1106_draw_string(84, 16, "[ONLINE]", true);
+            net_host_type_t host = net_client_get_host_type();
+            if (host == HOST_TYPE_PI5) {
+                sh1106_draw_string(82, 16, "[PI 5]", true);
+            } else if (host == HOST_TYPE_PHONE) {
+                sh1106_draw_string(76, 16, "[PHONE]", true);
+            } else if (net_client_is_connected()) {
+                sh1106_draw_string(76, 16, "[ONLINE]", true);
             } else {
-                sh1106_draw_string(80, 16, "[NO LINK]", true);
+                sh1106_draw_string(76, 16, "[NO LINK]", true);
             }
 
             // Row 2 (y=26): AI Model Core
             char ai_buf[24];
-            snprintf(ai_buf, sizeof(ai_buf), "CORE: %s",
-                     (active_ai_model_idx == AI_MODEL_DEEPSEEK) ? "DEEP THOUGHT" :
-                     (active_ai_model_idx == AI_MODEL_MISTRAL)  ? "EDDIE (8B)" :
-                     (active_ai_model_idx == AI_MODEL_GROK)     ? "GROK 4.5" :
-                     (active_ai_model_idx == AI_MODEL_LLAMA)    ? "MARVIN (70B)" : "PI 5 LOCAL");
+            snprintf(ai_buf, sizeof(ai_buf), "CORE: %s", net_client_get_model_name(active_ai_model_idx));
             sh1106_draw_string(6, 26, ai_buf, true);
 
             // Row 3 (y=35): Server Host / IP
             char net_buf[24];
             if (net_client_is_connected()) {
-                snprintf(net_buf, sizeof(net_buf), "HOST: %.15s", net_client_get_ip_str());
+                const char *h_tag = (host == HOST_TYPE_PI5) ? "PI5" :
+                                    (host == HOST_TYPE_PHONE) ? "PHN" : "NET";
+                snprintf(net_buf, sizeof(net_buf), "HOST: %s %.10s", h_tag, net_client_get_server_ip_str());
             } else {
                 snprintf(net_buf, sizeof(net_buf), "HOST: DISCONNECTED");
             }
@@ -1463,27 +1466,21 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
 
         case MODE_AI_MODEL: {
             char cur_str[32];
-            snprintf(cur_str, sizeof(cur_str), "CORE: %s", AI_MODEL_NAMES[active_ai_model_idx]);
+            snprintf(cur_str, sizeof(cur_str), "CORE: %s", net_client_get_model_name(active_ai_model_idx));
             sh1106_draw_string(6, 17, cur_str, true);
 
-            if (active_ai_model_idx == AI_MODEL_DEEPSEEK) {
-                sh1106_draw_string(6, 27, "MODEL: deepseek-chat", true);
-                sh1106_draw_string(6, 37, "STYLE: DEEP THOUGHT (42)", true);
-            } else if (active_ai_model_idx == AI_MODEL_MISTRAL) {
-                sh1106_draw_string(6, 27, "MODEL: ministral-8b", true);
-                sh1106_draw_string(6, 37, "STYLE: EDDIE COMPUTER", true);
-            } else if (active_ai_model_idx == AI_MODEL_GROK) {
-                sh1106_draw_string(6, 27, "MODEL: x-ai/grok-4.5", true);
-                sh1106_draw_string(6, 37, "STYLE: HITCHHIKER WIT", true);
-            } else if (active_ai_model_idx == AI_MODEL_LLAMA) {
-                sh1106_draw_string(6, 27, "MODEL: llama-3.3-70b", true);
-                sh1106_draw_string(6, 37, "STYLE: MARVIN ANDROID", true);
-            } else if (active_ai_model_idx == AI_MODEL_LOCAL) {
-                sh1106_draw_string(6, 27, "MODEL: llama3.2 / gemma", true);
-                sh1106_draw_string(6, 37, "STYLE: PI 5 OFFLINE AI", true);
-            }
+            char host_str[32];
+            snprintf(host_str, sizeof(host_str), "HOST: %s", net_client_get_host_name());
+            sh1106_draw_string(6, 27, host_str, true);
+
+            char badge_str[32];
+            snprintf(badge_str, sizeof(badge_str), "BADGE: [%s]  ID: %d",
+                     net_client_get_model_tag(active_ai_model_idx),
+                     (int)net_client_get_model_id(active_ai_model_idx));
+            sh1106_draw_string(6, 37, badge_str, true);
+
             sh1106_draw_line(2, 47, 125, 47, true);
-            draw_marquee(51, "// CLOUD OR OFFLINE // CLICK SW TO SELECT // DEEPSEEK -> EDDIE -> GROK -> MARVIN -> LOCAL //", now_ms);
+            draw_marquee(51, "// DYNAMIC AI CATALOG // CLICK SW TO SELECT // AUTO-FAILS OVER PI 5 <-> PHONE //", now_ms);
             break;
         }
 
@@ -1690,7 +1687,7 @@ int main(void) {
 
     LOG_INFO("SYS", "Initializing WS2812 LED core (GP15=DATA, PIO0 SM1)...");
     leds_init();
-    leds_set_ai_model(active_ai_model_idx);
+    leds_set_ai_model(net_client_get_model_theme(active_ai_model_idx));
 #if CELESTIAL_FOUR_RINGS
     LOG_INFO("LED", "FOUR-RING DMA: frames:%u (base:%u + tail:%u) | brightness_cap:%u%% | reset:%uus | boot RGB:%ums/color | address mapping unverified",
              (unsigned)LED_RING_COUNT, (unsigned)LED_BASE_CHAIN_COUNT,
@@ -1853,6 +1850,13 @@ int main(void) {
             }
         }
 
+        // Clamp AI model indices to current active catalog count
+        uint8_t m_cnt = net_client_get_model_count();
+        if (m_cnt > 0) {
+            if (active_ai_model_idx >= m_cnt) active_ai_model_idx = 0;
+            if (selected_ai_model_idx >= m_cnt) selected_ai_model_idx = 0;
+        }
+
         // 1. Check QUERY button events (Push-to-Talk or Exit sub-screen)
         if (query_button_just_pressed()) {
             if (ai_model_edit_mode) {
@@ -1905,15 +1909,15 @@ int main(void) {
                     audio_stop_all();
                     current_state = STATE_LISTENING;
                     easter_egg_active = false;
-                    mic_record_start();
-                    if (!net_client_send_query_start((uint8_t)active_lang_idx, (uint8_t)active_ai_model_idx)) {
+                    uint8_t mid = net_client_get_model_id(active_ai_model_idx);
+                    if (!net_client_send_query_start((uint8_t)active_lang_idx, mid)) {
                         mic_record_stop();
                         current_state = STATE_IDLE;
                         LOG_WARN("NET", "QUERY start send failed.");
                     }
                     audio_play_tone(880.0f, 40); // Crisp high prompt chirp (A5): "Ready! Speak now!"
-                    LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! Streaming to Brain Server (Lang: %s, Model: %s)... <<<",
-                             LANG_NAMES[active_lang_idx], AI_MODEL_NAMES[active_ai_model_idx]);
+                    LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! Streaming to %s (Lang: %s, Model: %s)... <<<",
+                             net_client_get_host_name(), LANG_NAMES[active_lang_idx], net_client_get_model_name(active_ai_model_idx));
                     need_display_update = true;
                 }
             }
@@ -1974,12 +1978,14 @@ int main(void) {
         int32_t delta = encoder_get_delta();
         if (delta != 0 && current_state != STATE_LISTENING) {
             if (ai_model_edit_mode) {
-                selected_ai_model_idx = (selected_ai_model_idx + delta) % AI_MODEL_COUNT;
+                int model_count = net_client_get_model_count();
+                if (model_count < 1) model_count = 1;
+                selected_ai_model_idx = (selected_ai_model_idx + delta) % model_count;
                 if (selected_ai_model_idx < 0) {
-                    selected_ai_model_idx += AI_MODEL_COUNT;
+                    selected_ai_model_idx += model_count;
                 }
                 audio_play_blip();
-                LOG_INFO("AI_MODEL", "AI Model Core preview: [%s]", AI_MODEL_NAMES[selected_ai_model_idx]);
+                LOG_INFO("AI_MODEL", "AI Model Core preview: [%s]", net_client_get_model_name(selected_ai_model_idx));
                 need_display_update = true;
             } else if (lang_edit_mode) {
                 selected_lang_idx = (selected_lang_idx + delta) % LANG_COUNT;
@@ -2095,11 +2101,12 @@ int main(void) {
             } else if (ai_model_edit_mode) {
                 ai_model_edit_mode = false;
                 active_ai_model_idx = selected_ai_model_idx;
-                leds_set_ai_model(active_ai_model_idx);
+                uint8_t theme = net_client_get_model_theme(active_ai_model_idx);
+                leds_set_ai_model(theme);
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
                 audio_play_chime();
                 LOG_INFO("AI_MODEL", "Confirmed AI Core: [%s]. Exited menu.",
-                         AI_MODEL_NAMES[active_ai_model_idx]);
+                         net_client_get_model_name(active_ai_model_idx));
             } else if (lang_edit_mode) {
                 lang_edit_mode = false;
                 active_lang_idx = selected_lang_idx;
@@ -2170,7 +2177,7 @@ int main(void) {
                 selected_ai_model_idx = active_ai_model_idx;
                 audio_play_tone(523.25f, 25);
                 LOG_INFO("AI_MODEL", "Entering AI Model Core selection (current: %s)",
-                         AI_MODEL_NAMES[active_ai_model_idx]);
+                         net_client_get_model_name(active_ai_model_idx));
             } else if (current_mode_idx == MODE_LANGUAGE) {
                 lang_edit_mode = true;
                 selected_lang_idx = active_lang_idx;
