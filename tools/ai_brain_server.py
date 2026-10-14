@@ -183,6 +183,44 @@ def check_adult_mode_toggle(user_text, detected_lang, config):
         else:
             return True, "Decency protocols restored. Family-friendly polite mode is now active."
 
+    # Check for local model switching commands
+    gemma_patterns = ["включи гемму", "переключи на гемму", "модель гемма", "переключись на гемму", "выбери гемму", "включи gemma", "switch to gemma", "use gemma", "gemma mode"]
+    qwen_patterns = ["включи квен", "переключи на квен", "модель квен", "переключись на квен", "выбери квен", "включи qwen", "switch to qwen", "use qwen", "qwen mode"]
+    llama_patterns = ["включи ламу", "переключи на ламу", "модель лама", "switch to llama", "use llama"]
+
+    if any(p in norm for p in gemma_patterns):
+        config["local_model"] = "gemma2:2b"
+        save_config(config)
+        print("  [LOCAL MODEL] >> Switched to gemma2:2b (Google Gemma 2)")
+        if "ru" in detected_lang.lower():
+            return True, "Локальное ядро переключено на Google Gemma 2. Превосходный выбор для космических изысканий."
+        elif "de" in detected_lang.lower():
+            return True, "Lokaler KI-Kern auf Google Gemma 2 umgeschaltet."
+        else:
+            return True, "Local AI core switched to Google Gemma 2. Ready for queries."
+
+    if any(p in norm for p in qwen_patterns):
+        config["local_model"] = "qwen2.5:1.5b"
+        save_config(config)
+        print("  [LOCAL MODEL] >> Switched to qwen2.5:1.5b (Alibaba Qwen 2.5)")
+        if "ru" in detected_lang.lower():
+            return True, "Локальное ядро переключено на Qwen 2.5. Высокоскоростной полиглот активен."
+        elif "de" in detected_lang.lower():
+            return True, "Lokaler KI-Kern auf Qwen 2.5 umgeschaltet."
+        else:
+            return True, "Local AI core switched to Qwen 2.5. High-speed multilingual reasoning active."
+
+    if any(p in norm for p in llama_patterns):
+        config["local_model"] = "llama3.2:1b"
+        save_config(config)
+        print("  [LOCAL MODEL] >> Switched to llama3.2:1b (Meta Llama 3.2)")
+        if "ru" in detected_lang.lower():
+            return True, "Локальное ядро переключено на Llama 3.2."
+        elif "de" in detected_lang.lower():
+            return True, "Lokaler KI-Kern auf Llama 3.2 umgeschaltet."
+        else:
+            return True, "Local AI core switched to Llama 3.2."
+
     return False, None
 
 

@@ -83,10 +83,19 @@ def get_ollama_status():
             models = data.get("models", [])
             if models:
                 m = models[0]
-                name = m.get("name", "llama3.2:1b")
+                name = m.get("name", "gemma2:2b")
                 sz_mb = m.get("size", 0) // (1024 * 1024)
                 return True, f"{name} ({sz_mb}M RAM)"
-            return True, "Standby (NVMe)"
+            # When standby on NVMe, show configured model name
+            cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "brain_config.json")
+            cfg_model = "gemma2:2b"
+            try:
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                    cfg_model = cfg.get("local_model", "gemma2:2b")
+            except Exception:
+                pass
+            return True, f"{cfg_model} (NVMe Standby)"
     except Exception:
         return False, "Offline"
 

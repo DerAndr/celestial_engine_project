@@ -120,7 +120,14 @@ The staff rotary encoder menu `[05] TARGET AI CORE` selects the intelligence tar
 | **[1]** | `EDDIE COMP` | `[EDD]`| Ministral 8B (`ministral-8b-2512`) | Cloud (OpenRouter) | ~2.0 – 3.0 s |
 | **[2]** | `GROK 4.5` | `[GRK]`| Grok 4.5 (`x-ai/grok-4.5`) | Cloud (OpenRouter) | ~3.0 – 4.5 s |
 | **[3]** | `MARVIN 70B` | `[MRV]`| Llama 3.3 70B Instruct | Cloud (OpenRouter) | ~3.5 – 5.0 s |
-| **[4]** | `PI 5 LOCAL` | `[LOC]`| **Whisper Tiny + Llama 3.2 1B / Gemma 2B + Piper** | **100% Offline Pi 5** | **~3.5 – 5.5 s** |
+| **[4]** | `PI 5 LOCAL` | `[LOC]`| **Whisper Tiny + Gemma 2 2B / Qwen 2.5 + Piper** | **100% Offline Pi 5** | **~3.5 – 5.5 s** |
+
+> **Standalone Offline AI Models (Ollama on Pi 5 NVMe):**
+> - **Google Gemma 2 2B (`gemma2:2b`)**: Primary default offline model — rich retro-sci-fi reasoning.
+> - **Alibaba Qwen 2.5 1.5B (`qwen2.5:1.5b`)**: High-speed multilingual polyglot (exceptional Russian & reasoning, ~15 tok/s).
+> - **Meta Llama 3.2 1B (`llama3.2:1b`)**: Compact fallback.
+> 
+> *Voice Switch:* Hold QUERY and say *"Включи гемму"* or *"Включи квен"* to dynamically switch between them!
 
 > **Seamless Hybrid Fallback:** If a cloud model (0–3) is selected but Wi-Fi loses internet access, the Pi 5 server **automatically intercepts the failure** and routes the query through the local offline core without dropping the response!
 

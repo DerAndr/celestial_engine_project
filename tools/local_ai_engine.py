@@ -28,7 +28,18 @@ PIPER_VOICES = {
 }
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-DEFAULT_LOCAL_MODEL = "llama3.2:1b"  # 1.3 GB, 9.6 tok/s, ~2s warm response
+DEFAULT_LOCAL_MODEL = "gemma2:2b"  # Google Gemma 2 2B (Primary local offline core)
+AVAILABLE_LOCAL_MODELS = ["gemma2:2b", "qwen2.5:1.5b", "llama3.2:1b"]
+
+def get_configured_local_model():
+    """Reads configured local model from brain_config.json, defaulting to gemma2:2b."""
+    try:
+        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "brain_config.json")
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data.get("local_model", DEFAULT_LOCAL_MODEL)
+    except Exception:
+        return DEFAULT_LOCAL_MODEL
 
 def is_local_ai_available():
     """Checks if whisper, piper, and ollama are ready on Pi 5."""
@@ -122,7 +133,7 @@ def local_query_llm(user_text, lang_tag, model_name=None, adult_mode=False):
     When adult_mode=False (default), strictly forbids profanity and vulgarity.
     When adult_mode=True, allows unfiltered adult humor and profanity.
     """
-    model = model_name or DEFAULT_LOCAL_MODEL
+    model = model_name or get_configured_local_model()
     
     if "ru" in lang_tag.lower():
         if adult_mode:
