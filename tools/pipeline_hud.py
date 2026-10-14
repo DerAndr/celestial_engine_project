@@ -90,6 +90,15 @@ def get_ollama_status():
     except Exception:
         return False, "Offline"
 
+def get_adult_mode():
+    try:
+        cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "brain_config.json")
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data.get("adult_mode", False)
+    except Exception:
+        return False
+
 def pad_line(text, width):
     """Pads an inner line so that '│ ' + text + padding + ' │' equals width."""
     plain = ANSI_RE.sub('', text)
@@ -116,6 +125,8 @@ def draw_hud():
     used_ram, total_ram = get_ram_stats()
     nvme_sz, nvme_used, nvme_pct = get_nvme_stats()
     ollama_ok, ollama_info = get_ollama_status()
+    is_adult = get_adult_mode()
+    safety_tag = f"{C_RED}[18+]{C_RESET}" if is_adult else f"{C_GREEN}[PG-13]{C_RESET}"
 
     # Temperature color
     t_col = C_GREEN if temp < 55 else (C_YELLOW if temp < 70 else C_RED)
@@ -144,7 +155,7 @@ def draw_hud():
         out.append(pad_line(f"• SoC Temp: {t_col}{temp:4.1f} °C {t_status}{C_RESET}  • ARM Clock: {C_GREEN}{freq} MHz{C_RESET}", width))
         out.append(pad_line(f"• Power: {thr_col}{thr_label}{C_RESET} | RAM: {used_ram/1024:3.1f}/{total_ram/1024:3.1f}G | NVMe: {nvme_used}/{nvme_sz}", width))
         out.append(f"{C_CYAN}{C_BOLD}├{'─' * inner_w}┤{C_RESET}")
-        out.append(pad_line(f"• Local LLM : {ollama_col}● Ollama (11434){C_RESET} -> {C_YELLOW}{ollama_info}{C_RESET}", width))
+        out.append(pad_line(f"• Local LLM : {ollama_col}● Ollama (11434){C_RESET} -> {C_YELLOW}{ollama_info}{C_RESET} {safety_tag}", width))
         out.append(pad_line(f"• Local STT : {C_GREEN}● Whisper.cpp{C_RESET}     -> ARM NEON (tiny/base)", width))
         out.append(pad_line(f"• Local TTS : {C_GREEN}● Piper C++ ONNX{C_RESET}  -> ru_RU, en_US, de_DE", width))
         out.append(pad_line(f"• Voice/Link: {C_GREEN}● UDP 5005 (v2){C_RESET}   • Cloud: {C_GREEN}● OpenRouter{C_RESET}", width))
@@ -160,7 +171,7 @@ def draw_hud():
         out.append(pad_line(f"• Memory   : [{C_CYAN}{ram_bar}{C_RESET}] {ram_pct:2d}% ({used_ram/1024:3.1f} / {total_ram/1024:3.1f} GB)", width))
         out.append(pad_line(f"• NVMe SSD : {C_GREEN}Lexar NM790 1TB{C_RESET} (Gen 3) [{nvme_used}/{nvme_sz} ({nvme_pct})]", width))
         out.append(f"{C_CYAN}{C_BOLD}├{'─' * inner_w}┤{C_RESET}")
-        out.append(pad_line(f"• Local LLM : {ollama_col}● Ollama (11434){C_RESET} -> {C_YELLOW}{ollama_info}{C_RESET}", width))
+        out.append(pad_line(f"• Local LLM : {ollama_col}● Ollama (11434){C_RESET} -> {C_YELLOW}{ollama_info}{C_RESET} {safety_tag}", width))
         out.append(pad_line(f"• Local STT : {C_GREEN}● Whisper.cpp{C_RESET}     -> ARM NEON (tiny/base)", width))
         out.append(pad_line(f"• Local TTS : {C_GREEN}● Piper C++ ONNX{C_RESET}  -> ru_RU, en_US, de_DE", width))
         out.append(pad_line(f"• Cloud AI  : {C_GREEN}● OpenRouter{C_RESET}      -> DeepSeek, Ministral, Grok", width))

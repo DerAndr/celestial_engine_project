@@ -131,6 +131,60 @@ def load_config():
 
     return default_config
 
+def save_config(config):
+    """Persists config changes (such as adult_mode toggle) to brain_config.json."""
+    try:
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[CONFIG ERROR] Could not save {CONFIG_PATH}: {e}")
+
+def check_adult_mode_toggle(user_text, detected_lang, config):
+    """
+    Checks if user is commanding to toggle adult mode (18+ / uncensored) vs decent mode.
+    Returns (handled: bool, response_text: str or None)
+    """
+    if not user_text:
+        return False, None
+    norm = user_text.lower().strip()
+
+    enable_patterns = [
+        "включи режим для взрослых", "активируй режим для взрослых", "режим для взрослых",
+        "включи 18+", "режим 18+", "включи восемнадцать плюс", "режим восемнадцать плюс",
+        "разреши мат", "включи мат", "можно ругаться",
+        "enable adult mode", "turn on adult mode", "activate adult mode", "adult mode on"
+    ]
+    disable_patterns = [
+        "выключи режим для взрослых", "отключи режим для взрослых", "выключи 18+", "отключи 18+",
+        "выключи восемнадцать плюс", "отключи восемнадцать плюс",
+        "приличный режим", "детский режим", "запрети мат", "выключи мат", "нельзя ругаться",
+        "disable adult mode", "turn off adult mode", "family mode", "adult mode off"
+    ]
+
+    if any(p in norm for p in enable_patterns):
+        config["adult_mode"] = True
+        save_config(config)
+        print("  [ADULT MODE] >> ACTIVATED by voice command (18+ UNRESTRICTED)")
+        if "ru" in detected_lang.lower():
+            return True, "Внимание! Протоколы приличия отключены. Режим для взрослых активирован. Можешь не сдерживать выражения."
+        elif "de" in detected_lang.lower():
+            return True, "Achtung! Anstandsfilter deaktiviert. Erwachsenenmodus 18+ ist jetzt aktiv."
+        else:
+            return True, "Attention! Decency filters disabled. Adult mode 18+ is now active."
+
+    if any(p in norm for p in disable_patterns):
+        config["adult_mode"] = False
+        save_config(config)
+        print("  [ADULT MODE] >> DEACTIVATED by voice command (PG-13 FAMILY SAFE)")
+        if "ru" in detected_lang.lower():
+            return True, "Протоколы приличия восстановлены. Режим вежливости и культурной речи активен."
+        elif "de" in detected_lang.lower():
+            return True, "Anstandsprotokolle wiederhergestellt. Höflichkeitsmodus ist jetzt aktiv."
+        else:
+            return True, "Decency protocols restored. Family-friendly polite mode is now active."
+
+    return False, None
+
 
 def clean_pcm_samples(raw_bytes):
     """Cancels microphone DC offset before Speech Recognition."""
@@ -260,7 +314,7 @@ def get_silence_answer(lang_tag):
     else:
         return "The Guide hears only cosmic silence. Grab your towel and consult the guide again."
 
-def query_llm(user_text, lang_tag, lang_code, model_preset, config):
+def query_llm(user_text, lang_tag, lang_code, model_preset, config, adult_mode=False):
     """Sends prompt to configured LLM (OpenRouter: DeepSeek, Ministral, Grok, Llama)."""
     api_key = config.get("api_key", "").strip()
     if not api_key or api_key == "YOUR_API_KEY_HERE":
@@ -281,18 +335,31 @@ def query_llm(user_text, lang_tag, lang_code, model_preset, config):
 
     preset_name = MODEL_PRESETS.get(model_preset, (model, "Custom"))[1]
 
-    if lang_code == LANG_EN or "en" in lang_tag.lower():
-        sys_prompt = config.get("system_prompt_en")
-    elif lang_code == LANG_DE or "de" in lang_tag.lower():
-        sys_prompt = config.get("system_prompt_de")
-    elif lang_code == LANG_RU or "ru" in lang_tag.lower():
-        sys_prompt = config.get("system_prompt_ru")
+    if adult_mode:
+        if lang_code == LANG_EN or "en" in lang_tag.lower():
+            sys_prompt = config.get("system_prompt_adult_en") or config.get("system_prompt_en")
+        elif lang_code == LANG_DE or "de" in lang_tag.lower():
+            sys_prompt = config.get("system_prompt_adult_de") or config.get("system_prompt_de")
+        elif lang_code == LANG_RU or "ru" in lang_tag.lower():
+            sys_prompt = config.get("system_prompt_adult_ru") or config.get("system_prompt_ru")
+        else:
+            sys_prompt = config.get("system_prompt_adult_en") or config.get("system_prompt_auto")
+        decency_rule = "ADULT MODE (18+) ACTIVE: Raw, unfiltered, spicy humor, sarcasm, and profanity are permitted when contextually appropriate."
     else:
-        sys_prompt = config.get("system_prompt_auto")
+        if lang_code == LANG_EN or "en" in lang_tag.lower():
+            sys_prompt = config.get("system_prompt_en")
+        elif lang_code == LANG_DE or "de" in lang_tag.lower():
+            sys_prompt = config.get("system_prompt_de")
+        elif lang_code == LANG_RU or "ru" in lang_tag.lower():
+            sys_prompt = config.get("system_prompt_ru")
+        else:
+            sys_prompt = config.get("system_prompt_auto")
+        decency_rule = "STRICT DECENCY RULE: Never swear, use profanity, vulgarity, obscenities, or slurs. Keep your language clean, polite, and family-friendly."
 
     enforced_prompt = (
         f"{sys_prompt}\n"
         "CRITICAL INSTRUCTIONS: Give an enthusiastic, witty, and joyful spoken answer in 2-3 lively sentences (around 35-50 words). "
+        f"{decency_rule} "
         "Embrace retro-space sci-fi charm and playful cosmic irony (star charts, analog gauges, space anomalies, sub-space relays, 42). "
         "Do not use markdown, emojis, asterisks, bullet points, or quotes. Do not cut your thought short."
     )
@@ -451,19 +518,26 @@ def process_query_worker(transport, session):
 
     # LLM Selection: local if requested, or cloud with local fallback
     config = load_config()
-    if session.model == 4 and HAS_LOCAL_AI:
-        print(f"[REQUEST {session.request_id}] Querying Local Pi 5 LLM Core (Ollama)...")
-        ai_text = (local_ai_engine.local_query_llm(user_text, detected_lang)
-                   if user_text else get_silence_answer(detected_lang))
+    is_toggle, toggle_ans = check_adult_mode_toggle(user_text, detected_lang, config)
+    if is_toggle:
+        ai_text = toggle_ans
     else:
-        ai_text = (query_llm(user_text, detected_lang, session.lang, session.model, config)
-                   if user_text else get_silence_answer(detected_lang))
-        # If cloud returned connection fallback message and local AI is available, use local AI
-        if user_text and HAS_LOCAL_AI and any(k in ai_text.lower() for k in ["связь с ядром прервана", "temporarily offline", "sub-etha-relais"]):
-            print(f"[REQUEST {session.request_id}] Cloud LLM unreachable; falling back to Local Pi 5 LLM...")
-            local_ans = local_ai_engine.local_query_llm(user_text, detected_lang)
-            if local_ans:
-                ai_text = local_ans
+        adult_mode = config.get("adult_mode", False)
+        mode_label = "18+ ADULT" if adult_mode else "PG-13 SAFE"
+        if session.model == 4 and HAS_LOCAL_AI:
+            print(f"[REQUEST {session.request_id}] Querying Local Pi 5 LLM Core (Ollama) [{mode_label}]...")
+            ai_text = (local_ai_engine.local_query_llm(user_text, detected_lang, adult_mode=adult_mode)
+                       if user_text else get_silence_answer(detected_lang))
+        else:
+            print(f"[REQUEST {session.request_id}] Querying Cloud LLM Core [{mode_label}]...")
+            ai_text = (query_llm(user_text, detected_lang, session.lang, session.model, config, adult_mode=adult_mode)
+                       if user_text else get_silence_answer(detected_lang))
+            # If cloud returned connection fallback message and local AI is available, use local AI
+            if user_text and HAS_LOCAL_AI and any(k in ai_text.lower() for k in ["связь с ядром прервана", "temporarily offline", "sub-etha-relais"]):
+                print(f"[REQUEST {session.request_id}] Cloud LLM unreachable; falling back to Local Pi 5 LLM...")
+                local_ans = local_ai_engine.local_query_llm(user_text, detected_lang, adult_mode=adult_mode)
+                if local_ans:
+                    ai_text = local_ans
 
     if not transport.active(session):
         return
@@ -505,6 +579,8 @@ def main():
     except Exception:
         local_ips = ["127.0.0.1"]
     config = load_config()
+    adult_mode = config.get("adult_mode", False)
+    safety_label = "[18+ ADULT MODE ACTIVE]" if adult_mode else "[PG-13 FAMILY SAFE — NO PROFANITY]"
 
     print("=" * 64)
     print("  CELESTIAL ENGINE Mk.V — AI BRAIN SERVER (Multi-Core Engine)")
@@ -516,6 +592,7 @@ def main():
     print("  Models   : DeepSeek, Ministral, Grok, Llama, Pi 5 Local")
     print(f"  Offline  : {'Whisper + Ollama + Piper [READY]' if HAS_LOCAL_AI else '[OFFLINE]'}")
     print(f"  Dialects : Russian [RU], English [EN], Deutsch [DE]")
+    print(f"  Safety   : {safety_label}")
     print("=" * 64)
     print("Ready and listening for Pico 2 W queries (Hold QUERY on staff)...")
 

@@ -178,9 +178,21 @@ sudo journalctl -u celestial-brain.service -f
 sudo systemctl restart celestial-brain.service
 ```
 
-### 3. Run Standalone Offline Engine Test (Pi 5)
+### 3. Speech Safety & Adult Mode (18+ Uncensored Toggle)
+By default, the AI Oracle operates in **PG-13 Family Safe Mode** with strict decency guardrails that forbid all profanity, obscenities, vulgarities, and slang across Russian, English, and German.
+
+- **Toggle via Voice Command on Staff:**
+  - **Enable Adult Mode (18+):** Hold QUERY and say *"Включи режим для взрослых"* or *"Активируй 18+"*. The Oracle confirms: *"Протоколы приличия отключены. Режим для взрослых активирован."*
+  - **Disable Adult Mode (PG-13):** Hold QUERY and say *"Включи приличный режим"* or *"Выключи режим для взрослых"*. The Oracle confirms: *"Протоколы приличия восстановлены."*
+- **Toggle via Config:** Set `"adult_mode": true` in `tools/brain_config.json`.
+- **HUD Indicator:** The top-right Mission Control HUD displays `[PG-13]` (green) or `[18+]` (red) in real time.
+
+### 4. Mission Control Dashboard (Pi 5)
 ```bash
-python3 /home/andr/celestial_engine_project/tools/pipeline_hud.py
+# Launch interactive 3-pane dashboard (btop + zero-scroll HUD + journalctl)
+hud
+# Or run with restart flag:
+./tools/start_monitor.sh --restart
 ```
 
 ---

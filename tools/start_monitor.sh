@@ -28,8 +28,8 @@ tmux new-session -d -s "$SESSION_NAME" -n "Dashboard" "btop"
 # Enable mouse mode for easy scrolling, pane resizing, and clicking
 tmux set-option -t "$SESSION_NAME" mouse on
 
-# Split window horizontally: 55% left (btop), 45% right
-tmux split-window -h -t "$SESSION_NAME:0.0" -p 45 "python3 /home/andr/celestial_engine_project/tools/pipeline_hud.py"
+# Split window horizontally: 55% left (btop), 45% right (run_hud.sh auto-restart loop)
+tmux split-window -h -t "$SESSION_NAME:0.0" -p 45 "/home/andr/celestial_engine_project/tools/run_hud.sh"
 
 # Split right pane vertically: 50% top (HUD), 50% bottom (logs)
 tmux split-window -v -t "$SESSION_NAME:0.1" -p 50 "sudo journalctl -u celestial-brain.service -f -o cat"
