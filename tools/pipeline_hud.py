@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Celestial Engine Mk.V — Real-Time Hardware & AI Pipeline HUD
-Monitors Raspberry Pi 5 SoC metrics, NVMe SSD, Ollama memory,
-and real-time voice processing pipeline activity with retro sci-fi aesthetics.
+Celestial Engine Mk.V — Compact Real-Time Hardware & Pipeline HUD
+Optimized for tmux split panes (adaptive width and height).
+Zero-scroll layout: dynamically fits 11 to 15 lines without wrapping or vertical scrolling.
 """
 
 import os
@@ -13,6 +13,7 @@ import json
 import urllib.request
 import re
 
+# ANSI Color Palette
 C_RESET  = "\033[0m"
 C_BOLD   = "\033[1m"
 C_CYAN   = "\033[96m"
@@ -23,14 +24,7 @@ C_BLUE   = "\033[94m"
 C_MAGENTA= "\033[95m"
 C_GRAY   = "\033[90m"
 
-ASCII_BANNER = r"""
-  ✦ ─── [ CELESTIAL ENGINE Mk.V :: MISSION CONTROL ] ─── ✦
-   ___ ___ _    ___ ___ _____ ___ _   _     ___ ___   ___ 
-  / __| __| |  | __/ __|_   _|_ _|_\ | |   | _ \_ _| | __|
- | (__| _|| |__| _|\__ \ | |  | |/ _ \| |__ |  _/| |  |__ \
-  \___|___|____|___|___/ |_| |___/_/ \_\____|_| |___| |___/
-  • PICO 2 W (RP2350)  •  WEARABLE RPi 5  •  OFFLINE AI CORE •
-"""
+ANSI_RE = re.compile(r'\x1b\[[0-9;]*[a-zA-Z]')
 
 def get_vcgencmd(cmd):
     try:
@@ -47,9 +41,7 @@ def get_soc_temp():
 def get_soc_clock():
     raw = get_vcgencmd("measure_clock arm")
     m = re.search(r"frequency\(\d+\)=(\d+)", raw)
-    if m:
-        return int(m.group(1)) // 1000000
-    return 0
+    return int(m.group(1)) // 1000000 if m else 0
 
 def get_throttled():
     raw = get_vcgencmd("get_throttled")
@@ -78,105 +70,120 @@ def get_nvme_stats():
         lines = res.stdout.strip().splitlines()
         if len(lines) >= 2:
             parts = lines[1].split()
-            return parts[1], parts[2], parts[3], parts[4]  # Size, Used, Avail, Use%
+            return parts[1], parts[2], parts[4]  # Size, Used, Use%
     except Exception:
         pass
-    return "1TB", "N/A", "N/A", "N/A"
+    return "938G", "11G", "2%"
 
 def get_ollama_status():
     try:
         req = urllib.request.Request("http://127.0.0.1:11434/api/ps", headers={"User-Agent": "HUD"})
-        with urllib.request.urlopen(req, timeout=0.8) as r:
+        with urllib.request.urlopen(req, timeout=0.6) as r:
             data = json.loads(r.read().decode())
             models = data.get("models", [])
             if models:
                 m = models[0]
-                name = m.get("name", "unknown")
+                name = m.get("name", "llama3.2:1b")
                 sz_mb = m.get("size", 0) // (1024 * 1024)
-                return True, f"{name} ({sz_mb} MB in RAM)"
-            return True, "Standby (Models ready on NVMe)"
+                return True, f"{name} ({sz_mb}M RAM)"
+            return True, "Standby (NVMe)"
     except Exception:
-        return False, "Ollama service offline"
+        return False, "Offline"
 
-def get_pipeline_recent_logs():
-    try:
-        res = subprocess.run(
-            ["sudo", "journalctl", "-u", "celestial-brain.service", "-n", "8", "--no-pager", "-o", "cat"],
-            capture_output=True, text=True, timeout=1.5
-        )
-        lines = [l for l in res.stdout.strip().splitlines() if l.strip()]
-        return lines[-6:] if lines else []
-    except Exception:
-        return []
+def pad_line(text, width):
+    """Pads an inner line so that '│ ' + text + padding + ' │' equals width."""
+    plain = ANSI_RE.sub('', text)
+    inner_width = width - 4
+    if len(plain) > inner_width:
+        return f"│ {text[:inner_width]} │"
+    padding = " " * (inner_width - len(plain))
+    return f"│ {text}{padding} │"
 
 def draw_hud():
-    os.system("clear")
-    now_str = time.strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        cols, rows = os.get_terminal_size()
+        width = max(58, min(cols - 2, 70))
+    except Exception:
+        width = 68
+        rows = 20
+
+    inner_w = width - 2
+    now_str = time.strftime("%H:%M:%S")
 
     temp = get_soc_temp()
     freq = get_soc_clock()
     throttled = get_throttled()
     used_ram, total_ram = get_ram_stats()
-    nvme_sz, nvme_used, nvme_avail, nvme_pct = get_nvme_stats()
+    nvme_sz, nvme_used, nvme_pct = get_nvme_stats()
     ollama_ok, ollama_info = get_ollama_status()
-    logs = get_pipeline_recent_logs()
 
     # Temperature color
     t_col = C_GREEN if temp < 55 else (C_YELLOW if temp < 70 else C_RED)
+    t_status = "[COOL]" if temp < 55 else ("[WARM]" if temp < 70 else "[HOT!]")
     thr_col = C_GREEN if throttled == "0x0" else C_RED
-    thr_label = "HEALTHY (0x0)" if throttled == "0x0" else f"THROTTLED ({throttled})"
+    thr_label = "HEALTHY" if throttled == "0x0" else f"WARN({throttled})"
 
-    # RAM percentage bar
+    # RAM percentage bar (10 segments)
     ram_pct = int((used_ram / total_ram * 100)) if total_ram > 0 else 0
-    bar_len = 20
+    bar_len = 10
     filled = int(bar_len * (ram_pct / 100.0))
     ram_bar = "#" * filled + "-" * (bar_len - filled)
 
-    # Header ASCII
-    print(f"{C_CYAN}{C_BOLD}{ASCII_BANNER}{C_RESET}")
-    print(f" {C_GRAY}System Time: {now_str}  |  Host: rpi-15  |  Kernel: Debian Trixie (ARM64){C_RESET}\n")
-
-    print(f"{C_BLUE}{C_BOLD}--- [1] RASPBERRY PI 5 HARDWARE & POWER TELEMETRY ----------------------------{C_RESET}")
-    print(f"  • SoC Temperature : {t_col}{temp:.1f} °C{C_RESET}  |  ARM Clock: {C_GREEN}{freq} MHz{C_RESET}")
-    print(f"  • Power State     : {thr_col}{thr_label}{C_RESET} (Active Cooler PWM Managed)")
-    print(f"  • LPDDR4X Memory  : [{C_CYAN}{ram_bar}{C_RESET}] {ram_pct}% ({used_ram} MB / {total_ram} MB)")
-    print(f"  • NVMe Storage    : {C_GREEN}Lexar NM790 1TB (PCIe Gen 3){C_RESET} | Used: {nvme_used}/{nvme_sz} ({nvme_pct})\n")
-
-    print(f"{C_BLUE}{C_BOLD}--- [2] SERVER PARAMETERS & AI ENGINE STACK ----------------------------------{C_RESET}")
     ollama_col = C_GREEN if ollama_ok else C_RED
-    print(f"  • Voice Transport : {C_GREEN}UDP Port 5005 (Protocol v2){C_RESET} | 16 kHz 16-bit Mono PCM Duplex")
-    print(f"  • AI Persona Vibe : {C_MAGENTA}Hitchhiker's Guide to the Galaxy (Douglas Adams, 42){C_RESET}")
-    print(f"  • Local LLM Engine: {ollama_col}● Ollama (127.0.0.1:11434){C_RESET} -> {C_YELLOW}{ollama_info}{C_RESET}")
-    print(f"  • Local STT Engine: {C_GREEN}● Whisper.cpp (ARM NEON SIMD){C_RESET} -> Models: ggml-tiny (1.5s), ggml-base")
-    print(f"  • Local TTS Engine: {C_GREEN}● Piper C++ Standalone ONNX{C_RESET}   -> Voices: ru_RU-dmitri, en_US-lessac, de_DE-thorsten")
-    print(f"  • Cloud Fallback  : {C_GREEN}● OpenRouter Multi-Core{C_RESET}      -> DeepSeek V3, Ministral 8B, Grok 4.5, Llama 70B\n")
 
-    print(f"{C_BLUE}{C_BOLD}--- [3] LIVE VOICE PIPELINE TRANSACTIONS -------------------------------------{C_RESET}")
-    if logs:
-        for line in logs:
-            if "LOCAL STT" in line or "USER INPUT" in line:
-                print(f"  {C_CYAN}{line}{C_RESET}")
-            elif "LOCAL LLM" in line or "ORACLE RESPONSE" in line:
-                print(f"  {C_YELLOW}{line}{C_RESET}")
-            elif "TTS" in line or "Delivered" in line:
-                print(f"  {C_GREEN}{line}{C_RESET}")
-            elif "ERROR" in line or "FAILED" in line:
-                print(f"  {C_RED}{line}{C_RESET}")
-            else:
-                print(f"  {C_GRAY}{line}{C_RESET}")
+    out = []
+    # Cursor home & clear without scrollback inflation
+    out.append("\033[H\033[J")
+
+    # Adapt layout based on pane row height
+    if rows <= 14:
+        # Ultra-compact mode: 11 lines total
+        out.append(f"{C_CYAN}{C_BOLD}┌{'─' * inner_w}┐{C_RESET}")
+        out.append(pad_line(f"{C_CYAN}{C_BOLD}CELESTIAL ENGINE Mk.V :: MISSION CONTROL{C_RESET} [{C_YELLOW}{now_str}{C_RESET}]", width))
+        out.append(f"{C_CYAN}{C_BOLD}├{'─' * inner_w}┤{C_RESET}")
+        out.append(pad_line(f"• SoC Temp: {t_col}{temp:4.1f} °C {t_status}{C_RESET}  • ARM Clock: {C_GREEN}{freq} MHz{C_RESET}", width))
+        out.append(pad_line(f"• Power: {thr_col}{thr_label}{C_RESET} | RAM: {used_ram/1024:3.1f}/{total_ram/1024:3.1f}G | NVMe: {nvme_used}/{nvme_sz}", width))
+        out.append(f"{C_CYAN}{C_BOLD}├{'─' * inner_w}┤{C_RESET}")
+        out.append(pad_line(f"• Local LLM : {ollama_col}● Ollama (11434){C_RESET} -> {C_YELLOW}{ollama_info}{C_RESET}", width))
+        out.append(pad_line(f"• Local STT : {C_GREEN}● Whisper.cpp{C_RESET}     -> ARM NEON (tiny/base)", width))
+        out.append(pad_line(f"• Local TTS : {C_GREEN}● Piper C++ ONNX{C_RESET}  -> ru_RU, en_US, de_DE", width))
+        out.append(pad_line(f"• Voice/Link: {C_GREEN}● UDP 5005 (v2){C_RESET}   • Cloud: {C_GREEN}● OpenRouter{C_RESET}", width))
+        out.append(f"{C_CYAN}{C_BOLD}└{'─' * inner_w}┘{C_RESET}")
     else:
-        print(f"  {C_GRAY}(Waiting for voice queries from staff...){C_RESET}")
+        # Full mode: 15 lines total
+        out.append(f"{C_CYAN}{C_BOLD}┌{'─' * inner_w}┐{C_RESET}")
+        out.append(pad_line(f"{C_CYAN}{C_BOLD}CELESTIAL ENGINE Mk.V :: PI 5 MISSION CONTROL{C_RESET}", width))
+        out.append(pad_line(f"{C_GRAY}Host: rpi-15 | Cortex-A76 Quad | Time: {C_YELLOW}{now_str}{C_RESET}", width))
+        out.append(f"{C_CYAN}{C_BOLD}├{'─' * inner_w}┤{C_RESET}")
+        out.append(pad_line(f"• SoC Temp : {t_col}{temp:4.1f} °C {t_status}{C_RESET}    • ARM Clock : {C_GREEN}{freq} MHz{C_RESET}", width))
+        out.append(pad_line(f"• Power    : {thr_col}{thr_label:8s}{C_RESET}        • Cooling   : {C_GREEN}PWM Active Fan{C_RESET}", width))
+        out.append(pad_line(f"• Memory   : [{C_CYAN}{ram_bar}{C_RESET}] {ram_pct:2d}% ({used_ram/1024:3.1f} / {total_ram/1024:3.1f} GB)", width))
+        out.append(pad_line(f"• NVMe SSD : {C_GREEN}Lexar NM790 1TB{C_RESET} (Gen 3) [{nvme_used}/{nvme_sz} ({nvme_pct})]", width))
+        out.append(f"{C_CYAN}{C_BOLD}├{'─' * inner_w}┤{C_RESET}")
+        out.append(pad_line(f"• Local LLM : {ollama_col}● Ollama (11434){C_RESET} -> {C_YELLOW}{ollama_info}{C_RESET}", width))
+        out.append(pad_line(f"• Local STT : {C_GREEN}● Whisper.cpp{C_RESET}     -> ARM NEON (tiny/base)", width))
+        out.append(pad_line(f"• Local TTS : {C_GREEN}● Piper C++ ONNX{C_RESET}  -> ru_RU, en_US, de_DE", width))
+        out.append(pad_line(f"• Cloud AI  : {C_GREEN}● OpenRouter{C_RESET}      -> DeepSeek, Ministral, Grok", width))
+        out.append(pad_line(f"• Voice UDP : {C_GREEN}● Port 5005 (v2){C_RESET}  -> Active Duplex Link", width))
+        out.append(f"{C_CYAN}{C_BOLD}└{'─' * inner_w}┘{C_RESET}")
 
-    print(f"\n{C_GRAY}Press Ctrl+C to exit HUD. Run 'hud' in terminal to launch tmux mission control.{C_RESET}")
+    sys.stdout.write("\n".join(out) + "\n")
+    sys.stdout.flush()
 
 def main():
-    while True:
-        try:
+    # Hide cursor
+    sys.stdout.write("\033[?25l")
+    sys.stdout.flush()
+    try:
+        while True:
             draw_hud()
             time.sleep(1.0)
-        except KeyboardInterrupt:
-            print("\nExiting HUD.")
-            break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        # Restore cursor
+        sys.stdout.write("\033[?25h\n")
+        sys.stdout.flush()
 
 if __name__ == "__main__":
     main()

@@ -506,23 +506,17 @@ def main():
         local_ips = ["127.0.0.1"]
     config = load_config()
 
-    print("=" * 68)
-    print("  CELESTIAL ENGINE Mk.V — AI BRAIN SERVER (Multi-Core OpenRouter)")
-    print("=" * 68)
-    print(f"  Listening on UDP Port: {port}")
-
-    print(f"  Host IPs:              {', '.join(local_ips)}")
-    print(f"  LLM Provider:          {config.get('api_base')}")
+    print("=" * 64)
+    print("  CELESTIAL ENGINE Mk.V — AI BRAIN SERVER (Multi-Core Engine)")
+    print("=" * 64)
+    print(f"  UDP Port : {port} | Host IP: {', '.join(local_ips)}")
+    print(f"  Provider : {config.get('api_base')}")
     api_key_set = bool(config.get("api_key") and config.get("api_key") != "YOUR_API_KEY_HERE")
-    if api_key_set:
-        print("  API key:               [SET; LIVE AI ACTIVE]")
-    else:
-        print("  OpenRouter Key:        [NOT SET — RUNNING OFFLINE FALLBACK]")
-    print("  Presets: [0] DeepSeek  [1] Ministral  [2] Grok  [3] Llama  [4] Local Pi 5; UDP v2")
-    print(f"  Local Offline AI:      {'[READY; Whisper + Ollama + Piper]' if HAS_LOCAL_AI else '[UNAVAILABLE]'}")
-    print(f"  Staff Dialects:        Russian [RU], English [EN], Deutsch [DE], Auto [AUTO]")
-    print(f"  TTS Voices:            RU: {config.get('tts_voice_ru')}, EN: {config.get('tts_voice_en')}")
-    print("=" * 68)
+    print(f"  API Key  : {'[LIVE AI ACTIVE]' if api_key_set else '[OFFLINE ONLY]'}")
+    print("  Models   : DeepSeek, Ministral, Grok, Llama, Pi 5 Local")
+    print(f"  Offline  : {'Whisper + Ollama + Piper [READY]' if HAS_LOCAL_AI else '[OFFLINE]'}")
+    print(f"  Dialects : Russian [RU], English [EN], Deutsch [DE]")
+    print("=" * 64)
     print("Ready and listening for Pico 2 W queries (Hold QUERY on staff)...")
 
     try:
