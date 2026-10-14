@@ -24,7 +24,8 @@
 #endif
 
 typedef enum {
-    MODE_STATUS = 0,    // Main utilitarian status with derpy logo
+    MODE_STATUS = 0,    // Main utilitarian status with datetime
+    MODE_FUN,           // Cosmic Crew & Architecture illustration
     MODE_GALAXY,        // Milky Way galaxy map with Sol marker
     MODE_SOLAR,         // Solar System orrery with Earth marker
     MODE_EARTH,         // Earth close-up planetary zoom
@@ -43,6 +44,7 @@ typedef enum {
 
 static const char *MODE_NAMES[MODE_COUNT] = {
     "GUIDE",
+    "COSMIC CREW",
     "GALAXY",
     "SOL SYSTEM",
     "TERRA",
@@ -151,7 +153,7 @@ static void get_current_time(uint8_t *hours, uint8_t *minutes, uint8_t *seconds,
     *millis = (uint16_t)((now_ms - clock_boot_ms) % 1000);
 }
 
-static void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis) {
+void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis) {
     uint32_t now_ms = to_ms_since_boot(get_absolute_time());
     clock_boot_ms = now_ms - (millis % 1000);
     clock_base_seconds = (epoch_seconds % 86400);
@@ -1275,6 +1277,118 @@ static void draw_clock_card(uint32_t now_ms, int32_t rot_pos) {
     draw_marquee(51, clock_ticker, now_ms);
 }
 
+static void draw_fun_card(uint32_t now_ms) {
+    // -------------------------------------------------------------
+    // 1. Human Cosmic Adventurer with Celestial Staff (Left: x=4..24)
+    // -------------------------------------------------------------
+    // Space Helmet with visor
+    sh1106_draw_rect(6, 15, 8, 8, true);
+    sh1106_draw_line(8, 18, 11, 18, true); // visor slit
+    sh1106_draw_pixel(9, 19, true);
+
+    // Torso / Space Suit
+    sh1106_draw_rect(6, 23, 8, 9, true);
+    sh1106_draw_pixel(8, 26, true); // chest badge
+
+    // Legs & Space Boots
+    sh1106_draw_line(7, 32, 6, 41, true);
+    sh1106_draw_line(5, 41, 7, 41, true); // left boot
+    sh1106_draw_line(12, 32, 13, 41, true);
+    sh1106_draw_line(12, 41, 14, 41, true); // right boot
+
+    // Arm holding staff
+    sh1106_draw_line(14, 25, 19, 27, true);
+
+    // Celestial Staff (Pico 2 W)
+    sh1106_draw_line(20, 16, 20, 43, true);
+    // Concentric Rune Orbs at top of staff
+    sh1106_draw_line(19, 14, 21, 14, true);
+    sh1106_draw_line(18, 15, 22, 15, true);
+    sh1106_draw_line(18, 17, 22, 17, true);
+    sh1106_draw_line(19, 18, 21, 18, true);
+    sh1106_draw_pixel(20, 16, true);
+    // Animated energy sparkle
+    if ((now_ms / 200) % 2 == 0) {
+        sh1106_draw_pixel(20, 12, true);
+        sh1106_draw_pixel(17, 15, true);
+        sh1106_draw_pixel(23, 15, true);
+    }
+
+    sh1106_draw_string(5, 42, "YOU", true);
+
+    // -------------------------------------------------------------
+    // 2. Animated Wireless Link: Staff <~UDP~> Pi 5 (x=24..39)
+    // -------------------------------------------------------------
+    int pkt1 = 23 + (int)((now_ms / 120) % 15);
+    sh1106_draw_pixel(pkt1, 26, true);
+    sh1106_draw_pixel(pkt1 + 1, 26, true);
+    sh1106_draw_string(25, 17, "UDP", true);
+
+    // -------------------------------------------------------------
+    // 3. Wearable Raspberry Pi 5 AI Brain (Center: x=41..69)
+    // -------------------------------------------------------------
+    // Pi 5 Chassis box
+    sh1106_draw_rect(41, 18, 27, 19, true);
+    // Active Heatsink fins
+    for (int fx = 44; fx <= 65; fx += 4) {
+        sh1106_draw_line(fx, 15, fx, 18, true);
+    }
+    // "Pi 5" Text
+    sh1106_draw_string(44, 23, "Pi 5", true);
+    // Blinking activity LED
+    if ((now_ms / 250) % 2 == 0) {
+        sh1106_draw_pixel(64, 23, true);
+        sh1106_draw_pixel(64, 24, true);
+    }
+    sh1106_draw_string(42, 42, "BRAIN", true);
+
+    // -------------------------------------------------------------
+    // 4. Animated Link: Pi 5 <~Net~> Phone (x=69..81)
+    // -------------------------------------------------------------
+    int pkt2 = 69 + (int)((now_ms / 150) % 11);
+    sh1106_draw_pixel(pkt2, 26, true);
+    sh1106_draw_string(71, 17, "NET", true);
+
+    // -------------------------------------------------------------
+    // 5. Android Companion Phone (Right: x=82..101)
+    // -------------------------------------------------------------
+    // Phone Bezel
+    sh1106_draw_rect(82, 16, 18, 25, true);
+    // Screen Area
+    sh1106_draw_rect(84, 18, 14, 19, true);
+    // Notch / Speaker
+    sh1106_draw_line(89, 17, 92, 17, true);
+    // Home Indicator bar
+    sh1106_draw_line(88, 39, 93, 39, true);
+    // Screen content
+    sh1106_draw_string(86, 21, "APP", true);
+    sh1106_draw_string(83, 42, "PHONE", true);
+
+    // -------------------------------------------------------------
+    // 6. Flying UFO / Hitchhiker "42" (Far Right: x=104..125)
+    // -------------------------------------------------------------
+    sh1106_draw_line(114, 15, 116, 15, true);
+    sh1106_draw_line(113, 16, 117, 16, true); // saucer dome
+    sh1106_draw_line(108, 19, 122, 19, true); // saucer rim
+    sh1106_draw_line(110, 20, 120, 20, true);
+    // Tractor beam rays
+    sh1106_draw_line(112, 21, 109, 31, true);
+    sh1106_draw_line(118, 21, 121, 31, true);
+    // "42" inside the beam
+    sh1106_draw_string(110, 24, "42", true);
+    sh1106_draw_string(106, 42, "GUIDE", true);
+
+    // -------------------------------------------------------------
+    // 7. Footer: Legendary Hitchhiker & Celestial Lore Marquee Ticker
+    // -------------------------------------------------------------
+    sh1106_draw_line(2, 50, 125, 50, true);
+    draw_marquee(53,
+        "// CELESTIAL Mk.V // PICO 2 W (STAFF) <---> PI 5 (AI BRAIN) <---> PHONE (APP) <---> COSMIC HUMAN // "
+        "DON'T PANIC! // THE ANSWER IS 42 // A TOWEL IS ABOUT THE MOST USEFUL THING AN INTERSTELLAR HITCHHIKER CAN HAVE // "
+        "SHARE AND ENJOY! // TIME IS AN ILLUSION. LUNCHTIME DOUBLY SO //",
+        now_ms);
+}
+
 static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_feedback) {
     if (!oled_ready) return;
 
@@ -1311,29 +1425,58 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
     // 2. Card Body (y=14..47)
     switch (sel_idx) {
         case MODE_STATUS: {
+            uint8_t cur_h, cur_m, cur_s;
+            uint16_t cur_ms;
+            get_current_time(&cur_h, &cur_m, &cur_s, &cur_ms);
+
+            // Left: Techno logo icon (x=5..28, y=17..40)
             sh1106_draw_bitmap(5, 17, 24, 24, CELESTIAL_LOGO_TECHNO_24x24, true);
+
+            // Right side stats:
+            // 1. Digital Clock HH:MM:SS
+            char time_buf[20];
+            snprintf(time_buf, sizeof(time_buf), "TIME: %02u:%02u:%02u", cur_h, cur_m, cur_s);
+            sh1106_draw_string(33, 15, time_buf, true);
+
+            // 2. Wi-Fi status and IP
             if (net_client_is_connected()) {
-                sh1106_draw_string(33, 15, "NET: ONLINE", true);
                 char ip_b[24];
-                snprintf(ip_b, sizeof(ip_b), "%.15s", net_client_get_ip_str());
-                sh1106_draw_string(33, 23, ip_b, true);
+                snprintf(ip_b, sizeof(ip_b), "IP: %.15s", net_client_get_ip_str());
+                sh1106_draw_string(33, 24, ip_b, true);
             } else {
-                sh1106_draw_string(33, 15, "NET: OFFLINE", true);
-                sh1106_draw_string(33, 23, "NO LINK", true);
+                sh1106_draw_string(33, 24, "NET: SEARCHING...", true);
             }
+
+            // 3. Active AI Model Pill
             char ai_pill[24];
             snprintf(ai_pill, sizeof(ai_pill), "AI : %s",
-                     (active_ai_model_idx == AI_MODEL_DEEPSEEK) ? "DEEPSEEK" :
-                     (active_ai_model_idx == AI_MODEL_MISTRAL)  ? "MINISTRAL" :
+                     (active_ai_model_idx == AI_MODEL_DEEPSEEK) ? "DEEP THOUGHT" :
+                     (active_ai_model_idx == AI_MODEL_MISTRAL)  ? "EDDIE (8B)" :
                      (active_ai_model_idx == AI_MODEL_GROK)     ? "GROK 4.5" :
-                     (active_ai_model_idx == AI_MODEL_LLAMA)    ? "LLAMA 70B" : "PI 5 LOCAL");
-            sh1106_draw_string(33, 31, ai_pill, true);
-            char v_pill[24];
-            snprintf(v_pill, sizeof(v_pill), "VOL: %2d%% [%s]", (int)audio_get_volume(), LANG_SHORT_TAGS[active_lang_idx]);
-            sh1106_draw_string(33, 39, v_pill, true);
+                     (active_ai_model_idx == AI_MODEL_LLAMA)    ? "MARVIN (70B)" : "PI 5 LOCAL");
+            sh1106_draw_string(33, 33, ai_pill, true);
 
-            sh1106_draw_line(2, 47, 125, 47, true);
-            draw_marquee(51, "// DON'T PANIC // GRAB YOUR TOWEL // HOLD QUERY TO CONSULT GUIDE // ROTATE TO EXPLORE //", now_ms);
+            // 4. Volume & Dialect badge
+            char v_pill[24];
+            snprintf(v_pill, sizeof(v_pill), "VOL:%2d%% | %s", (int)audio_get_volume(), LANG_SHORT_TAGS[active_lang_idx]);
+            sh1106_draw_string(33, 42, v_pill, true);
+
+            // 5. Clean, stationary, non-scrolling status bar at bottom (saves space, zero clutter)
+            sh1106_draw_line(2, 51, 125, 51, true);
+            if (current_state == STATE_LISTENING) {
+                sh1106_draw_string(6, 54, "[*] RECORDING VOICE...", true);
+            } else if (current_state == STATE_PROCESSING) {
+                sh1106_draw_string(6, 54, "[~] SUB-ETHA QUERYING...", true);
+            } else if (current_state == STATE_SPEAKING) {
+                sh1106_draw_string(6, 54, "[#] ORACLE SPEAKING...", true);
+            } else {
+                sh1106_draw_string(6, 54, "READY :: HOLD QUERY", true);
+            }
+            break;
+        }
+
+        case MODE_FUN: {
+            draw_fun_card(now_ms);
             break;
         }
 
@@ -2117,9 +2260,9 @@ int main(void) {
                 audio_play_voice((voice_phrase_id_t)active_voice_idx);
                 LOG_INFO("VOICE", "Entering Voice Oracle! Speaking %s",
                          audio_get_voice_name((voice_phrase_id_t)active_voice_idx));
-            } else if (current_mode_idx == MODE_GALAXY || current_mode_idx == MODE_SOLAR || current_mode_idx == MODE_EARTH) {
+            } else if (current_mode_idx == MODE_GALAXY || current_mode_idx == MODE_SOLAR || current_mode_idx == MODE_EARTH || current_mode_idx == MODE_FUN) {
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
-                audio_play_chime();
+                audio_play_cosmic_sfx(COSMIC_SFX_R2D2_HAPPY);
                 LOG_INFO("MAP", "Probed celestial coordinates in mode [%s]!", MODE_NAMES[current_mode_idx]);
             } else {
                 active_confirmed_mode = current_mode_idx;

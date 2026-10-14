@@ -79,7 +79,8 @@ class BrainTransport:
             return None
         kind, rid, seq, payload = parsed
         if kind == MSG_HEARTBEAT and rid == 0:
-            self.sock.sendto(packet(MSG_HEARTBEAT, seq=seq), addr)
+            local_epoch = int(time.mktime(time.localtime()))
+            self.sock.sendto(packet(MSG_HEARTBEAT, seq=seq, payload=struct.pack("<I", local_epoch)), addr)
             return None
         with self.lock:
             current = self.sessions.get(addr)

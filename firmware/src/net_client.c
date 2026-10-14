@@ -194,6 +194,14 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
     uint32_t now = to_ms_since_boot(get_absolute_time());
     if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0) {
         last_server_heartbeat_rx_ms = now;
+        if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
+            uint32_t server_epoch = 0;
+            pbuf_copy_partial(p, &server_epoch, sizeof(uint32_t), sizeof(hdr));
+            if (server_epoch > 1700000000) {
+                extern void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis);
+                set_current_time_epoch(server_epoch, 0);
+            }
+        }
     } else if (response_gate_matches(&response_gate, hdr.request_id)) {
         bool ack = false;
         switch (hdr.msg_type) {

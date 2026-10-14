@@ -210,65 +210,96 @@ static void render_breathe(uint32_t tick) {
     }
 }
 
+// ==============================================================================
+// AI Model Personality LED Themes for Sending, Processing, and Speaking
+// ==============================================================================
+typedef struct {
+    uint8_t r1, g1, b1; // Primary arm / wave color
+    uint8_t r2, g2, b2; // Accent arm / telemetry color
+    uint8_t cr, cg, cb; // Core flare / center burst color
+} llm_led_theme_t;
+
+static const llm_led_theme_t LLM_THEMES[5] = {
+    // 0: DEEP THOUGHT (DeepSeek V3) - Cosmic Deep Ocean Cyan & Diamond Blue
+    {   0, 170, 255,   15,  70, 240,  180, 245, 255 },
+    // 1: EDDIE (Ministral 8B) - Sunny Solar Amber & Radiant Gold
+    { 255, 170,  15,  255, 100,   0,  255, 235,  90 },
+    // 2: GROK (Grok 4.5) - Cyberpunk Neon Magenta & Acid Violet / Mint Green
+    { 255,  15, 160,  150,   0, 255,    0, 255, 160 },
+    // 3: MARVIN (Llama 70B) - Melancholic Glacial Steel-Blue & Frosted Silver
+    {  90, 140, 215,   50,  75, 160,  190, 210, 245 },
+    // 4: LOCAL (Pi 5 Edge) - Cyber Emerald Matrix & Raspberry Ruby Core
+    {  10, 255,  90,    0, 200,  70,  255,  15,  80 }
+};
+
+static inline const llm_led_theme_t* get_active_llm_theme(void) {
+    int idx = (anim_ai_model >= 0 && anim_ai_model < 5) ? anim_ai_model : 0;
+    return &LLM_THEMES[idx];
+}
+
 // 1. Unified Logarithmic Whirlpool / Spiral across all rings simultaneously:
-//    - Center (0): Swirling vortex core singularity (voice-reactive white/cyan flare)
-//    - Ring 0 (1..6): Inner eye arms (radius 1.0)
-//    - Ring 1 (7..18): Middle vortex arms (radius 2.0, curved 46 deg)
-//    - Ring 2 (19..42): Outer galaxy spiral arms (radius 3.2, curved 95 deg)
-//    - Ring 3 (43..58): Accretion spiral outer rim (radius 4.4, curved 143 deg)
+//    - Center (0): Swirling vortex core singularity (voice-reactive model flare + REC indicator)
+//    - Ring 0 (1..6): Inner eye arms (radius 1.0, model primary)
+//    - Ring 1 (7..18): Middle vortex arms (radius 2.0, model accent)
+//    - Ring 2 (19..42): Outer galaxy spiral arms (radius 3.2, model harmonic blend)
+//    - Ring 3 (43..58): Accretion spiral outer rim (radius 4.4, model accent)
 static void render_vortex(uint32_t tick, uint8_t mic_level_pct) {
     float voice_gain = (float)mic_level_pct / 100.0f;
     if (voice_gain > 1.0f) voice_gain = 1.0f;
 
-    // Center LED (index 0) - pulsating bright RED recording indicator (REC active!)
+    const llm_led_theme_t *th = get_active_llm_theme();
+
+    // Center LED (index 0) - pulsating RED recording indicator with model flare on vocal peaks!
     float c_wave = (sinf((float)tick * 0.20f) + 1.0f) * 0.5f;
-    pixels_r[0] = (uint8_t)(170 + 85.0f * (c_wave * 0.5f + voice_gain * 0.5f));
-    pixels_g[0] = (uint8_t)(10.0f * voice_gain);
-    pixels_b[0] = (uint8_t)(10.0f * voice_gain);
+    pixels_r[0] = (uint8_t)(160 + 95.0f * (c_wave * 0.4f + voice_gain * 0.6f));
+    pixels_g[0] = (uint8_t)(th->cg * 0.30f * voice_gain);
+    pixels_b[0] = (uint8_t)(th->cb * 0.30f * voice_gain);
 
     // Angular rotation: accelerates dynamically when user speaks into mic!
     float rot_speed = 0.08f + 0.14f * voice_gain;
     float rot = (float)tick * rot_speed;
 
-    // Two symmetric spiral arms: 180 degrees apart
-    // Ring 0 (1..6, 6 LEDs, radius 1.0): twist = 0.0
+    // Ring 0 (1..6, 6 LEDs, radius 1.0): twist = 0.0 (model primary color)
     for (int i = 1; i <= 6; i++) {
         float theta = (float)(i - 1) * (2.0f * 3.14159265f / 6.0f);
         float diff = theta - rot;
         float arm_prox = cosf(2.0f * diff);
         float norm = (arm_prox + 1.0f) * 0.5f;
         float pwr = norm * norm * norm;
-        pixels_r[i] = (uint8_t)(10  + pwr * (220.0f * voice_gain + 30.0f));
-        pixels_g[i] = (uint8_t)(20  + pwr * 230.0f);
-        pixels_b[i] = (uint8_t)(60  + pwr * 195.0f);
+        pixels_r[i] = (uint8_t)(th->r1 * 0.08f + pwr * (th->r1 * (0.75f + 0.25f * voice_gain)));
+        pixels_g[i] = (uint8_t)(th->g1 * 0.08f + pwr * (th->g1 * (0.75f + 0.25f * voice_gain)));
+        pixels_b[i] = (uint8_t)(th->b1 * 0.08f + pwr * (th->b1 * (0.75f + 0.25f * voice_gain)));
     }
 
-    // Ring 1 (7..18, 12 LEDs, radius 2.0): twist = 0.80 rad (~46 deg)
+    // Ring 1 (7..18, 12 LEDs, radius 2.0): twist = 0.80 rad (~46 deg, model accent color)
     for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
         float theta = (float)(i - 7) * (2.0f * 3.14159265f / 12.0f);
         float diff = theta - 0.80f - rot;
         float arm_prox = cosf(2.0f * diff);
         float norm = (arm_prox + 1.0f) * 0.5f;
         float pwr = norm * norm * norm;
-        pixels_r[i] = (uint8_t)(20  + pwr * 180.0f);
-        pixels_g[i] = (uint8_t)(15  + pwr * 210.0f);
-        pixels_b[i] = (uint8_t)(50  + pwr * 205.0f);
+        pixels_r[i] = (uint8_t)(th->r2 * 0.08f + pwr * (th->r2 * (0.75f + 0.25f * voice_gain)));
+        pixels_g[i] = (uint8_t)(th->g2 * 0.08f + pwr * (th->g2 * (0.75f + 0.25f * voice_gain)));
+        pixels_b[i] = (uint8_t)(th->b2 * 0.08f + pwr * (th->b2 * (0.75f + 0.25f * voice_gain)));
     }
 
-    // Ring 2 (19..42, 24 LEDs, radius 3.2): twist = 1.65 rad (~95 deg)
+    // Ring 2 (19..42, 24 LEDs, radius 3.2): twist = 1.65 rad (~95 deg, harmonic blend)
+    float br_r = (th->r1 + th->r2) * 0.5f;
+    float br_g = (th->g1 + th->g2) * 0.5f;
+    float br_b = (th->b1 + th->b2) * 0.5f;
     for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
         float theta = (float)(i - 19) * (2.0f * 3.14159265f / 24.0f);
         float diff = theta - 1.65f - rot;
         float arm_prox = cosf(2.0f * diff);
         float norm = (arm_prox + 1.0f) * 0.5f;
         float pwr = norm * norm * norm;
-        pixels_r[i] = (uint8_t)(8   + pwr * 240.0f);
-        pixels_g[i] = (uint8_t)(10  + pwr * 140.0f);
-        pixels_b[i] = (uint8_t)(35  + pwr * 220.0f);
+        pixels_r[i] = (uint8_t)(br_r * 0.05f + pwr * br_r);
+        pixels_g[i] = (uint8_t)(br_g * 0.05f + pwr * br_g);
+        pixels_b[i] = (uint8_t)(br_b * 0.05f + pwr * br_b);
     }
 
 #if CELESTIAL_FOUR_RINGS
-    // Ring 3 (43..58, 16 LEDs, radius 4.4): twist = 2.50 rad (~143 deg)
+    // Ring 3 (43..58, 16 LEDs, radius 4.4): twist = 2.50 rad (~143 deg, model accent)
     for (int i = 43; i <= 58 && i < LED_RING_COUNT; i++) {
         float theta = (float)(i - 43) * (2.0f * 3.14159265f / 16.0f);
         float diff = theta - 2.50f - rot;
@@ -276,18 +307,18 @@ static void render_vortex(uint32_t tick, uint8_t mic_level_pct) {
         float norm = (arm_prox + 1.0f) * 0.5f;
         float pwr = norm * norm * norm;
         if (pwr >= 0.25f) {
-            pixels_r[i] = (uint8_t)(pwr * 210.0f);
-            pixels_g[i] = (uint8_t)(pwr * 60.0f);
-            pixels_b[i] = (uint8_t)(pwr * 255.0f);
+            pixels_r[i] = (uint8_t)(pwr * th->r2);
+            pixels_g[i] = (uint8_t)(pwr * th->g2);
+            pixels_b[i] = (uint8_t)(pwr * th->b2);
         } else {
-            pixels_r[i] = 0; pixels_g[i] = 0; pixels_b[i] = 0; // Dark background
+            pixels_r[i] = 0; pixels_g[i] = 0; pixels_b[i] = 0;
         }
     }
 #endif
 }
 
 // 9. Concentric Data Reception: Rings pulse inward as distinct concentric circles
-//    simulating sub-etha transmission packets cascading into the staff core!
+//    simulating sub-etha transmission packets cascading into the staff core with model-specific themes!
 static void render_data_recv(uint32_t tick) {
     // If running Local Pi 5 Core (model 4): Special Quantum Matrix animation!
     if (anim_ai_model == 4) {
@@ -307,13 +338,13 @@ static void render_data_recv(uint32_t tick) {
             }
         }
 
-        // Ring 1 (7..18, 12 LEDs): Counter-clockwise spinning Cyber Cyan beam
+        // Ring 1 (7..18, 12 LEDs): Counter-clockwise spinning Cyber Cyan/Mint beam
         int r1_head = 7 + (int)((12 - (tick % 12)) % 12);
         for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
             if (i == r1_head) {
-                pixels_r[i] = 0;  pixels_g[i] = 220; pixels_b[i] = 255;
+                pixels_r[i] = 0;  pixels_g[i] = 230; pixels_b[i] = 180;
             } else {
-                pixels_r[i] = 0;  pixels_g[i] = 15;  pixels_b[i] = 35;
+                pixels_r[i] = 0;  pixels_g[i] = 25;  pixels_b[i] = 20;
             }
         }
 
@@ -328,14 +359,15 @@ static void render_data_recv(uint32_t tick) {
         return;
     }
 
+    const llm_led_theme_t *th = get_active_llm_theme();
     uint32_t cycle = tick / 14;
     uint32_t phase = tick % 14;
 
-    // Alternate packet beam colors: Sub-Etha Neon Cyan vs. Emerald Matrix telemetry
+    // Alternate packet beam colors using the LLM's primary and accent palette
     bool alt_color = (cycle % 2) == 1;
-    uint8_t pr = alt_color ? 0   : 0;
-    uint8_t pg = alt_color ? 255 : 240;
-    uint8_t pb = alt_color ? 130 : 255;
+    uint8_t pr = alt_color ? th->r1 : th->r2;
+    uint8_t pg = alt_color ? th->g1 : th->g2;
+    uint8_t pb = alt_color ? th->b1 : th->b2;
 
 #if CELESTIAL_FOUR_RINGS
     float r3_int = (phase <= 2) ? (1.0f - (float)phase * 0.35f) : 0.0f;
@@ -381,15 +413,15 @@ static void render_data_recv(uint32_t tick) {
         pixels_b[i] = (uint8_t)(pb * r0_int + 12);
     }
 
-    // Center Core LED: Flashes pure diamond-white when packet hits core
+    // Center Core LED: Flashes with model core flare when packet hits core
     if (c_int > 0.4f) {
-        pixels_r[0] = (uint8_t)(255 * c_int);
-        pixels_g[0] = (uint8_t)(255 * c_int);
-        pixels_b[0] = (uint8_t)(255 * c_int);
+        pixels_r[0] = (uint8_t)(th->cr * c_int);
+        pixels_g[0] = (uint8_t)(th->cg * c_int);
+        pixels_b[0] = (uint8_t)(th->cb * c_int);
     } else {
-        pixels_r[0] = (uint8_t)(20  + 60 * c_int);
-        pixels_g[0] = (uint8_t)(100 + 80 * c_int);
-        pixels_b[0] = (uint8_t)(160 + 95 * c_int);
+        pixels_r[0] = (uint8_t)(th->r1 * 0.15f + th->cr * 0.25f * c_int);
+        pixels_g[0] = (uint8_t)(th->g1 * 0.15f + th->cg * 0.25f * c_int);
+        pixels_b[0] = (uint8_t)(th->b1 * 0.15f + th->cb * 0.25f * c_int);
     }
 }
 
@@ -397,26 +429,14 @@ static void render_data_recv(uint32_t tick) {
 //     simulating acoustic oracle speech broadcast with model-specific color themes
 static void render_expand_speech(uint32_t tick) {
     uint32_t wave_phase = tick % 16;
+    const llm_led_theme_t *th = get_active_llm_theme();
 
-    // Model-dependent color palette
-    uint8_t vr, vg, vb;
-    uint8_t cr, cg, cb;
-    if (anim_ai_model == 0) { // DeepSeek V3: Cosmic Deep Thought (Deep Azure / Cyan)
-        vr = 0;   vg = 180; vb = 255;
-        cr = 160; cg = 240; cb = 255;
-    } else if (anim_ai_model == 1) { // Ministral 8B: Eddie Ship Computer (Solar Gold & Amber)
-        vr = 255; vg = 180; vb = 20;
-        cr = 255; cg = 240; cb = 90;
-    } else if (anim_ai_model == 2) { // Grok 4.5: Neon Crimson & Cyber Magenta
-        vr = 255; vg = 15;  vb = 130;
-        cr = 255; cg = 90;  cb = 220;
-    } else if (anim_ai_model == 3) { // Marvin 70B: Melancholic Ice-Blue & Silver
-        vr = 130; vg = 180; vb = 240;
-        cr = 200; cg = 220; cb = 255;
-    } else { // 4: Raspberry Pi 5 Local Core: Cyber Emerald Matrix with Raspberry Ruby Center!
-        vr = 10;  vg = 255; vb = 90;
-        cr = 255; cg = 15;  cb = 80;
-    }
+    uint8_t vr = th->r1;
+    uint8_t vg = th->g1;
+    uint8_t vb = th->b1;
+    uint8_t cr = th->cr;
+    uint8_t cg = th->cg;
+    uint8_t cb = th->cb;
 
     // Center Core (0): Fires brightly at wave start, pulsing with model core color
     float c_wave = (wave_phase <= 3) ? (1.0f - (float)wave_phase * 0.25f) : 0.20f;
