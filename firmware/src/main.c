@@ -1277,72 +1277,158 @@ static void draw_clock_card(uint32_t now_ms, int32_t rot_pos) {
 
 static void draw_fun_card(uint32_t now_ms) {
     // -------------------------------------------------------------
-    // Compact 3-Node Architecture: YOU (Staff) <---> Pi 5 <---> PHONE
+    // Dynamic 2-Node Architecture: STAFF <===> ACTIVE AI HOST (Pi 5 OR Phone)
     // -------------------------------------------------------------
+    net_host_type_t host_type = net_client_get_host_type();
 
-    // 1. Human with Staff (Left: x=10..30)
+    // 1. Human Explorer with Celestial Staff (Left: x=6..28)
     // Helmet
-    sh1106_draw_rect(10, 16, 7, 7, true);
-    sh1106_draw_pixel(13, 19, true); // visor
+    sh1106_draw_rect(6, 17, 7, 7, true);
+    sh1106_draw_pixel(9, 20, true); // visor glass
     // Suit & Body
-    sh1106_draw_rect(10, 23, 7, 8, true);
+    sh1106_draw_rect(6, 24, 7, 8, true);
     // Boots
-    sh1106_draw_line(11, 31, 10, 38, true);
-    sh1106_draw_line(15, 31, 16, 38, true);
+    sh1106_draw_line(7, 32, 6, 38, true);
+    sh1106_draw_line(11, 32, 12, 38, true);
     // Arm holding staff
-    sh1106_draw_line(17, 24, 22, 26, true);
-    // Celestial Staff
-    sh1106_draw_line(23, 15, 23, 39, true);
-    // Staff glowing orb
-    sh1106_draw_rect(21, 15, 5, 5, true);
-    sh1106_draw_pixel(23, 17, true);
+    sh1106_draw_line(13, 25, 17, 27, true);
+    // Celestial Staff rod
+    sh1106_draw_line(18, 15, 18, 39, true);
+    // Staff glowing runic orb
+    sh1106_draw_rect(16, 14, 5, 5, true);
+    sh1106_draw_pixel(18, 16, true);
     if ((now_ms / 200) % 2 == 0) {
-        sh1106_draw_pixel(23, 12, true); // energy spark
+        sh1106_draw_pixel(18, 11, true); // ethereal spark
     }
-    sh1106_draw_string(9, 40, "STAFF", true);
+    sh1106_draw_string(6, 40, "STAFF", true);
 
-    // 2. Wireless Link: Staff <~> Pi 5 (x=31..49)
-    sh1106_draw_line(30, 26, 48, 26, true);
-    int pkt1 = 30 + (int)((now_ms / 80) % 18);
-    sh1106_draw_pixel(pkt1, 25, true);
-    sh1106_draw_pixel(pkt1, 26, true);
-    sh1106_draw_pixel(pkt1, 27, true);
-
-    // 3. Wearable Raspberry Pi 5 Brain (Center: x=50..74)
-    sh1106_draw_rect(50, 18, 24, 18, true);
-    // Heatsink fins
-    for (int fx = 53; fx <= 70; fx += 4) {
-        sh1106_draw_line(fx, 15, fx, 18, true);
+    // 2. High-Tech Animated Wireless Data Link (Center: x=24..80)
+    if (host_type == HOST_TYPE_PI5) {
+        sh1106_draw_string(34, 16, "5GHz UDP", true);
+        sh1106_draw_line(24, 27, 82, 27, true);
+        // Bidirectional packet pulses
+        int p_out = 24 + (int)((now_ms / 45) % 58);
+        sh1106_draw_pixel(p_out, 26, true);
+        sh1106_draw_pixel(p_out, 27, true);
+        sh1106_draw_pixel(p_out, 28, true);
+        int p_in = 82 - (int)((now_ms / 55) % 58);
+        sh1106_draw_pixel(p_in, 26, true);
+        sh1106_draw_pixel(p_in, 27, true);
+        sh1106_draw_pixel(p_in, 28, true);
+        sh1106_draw_string(32, 33, "< SUB-ETHA >", true);
+    } else if (host_type == HOST_TYPE_PHONE) {
+        sh1106_draw_string(33, 16, "PHONE LINK", true);
+        sh1106_draw_line(24, 27, 82, 27, true);
+        // Mobile direct packet pulses
+        int p_out = 24 + (int)((now_ms / 50) % 58);
+        sh1106_draw_pixel(p_out, 26, true);
+        sh1106_draw_pixel(p_out, 27, true);
+        sh1106_draw_pixel(p_out, 28, true);
+        int p_in = 82 - (int)((now_ms / 65) % 58);
+        sh1106_draw_pixel(p_in, 26, true);
+        sh1106_draw_pixel(p_in, 27, true);
+        sh1106_draw_pixel(p_in, 28, true);
+        sh1106_draw_string(34, 33, "< DIRECT >", true);
+    } else {
+        sh1106_draw_string(35, 16, "SCANNING", true);
+        // Broken link with gap
+        sh1106_draw_line(24, 27, 44, 27, true);
+        sh1106_draw_string(49, 24, "x", true);
+        sh1106_draw_line(60, 27, 82, 27, true);
+        sh1106_draw_string(32, 33, "< NO BEACON >", true);
     }
-    sh1106_draw_string(53, 23, "Pi5", true);
-    if ((now_ms / 250) % 2 == 0) {
-        sh1106_draw_pixel(69, 23, true); // status LED
+
+    // 3. Active AI Brain Host (Right: x=82..124)
+    if (host_type == HOST_TYPE_PI5) {
+        // Raspberry Pi 5 Wearable Neural Core
+        sh1106_draw_rect(84, 16, 40, 23, true);
+        // Cooler heatsink fins on top
+        for (int fx = 87; fx <= 121; fx += 5) {
+            sh1106_draw_line(fx, 13, fx, 16, true);
+        }
+        // Active spinning cooling fan
+        sh1106_draw_rect(88, 22, 11, 11, true);
+        int fstep = (int)((now_ms / 100) % 4);
+        if (fstep == 0) {
+            sh1106_draw_line(89, 27, 97, 27, true);
+            sh1106_draw_line(93, 23, 93, 31, true);
+        } else if (fstep == 1) {
+            sh1106_draw_line(90, 24, 96, 30, true);
+            sh1106_draw_line(90, 30, 96, 24, true);
+        } else if (fstep == 2) {
+            sh1106_draw_line(93, 23, 93, 31, true);
+            sh1106_draw_line(89, 27, 97, 27, true);
+        } else {
+            sh1106_draw_line(96, 24, 90, 30, true);
+            sh1106_draw_line(90, 24, 96, 30, true);
+        }
+        // Chip text & blink LED
+        sh1106_draw_string(102, 19, "Pi5", true);
+        if ((now_ms / 200) % 2 == 0) {
+            sh1106_draw_pixel(120, 19, true); // activity LED
+        }
+        // Model tag (e.g. GEMMA, DEEP, QWEN)
+        sh1106_draw_string(102, 28, net_client_get_model_tag(active_ai_model_idx), true);
+
+        sh1106_draw_string(83, 40, "PI 5 BRAIN", true);
+    } else if (host_type == HOST_TYPE_PHONE) {
+        // Android Smartphone Companion
+        sh1106_draw_rect(91, 15, 26, 24, true);
+        // Rounded corners
+        sh1106_draw_pixel(91, 15, false);
+        sh1106_draw_pixel(116, 15, false);
+        sh1106_draw_pixel(91, 38, false);
+        sh1106_draw_pixel(116, 38, false);
+        // Earpiece speaker
+        sh1106_draw_line(102, 16, 105, 16, true);
+        // Phone screen
+        sh1106_draw_rect(93, 18, 22, 18, true);
+        // Home indicator bar
+        sh1106_draw_line(101, 37, 106, 37, true);
+
+        // Animated soundwave / AI speech pulse lines on phone screen
+        int h1 = 2 + (int)((now_ms / 140) % 7);
+        int h2 = 2 + (int)((now_ms / 100) % 9);
+        int h3 = 2 + (int)((now_ms / 170) % 6);
+        sh1106_draw_line(98, 32, 98, 32 - h1, true);
+        sh1106_draw_line(103, 32, 103, 32 - h2, true);
+        sh1106_draw_line(108, 32, 108, 32 - h3, true);
+
+        // Antenna broadcast arcs above phone
+        if ((now_ms / 250) % 2 == 0) {
+            sh1106_draw_pixel(102, 12, true);
+            sh1106_draw_pixel(104, 11, true);
+            sh1106_draw_pixel(106, 12, true);
+        }
+
+        sh1106_draw_string(82, 40, "PHONE BRAIN", true);
+    } else {
+        // Standalone / Disconnected
+        sh1106_draw_rect(88, 16, 32, 23, true);
+        sh1106_draw_string(91, 20, "OFFLINE", true);
+        sh1106_draw_string(94, 28, "NO AI", true);
+        sh1106_draw_string(82, 40, "STANDALONE", true);
     }
-    sh1106_draw_string(50, 40, "BRAIN", true);
-
-    // 4. Wireless Link: Pi 5 <~> Phone (x=76..94)
-    sh1106_draw_line(76, 26, 94, 26, true);
-    int pkt2 = 76 + (int)((now_ms / 80) % 18);
-    sh1106_draw_pixel(pkt2, 25, true);
-    sh1106_draw_pixel(pkt2, 26, true);
-    sh1106_draw_pixel(pkt2, 27, true);
-
-    // 5. Android Phone Companion (Right: x=96..114)
-    sh1106_draw_rect(97, 16, 16, 22, true);
-    sh1106_draw_rect(99, 18, 12, 16, true); // screen
-    sh1106_draw_line(103, 36, 107, 36, true); // home bar
-    sh1106_draw_string(97, 40, "PHONE", true);
-
-    // 6. Hitchhiker "42" Badge (Top Right: x=116..125)
-    sh1106_draw_string(116, 16, "42", true);
 
     // -------------------------------------------------------------
-    // Footer: Clean Marquee Ticker
+    // Footer: Dynamic Architecture Marquee Ticker
     // -------------------------------------------------------------
     sh1106_draw_line(2, 49, 125, 49, true);
-    draw_marquee(52,
-        "// CELESTIAL Mk.V // STAFF <---> PI 5 BRAIN <---> PHONE // DON'T PANIC! // 42 // SHARE & ENJOY! //",
-        now_ms);
+
+    char arch_ticker[160];
+    if (host_type == HOST_TYPE_PI5) {
+        snprintf(arch_ticker, sizeof(arch_ticker),
+            "// CELESTIAL Mk.V // LINKED TO PI 5 WEARABLE CORE // MODEL: %s // DON'T PANIC! // 42 //",
+            net_client_get_model_name(active_ai_model_idx));
+    } else if (host_type == HOST_TYPE_PHONE) {
+        snprintf(arch_ticker, sizeof(arch_ticker),
+            "// CELESTIAL Mk.V // DIRECT MOBILE PHONE LINK // MODEL: %s // DON'T PANIC! // 42 //",
+            net_client_get_model_name(active_ai_model_idx));
+    } else {
+        snprintf(arch_ticker, sizeof(arch_ticker),
+            "// CELESTIAL Mk.V // AUTONOMOUS RUNIC MODE // SCANNING FOR PI 5 OR PHONE // DON'T PANIC! // 42 //");
+    }
+    draw_marquee(52, arch_ticker, now_ms);
 }
 
 static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_feedback) {
@@ -2260,15 +2346,15 @@ int main(void) {
                 }
             }
 
-            LOG_INFO("HEARTBEAT", "Tick #%lu | OLED: %s | State: %s | Mode: [%s] | Vol: %d%% | Net: %s (%s) | Brain: %s | QRY: %s",
+            LOG_INFO("HEARTBEAT", "Tick #%lu | OLED: %s | State: %s | Screen: [%s] | Vol: %d%% | Net: %s (%s) | Host: %s | QRY: %s",
                      (unsigned long)tick_count,
                      oled_ready ? "ONLINE" : "OFFLINE",
                      staff_state_name(current_state),
-                     MODE_NAMES[active_confirmed_mode],
+                     MODE_NAMES[current_mode_idx],
                      (int)audio_get_volume(),
                      net_client_is_connected() ? "ONLINE" : (net_client_get_status() == NET_STATUS_CONNECTING ? "CONNECTING" : "OFFLINE"),
                      net_client_get_ip_str(),
-                     net_client_is_server_ready() ? "READY" : "WAIT",
+                     net_client_get_host_name(),
                      query_button_is_held() ? "HELD" : "UP");
             if (AUDIO_DIAGNOSTIC_BOOT) audio_print_diagnostics();
             need_display_update = true;
@@ -2451,6 +2537,30 @@ int main(void) {
                 printf("  U / N - 1 s 440 Hz with only positive / only negative samples\n");
                 printf("  A     - Print audio PCM / DMA / FIFO diagnostics\n");
                 printf("  E     - Print encoder pins / rotation status\n");
+                printf("  > / < - Next / previous screen mode\n");
+                printf("  O<n>  - Jump directly to screen mode n (0..%d)\n", MODE_COUNT - 1);
+            } else if (cmd_c == '>' || cmd_c == ']') {
+                current_mode_idx = (current_mode_idx + 1) % MODE_COUNT;
+                need_display_update = true;
+                LOG_INFO("MODE", "Navigated to mode [%d] %s", current_mode_idx, MODE_NAMES[current_mode_idx]);
+            } else if (cmd_c == '<' || cmd_c == '[') {
+                current_mode_idx = (current_mode_idx - 1 + MODE_COUNT) % MODE_COUNT;
+                need_display_update = true;
+                LOG_INFO("MODE", "Navigated to mode [%d] %s", current_mode_idx, MODE_NAMES[current_mode_idx]);
+            } else if (cmd_c == 'O' || cmd_c == 'o') {
+                int m = getchar_timeout_us(20000);
+                if (m >= '0' && m <= '9') {
+                    int mode_num = m - '0';
+                    int m2 = getchar_timeout_us(20000);
+                    if (m2 >= '0' && m2 <= '9') {
+                        mode_num = mode_num * 10 + (m2 - '0');
+                    }
+                    if (mode_num >= 0 && mode_num < MODE_COUNT) {
+                        current_mode_idx = mode_num;
+                        need_display_update = true;
+                        LOG_INFO("MODE", "Switched to mode [%d] %s", current_mode_idx, MODE_NAMES[current_mode_idx]);
+                    }
+                }
             }
             cmd_c = getchar_timeout_us(0);
         }
