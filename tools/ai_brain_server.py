@@ -538,20 +538,16 @@ def process_query_worker(transport, session):
             wf.setframerate(16000)
             wf.writeframes(cleaned_pcm)
         config = load_config()
-        force_local = config.get("force_local_ai", True)
-        use_local = (force_local or session.model == 4) and HAS_LOCAL_AI
+        force_local = config.get("force_local_ai", False)
+        use_local_pipeline = (session.model == 4 or force_local) and HAS_LOCAL_AI
 
-        # STT Selection: local if forced or requested (model 4), or cloud with fallback
+        # STT Selection: local Whisper.cpp is fast (0.9s), private, and offline; fallback to Google STT
         user_text = None
         detected_lang = "ru-RU"
-        if use_local:
-            print(f"[REQUEST {session.request_id}] Running 100% Local STT (whisper.cpp)...")
+        if HAS_LOCAL_AI:
             user_text, detected_lang = local_ai_engine.local_transcribe(wav_path, session.lang)
-        else:
+        if not user_text:
             user_text, detected_lang = transcribe_audio(wav_path, session.lang)
-            if not user_text and HAS_LOCAL_AI:
-                print(f"[REQUEST {session.request_id}] Cloud STT silent/failed; trying Local Whisper fallback...")
-                user_text, detected_lang = local_ai_engine.local_transcribe(wav_path, session.lang)
 
     if not transport.active(session):
         return
@@ -565,13 +561,14 @@ def process_query_worker(transport, session):
     else:
         adult_mode = config.get("adult_mode", False)
         mode_label = "18+ ADULT" if adult_mode else "PG-13 SAFE"
-        if use_local:
+        if use_local_pipeline:
             local_model = config.get("local_model", "gemma2:2b")
             print(f"[REQUEST {session.request_id}] Querying Local Pi 5 Core ({local_model}) [{mode_label}]...")
             ai_text = (local_ai_engine.local_query_llm(user_text, detected_lang, adult_mode=adult_mode)
                        if user_text else get_silence_answer(detected_lang))
         else:
-            print(f"[REQUEST {session.request_id}] Querying Cloud LLM Core [{mode_label}]...")
+            preset_info = MODEL_PRESETS.get(session.model, ("cloud", "Cloud LLM"))[1]
+            print(f"[REQUEST {session.request_id}] Querying OpenRouter Core: {preset_info} [{mode_label}]...")
             ai_text = (query_llm(user_text, detected_lang, session.lang, session.model, config, adult_mode=adult_mode)
                        if user_text else get_silence_answer(detected_lang))
             # If cloud returned connection fallback message and local AI is available, use local AI
@@ -597,9 +594,11 @@ def process_query_worker(transport, session):
 
     print(f"[REQUEST {session.request_id}] TTS ({response_lang})...")
     pcm = b""
-    if use_local:
+    if use_local_pipeline:
+        print(f"[REQUEST {session.request_id}] Synthesizing via Local Piper TTS...")
         pcm = local_ai_engine.local_synthesize_pcm(ai_text, response_lang)
     else:
+        print(f"[REQUEST {session.request_id}] Synthesizing via Edge-TTS...")
         pcm = asyncio.run(synthesize_speech_pcm(ai_text, response_lang, config))
         if not pcm and HAS_LOCAL_AI:
             print(f"[REQUEST {session.request_id}] Cloud TTS failed; falling back to Local Piper TTS...")
@@ -621,22 +620,23 @@ def main():
     except Exception:
         local_ips = ["127.0.0.1"]
     config = load_config()
-    force_local = config.get("force_local_ai", True)
+    force_local = config.get("force_local_ai", False)
     adult_mode = config.get("adult_mode", False)
     safety_label = "[18+ ADULT MODE ACTIVE]" if adult_mode else "[PG-13 FAMILY SAFE — NO PROFANITY]"
     local_m = config.get("local_model", "gemma2:2b")
 
     print("=" * 64)
-    print("  CELESTIAL ENGINE Mk.V — 100% AUTONOMOUS LOCAL AI SERVER")
+    if force_local:
+        print("  CELESTIAL ENGINE Mk.V — 100% AUTONOMOUS LOCAL AI SERVER")
+    else:
+        print("  CELESTIAL ENGINE Mk.V — HYBRID AI BRAIN (OpenRouter + Offline Pi 5)")
     print("=" * 64)
-    print(f"  Architecture : 100% Offline Edge Pipeline (Raspberry Pi 5)")
-    print(f"  Local STT    : Whisper.cpp (ARM NEON SIMD) [Offline]")
-    print(f"  Local LLM    : Ollama -> {local_m} (Google Gemma 2 / Qwen 2.5)")
-    print(f"  Local TTS    : Piper C++ Standalone (VITS ONNX) [Offline]")
-    print(f"  Safety       : {safety_label}")
     print(f"  UDP Port     : {port} (Protocol v2) | Host IP: {', '.join(local_ips)}")
-    cloud_status = "Standby (100% Offline Mode Active)" if force_local else "Enabled (OpenRouter Fallback)"
-    print(f"  Cloud Link   : {cloud_status}")
+    print(f"  Cloud LLM    : OpenRouter (DeepSeek V3, Ministral 8B, Grok 4.5, Llama 70B)")
+    print(f"  Local LLM    : Ollama -> {local_m} (Google Gemma 2 / Qwen 2.5)")
+    print(f"  Local Audio  : Whisper.cpp (STT) + Piper Standalone (TTS)")
+    print(f"  Routing Mode : {'100% FORCED OFFLINE' if force_local else 'Dynamic Dial (0-3: OpenRouter | 4: Pi 5 Local)'}")
+    print(f"  Safety       : {safety_label}")
     print("=" * 64)
     print("Ready and listening for Pico 2 W queries (Hold QUERY on staff)...")
 
