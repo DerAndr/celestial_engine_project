@@ -415,17 +415,18 @@ static void draw_ai_model_screen(int sel_model, int act_model) {
     sh1106_clear();
     sh1106_draw_rect(0, 0, 128, 64, true);
 
-    // Header banner
-    sh1106_fill_rect(2, 2, 124, 12, true);
-    sh1106_draw_string(10, 4, "[05] TARGET AI CORE", false);
+    // Header banner (y=2..11)
+    sh1106_fill_rect(2, 2, 124, 10, true);
+    sh1106_draw_string(14, 3, "[ TARGET AI CORE ]", false);
 
+    // List of 5 AI Models spaced cleanly at 10px intervals without overlapping the bottom
     for (int i = 0; i < AI_MODEL_COUNT; i++) {
-        int y = 16 + i * 9;
+        int y = 14 + i * 10;
         bool is_selected = (i == sel_model);
         bool is_active = (i == act_model);
 
         if (is_selected) {
-            sh1106_fill_rect(4, y - 1, 120, 9, true);
+            sh1106_fill_rect(4, y - 1, 116, 9, true);
             char item_str[32];
             snprintf(item_str, sizeof(item_str), "> %s %s",
                      AI_MODEL_NAMES[i], is_active ? "*" : "");
@@ -438,8 +439,10 @@ static void draw_ai_model_screen(int sel_model, int act_model) {
         }
     }
 
-    sh1106_draw_line(2, 53, 125, 53, true);
-    sh1106_draw_string(4, 55, "TURN:NAV  SW:CONFIRM", true);
+    // Vertical scrollbar track on right border (x: 122..124)
+    sh1106_draw_rect(122, 14, 3, 48, true);
+    int thumb_y = 15 + (sel_model * 38) / (AI_MODEL_COUNT > 1 ? (AI_MODEL_COUNT - 1) : 1);
+    sh1106_fill_rect(122, thumb_y, 3, 9, true);
 
     oled_ready = sh1106_update();
 }
@@ -1583,6 +1586,7 @@ int main(void) {
 
     LOG_INFO("SYS", "Initializing WS2812 LED core (GP15=DATA, PIO0 SM1)...");
     leds_init();
+    leds_set_ai_model(active_ai_model_idx);
 #if CELESTIAL_FOUR_RINGS
     LOG_INFO("LED", "FOUR-RING DMA: frames:%u (base:%u + tail:%u) | brightness_cap:%u%% | reset:%uus | boot RGB:%ums/color | address mapping unverified",
              (unsigned)LED_RING_COUNT, (unsigned)LED_BASE_CHAIN_COUNT,
@@ -1987,6 +1991,7 @@ int main(void) {
             } else if (ai_model_edit_mode) {
                 ai_model_edit_mode = false;
                 active_ai_model_idx = selected_ai_model_idx;
+                leds_set_ai_model(active_ai_model_idx);
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
                 audio_play_chime();
                 LOG_INFO("AI_MODEL", "Confirmed AI Core: [%s]. Exited menu.",

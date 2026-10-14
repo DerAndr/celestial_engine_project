@@ -59,6 +59,11 @@ void leds_set_all_rgb(uint8_t r, uint8_t g, uint8_t b);
 void leds_set_anim_mode(int mode);
 
 /**
+ * Set active AI model for dynamic speech & processing color themes.
+ */
+void leds_set_ai_model(int model_idx);
+
+/**
  * Get active animation mode preset.
  */
 int leds_get_anim_mode(void);

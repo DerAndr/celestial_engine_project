@@ -469,15 +469,15 @@ def process_query_worker(transport, session):
         return
     print(f"  [ORACLE RESPONSE] \"{ai_text}\"")
 
-    detected_resp_lang = detect_language_from_text(ai_text)
-    if detected_resp_lang == "ru-RU":
+    # Language selection: Honor staff dialect selection when not in AUTO mode
+    if session.lang == LANG_RU:
         response_lang = "ru-RU"
-    elif session.lang == LANG_DE or detected_resp_lang == "de-DE":
+    elif session.lang == LANG_DE:
         response_lang = "de-DE"
-    elif session.lang == LANG_EN and detected_resp_lang != "ru-RU":
+    elif session.lang == LANG_EN:
         response_lang = "en-US"
     else:
-        response_lang = detected_resp_lang
+        response_lang = detect_language_from_text(ai_text)
 
     print(f"[REQUEST {session.request_id}] TTS ({response_lang})...")
     pcm = b""

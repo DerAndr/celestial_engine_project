@@ -17,7 +17,12 @@ static uint8_t master_brightness = LED_BRIGHTNESS_LIMIT;
 static absolute_time_t next_anim_time;
 static uint32_t anim_tick = 0;
 static int active_anim_mode = LED_ANIM_RAINBOW; // Full-array rainbow for instant visual verification
+static int anim_ai_model = 0;
 static int base_color_idx = 0;
+
+void leds_set_ai_model(int model_idx) {
+    anim_ai_model = model_idx;
+}
 
 // Individual pixel RGB buffer
 static uint8_t pixels_r[LED_RING_COUNT];
@@ -284,6 +289,45 @@ static void render_vortex(uint32_t tick, uint8_t mic_level_pct) {
 // 9. Concentric Data Reception: Rings pulse inward as distinct concentric circles
 //    simulating sub-etha transmission packets cascading into the staff core!
 static void render_data_recv(uint32_t tick) {
+    // If running Local Pi 5 Core (model 4): Special Quantum Matrix animation!
+    if (anim_ai_model == 4) {
+        // Center Core LED (0): Pulsing vibrant Raspberry Ruby core
+        float core_breathe = 0.5f + 0.5f * sinf((float)tick * 0.45f);
+        pixels_r[0] = (uint8_t)(255 * core_breathe);
+        pixels_g[0] = (uint8_t)(15 * core_breathe);
+        pixels_b[0] = (uint8_t)(80 * core_breathe);
+
+        // Ring 0 (1..6, 6 LEDs): Fast clockwise spinning Emerald beam
+        int r0_head = 1 + (int)((tick * 2) % 6);
+        for (int i = 1; i <= 6; i++) {
+            if (i == r0_head) {
+                pixels_r[i] = 10; pixels_g[i] = 255; pixels_b[i] = 90;
+            } else {
+                pixels_r[i] = 0;  pixels_g[i] = 30;  pixels_b[i] = 15;
+            }
+        }
+
+        // Ring 1 (7..18, 12 LEDs): Counter-clockwise spinning Cyber Cyan beam
+        int r1_head = 7 + (int)((12 - (tick % 12)) % 12);
+        for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+            if (i == r1_head) {
+                pixels_r[i] = 0;  pixels_g[i] = 220; pixels_b[i] = 255;
+            } else {
+                pixels_r[i] = 0;  pixels_g[i] = 15;  pixels_b[i] = 35;
+            }
+        }
+
+        // Ring 2 (19..42, 24 LEDs): Outward quantum pulse waves (emerald/mint)
+        uint32_t r2_phase = tick % 12;
+        float r2_glow = (r2_phase <= 4) ? (1.0f - (float)r2_phase * 0.22f) : 0.08f;
+        for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+            pixels_r[i] = (uint8_t)(5   * r2_glow + 1);
+            pixels_g[i] = (uint8_t)(255 * r2_glow + 6);
+            pixels_b[i] = (uint8_t)(120 * r2_glow + 4);
+        }
+        return;
+    }
+
     uint32_t cycle = tick / 14;
     uint32_t phase = tick % 14;
 
@@ -350,21 +394,35 @@ static void render_data_recv(uint32_t tick) {
 }
 
 // 10. Expanding Speech Ripples: Sonic shockwaves radiating outward from center to outer perimeter
-//     simulating acoustic oracle speech broadcast ("Listen! Oracle speaks!")
+//     simulating acoustic oracle speech broadcast with model-specific color themes
 static void render_expand_speech(uint32_t tick) {
-    // 16-tick wave cycle (~480 ms per ripple wave)
     uint32_t wave_phase = tick % 16;
 
-    // Radiant celestial gold/amber voice wavefront
-    uint8_t vr = 255;
-    uint8_t vg = 180;
-    uint8_t vb = 30;
+    // Model-dependent color palette
+    uint8_t vr, vg, vb;
+    uint8_t cr, cg, cb;
+    if (anim_ai_model == 0) { // DeepSeek V3: Cosmic Deep Thought (Deep Azure / Cyan)
+        vr = 0;   vg = 180; vb = 255;
+        cr = 160; cg = 240; cb = 255;
+    } else if (anim_ai_model == 1) { // Ministral 8B: Eddie Ship Computer (Solar Gold & Amber)
+        vr = 255; vg = 180; vb = 20;
+        cr = 255; cg = 240; cb = 90;
+    } else if (anim_ai_model == 2) { // Grok 4.5: Neon Crimson & Cyber Magenta
+        vr = 255; vg = 15;  vb = 130;
+        cr = 255; cg = 90;  cb = 220;
+    } else if (anim_ai_model == 3) { // Marvin 70B: Melancholic Ice-Blue & Silver
+        vr = 130; vg = 180; vb = 240;
+        cr = 200; cg = 220; cb = 255;
+    } else { // 4: Raspberry Pi 5 Local Core: Cyber Emerald Matrix with Raspberry Ruby Center!
+        vr = 10;  vg = 255; vb = 90;
+        cr = 255; cg = 15;  cb = 80;
+    }
 
-    // Center Core (0): Fires brightly at phase 0..3, then gentle warm starlight
+    // Center Core (0): Fires brightly at wave start, pulsing with model core color
     float c_wave = (wave_phase <= 3) ? (1.0f - (float)wave_phase * 0.25f) : 0.20f;
-    pixels_r[0] = (uint8_t)(255 * c_wave);
-    pixels_g[0] = (uint8_t)(240 * c_wave);
-    pixels_b[0] = (uint8_t)(100 * c_wave);
+    pixels_r[0] = (uint8_t)(cr * c_wave);
+    pixels_g[0] = (uint8_t)(cg * c_wave);
+    pixels_b[0] = (uint8_t)(cb * c_wave);
 
     // Ring 0 (1..6, radius 1.0): Peak at phase 2..6
     float r0_wave = 0.05f;
@@ -373,9 +431,9 @@ static void render_expand_speech(uint32_t tick) {
         r0_wave = 1.0f - d * 0.8f;
     }
     for (int i = 1; i <= 6; i++) {
-        pixels_r[i] = (uint8_t)(vr * r0_wave + 10);
-        pixels_g[i] = (uint8_t)(vg * r0_wave + 5);
-        pixels_b[i] = (uint8_t)(vb * r0_wave + 2);
+        pixels_r[i] = (uint8_t)(vr * r0_wave + 6);
+        pixels_g[i] = (uint8_t)(vg * r0_wave + 6);
+        pixels_b[i] = (uint8_t)(vb * r0_wave + 6);
     }
 
     // Ring 1 (7..18, radius 2.0): Peak at phase 5..9
@@ -385,9 +443,9 @@ static void render_expand_speech(uint32_t tick) {
         r1_wave = 1.0f - d * 0.8f;
     }
     for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
-        pixels_r[i] = (uint8_t)(vr * r1_wave + 8);
+        pixels_r[i] = (uint8_t)(vr * r1_wave + 4);
         pixels_g[i] = (uint8_t)(vg * r1_wave + 4);
-        pixels_b[i] = (uint8_t)(vb * r1_wave + 2);
+        pixels_b[i] = (uint8_t)(vb * r1_wave + 4);
     }
 
     // Ring 2 (19..42, radius 3.2): Peak at phase 8..13
@@ -397,13 +455,12 @@ static void render_expand_speech(uint32_t tick) {
         r2_wave = 1.0f - d * 0.8f;
     }
     for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
-        pixels_r[i] = (uint8_t)(vr * r2_wave + 4);
+        pixels_r[i] = (uint8_t)(vr * r2_wave + 2);
         pixels_g[i] = (uint8_t)(vg * r2_wave + 2);
         pixels_b[i] = (uint8_t)(vb * r2_wave + 2);
     }
 
 #if CELESTIAL_FOUR_RINGS
-    // Ring 3 (43..58, radius 4.4): Outermost sonic horizon, peak at phase 11..15
     float r3_wave = 0.02f;
     if (wave_phase >= 11) {
         float d = (float)(wave_phase - 11) / 5.0f;

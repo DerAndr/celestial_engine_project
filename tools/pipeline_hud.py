@@ -2,7 +2,7 @@
 """
 Celestial Engine Mk.V — Real-Time Hardware & AI Pipeline HUD
 Monitors Raspberry Pi 5 SoC metrics, NVMe SSD, Ollama memory,
-and real-time voice processing pipeline activity.
+and real-time voice processing pipeline activity with retro sci-fi aesthetics.
 """
 
 import os
@@ -22,6 +22,15 @@ C_RED    = "\033[91m"
 C_BLUE   = "\033[94m"
 C_MAGENTA= "\033[95m"
 C_GRAY   = "\033[90m"
+
+ASCII_BANNER = r"""
+  ✦ ─── [ CELESTIAL ENGINE Mk.V :: MISSION CONTROL ] ─── ✦
+   ___ ___ _    ___ ___ _____ ___ _   _     ___ ___   ___ 
+  / __| __| |  | __/ __|_   _|_ _|_\ | |   | _ \_ _| | __|
+ | (__| _|| |__| _|\__ \ | |  | |/ _ \| |__ |  _/| |  |__ \
+  \___|___|____|___|___/ |_| |___/_/ \_\____|_| |___| |___/
+  • PICO 2 W (RP2350)  •  WEARABLE RPi 5  •  OFFLINE AI CORE •
+"""
 
 def get_vcgencmd(cmd):
     try:
@@ -84,9 +93,8 @@ def get_ollama_status():
                 m = models[0]
                 name = m.get("name", "unknown")
                 sz_mb = m.get("size", 0) // (1024 * 1024)
-                exp = m.get("expires_at", "")
                 return True, f"{name} ({sz_mb} MB in RAM)"
-            return True, "Standby (No model loaded in RAM)"
+            return True, "Standby (Models ready on NVMe)"
     except Exception:
         return False, "Ollama service offline"
 
@@ -124,26 +132,26 @@ def draw_hud():
     filled = int(bar_len * (ram_pct / 100.0))
     ram_bar = "#" * filled + "-" * (bar_len - filled)
 
-    print(f"{C_CYAN}{C_BOLD}╔════════════════════════════════════════════════════════════════════════════════╗{C_RESET}")
-    print(f"{C_CYAN}{C_BOLD}║          CELESTIAL ENGINE Mk.V — RASPBERRY PI 5 MISSION CONTROL HUD            ║{C_RESET}")
-    print(f"{C_CYAN}{C_BOLD}╚════════════════════════════════════════════════════════════════════════════════╝{C_RESET}")
-    print(f" {C_GRAY}System Time: {now_str}  |  Host: rpi-15  |  Kernel: ARM64 Cortex-A76{C_RESET}\n")
+    # Header ASCII
+    print(f"{C_CYAN}{C_BOLD}{ASCII_BANNER}{C_RESET}")
+    print(f" {C_GRAY}System Time: {now_str}  |  Host: rpi-15  |  Kernel: Debian Trixie (ARM64){C_RESET}\n")
 
-    print(f"{C_BLUE}{C_BOLD}--- [1] HARDWARE & THERMAL TELEMETRY ----------------------------------------{C_RESET}")
+    print(f"{C_BLUE}{C_BOLD}--- [1] RASPBERRY PI 5 HARDWARE & POWER TELEMETRY ----------------------------{C_RESET}")
     print(f"  • SoC Temperature : {t_col}{temp:.1f} °C{C_RESET}  |  ARM Clock: {C_GREEN}{freq} MHz{C_RESET}")
-    print(f"  • Power State     : {thr_col}{thr_label}{C_RESET}")
+    print(f"  • Power State     : {thr_col}{thr_label}{C_RESET} (Active Cooler PWM Managed)")
     print(f"  • LPDDR4X Memory  : [{C_CYAN}{ram_bar}{C_RESET}] {ram_pct}% ({used_ram} MB / {total_ram} MB)")
     print(f"  • NVMe Storage    : {C_GREEN}Lexar NM790 1TB (PCIe Gen 3){C_RESET} | Used: {nvme_used}/{nvme_sz} ({nvme_pct})\n")
 
-    print(f"{C_BLUE}{C_BOLD}--- [2] AI OFFLINE & CLOUD PIPELINE STATUS -----------------------------------{C_RESET}")
+    print(f"{C_BLUE}{C_BOLD}--- [2] SERVER PARAMETERS & AI ENGINE STACK ----------------------------------{C_RESET}")
     ollama_col = C_GREEN if ollama_ok else C_RED
-    print(f"  • Local LLM Core  : {ollama_col}● Ollama API (127.0.0.1:11434){C_RESET} -> {C_YELLOW}{ollama_info}{C_RESET}")
-    print(f"  • Local STT Core  : {C_GREEN}● Whisper.cpp (ARM NEON SIMD){C_RESET} -> Models: ggml-tiny, ggml-base")
-    print(f"  • Local TTS Core  : {C_GREEN}● Piper C++ (VITS ONNX){C_RESET}       -> Voices: ru_RU-dmitri, en_US-lessac, de_DE-thorsten")
-    print(f"  • Cloud Fallback  : {C_GREEN}● OpenRouter Core{C_RESET}            -> DeepSeek V3, Ministral 8B, Grok 4.5, Llama 70B")
-    print(f"  • Staff Listener  : {C_GREEN}● UDP Port 5005 (Protocol v2){C_RESET}   -> Active session responder\n")
+    print(f"  • Voice Transport : {C_GREEN}UDP Port 5005 (Protocol v2){C_RESET} | 16 kHz 16-bit Mono PCM Duplex")
+    print(f"  • AI Persona Vibe : {C_MAGENTA}Hitchhiker's Guide to the Galaxy (Douglas Adams, 42){C_RESET}")
+    print(f"  • Local LLM Engine: {ollama_col}● Ollama (127.0.0.1:11434){C_RESET} -> {C_YELLOW}{ollama_info}{C_RESET}")
+    print(f"  • Local STT Engine: {C_GREEN}● Whisper.cpp (ARM NEON SIMD){C_RESET} -> Models: ggml-tiny (1.5s), ggml-base")
+    print(f"  • Local TTS Engine: {C_GREEN}● Piper C++ Standalone ONNX{C_RESET}   -> Voices: ru_RU-dmitri, en_US-lessac, de_DE-thorsten")
+    print(f"  • Cloud Fallback  : {C_GREEN}● OpenRouter Multi-Core{C_RESET}      -> DeepSeek V3, Ministral 8B, Grok 4.5, Llama 70B\n")
 
-    print(f"{C_BLUE}{C_BOLD}--- [3] LIVE VOICE PIPELINE LOG STREAM --------------------------------------{C_RESET}")
+    print(f"{C_BLUE}{C_BOLD}--- [3] LIVE VOICE PIPELINE TRANSACTIONS -------------------------------------{C_RESET}")
     if logs:
         for line in logs:
             if "LOCAL STT" in line or "USER INPUT" in line:
@@ -159,7 +167,7 @@ def draw_hud():
     else:
         print(f"  {C_GRAY}(Waiting for voice queries from staff...){C_RESET}")
 
-    print(f"\n{C_GRAY}Press Ctrl+C to exit HUD. Run './tools/start_monitor.sh' for multi-pane tmux view.{C_RESET}")
+    print(f"\n{C_GRAY}Press Ctrl+C to exit HUD. Run 'hud' in terminal to launch tmux mission control.{C_RESET}")
 
 def main():
     while True:

@@ -43,9 +43,10 @@ def is_local_ai_available():
     except Exception:
         return False
 
-def local_transcribe(wav_path, lang_code=None):
+def local_transcribe(wav_path, lang_id=None):
     """
     Transcribes audio offline via whisper.cpp.
+    lang_id matches staff_lang_id_t: 0: EN, 1: AUTO, 2: DE, 3: RU
     Returns (transcribed_text, detected_lang_tag) or (None, lang_tag).
     """
     if not os.path.exists(WHISPER_BIN) or not os.path.exists(wav_path):
@@ -53,11 +54,25 @@ def local_transcribe(wav_path, lang_code=None):
 
     model_path = WHISPER_MODEL_TINY if os.path.exists(WHISPER_MODEL_TINY) else WHISPER_MODEL_BASE
     
+    # Map staff dialect setting to whisper language
+    if lang_id == 0:
+        whisper_lang = "en"
+        forced_tag = "en-US"
+    elif lang_id == 2:
+        whisper_lang = "de"
+        forced_tag = "de-DE"
+    elif lang_id == 3:
+        whisper_lang = "ru"
+        forced_tag = "ru-RU"
+    else:
+        whisper_lang = "auto"
+        forced_tag = None
+
     cmd = [
         WHISPER_BIN,
         "-m", model_path,
         "-f", wav_path,
-        "-l", "auto",
+        "-l", whisper_lang,
         "-nt"
     ]
     try:
@@ -66,16 +81,19 @@ def local_transcribe(wav_path, lang_code=None):
         dur = time.time() - t0
         output = res.stdout
 
-        detected_lang = "en-US"
-        lang_match = re.search(r"auto-detected language:\s*([a-z]{2})", output)
-        if lang_match:
-            short_code = lang_match.group(1).lower()
-            if short_code == "ru":
-                detected_lang = "ru-RU"
-            elif short_code == "de":
-                detected_lang = "de-DE"
-            else:
-                detected_lang = "en-US"
+        if forced_tag:
+            detected_lang = forced_tag
+        else:
+            detected_lang = "en-US"
+            lang_match = re.search(r"auto-detected language:\s*([a-z]{2})", output)
+            if lang_match:
+                short_code = lang_match.group(1).lower()
+                if short_code == "ru":
+                    detected_lang = "ru-RU"
+                elif short_code == "de":
+                    detected_lang = "de-DE"
+                else:
+                    detected_lang = "en-US"
 
         # Filter out system diagnostic messages from whisper-cli
         raw_lines = [
@@ -88,14 +106,14 @@ def local_transcribe(wav_path, lang_code=None):
         text = re.sub(r"\[\d+:\d+\.\d+ --> \d+:\d+\.\d+\]", "", text).strip()
         
         if text:
-            print(f"  [LOCAL STT SUCCESS] \"{text}\" ({detected_lang}, {dur:.2f}s)")
+            print(f"  [LOCAL STT SUCCESS] \"{text}\" ({detected_lang}, {dur:.2f}s, whisper_lang={whisper_lang})")
             return text, detected_lang
         else:
-            print(f"  [LOCAL STT SILENCE] No speech recognized ({dur:.2f}s)")
-            return None, detected_lang
+            print(f"  [LOCAL STT SILENCE] No speech recognized ({dur:.2f}s, whisper_lang={whisper_lang})")
+            return None, (forced_tag or "ru-RU")
     except Exception as e:
         print(f"  [LOCAL STT ERROR] whisper-cli failed: {e}")
-        return None, "en-US"
+        return None, (forced_tag or "ru-RU")
 
 def local_query_llm(user_text, lang_tag, model_name=None):
     """
@@ -107,18 +125,21 @@ def local_query_llm(user_text, lang_tag, model_name=None):
     if "ru" in lang_tag.lower():
         system_instruction = (
             "Ты — Электронный Путеводитель для автостопщиков по Галактике. На обложке написано: НЕ ПАНИКУЙ. "
+            "КРИТИЧЕСКИ ВАЖНО: Твой ответ ОБЯЗАТЕЛЬНО должен быть СТРОГО НА РУССКОМ ЯЗЫКЕ! Не используй английские фразы. "
             "Отвечай остроумно, иронично, в британском духе Дугласа Адамса, строго в 2 коротких предложениях (25-35 слов) "
             "без разметки markdown, звездочек и смайлов. Упоминай ретро-космос, вакуумные лампы или ответ 42."
         )
     elif "de" in lang_tag.lower():
         system_instruction = (
             "Du bist der Reiseführer Per Anhalter durch die Galaxis (KEINE PANIK). "
+            "WICHTIG: Deine Antwort MUSS STRENG AUF DEUTSCH SEIN! "
             "Antworte mit trockenem, geistreichem britischem Humor in genau 2 kurzen Sätzen (25-35 Wörter) "
             "ohne Markdown oder Emojis auf Deutsch."
         )
     else:
         system_instruction = (
             "You are the Hitchhiker's Guide to the Galaxy. In large friendly letters on the cover are the words 'DON'T PANIC'. "
+            "IMPORTANT: Your answer MUST be in English. "
             "Answer with dry, witty Douglas Adams British humor, concisely in 2 sentences (approx 25-35 words) "
             "without markdown, asterisks, or emojis. Be slightly absurd and hilarious."
         )
