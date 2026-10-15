@@ -96,3 +96,20 @@ data class SfxItem(
         )
     }
 }
+
+enum class StaffLanguage(
+    val id: Int,
+    val code: String,
+    val displayName: String,
+    val shortTag: String,
+    val locale: java.util.Locale
+) {
+    ENGLISH(0, "en-US", "English", "EN", java.util.Locale.US),
+    AUTO(1, "auto", "Auto Detect", "AUTO", java.util.Locale.US),
+    GERMAN(2, "de-DE", "Deutsch", "DE", java.util.Locale.GERMANY),
+    RUSSIAN(3, "ru-RU", "Русский", "RU", java.util.Locale("ru", "RU"));
+
+    companion object {
+        fun fromId(id: Int): StaffLanguage = entries.find { it.id == id } ?: ENGLISH
+    }
+}

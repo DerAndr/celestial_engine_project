@@ -37,6 +37,8 @@ uint16_t net_client_get_server_port(void);
 // Dynamic AI Host & Model Catalog
 net_host_type_t net_client_get_host_type(void);
 const char* net_client_get_host_name(void);
+void net_client_set_preferred_host(net_host_type_t pref);
+net_host_type_t net_client_get_preferred_host(void);
 uint8_t net_client_get_model_count(void);
 const char* net_client_get_model_name(uint8_t idx);
 const char* net_client_get_model_tag(uint8_t idx);

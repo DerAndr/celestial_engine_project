@@ -13,7 +13,9 @@ data class StaffTelemetry(
     val lastRecognizedText: String = "",
     val lastAiResponseText: String = "",
     val roundTripTimeMs: Long = 0,
-    val activeHost: String = "STANDALONE"
+    val activeHost: String = "STANDALONE",
+    val language: StaffLanguage = StaffLanguage.ENGLISH,
+    val preferredHost: Int = 0
 )
 
 data class PhoneAiModel(
@@ -28,6 +30,8 @@ sealed class StaffCommand {
     data class SetVolume(val volumePercent: Int) : StaffCommand()
     data class SetLedAnimation(val animation: LedAnimation) : StaffCommand()
     data class SetClockStyle(val style: ClockStyle) : StaffCommand()
+    data class SetLanguage(val language: StaffLanguage) : StaffCommand()
+    data class SetHost(val hostType: Int) : StaffCommand()
     data class SyncTime(val epochSeconds: Long, val millis: Int) : StaffCommand()
     data class PlaySfx(val sfxId: Int) : StaffCommand()
     data class PlayChiptune(val trackId: Int) : StaffCommand()

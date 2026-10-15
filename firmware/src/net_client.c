@@ -64,6 +64,7 @@ static uint32_t last_phone_heartbeat_rx_ms = 0;
 static uint32_t last_catalog_req_ms = 0;
 
 static net_host_type_t active_host_type = HOST_TYPE_NONE;
+static net_host_type_t preferred_host = HOST_TYPE_NONE;
 static char active_host_name[16] = "STANDBY";
 
 static const net_catalog_resp_t DEFAULT_STANDALONE_CATALOG = {
@@ -246,15 +247,19 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
 
             if (h_type == HOST_TYPE_PI5) {
                 last_pi5_heartbeat_rx_ms = now;
-                last_server_heartbeat_rx_ms = now;
                 memcpy(&pi5_catalog_cache, &cat, sizeof(cat));
                 has_pi5_catalog = true;
-                active_host_type = HOST_TYPE_PI5;
-                server_ip_addr = *addr;
-                active_server_port = port;
-                memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
-                strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
-                printf("[NET] Active Host: PI 5 (%s, %d models)\n", ip4addr_ntoa(addr), m_count);
+                if (preferred_host != HOST_TYPE_PHONE) {
+                    last_server_heartbeat_rx_ms = now;
+                    active_host_type = HOST_TYPE_PI5;
+                    server_ip_addr = *addr;
+                    active_server_port = port;
+                    memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
+                    strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
+                    printf("[NET] Active Host: PI 5 (%s, %d models)\n", ip4addr_ntoa(addr), m_count);
+                } else {
+                    printf("[NET] Cached Pi 5 Catalog (%d models), Phone remains preferred active host\n", m_count);
+                }
             } else if (h_type == HOST_TYPE_PHONE) {
                 last_phone_heartbeat_rx_ms = now;
                 companion_ip_addr = *addr;
@@ -263,8 +268,8 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 memcpy(&phone_catalog_cache, &cat, sizeof(cat));
                 has_phone_catalog = true;
 
-                // If Pi 5 is not responding, switch to Phone immediately!
-                if (now - last_pi5_heartbeat_rx_ms > 4000 || active_host_type != HOST_TYPE_PI5) {
+                if (preferred_host == HOST_TYPE_PHONE ||
+                    (preferred_host == HOST_TYPE_NONE && (now - last_pi5_heartbeat_rx_ms > 4000 || active_host_type != HOST_TYPE_PI5))) {
                     active_host_type = HOST_TYPE_PHONE;
                     server_ip_addr = *addr;
                     active_server_port = port;
@@ -284,16 +289,18 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
     if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0 &&
         ip_addr_cmp(addr, &pi5_server_ip_addr) && port == pi5_server_port) {
         last_pi5_heartbeat_rx_ms = now;
-        last_server_heartbeat_rx_ms = now;
-        if (active_host_type != HOST_TYPE_PI5) {
-            active_host_type = HOST_TYPE_PI5;
-            server_ip_addr = pi5_server_ip_addr;
-            active_server_port = pi5_server_port;
-            if (has_pi5_catalog) {
-                memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
-                strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
+        if (preferred_host != HOST_TYPE_PHONE) {
+            last_server_heartbeat_rx_ms = now;
+            if (active_host_type != HOST_TYPE_PI5) {
+                active_host_type = HOST_TYPE_PI5;
+                server_ip_addr = pi5_server_ip_addr;
+                active_server_port = pi5_server_port;
+                if (has_pi5_catalog) {
+                    memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
+                    strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
+                }
+                printf("[NET] Restored Active Host to PI 5 (%s)\n", ip4addr_ntoa(&server_ip_addr));
             }
-            printf("[NET] Restored Active Host to PI 5 (%s)\n", ip4addr_ntoa(&server_ip_addr));
         }
         if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
             uint32_t server_epoch = 0;
@@ -483,8 +490,8 @@ void net_client_update(void) {
             net_client_ping_server();
         }
 
-        // Host auto-failover watchdog:
-        if (active_host_type == HOST_TYPE_PI5) {
+        // Host auto-failover watchdog (only in auto mode):
+        if (preferred_host == HOST_TYPE_NONE && active_host_type == HOST_TYPE_PI5) {
             if (now - last_server_heartbeat_rx_ms > 4500) {
                 // Pi 5 has gone silent!
                 if (has_phone_catalog && (now - last_phone_heartbeat_rx_ms < 15000)) {
@@ -832,3 +839,59 @@ uint8_t net_client_get_model_id(uint8_t idx) {
     if (idx >= active_catalog.model_count) return 0;
     return active_catalog.models[idx].model_id;
 }
+
+void net_client_set_preferred_host(net_host_type_t pref) {
+    preferred_host = pref;
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+    if (pref == HOST_TYPE_PHONE) {
+        active_host_type = HOST_TYPE_PHONE;
+        if (has_paired_companion) {
+            server_ip_addr = companion_ip_addr;
+            active_server_port = companion_port ? companion_port : BRAIN_SERVER_PORT;
+        }
+        if (has_phone_catalog) {
+            memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
+            strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+        } else {
+            strncpy(active_host_name, "PHONE BRAIN", sizeof(active_host_name));
+        }
+        printf("[NET] Host preference locked to PHONE BRAIN\n");
+    } else if (pref == HOST_TYPE_PI5) {
+        active_host_type = HOST_TYPE_PI5;
+        server_ip_addr = pi5_server_ip_addr;
+        active_server_port = pi5_server_port;
+        if (has_pi5_catalog) {
+            memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
+            strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
+        } else {
+            strncpy(active_host_name, "PI 5 BRAIN", sizeof(active_host_name));
+        }
+        printf("[NET] Host preference locked to PI 5 BRAIN\n");
+    } else {
+        printf("[NET] Host preference set to AUTO MESH\n");
+        if (now - last_pi5_heartbeat_rx_ms < 4000) {
+            active_host_type = HOST_TYPE_PI5;
+            server_ip_addr = pi5_server_ip_addr;
+            active_server_port = pi5_server_port;
+            if (has_pi5_catalog) {
+                memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
+                strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
+            }
+        } else if (has_phone_catalog || has_paired_companion) {
+            active_host_type = HOST_TYPE_PHONE;
+            if (has_paired_companion) {
+                server_ip_addr = companion_ip_addr;
+                active_server_port = companion_port ? companion_port : BRAIN_SERVER_PORT;
+            }
+            if (has_phone_catalog) {
+                memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
+                strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+            }
+        }
+    }
+}
+
+net_host_type_t net_client_get_preferred_host(void) {
+    return preferred_host;
+}
+

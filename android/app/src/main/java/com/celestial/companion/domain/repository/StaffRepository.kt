@@ -39,10 +39,28 @@ class StaffRepository(
     fun setConnectionMode(mode: ConnectionMode) {
         _connectionMode.value = mode
         Log.i(TAG, "Connection mode switched to: ${mode.name}")
+        when (mode) {
+            ConnectionMode.PHONE_BRAIN_SERVER -> {
+                _phoneBrainActive.value = true
+                scope.launch {
+                    executeCommand(StaffCommand.SetHost(2))
+                    sendPhoneCatalog(activeStaffIp)
+                }
+            }
+            ConnectionMode.MESH_ACTIVE -> {
+                _phoneBrainActive.value = true
+                scope.launch {
+                    executeCommand(StaffCommand.SetHost(1))
+                }
+            }
+            ConnectionMode.STANDALONE_PHONE -> {
+                _phoneBrainActive.value = true
+            }
+        }
     }
 
     private var activeStaffIp: String = "192.168.178.101" // Default staff fallback IP
-    var passkey: String = ""
+    var passkey: String = "apophis"
 
     private val incomingAudioStream = ByteArrayOutputStream()
 
@@ -266,13 +284,16 @@ class StaffRepository(
     }
 
     private fun parseTelemetryPayload(payload: ByteArray) {
-        if (payload.size < 6) return
+        if (payload.size < 5) return
         val buffer = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN)
         val modeId = buffer.get().toInt() and 0xFF
         val stateId = buffer.get().toInt() and 0xFF
         val vol = buffer.get().toInt() and 0xFF
         val animId = buffer.get().toInt() and 0xFF
         val clockStyleId = buffer.get().toInt() and 0xFF
+        val langId = if (payload.size >= 6) buffer.get().toInt() and 0xFF else 0
+        val hostType = if (payload.size >= 7) buffer.get().toInt() and 0xFF else 0
+        val prefHost = if (payload.size >= 8) buffer.get().toInt() and 0xFF else 0
 
         _telemetry.value = _telemetry.value.copy(
             mode = StaffMode.fromId(modeId),
@@ -280,6 +301,9 @@ class StaffRepository(
             volumePercent = vol,
             activeLedAnim = LedAnimation.fromId(animId),
             clockStyle = ClockStyle.fromId(clockStyleId),
+            language = StaffLanguage.fromId(langId),
+            activeHost = if (hostType == 1) "PI 5 BRAIN" else if (hostType == 2) "PHONE BRAIN" else _telemetry.value.activeHost,
+            preferredHost = prefHost,
             isOnline = true,
             lastSeenTimestamp = System.currentTimeMillis()
         )
@@ -303,6 +327,21 @@ class StaffRepository(
             is StaffCommand.SetClockStyle -> {
                 transport.sendCommand(activeStaffIp, 'K'.code.toByte(), command.style.id.toByte(), token)
                 _telemetry.value = _telemetry.value.copy(clockStyle = command.style)
+            }
+            is StaffCommand.SetLanguage -> {
+                transport.sendCommand(activeStaffIp, 'D'.code.toByte(), command.language.id.toByte(), token)
+                _telemetry.value = _telemetry.value.copy(language = command.language)
+            }
+            is StaffCommand.SetHost -> {
+                transport.sendCommand(activeStaffIp, 'H'.code.toByte(), command.hostType.toByte(), token)
+                _telemetry.value = _telemetry.value.copy(
+                    preferredHost = command.hostType,
+                    activeHost = when (command.hostType) {
+                        1 -> "PI 5 BRAIN"
+                        2 -> "PHONE BRAIN"
+                        else -> "AUTO MESH"
+                    }
+                )
             }
             is StaffCommand.SyncTime -> {
                 val payload = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN)

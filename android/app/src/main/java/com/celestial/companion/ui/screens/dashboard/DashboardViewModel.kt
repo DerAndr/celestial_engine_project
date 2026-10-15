@@ -24,6 +24,26 @@ class DashboardViewModel(
     val phoneModels: StateFlow<List<PhoneAiModel>> = repository.phoneModels
     val connectionMode: StateFlow<ConnectionMode> = repository.connectionMode
 
+    private val _currentLanguage = MutableStateFlow(StaffLanguage.ENGLISH)
+    val currentLanguage: StateFlow<StaffLanguage> = _currentLanguage.asStateFlow()
+
+    fun setLanguage(lang: StaffLanguage) {
+        _currentLanguage.value = lang
+        gemmaEngine?.config = gemmaEngine?.config?.copy(language = lang) ?: return
+        viewModelScope.launch {
+            repository.executeCommand(StaffCommand.SetLanguage(lang))
+        }
+    }
+
+    fun setStaffHost(hostType: Int) {
+        viewModelScope.launch {
+            repository.executeCommand(StaffCommand.SetHost(hostType))
+            if (hostType == 2) {
+                repository.executeCommand(StaffCommand.BroadcastCatalog())
+            }
+        }
+    }
+
     // Live Gemma 4 Interactive Studio State
     private val _gemmaResult = MutableStateFlow<GemmaResult?>(null)
     val gemmaResult: StateFlow<GemmaResult?> = _gemmaResult.asStateFlow()
@@ -138,9 +158,35 @@ class DashboardViewModel(
         }
     }
 
+    private var toneGenerator: android.media.ToneGenerator? = null
+
     fun playSfx(sfxId: Int) {
         viewModelScope.launch {
             repository.executeCommand(StaffCommand.PlaySfx(sfxId))
+        }
+        playLocalToneForSfx(sfxId)
+    }
+
+    private fun playLocalToneForSfx(sfxId: Int) {
+        try {
+            if (toneGenerator == null) {
+                toneGenerator = android.media.ToneGenerator(android.media.AudioManager.STREAM_MUSIC, 75)
+            }
+            val toneType = when (sfxId % 10) {
+                0 -> android.media.ToneGenerator.TONE_PROP_BEEP2
+                1 -> android.media.ToneGenerator.TONE_CDMA_PIP
+                2 -> android.media.ToneGenerator.TONE_DTMF_D
+                3 -> android.media.ToneGenerator.TONE_PROP_ACK
+                4 -> android.media.ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD
+                5 -> android.media.ToneGenerator.TONE_CDMA_HIGH_L
+                6 -> android.media.ToneGenerator.TONE_CDMA_LOW_L
+                7 -> android.media.ToneGenerator.TONE_PROP_PROMPT
+                8 -> android.media.ToneGenerator.TONE_CDMA_PRESSHOLDKEY_LITE
+                else -> android.media.ToneGenerator.TONE_PROP_BEEP
+            }
+            toneGenerator?.startTone(toneType, 180)
+        } catch (e: Exception) {
+            android.util.Log.w("DashboardViewModel", "Local tone playback notice: ${e.message}")
         }
     }
 
@@ -148,12 +194,14 @@ class DashboardViewModel(
         viewModelScope.launch {
             repository.executeCommand(StaffCommand.PlayChiptune(trackId))
         }
+        playLocalToneForSfx(trackId + 2)
     }
 
     fun stopAudio() {
         viewModelScope.launch {
             repository.executeCommand(StaffCommand.StopAudio)
         }
+        toneGenerator?.stopTone()
     }
 
     fun syncSystemTime() {
@@ -163,5 +211,11 @@ class DashboardViewModel(
         viewModelScope.launch {
             repository.executeCommand(StaffCommand.SyncTime(seconds, millis))
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        toneGenerator?.release()
+        toneGenerator = null
     }
 }

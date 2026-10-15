@@ -3,6 +3,7 @@ package com.celestial.companion.ai
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
+import com.celestial.companion.domain.model.StaffLanguage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -61,6 +62,7 @@ enum class GemmaVariant(
 data class GemmaConfig(
     val variant: GemmaVariant = GemmaVariant.E2B_MULTIMODAL,
     val enableThinking: Boolean = true,
+    val language: StaffLanguage = StaffLanguage.ENGLISH,
     val temperature: Float = 0.7f,
     val maxTokens: Int = 256,
     val systemPrompt: String = "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic intelligence. Deliver concise, razor-sharp prophecies and technical observations. When analyzing imagery or audio, explain subtle celestial signatures."
@@ -138,14 +140,38 @@ class GemmaModelEngine(
 
         // Generate context-aware thoughts and answers based on modality and prompt
         if (config.enableThinking && config.variant.hasThinkingMode) {
-            val thoughtHeader = when {
-                hasImage -> "Inspecting visual tokens: resolution=${image?.width}x${image?.height}, spectral variance, celestial symbols..."
-                hasAudio -> "Decoding incoming 16kHz PCM audio stream: pitch shift detected, harmonics aligned to aetheric frequency..."
-                else -> "Query parsed. Analyzing celestial alignments, quantum resonance, and chronos epoch..."
+            val thoughtHeader = when (config.language) {
+                StaffLanguage.GERMAN -> when {
+                    hasImage -> "Visuelle Tokens analysiert: Bildauflösung ${image?.width}x${image?.height}, Spektralvarianz, Runen..."
+                    hasAudio -> "Eingehender 16kHz PCM-Audiostrom decodiert: Resonanzfrequenzen abgestimmt..."
+                    else -> "Anfrage analysiert. Sternausrichtung und Chronos-Epoche synchronisiert..."
+                }
+                StaffLanguage.RUSSIAN -> when {
+                    hasImage -> "Анализ визуальных токенов: разрешение ${image?.width}x${image?.height}, спектральная дисперсия, руны..."
+                    hasAudio -> "Декодирование входящего 16 кГц PCM аудиопотока: гармоники синхронизированы..."
+                    else -> "Запрос разобран. Анализ звездных эфемерид и квантового резонанса..."
+                }
+                else -> when {
+                    hasImage -> "Inspecting visual tokens: resolution=${image?.width}x${image?.height}, spectral variance, celestial symbols..."
+                    hasAudio -> "Decoding incoming 16kHz PCM audio stream: pitch shift detected, harmonics aligned to aetheric frequency..."
+                    else -> "Query parsed. Analyzing celestial alignments, quantum resonance, and chronos epoch..."
+                }
             }
             simulatedThoughts.add(thoughtHeader)
-            simulatedThoughts.add("Evaluating stellar probability matrices against Mk.V runes.")
-            simulatedThoughts.add("Synthesizing concise prophecy for staff OLED and telemetry.")
+            when (config.language) {
+                StaffLanguage.GERMAN -> {
+                    simulatedThoughts.add("Stellare Wahrscheinlichkeitsmatrizen gegen Mk.V Runen ausgewertet.")
+                    simulatedThoughts.add("Präzise Prophezeiung für OLED und Telemetrie synthetisiert.")
+                }
+                StaffLanguage.RUSSIAN -> {
+                    simulatedThoughts.add("Оценка матриц вероятностей по рунам Mk.V.")
+                    simulatedThoughts.add("Синтез пророчества для OLED дисплея и телеметрии.")
+                }
+                else -> {
+                    simulatedThoughts.add("Evaluating stellar probability matrices against Mk.V runes.")
+                    simulatedThoughts.add("Synthesizing concise prophecy for staff OLED and telemetry.")
+                }
+            }
         }
 
         val prophecyText = buildResponseText(prompt, hasImage, hasAudio)
@@ -214,27 +240,69 @@ class GemmaModelEngine(
 
     private fun buildResponseText(prompt: String, hasImage: Boolean, hasAudio: Boolean): String {
         val lower = prompt.lowercase()
-        return when {
-            hasImage && lower.contains("staff") ->
-                "Visual telemetry confirmed: Celestial Engine Mk.V detected in frame. Concentric WS2812 rings indicate vortex synchronization at 18% power. The core is receptive."
-            hasImage ->
-                "Visual scan completed. The camera captured an ethereal artifact. Geometric luminosity and surface contours suggest high harmonic alignment with local aether."
-            hasAudio ->
-                "Acoustic spectral analysis resolved. Voice waveform indicates query concerning current epoch. The celestial matrix responds: 'The stars favor decisive momentum.'"
-            lower.contains("status") || lower.contains("система") ->
-                "All three nodes (Pico 2 W Staff, Wearable Pi 5, Companion Phone) are online and resonant. Gemma 4 E2B engine operating at nominal latency. Standalone mode operational."
-            lower.contains("who are you") || lower.contains("кто ты") ->
-                "I am the Celestial Oracle powered by Google Gemma 4 on-device multimodal intelligence. I perceive light, sound, and cosmic runes."
-            lower.contains("time") || lower.contains("время") ->
-                "Chronos alignment verified. Epoch synchronized with device clock. The sands of the cosmic hourglass flow without distortion."
-            else -> {
-                val oracles = listOf(
-                    "The celestial tapestry reveals convergence: energy flows smoothly through the three rings, and the oracle sees victory in your physical build.",
-                    "An omen shines in the northern quadrant. The harmonics between phone and staff remain unbroken. Proceed with the ritual.",
-                    "Stellar wisdom received: what was divided across separate microcontrollers is now united in the multimodal sphere of Gemma 4.",
-                    "The runes whisper of clarity. Your query echoes through the aether: all signals indicate optimal resonance."
-                )
-                oracles[Random.nextInt(oracles.size)]
+        return when (config.language) {
+            StaffLanguage.GERMAN -> when {
+                hasImage && (lower.contains("staff") || lower.contains("stab")) ->
+                    "Visuelle Telemetrie bestätigt: Celestial Engine Mk.V erkannt. Konzentrische WS2812-Ringe synchronisiert bei 18% Leistung."
+                hasImage ->
+                    "Visueller Scan abgeschlossen. Harmonische Geometrie und Konturen deuten auf hohe Äther-Ausrichtung hin."
+                hasAudio ->
+                    "Akustische Spektralanalyse abgeschlossen. Die Himmelsmatrix antwortet: 'Die Sterne begünstigen entschlossenes Handeln.'"
+                lower.contains("status") ->
+                    "Alle drei Knoten (Pico 2 W Stab, Wearable Pi 5, Begleit-Smartphone) sind online und resonant. Gemma 4 E2B nominal aktiv."
+                lower.contains("wer bist du") || lower.contains("who are you") ->
+                    "Ich bin das Celestial Oracle, angetrieben von Google Gemma 4 On-Device multimodaler Intelligenz."
+                else -> {
+                    val oracles = listOf(
+                        "Das Himmelsgewebe offenbart Konvergenz: Die Energie fließt harmonisch durch die drei Ringe.",
+                        "Ein Omen leuchtet im nördlichen Quadranten. Die Resonanz zwischen Telefon und Stab ist makellos.",
+                        "Stellare Weisheit empfangen: Alle Signale zeigen optimale Ausrichtung und Energieübertragung."
+                    )
+                    oracles[Random.nextInt(oracles.size)]
+                }
+            }
+            StaffLanguage.RUSSIAN -> when {
+                hasImage && (lower.contains("staff") || lower.contains("посох")) ->
+                    "Визуальная телеметрия подтверждена: Посох Celestial Engine Mk.V обнаружен. Кольца синхронизированы на 18% мощности."
+                hasImage ->
+                    "Визуальное сканирование завершено. Геометрическая светимость указывает на высокую гармонию с эфиром."
+                hasAudio ->
+                    "Акустический спектральный анализ завершен. Звездная матрица отвечает: 'Звезды благоволят решительным действиям.'"
+                lower.contains("status") || lower.contains("статус") || lower.contains("система") ->
+                    "Все три узла (Посох Pico 2 W, носимый Pi 5 и смартфон) на связи. Gemma 4 E2B работает в штатном режиме."
+                lower.contains("кто ты") || lower.contains("who are you") ->
+                    "Я — Небесный Оракул на базе Google Gemma 4 с локальной мультимодальной обработкой."
+                else -> {
+                    val oracles = listOf(
+                        "Небесное полотно открывает конвергенцию: энергия струится через три кольца без искажений.",
+                        "Знамение сияет в северном квадранте. Гармоники между телефоном и посохом чисты.",
+                        "Звездная мудрость получена: все системы синхронизированы в мультимодальной сфере Gemma 4."
+                    )
+                    oracles[Random.nextInt(oracles.size)]
+                }
+            }
+            else -> when { // ENGLISH (Default)
+                hasImage && lower.contains("staff") ->
+                    "Visual telemetry confirmed: Celestial Engine Mk.V detected in frame. Concentric WS2812 rings indicate vortex synchronization at 18% power. The core is receptive."
+                hasImage ->
+                    "Visual scan completed. The camera captured an ethereal artifact. Geometric luminosity and surface contours suggest high harmonic alignment with local aether."
+                hasAudio ->
+                    "Acoustic spectral analysis resolved. Voice waveform indicates query concerning current epoch. The celestial matrix responds: 'The stars favor decisive momentum.'"
+                lower.contains("status") || lower.contains("система") ->
+                    "All three nodes (Pico 2 W Staff, Wearable Pi 5, Companion Phone) are online and resonant. Gemma 4 E2B engine operating at nominal latency. Standalone mode operational."
+                lower.contains("who are you") || lower.contains("кто ты") ->
+                    "I am the Celestial Oracle powered by Google Gemma 4 on-device multimodal intelligence. I perceive light, sound, and cosmic runes."
+                lower.contains("time") || lower.contains("время") ->
+                    "Chronos alignment verified. Epoch synchronized with device clock. The sands of the cosmic hourglass flow without distortion."
+                else -> {
+                    val oracles = listOf(
+                        "The celestial tapestry reveals convergence: energy flows smoothly through the three rings, and the oracle sees victory in your physical build.",
+                        "An omen shines in the northern quadrant. The harmonics between phone and staff remain unbroken. Proceed with the ritual.",
+                        "Stellar wisdom received: what was divided across separate microcontrollers is now united in the multimodal sphere of Gemma 4.",
+                        "The runes whisper of clarity. Your query echoes through the aether: all signals indicate optimal resonance."
+                    )
+                    oracles[Random.nextInt(oracles.size)]
+                }
             }
         }
     }

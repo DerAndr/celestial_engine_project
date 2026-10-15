@@ -78,8 +78,8 @@ static const char *LANG_SHORT_TAGS[LANG_COUNT] = {
     "RU"
 };
 
-static int active_lang_idx = LANG_RU;   // Default: Russian [RU]
-static int selected_lang_idx = LANG_RU;
+static int active_lang_idx = LANG_EN;   // Default: English [EN]
+static int selected_lang_idx = LANG_EN;
 static bool lang_edit_mode = false;
 
 static bool oled_ready = false;
@@ -402,26 +402,34 @@ static void draw_ai_model_screen(int sel_model, int act_model) {
     sh1106_clear();
     sh1106_draw_rect(0, 0, 128, 64, true);
 
-    // Header banner with active Host identity (y=2..11)
+    // Header banner with host status (y=2..11)
     sh1106_fill_rect(2, 2, 124, 10, true);
-    char hdr_str[32];
-    net_host_type_t host = net_client_get_host_type();
-    if (host == HOST_TYPE_PI5) {
-        snprintf(hdr_str, sizeof(hdr_str), "[ AI CORES : PI 5 ]");
-    } else if (host == HOST_TYPE_PHONE) {
-        snprintf(hdr_str, sizeof(hdr_str), "[ AI CORES : PHONE ]");
-    } else {
-        snprintf(hdr_str, sizeof(hdr_str), "[ AI CORES : STANDALONE ]");
-    }
-    sh1106_draw_string(8, 3, hdr_str, false);
+    sh1106_draw_string(8, 3, "[ AI BRAIN & CORES ]", false);
 
     uint8_t count = net_client_get_model_count();
     if (count == 0) count = 1;
+    net_host_type_t pref = net_client_get_preferred_host();
+    net_host_type_t active_h = net_client_get_host_type();
 
-    // List models dynamically reported by active host (up to 5 items spaced evenly)
-    for (int i = 0; i < count && i < 5; i++) {
-        int y = 14 + i * 10;
-        bool is_selected = (i == sel_model);
+    // Row 0 (y=14): Host Selector
+    bool host_selected = (sel_model == 0);
+    const char *pref_tag = (pref == HOST_TYPE_PI5) ? "< PI 5 >" :
+                           (pref == HOST_TYPE_PHONE) ? "< PHONE >" :
+                           "< AUTO >";
+    char host_str[32];
+    snprintf(host_str, sizeof(host_str), "HOST: %s (%s)", pref_tag,
+             active_h == HOST_TYPE_PI5 ? "PI5" : active_h == HOST_TYPE_PHONE ? "PHN" : "STB");
+    if (host_selected) {
+        sh1106_fill_rect(4, 13, 116, 9, true);
+        sh1106_draw_string(6, 14, host_str, false);
+    } else {
+        sh1106_draw_string(6, 14, host_str, true);
+    }
+
+    // Rows 1..4 (y=24, 34, 44, 54): Models
+    for (int i = 0; i < count && i < 4; i++) {
+        int y = 24 + i * 10;
+        bool is_selected = (sel_model == i + 1);
         bool is_active = (i == act_model);
         const char *name = net_client_get_model_name(i);
 
@@ -441,7 +449,8 @@ static void draw_ai_model_screen(int sel_model, int act_model) {
 
     // Vertical scrollbar track on right border (x: 122..124)
     sh1106_draw_rect(122, 14, 3, 48, true);
-    int thumb_y = 15 + (sel_model * 38) / (count > 1 ? (count - 1) : 1);
+    int total_items = 1 + count;
+    int thumb_y = 15 + (sel_model * 38) / (total_items > 1 ? (total_items - 1) : 1);
     sh1106_fill_rect(122, thumb_y, 3, 9, true);
 
     oled_ready = sh1106_update();
@@ -1556,7 +1565,11 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             sh1106_draw_string(6, 17, cur_str, true);
 
             char host_str[32];
-            snprintf(host_str, sizeof(host_str), "HOST: %s", net_client_get_host_name());
+            net_host_type_t pref = net_client_get_preferred_host();
+            const char *lock_str = (pref == HOST_TYPE_PI5) ? "[PI5 LOCK]" :
+                                   (pref == HOST_TYPE_PHONE) ? "[PHN LOCK]" :
+                                   "[AUTO]";
+            snprintf(host_str, sizeof(host_str), "HOST: %s %s", net_client_get_host_name(), lock_str);
             sh1106_draw_string(6, 27, host_str, true);
 
             char badge_str[32];
@@ -1566,7 +1579,7 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             sh1106_draw_string(6, 37, badge_str, true);
 
             sh1106_draw_line(2, 47, 125, 47, true);
-            draw_marquee(51, "// DYNAMIC AI CATALOG // CLICK SW TO SELECT // AUTO-FAILS OVER PI 5 <-> PHONE //", now_ms);
+            draw_marquee(51, "// DYNAMIC AI CATALOG // CLICK SW TO SELECT HOST OR CORE // PI 5 <-> PHONE //", now_ms);
             break;
         }
 
@@ -1900,6 +1913,19 @@ int main(void) {
                     set_current_time_epoch(rem_cmd.val32, (uint16_t)rem_cmd.val32_extra);
                     need_display_update = true;
                     break;
+                case 'H': // Set preferred host: 0 = Auto, 1 = Pi 5, 2 = Phone
+                    net_client_set_preferred_host((net_host_type_t)rem_cmd.param);
+                    need_display_update = true;
+                    LOG_INFO("NET", "Remote command 'H': Preferred Host set to %d", rem_cmd.param);
+                    break;
+                case 'D': // Set language dialect: 0 = EN, 1 = Auto, 2 = DE, 3 = RU
+                    if (rem_cmd.param < LANG_COUNT) {
+                        active_lang_idx = rem_cmd.param;
+                        selected_lang_idx = rem_cmd.param;
+                        need_display_update = true;
+                        LOG_INFO("LANG", "Remote command 'D': Language set to [%s]", LANG_NAMES[active_lang_idx]);
+                    }
+                    break;
                 default:
                     break;
             }
@@ -1940,7 +1966,7 @@ int main(void) {
         uint8_t m_cnt = net_client_get_model_count();
         if (m_cnt > 0) {
             if (active_ai_model_idx >= m_cnt) active_ai_model_idx = 0;
-            if (selected_ai_model_idx >= m_cnt) selected_ai_model_idx = 0;
+            if (selected_ai_model_idx > m_cnt) selected_ai_model_idx = 0;
         }
 
         // 1. Check QUERY button events (Push-to-Talk or Exit sub-screen)
@@ -2065,14 +2091,17 @@ int main(void) {
         int32_t delta = encoder_get_delta();
         if (delta != 0 && current_state != STATE_LISTENING) {
             if (ai_model_edit_mode) {
-                int model_count = net_client_get_model_count();
-                if (model_count < 1) model_count = 1;
-                selected_ai_model_idx = (selected_ai_model_idx + delta) % model_count;
+                int total_items = 1 + net_client_get_model_count();
+                selected_ai_model_idx = (selected_ai_model_idx + delta) % total_items;
                 if (selected_ai_model_idx < 0) {
-                    selected_ai_model_idx += model_count;
+                    selected_ai_model_idx += total_items;
                 }
                 audio_play_blip();
-                LOG_INFO("AI_MODEL", "AI Model Core preview: [%s]", net_client_get_model_name(selected_ai_model_idx));
+                if (selected_ai_model_idx == 0) {
+                    LOG_INFO("AI_MODEL", "Cursor on Host Selector");
+                } else {
+                    LOG_INFO("AI_MODEL", "AI Model Core preview: [%s]", net_client_get_model_name(selected_ai_model_idx - 1));
+                }
                 need_display_update = true;
             } else if (lang_edit_mode) {
                 selected_lang_idx = (selected_lang_idx + delta) % LANG_COUNT;
@@ -2186,14 +2215,26 @@ int main(void) {
                 audio_play_tone(440.0f, 40);
                 LOG_INFO("EASTER_EGG", "Switch clicked: Exiting '!!! 67 !!!' screen.");
             } else if (ai_model_edit_mode) {
-                ai_model_edit_mode = false;
-                active_ai_model_idx = selected_ai_model_idx;
-                uint8_t theme = net_client_get_model_theme(active_ai_model_idx);
-                leds_set_ai_model(theme);
-                click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
-                audio_play_chime();
-                LOG_INFO("AI_MODEL", "Confirmed AI Core: [%s]. Exited menu.",
-                         net_client_get_model_name(active_ai_model_idx));
+                if (selected_ai_model_idx == 0) {
+                    // Toggle preferred host
+                    net_host_type_t pref = net_client_get_preferred_host();
+                    net_host_type_t next_pref = (pref == HOST_TYPE_NONE)  ? HOST_TYPE_PI5 :
+                                                (pref == HOST_TYPE_PI5)   ? HOST_TYPE_PHONE :
+                                                                            HOST_TYPE_NONE;
+                    net_client_set_preferred_host(next_pref);
+                    audio_play_chime();
+                    LOG_INFO("AI_MODEL", "Toggled preferred host to: %d", next_pref);
+                    need_display_update = true;
+                } else {
+                    ai_model_edit_mode = false;
+                    active_ai_model_idx = selected_ai_model_idx - 1;
+                    uint8_t theme = net_client_get_model_theme(active_ai_model_idx);
+                    leds_set_ai_model(theme);
+                    click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                    audio_play_chime();
+                    LOG_INFO("AI_MODEL", "Confirmed AI Core: [%s]. Exited menu.",
+                             net_client_get_model_name(active_ai_model_idx));
+                }
             } else if (lang_edit_mode) {
                 lang_edit_mode = false;
                 active_lang_idx = selected_lang_idx;
@@ -2261,7 +2302,7 @@ int main(void) {
                          CLOCK_STYLE_NAMES[active_clock_style]);
             } else if (current_mode_idx == MODE_AI_MODEL) {
                 ai_model_edit_mode = true;
-                selected_ai_model_idx = active_ai_model_idx;
+                selected_ai_model_idx = active_ai_model_idx + 1;
                 audio_play_tone(523.25f, 25);
                 LOG_INFO("AI_MODEL", "Entering AI Model Core selection (current: %s)",
                          net_client_get_model_name(active_ai_model_idx));

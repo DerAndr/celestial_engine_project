@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.celestial.companion.ai.GemmaVariant
+import com.celestial.companion.domain.model.StaffLanguage
 import com.celestial.companion.domain.repository.ConnectionMode
 import com.celestial.companion.ui.screens.dashboard.DashboardViewModel
 import com.celestial.companion.ui.theme.*
@@ -50,6 +51,7 @@ fun OracleTerminalScreen(
     val clipboardManager = LocalClipboardManager.current
     val telemetry by viewModel.telemetry.collectAsState()
     val connectionMode by viewModel.connectionMode.collectAsState()
+    val currentLanguage by viewModel.currentLanguage.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
     val liveThoughtTrace by viewModel.liveThoughtTrace.collectAsState()
     val liveStreamingText by viewModel.liveStreamingText.collectAsState()
@@ -57,23 +59,54 @@ fun OracleTerminalScreen(
 
     var promptInput by remember { mutableStateOf("") }
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var isRecordingAudio by remember { mutableStateOf(false) }
     var thinkingModeEnabled by remember { mutableStateOf(true) }
     var showThinkingCard by remember { mutableStateOf(true) }
 
-    // Android Text-to-Speech engine
+    // Android Text-to-Speech engine (Defaults to English, switches dynamically)
     var ttsEngine by remember { mutableStateOf<TextToSpeech?>(null) }
     DisposableEffect(context) {
         val tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                // Try RU first, fallback to US
-                ttsEngine?.language = Locale("ru", "RU")
+                tts.language = currentLanguage.locale
             }
         }
         ttsEngine = tts
         onDispose {
             tts.stop()
             tts.shutdown()
+        }
+    }
+
+    LaunchedEffect(currentLanguage) {
+        ttsEngine?.language = currentLanguage.locale
+    }
+
+    // Android Speech Recognition (STT - Offline Preferred in Selected Dialect)
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val matches = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            val spokenText = matches?.firstOrNull()
+            if (!spokenText.isNullOrBlank()) {
+                promptInput = spokenText
+                viewModel.queryGemma(spokenText, selectedBitmap)
+            }
+        }
+    }
+
+    fun startListening() {
+        val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, currentLanguage.code)
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, currentLanguage.code)
+            putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Speak to the Celestial Oracle (${currentLanguage.displayName})...")
+        }
+        try {
+            speechRecognizerLauncher.launch(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Speech recognition unavailable: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -180,7 +213,151 @@ fun OracleTerminalScreen(
             }
         }
 
-        // 2. Multimodal Model Header
+        // 2. Staff Host & Voice Dialect Controller
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            border = BorderStroke(1.dp, CardBorder)
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Staff Host Switcher
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "STAFF AI HOST TARGET",
+                        color = TextMuted,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = telemetry.activeHost,
+                        color = if (telemetry.preferredHost == 2) EmeraldGreen else AetherCyan,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Lock to Phone Brain
+                    Button(
+                        onClick = {
+                            viewModel.setStaffHost(2)
+                            Toast.makeText(context, "Locked Staff to PHONE BRAIN! Staff OLED will switch.", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (telemetry.preferredHost == 2) EmeraldGreen else DeepVoid
+                        ),
+                        border = BorderStroke(1.dp, if (telemetry.preferredHost == 2) EmeraldGreen else CardBorder),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "LOCK TO PHONE",
+                            color = if (telemetry.preferredHost == 2) SpaceBlack else TextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    // Switch to Pi 5 Brain
+                    Button(
+                        onClick = {
+                            viewModel.setStaffHost(1)
+                            Toast.makeText(context, "Switched Staff to PI 5 BRAIN.", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (telemetry.preferredHost == 1) AetherCyan else DeepVoid
+                        ),
+                        border = BorderStroke(1.dp, if (telemetry.preferredHost == 1) AetherCyan else CardBorder),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "PI 5 BRAIN",
+                            color = if (telemetry.preferredHost == 1) SpaceBlack else TextPrimary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = CardBorder, thickness = 1.dp)
+
+                // Language Dialect Selector (EN / DE / RU)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "VOICE TTS / STT DIALECT",
+                        color = TextMuted,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = currentLanguage.displayName,
+                        color = RunicGold,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(StaffLanguage.ENGLISH, StaffLanguage.GERMAN, StaffLanguage.RUSSIAN).forEach { lang ->
+                        val isSel = lang == currentLanguage
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSel) DeepVoid else SpaceBlack)
+                                .border(
+                                    1.dp,
+                                    if (isSel) RunicGold else CardBorder,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable {
+                                    viewModel.setLanguage(lang)
+                                    ttsEngine?.language = lang.locale
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${lang.shortTag} (${lang.displayName})",
+                                color = if (isSel) RunicGold else TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Multimodal Model Header
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
@@ -373,25 +550,18 @@ fun OracleTerminalScreen(
                         )
                     }
 
-                    // Voice Audio Recording Button
+                    // Voice STT Speech Recognition Button
                     IconButton(
-                        onClick = {
-                            isRecordingAudio = !isRecordingAudio
-                            if (isRecordingAudio) {
-                                promptInput = "Voice query to Celestial Oracle"
-                                viewModel.queryGemma(promptInput, selectedBitmap, audioBytes = ByteArray(512))
-                                isRecordingAudio = false
-                            }
-                        },
+                        onClick = { startListening() },
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
                             .background(DeepVoid)
-                            .border(1.dp, if (isRecordingAudio) Color.Red else CardBorder, RoundedCornerShape(10.dp))
+                            .border(1.dp, RunicGold, RoundedCornerShape(10.dp))
                     ) {
                         Icon(
                             Icons.Default.Mic,
-                            contentDescription = "Voice Input",
-                            tint = if (isRecordingAudio) Color.Red else RunicGold
+                            contentDescription = "Voice STT Speech Recognition (${currentLanguage.shortTag})",
+                            tint = RunicGold
                         )
                     }
 
