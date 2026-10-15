@@ -1,5 +1,6 @@
 package com.celestial.companion.ui.navigation
 
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
