@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val viewModel: DashboardViewModel = viewModel {
-                DashboardViewModel(repository)
+                DashboardViewModel(repository, app.gemmaEngine)
             }
             CelestialCompanionTheme {
                 MainAppScaffold(viewModel = viewModel)

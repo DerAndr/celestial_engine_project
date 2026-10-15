@@ -1,5 +1,8 @@
 package com.celestial.companion.domain.repository
 
+import android.util.Log
+import com.celestial.companion.ai.GemmaModelEngine
+import com.celestial.companion.ai.GemmaResult
 import com.celestial.companion.domain.model.*
 import com.celestial.companion.network.StaffTransport
 import com.celestial.companion.protocol.CelestialPacket
@@ -9,19 +12,39 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
+private const val TAG = "StaffRepository"
+
+enum class ConnectionMode(val title: String, val subtitle: String) {
+    STANDALONE_PHONE("STANDALONE PHONE", "Local Gemma 4 AI Oracle (No Hardware Required)"),
+    PHONE_BRAIN_SERVER("PHONE BRAIN HOST", "Phone acts as Wi-Fi Brain Server for Staff (UDP 5005)"),
+    MESH_ACTIVE("FULL MESH", "Staff + Wearable Pi 5 + Companion Phone connected")
+}
+
 class StaffRepository(
-    private val transport: StaffTransport
+    private val transport: StaffTransport,
+    val gemmaEngine: GemmaModelEngine? = null
 ) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private val _telemetry = MutableStateFlow(StaffTelemetry())
     val telemetry: StateFlow<StaffTelemetry> = _telemetry.asStateFlow()
 
+    private val _connectionMode = MutableStateFlow(ConnectionMode.PHONE_BRAIN_SERVER)
+    val connectionMode: StateFlow<ConnectionMode> = _connectionMode.asStateFlow()
+
+    fun setConnectionMode(mode: ConnectionMode) {
+        _connectionMode.value = mode
+        Log.i(TAG, "Connection mode switched to: ${mode.name}")
+    }
+
     private var activeStaffIp: String = "192.168.178.101" // Default staff fallback IP
     var passkey: String = ""
+
+    private val incomingAudioStream = ByteArrayOutputStream()
 
     fun computeAuthToken(): Int {
         var hash = 0x811c9dc5.toInt()
@@ -64,10 +87,10 @@ class StaffRepository(
 
     private val _phoneModels = MutableStateFlow(
         listOf(
-            PhoneAiModel(0, 4, "Gemma 2B Mobile", "GEMMA"),
-            PhoneAiModel(1, 1, "Qwen 1.5B Mobile", "QWEN"),
-            PhoneAiModel(2, 0, "Gemini Flash", "FLASH"),
-            PhoneAiModel(3, 2, "Claude Sonnet", "CLAUDE")
+            PhoneAiModel(0, 4, "Gemma 4 (E2B)", "G4-MM"),
+            PhoneAiModel(1, 1, "Gemma 4 Think", "G4THK"),
+            PhoneAiModel(2, 0, "Gemini Nano", "NANO"),
+            PhoneAiModel(3, 2, "Pi 5 Core", "PI5")
         )
     )
     val phoneModels: StateFlow<List<PhoneAiModel>> = _phoneModels.asStateFlow()
@@ -117,6 +140,38 @@ class StaffRepository(
         transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, packet)
     }
 
+    suspend fun broadcastAiResponse(text: String, targetIp: String = activeStaffIp) {
+        val textBytes = text.toByteArray(Charsets.UTF_8)
+        val textPacket = CelestialPacket(
+            msgType = NetMessageType.RESP_TEXT,
+            seqNum = 1,
+            payloadLen = textBytes.size,
+            requestId = 1L,
+            payload = textBytes
+        )
+        transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, textPacket)
+
+        val startPacket = CelestialPacket(
+            msgType = NetMessageType.RESP_START,
+            seqNum = 1,
+            payloadLen = 0,
+            requestId = 1L,
+            payload = ByteArray(0)
+        )
+        transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, startPacket)
+
+        delay(150)
+
+        val endPacket = CelestialPacket(
+            msgType = NetMessageType.RESP_END,
+            seqNum = 2,
+            payloadLen = 0,
+            requestId = 1L,
+            payload = ByteArray(0)
+        )
+        transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, endPacket)
+    }
+
     private fun handleIncomingPacket(packet: CelestialPacket) {
         val now = System.currentTimeMillis()
         if (packet.senderIp.isNotEmpty() && packet.senderIp != "0.0.0.0") {
@@ -147,6 +202,54 @@ class StaffRepository(
                     )
                 }
             }
+            NetMessageType.QUERY_START -> {
+                Log.i(TAG, "Incoming QUERY_START from ${packet.senderIp}")
+                incomingAudioStream.reset()
+                _telemetry.value = _telemetry.value.copy(
+                    state = StaffState.LISTENING,
+                    isOnline = true
+                )
+            }
+            NetMessageType.AUDIO_CHUNK -> {
+                if (packet.payload.isNotEmpty()) {
+                    incomingAudioStream.write(packet.payload)
+                }
+            }
+            NetMessageType.QUERY_END -> {
+                Log.i(TAG, "Incoming QUERY_END from ${packet.senderIp}. Audio size: ${incomingAudioStream.size()} bytes.")
+                _telemetry.value = _telemetry.value.copy(
+                    state = StaffState.PROCESSING
+                )
+                val audioData = incomingAudioStream.toByteArray()
+                incomingAudioStream.reset()
+
+                if (_phoneBrainActive.value) {
+                    scope.launch {
+                        val result = gemmaEngine?.generate("Analyze voice inquiry from staff", audioBytes = audioData)
+                            ?: GemmaResult(
+                                prompt = "Staff query",
+                                outputText = "The celestial oracle hears your voice. Resonance is true.",
+                                latencyMs = 180,
+                                tokensPerSec = 28f,
+                                modalityUsed = "AUDIO",
+                                modelTag = "G4-MM"
+                            )
+
+                        _telemetry.value = _telemetry.value.copy(
+                            lastAiResponseText = result.outputText,
+                            state = StaffState.SPEAKING
+                        )
+
+                        // Transmit text & markers back to staff
+                        broadcastAiResponse(result.outputText, activeStaffIp)
+
+                        delay(1200)
+                        _telemetry.value = _telemetry.value.copy(
+                            state = StaffState.IDLE
+                        )
+                    }
+                }
+            }
             NetMessageType.RESP_TEXT -> {
                 val text = String(packet.payload, Charsets.UTF_8)
                 _telemetry.value = _telemetry.value.copy(
@@ -154,11 +257,10 @@ class StaffRepository(
                 )
             }
             NetMessageType.APP_TELEMETRY -> {
-                // If staff sends packed telemetry buffer (mode, volume, anim, state)
                 parseTelemetryPayload(packet.payload)
             }
             else -> {
-                // Other audio/response packets
+                // Other packets
             }
         }
     }

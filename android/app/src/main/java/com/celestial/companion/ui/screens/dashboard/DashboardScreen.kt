@@ -119,6 +119,86 @@ fun DashboardScreen(
             }
         }
 
+        // 1.5 Connection Architecture Card
+        val connectionMode by viewModel.connectionMode.collectAsState()
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "CONNECTION ARCHITECTURE",
+                        color = TextMuted,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = connectionMode.title,
+                        color = when (connectionMode) {
+                            com.celestial.companion.domain.repository.ConnectionMode.STANDALONE_PHONE -> EmeraldGreen
+                            com.celestial.companion.domain.repository.ConnectionMode.PHONE_BRAIN_SERVER -> AetherCyan
+                            com.celestial.companion.domain.repository.ConnectionMode.MESH_ACTIVE -> RunicGold
+                        },
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    com.celestial.companion.domain.repository.ConnectionMode.entries.forEach { mode ->
+                        val isSelected = mode == connectionMode
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) DeepVoid else SpaceBlack)
+                                .border(
+                                    1.dp,
+                                    if (isSelected) AetherCyan else CardBorder,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable { viewModel.setConnectionMode(mode) }
+                                .padding(vertical = 8.dp, horizontal = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = when (mode) {
+                                    com.celestial.companion.domain.repository.ConnectionMode.STANDALONE_PHONE -> "Phone Only"
+                                    com.celestial.companion.domain.repository.ConnectionMode.PHONE_BRAIN_SERVER -> "Phone Brain"
+                                    com.celestial.companion.domain.repository.ConnectionMode.MESH_ACTIVE -> "Full Mesh"
+                                },
+                                color = if (isSelected) AetherCyan else TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = connectionMode.subtitle,
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
         // 2. Active Mode Display & Selector
         Card(
             modifier = Modifier.fillMaxWidth(),

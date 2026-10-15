@@ -1,19 +1,86 @@
 package com.celestial.companion.ui.screens.dashboard
 
+import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.celestial.companion.ai.GemmaModelEngine
+import com.celestial.companion.ai.GemmaResult
+import com.celestial.companion.ai.GemmaStreamChunk
 import com.celestial.companion.domain.model.*
+import com.celestial.companion.domain.repository.ConnectionMode
 import com.celestial.companion.domain.repository.StaffRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class DashboardViewModel(
-    private val repository: StaffRepository
+    private val repository: StaffRepository,
+    val gemmaEngine: GemmaModelEngine? = repository.gemmaEngine
 ) : ViewModel() {
 
     val telemetry: StateFlow<StaffTelemetry> = repository.telemetry
     val phoneBrainActive: StateFlow<Boolean> = repository.phoneBrainActive
     val phoneModels: StateFlow<List<PhoneAiModel>> = repository.phoneModels
+    val connectionMode: StateFlow<ConnectionMode> = repository.connectionMode
+
+    // Live Gemma 4 Interactive Studio State
+    private val _gemmaResult = MutableStateFlow<GemmaResult?>(null)
+    val gemmaResult: StateFlow<GemmaResult?> = _gemmaResult.asStateFlow()
+
+    private val _isGenerating = MutableStateFlow(false)
+    val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
+
+    private val _liveThoughtTrace = MutableStateFlow("")
+    val liveThoughtTrace: StateFlow<String> = _liveThoughtTrace.asStateFlow()
+
+    private val _liveStreamingText = MutableStateFlow("")
+    val liveStreamingText: StateFlow<String> = _liveStreamingText.asStateFlow()
+
+    fun setConnectionMode(mode: ConnectionMode) {
+        repository.setConnectionMode(mode)
+    }
+
+    fun queryGemma(prompt: String, image: Bitmap? = null, audioBytes: ByteArray? = null) {
+        val engine = gemmaEngine ?: return
+        if (_isGenerating.value) return
+
+        _isGenerating.value = true
+        _liveThoughtTrace.value = ""
+        _liveStreamingText.value = ""
+
+        viewModelScope.launch {
+            try {
+                engine.streamInference(prompt, image, audioBytes).collect { chunk ->
+                    when (chunk) {
+                        is GemmaStreamChunk.ThoughtToken -> {
+                            _liveThoughtTrace.value += chunk.token
+                        }
+                        is GemmaStreamChunk.OutputToken -> {
+                            _liveStreamingText.value += chunk.token
+                        }
+                        is GemmaStreamChunk.Complete -> {
+                            _gemmaResult.value = chunk.result
+                            _liveStreamingText.value = chunk.result.outputText
+                            _isGenerating.value = false
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                _isGenerating.value = false
+                _liveStreamingText.value = "Inference anomaly: ${e.message}"
+            }
+        }
+    }
+
+    fun broadcastCurrentAnswerToStaff() {
+        val currentText = _gemmaResult.value?.outputText ?: _liveStreamingText.value
+        if (currentText.isNotBlank()) {
+            viewModelScope.launch {
+                repository.broadcastAiResponse(currentText)
+            }
+        }
+    }
 
     fun togglePhoneBrain(active: Boolean) {
         repository.setPhoneBrainActive(active)
