@@ -65,15 +65,16 @@ fun OracleTerminalScreen(
     // Android Text-to-Speech engine (Defaults to English, switches dynamically)
     var ttsEngine by remember { mutableStateOf<TextToSpeech?>(null) }
     DisposableEffect(context) {
-        val tts = TextToSpeech(context) { status ->
+        var tts: TextToSpeech? = null
+        tts = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                tts.language = currentLanguage.locale
+                tts?.language = currentLanguage.locale
             }
         }
         ttsEngine = tts
         onDispose {
-            tts.stop()
-            tts.shutdown()
+            tts?.stop()
+            tts?.shutdown()
         }
     }
 

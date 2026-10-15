@@ -16,6 +16,7 @@ class CelestialApp : Application() {
 
     val staffRepository: StaffRepository by lazy {
         val udpTransport = StaffUdpTransport()
+        val prefs = getSharedPreferences("celestial_prefs", MODE_PRIVATE)
         val savedPasskey = prefs.getString("auth_passkey", "apophis")?.ifEmpty { "apophis" } ?: "apophis"
         val savedIp = prefs.getString("staff_ip", "192.168.178.101") ?: "192.168.178.101"
         StaffRepository(udpTransport, gemmaEngine).also {
