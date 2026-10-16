@@ -1,5 +1,6 @@
 package com.celestial.companion.ui.screens.chronos
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,11 +17,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.celestial.companion.domain.model.ClockStyle
+import com.celestial.companion.domain.model.StaffMode
+import com.celestial.companion.ui.components.StaffOledScreenView
 import com.celestial.companion.ui.screens.dashboard.DashboardViewModel
 import com.celestial.companion.ui.theme.*
 import java.text.SimpleDateFormat
@@ -32,6 +36,7 @@ fun ChronosScreen(
     modifier: Modifier = Modifier
 ) {
     val telemetry by viewModel.telemetry.collectAsState()
+    val context = LocalContext.current
     var currentTimeString by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -47,7 +52,7 @@ fun ChronosScreen(
             .fillMaxSize()
             .background(SpaceBlack)
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // Time Sync Card
         Card(
@@ -67,7 +72,7 @@ fun ChronosScreen(
                 ) {
                     Column {
                         Text(
-                            text = "SMARTPHONE TIME",
+                            text = "SMARTPHONE TIME (LOCAL)",
                             color = TextSecondary,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace
@@ -82,7 +87,11 @@ fun ChronosScreen(
                     }
 
                     Button(
-                        onClick = { viewModel.syncSystemTime() },
+                        onClick = {
+                            viewModel.syncSystemTime()
+                            viewModel.selectMode(StaffMode.CHRONOS)
+                            Toast.makeText(context, "Chronos Synchronized with Staff ($currentTimeString)!", Toast.LENGTH_SHORT).show()
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = AetherCyan),
                         shape = RoundedCornerShape(10.dp)
                     ) {
@@ -94,6 +103,16 @@ fun ChronosScreen(
             }
         }
 
+        // Live Staff Chronos HUD Display
+        StaffOledScreenView(
+            mode = StaffMode.CHRONOS,
+            state = telemetry.state,
+            clockStyle = telemetry.clockStyle,
+            volumePercent = telemetry.volumePercent,
+            language = telemetry.language,
+            modifier = Modifier.fillMaxWidth().height(125.dp)
+        )
+
         Text(
             text = "ASTRONOMICAL CLOCK STYLES",
             color = TextSecondary,
@@ -103,7 +122,7 @@ fun ChronosScreen(
 
         // Clock Styles List
         LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.weight(1f)
         ) {
             items(ClockStyle.entries.toTypedArray()) { style ->
@@ -112,7 +131,11 @@ fun ChronosScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable { viewModel.setClockStyle(style) },
+                        .clickable {
+                            viewModel.setClockStyle(style)
+                            viewModel.selectMode(StaffMode.CHRONOS)
+                            Toast.makeText(context, "Clock Style: ${style.title}", Toast.LENGTH_SHORT).show()
+                        },
                     shape = RoundedCornerShape(14.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (isSelected) DeepVoid else CardSurface
@@ -125,7 +148,7 @@ fun ChronosScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -133,15 +156,15 @@ fun ChronosScreen(
                             Text(
                                 text = style.title,
                                 color = if (isSelected) AetherCyan else TextPrimary,
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = style.desc,
                                 color = TextSecondary,
-                                fontSize = 12.sp
+                                fontSize = 11.sp
                             )
                         }
 
@@ -150,7 +173,7 @@ fun ChronosScreen(
                                 Icons.Default.Check,
                                 contentDescription = "Active",
                                 tint = AetherCyan,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }

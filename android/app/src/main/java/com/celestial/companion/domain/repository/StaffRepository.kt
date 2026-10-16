@@ -441,10 +441,15 @@ class StaffRepository(
                 )
             }
             is StaffCommand.SyncTime -> {
+                // Incorporate local timezone offset so Pico's 24-hour clock matches the smartphone wall-clock time
+                val now = System.currentTimeMillis()
+                val tzOffset = java.util.TimeZone.getDefault().getOffset(now)
+                val localEpochSeconds = (now + tzOffset) / 1000
+                val millis = ((now + tzOffset) % 1000).toInt()
                 val payload = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN)
                     .putInt(token)
-                    .putInt(command.epochSeconds.toInt())
-                    .putInt(command.millis)
+                    .putInt(localEpochSeconds.toInt())
+                    .putInt(millis)
                     .array()
                 val packet = CelestialPacket(
                     msgType = NetMessageType.APP_TIME_SYNC,

@@ -2014,8 +2014,7 @@ int main(void) {
         if (net_client_has_unsolicited_text()) {
             net_client_clear_unsolicited_text();
             if (!audio_is_stream_playing() && !net_client_is_receiving_response()) {
-                audio_play_voice(VOICE_ORACLE); // Play digitized human voice: "Oracle activated"!
-                audio_play_chime();              // Arcane chime plays through MAX98357A speaker!
+                audio_play_blip(); // Gentle subtle feedback; never stutter or clash with speech stream
             }
             current_state = STATE_SPEAKING;
             speaking_start_ms = to_ms_since_boot(get_absolute_time());

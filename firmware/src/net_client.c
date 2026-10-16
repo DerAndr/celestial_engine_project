@@ -77,9 +77,9 @@ static const net_catalog_resp_t DEFAULT_PI5_CATALOG = {
         { 2, 2, "GROK 4.5",       "GRK" },
         { 3, 3, "MARVIN (70B)",   "MRV" },
         { 4, 4, "QWEN 0.5B FAST", "Q05" },
-        { 5, 4, "GEMMA 4 (E2B)",  "G4"  },
+        { 5, 1, "LLAMA 3.2 (1B)", "L32" },
         { 6, 2, "DEEPSEEK R1",    "R1"  },
-        { 7, 3, "QWEN 1.5B CORE", "Q15" }
+        { 7, 4, "GEMMA 4 (E2B)",  "G4"  }
     }
 };
 
@@ -435,7 +435,8 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
     }
 
     // Direct Text Broadcast from Companion App / Brain Host (e.g. "To Staff" action in app)
-    if (hdr.msg_type == NET_MSG_RESP_TEXT && hdr.payload_len > 0) {
+    // Only intercept if not matching an active response gate
+    if (hdr.msg_type == NET_MSG_RESP_TEXT && hdr.payload_len > 0 && !response_gate_matches(&response_gate, hdr.request_id)) {
         uint8_t raw_text[512];
         uint16_t copy_len = (hdr.payload_len < sizeof(raw_text)) ? hdr.payload_len : (uint16_t)(sizeof(raw_text) - 1);
         pbuf_copy_partial(p, raw_text, copy_len, sizeof hdr);
@@ -447,6 +448,7 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
         unsolicited_text_ready = true;
 
         printf("[NET] Received Broadcast Text from %s:%d: \"%s\"\n", ip4addr_ntoa(addr), (int)port, resp_text_buffer);
+        acknowledge_response(&hdr, addr, port);
         pbuf_free(p);
         return;
     }

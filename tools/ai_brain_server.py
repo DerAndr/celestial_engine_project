@@ -76,17 +76,17 @@ MODEL_PRESETS = {
     1: ("mistralai/ministral-8b-2512", "Eddie (Ministral 8B)"),
     2: ("x-ai/grok-4.5", "Grok 4.5"),
     3: ("meta-llama/llama-3.3-70b-instruct", "Marvin (Llama 70B)"),
-    4: ("local/qwen2.5:0.5b", "Qwen 0.5B Fast (Pi 5)"),
-    5: ("local/gemma4:e2b", "Gemma 4 E2B (Pi 5)"),
+    4: ("local/qwen2.5:0.5b", "Qwen 0.5B Flash (0.9s)"),
+    5: ("local/llama3.2:1b", "Llama 3.2 1B (Pi 5)"),
     6: ("local/deepseek-r1:1.5b", "DeepSeek R1 (Pi 5)"),
-    7: ("local/qwen2.5:1.5b", "Qwen 1.5B Core (Pi 5)")
+    7: ("local/gemma4:e2b", "Gemma 4 E2B (Pi 5)")
 }
 
 LOCAL_MODELS_BY_PRESET = {
     4: "qwen2.5:0.5b",
-    5: "gemma4:e2b",
+    5: "llama3.2:1b",
     6: "deepseek-r1:1.5b",
-    7: "qwen2.5:1.5b"
+    7: "gemma4:e2b"
 }
 
 
