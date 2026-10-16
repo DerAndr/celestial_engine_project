@@ -111,7 +111,9 @@ class BrainTransport:
             return None
         kind, rid, seq, payload = parsed
         if kind == MSG_HEARTBEAT and rid == 0:
-            local_epoch = int(time.mktime(time.localtime()))
+            lt = time.localtime()
+            local_seconds_today = lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec
+            local_epoch = (int(time.time()) // 86400) * 86400 + local_seconds_today
             self.sock.sendto(packet(MSG_HEARTBEAT, seq=seq, payload=struct.pack("<I", local_epoch)), addr)
             return None
         if kind == MSG_CATALOG_REQ:

@@ -268,7 +268,9 @@ class StaffRepository(
                 if (_phoneBrainActive.value) {
                     val target = if (packet.senderIp.isNotEmpty() && packet.senderIp != "0.0.0.0") packet.senderIp else activeStaffIp
                     scope.launch {
-                        val epochSec = (System.currentTimeMillis() / 1000).toInt()
+                        val curMs = System.currentTimeMillis()
+                        val localOffset = java.util.TimeZone.getDefault().getOffset(curMs)
+                        val epochSec = ((curMs + localOffset) / 1000).toInt()
                         val buf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(epochSec).array()
                         val respPacket = CelestialPacket(
                             msgType = NetMessageType.HEARTBEAT,

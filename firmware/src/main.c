@@ -143,6 +143,7 @@ static void get_current_time(uint8_t *hours, uint8_t *minutes, uint8_t *seconds,
 }
 
 void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis) {
+    if (clock_time_edit_mode) return;
     uint32_t now_ms = to_ms_since_boot(get_absolute_time());
     clock_boot_ms = now_ms - (millis % 1000);
     clock_base_seconds = (epoch_seconds % 86400);
