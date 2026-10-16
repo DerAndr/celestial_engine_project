@@ -28,8 +28,8 @@ PIPER_VOICES = {
 }
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-DEFAULT_LOCAL_MODEL = "gemma2:2b"  # Google Gemma 2 2B (Primary local offline core)
-AVAILABLE_LOCAL_MODELS = ["gemma2:2b", "qwen2.5:1.5b", "llama3.2:1b"]
+DEFAULT_LOCAL_MODEL = "qwen2.5:1.5b"  # High-speed multilingual polyglot (Best latency/quality on Pi 5)
+AVAILABLE_LOCAL_MODELS = ["qwen2.5:1.5b", "gemma2:2b", "gemma4:e2b", "qwen2.5:0.5b", "llama3.2:1b"]
 
 def get_configured_local_model():
     """Reads configured local model from brain_config.json, defaulting to gemma2:2b."""
@@ -191,9 +191,11 @@ def local_query_llm(user_text, lang_tag, model_name=None, adult_mode=False):
         "model": model,
         "prompt": full_prompt,
         "stream": False,
+        "keep_alive": -1,  # Keep warm in 16GB RAM permanently (zero cold-start penalty)
         "options": {
             "temperature": 0.7,
-            "num_predict": 80
+            "num_predict": 75,
+            "num_ctx": 1024  # Compact context window for maximum CPU memory bandwidth on Cortex-A76
         }
     }
 
