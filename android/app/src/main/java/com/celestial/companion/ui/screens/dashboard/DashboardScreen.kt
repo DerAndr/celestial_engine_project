@@ -725,7 +725,7 @@ fun DashboardScreen(
                 ) {
                     TelemetryItem(
                         label = "CLOCK STYLE",
-                        value = telemetry.clockStyle.displayName
+                        value = telemetry.clockStyle.title
                     )
                     TelemetryItem(
                         label = "TTS DIALECT",
