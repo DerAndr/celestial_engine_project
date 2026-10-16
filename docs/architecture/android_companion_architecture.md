@@ -1,48 +1,47 @@
-# Архитектура и каркас Android Companion App — Celestial Engine Mk.V
+# Android Companion App Architecture & Framework — Celestial Engine Mk.V
 
-**Дата**: 2026-10-13  
-**Назначение**: Проектирование мобильного приложения Android для мониторинга телеметрии, удалённого управления световыми/звуковыми эффектами, синхронизации времени и ретрансляции ИИ для посоха Celestial Engine Mk.V.
-
----
-
-## 1. Концепция и режимы работы
-
-Приложение **Celestial Companion** разработано для работы в двух сценариях:
-
-### Сценарий 1: Пульт управления и монитор телеметрии (Companion Dashboard)
-Посох и смартфон находятся в одной локальной сети (домашний Wi-Fi или точка доступа смартфона).
-- **Связь**: Двусторонний UDP (порт `5005`).
-- **Функции**:
-  - Live HUD: отображение статуса посоха (IDLE, LISTENING, PROCESSING, SPEAKING), IP-адреса, заряда/громкости.
-  - Управление световыми эффектами: переключение 18 анимаций колец, регулировка яркости и палитры.
-  - Звуковая панель (Soundboard): запуск треков 8-битного джукбокса, фраз Оракула и Sci-Fi спецэффектов (включая R2-D2).
-  - Синхронизация времени: передача точного времени со смартфона в часы `CHRONOS` в один клик.
-  - Текстовый терминал Оракула: отображение распознанного текста и ответа нейросети.
-
-### Сценарий 2: Автономный шлюз ИИ на смартфоне (On-Device Mobile Brain)
-Если Raspberry Pi 5 или сервер на ПК отсутствуют:
-- Смартфон выступает сервером на порту `5005`.
-- Приложение принимает 16 кГц PCM аудиопоток от посоха по Wi-Fi.
-- Выполняет STT (локальный Vosk / on-device Whisper / Cloud API) -> LLM (OpenRouter API) -> TTS (Android TTS / EdgeTTS) и отправляет аудиоответ обратно на динамик посоха.
+**Date**: 2026-10-13  
+**Purpose**: Architectural design of the Android companion application for telemetry monitoring, remote effects management, clock synchronization, and AI relay for the Celestial Engine Mk.V staff.
 
 ---
 
-## 2. Технологический стек
+## 1. Concept and Operating Scenarios
 
-- **Язык**: Kotlin 2.x
-- **UI Framework**: Jetpack Compose + Material 3 (Тёмная космическая тема: неоновые руны, акценты циан/золото/маджента).
-- **Асинхронность**: Kotlin Coroutines + StateFlow / SharedFlow.
-- **Сетевой уровень**:
-  - `DatagramSocket` / Kotlinx-io (низколатентный бинарный UDP, соответствующий `net_protocol.h`).
-  - `NetworkRequest` / `ConnectivityManager` (управление точкой доступа и Wi-Fi сокетами).
-  - Модуль BLE (Bluetooth Low Energy) для прямого соединения в будущем.
-- **Архитектура**: Clean Architecture + MVI (Model-View-Intent).
-- **DI**: Hilt / Koin.
-- **Сериализация**: `ByteBuffer` (Little-Endian, совместимость с Pico SDK и Python struct `<IBBHHI`).
+The **Celestial Companion** application is designed for two operating scenarios:
+
+### Scenario 1: Remote Control & Telemetry Dashboard (Companion Dashboard)
+The staff and smartphone reside on the same local subnet (home Wi-Fi or smartphone mobile hotspot).
+- **Communication**: Bidirectional UDP (port `5005`).
+- **Features**:
+  - Live HUD: Staff state monitoring (IDLE, LISTENING, PROCESSING, SPEAKING), IP address, battery/volume telemetry.
+  - Lighting management: 18 ring animation presets, brightness and palette controls.
+  - Soundboard: Triggering 8-bit chiptune jukebox tracks, Oracle speech, and Sci-Fi effects (including R2-D2).
+  - Time synchronization: 1-click UTC/local time synchronization from smartphone to `CHRONOS` clock.
+  - Oracle Terminal: Full transcript of speech recognition and neural response history.
+
+### Scenario 2: Autonomous On-Device Mobile AI Gateway (Mobile Brain)
+When a wearable Raspberry Pi 5 or workstation server is unavailable:
+- Smartphone acts as server on port `5005`.
+- Receives 16 kHz PCM audio stream from the staff over Wi-Fi.
+- Executes STT (local on-device / Cloud API) -> LLM (OpenRouter / LiteRT-LM) -> TTS (Android TTS / EdgeTTS) and streams synthesized audio back to the staff speaker.
 
 ---
 
-## 3. Дерево модулей и классов проекта
+## 2. Technology Stack
+
+- **Language**: Kotlin 2.x
+- **UI Framework**: Jetpack Compose + Material 3 (Celestial dark theme: neon runes, cyan/gold/magenta accents).
+- **Asynchrony**: Kotlin Coroutines + StateFlow / SharedFlow.
+- **Networking**:
+  - `DatagramSocket` / Kotlinx-io (low-latency binary UDP conforming to `net_protocol.h`).
+  - `NetworkRequest` / `ConnectivityManager` (hotspot and Wi-Fi interface binding).
+  - BLE (Bluetooth Low Energy) module for future direct connectivity.
+- **Architecture**: Clean Architecture + MVI (Model-View-Intent).
+- **Serialization**: `ByteBuffer` (Little-Endian, compatible with Pico SDK and Python struct `<IBBHHI`).
+
+---
+
+## 3. Module and Directory Layout
 
 ```text
 android-companion/
@@ -52,58 +51,58 @@ android-companion/
 │       ├── CelestialApp.kt
 │       ├── di/
 │       │   └── AppModule.kt
-│       ├── protocol/                         # Бинарный протокол (v2)
-│       │   ├── CelestialPacket.kt            # Структура заголовка (14 байт)
+│       ├── protocol/                         # Binary protocol (v2)
+│       │   ├── CelestialPacket.kt            # Header structure (14 bytes)
 │       │   ├── NetMessageType.kt             # NET_MSG_* (HEARTBEAT, QUERY, RESP, CMD)
 │       │   └── ProtocolConstants.kt          # MAGIC 0x454C4543, PORT 5005
-│       ├── network/                          # Транспортный уровень
-│       │   ├── StaffTransport.kt             # Интерфейс транспорта (UDP / BLE)
-│       │   ├── StaffUdpTransport.kt          # Реализация UDP сокетов и слушателя
-│       │   ├── StaffDiscoveryService.kt      # Автообнаружение посоха в подсети
-│       │   └── AudioStreamBuffer.kt          # Буфер для 16 кГц PCM чанков
-│       ├── domain/                           # Бизнес-логика и модели
+│       ├── network/                          # Transport layer
+│       │   ├── StaffTransport.kt             # Transport interface (UDP / BLE)
+│       │   ├── StaffUdpTransport.kt          # UDP socket and listener implementation
+│       │   ├── StaffDiscoveryService.kt      # Staff subnet discovery service
+│       │   └── AudioStreamBuffer.kt          # Buffer for 16 kHz PCM chunks
+│       ├── domain/                           # Business logic and domain models
 │       │   ├── model/
 │       │   │   ├── StaffState.kt             # IDLE, LISTENING, PROCESSING, SPEAKING
 │       │   │   ├── StaffMode.kt              # GUIDE, GALAXY, CHRONOS, COSMIC, etc.
 │       │   │   ├── ClockStyle.kt             # DIAL, HOURGLASS, CHROMA, ORRERY
-│       │   │   ├── LedAnimation.kt           # 18 режимов подсветки
+│       │   │   ├── LedAnimation.kt           # 18 lighting presets
 │       │   │   ├── AiModelPreset.kt          # DeepSeek, Eddie, Grok, Marvin
-│       │   │   ├── LanguageDialect.kt        # EN, AUTO, DE, RU
-│       │   │   └── StaffTelemetry.kt         # Модель полного состояния посоха
+│       │   │   ├── LanguageDialect.kt        # EN (default), AUTO, DE, RU
+│       │   │   └── StaffTelemetry.kt         # Full telemetry state model
 │       │   └── repository/
 │       │       └── StaffRepository.kt        # StateFlow<StaffTelemetry>, sendCommand()
 │       └── ui/                               # Jetpack Compose UI
 │           ├── theme/
 │           │   ├── Color.kt                  # SpaceBlack, RunicGold, AetherCyan, NebulaPurple
 │           │   ├── Theme.kt                  # CelestialDarkTheme
-│           │   └── Type.kt                   # Orbitron / Monospace шрифты
+│           │   └── Type.kt                   # Orbitron / Monospace typography
 │           ├── navigation/
-│           │   └── CelestialNavigation.kt    # Нижняя навигация и роутинг
+│           │   └── CelestialNavigation.kt    # Navigation bar and routing
 │           └── screens/
-│               ├── dashboard/                # Главный экран: статус, режим, громкость
+│               ├── dashboard/                # Main HUD: status, mode, volume
 │               │   ├── DashboardScreen.kt
 │               │   └── DashboardViewModel.kt
-│               ├── leds/                     # Управление 3 кольцами и 18 анимациями
+│               ├── leds/                     # 3 rings & 18 animation controls
 │               │   ├── LedControlScreen.kt
-│               │   └── RingVisualizer.kt     # Интерактивное отображение колец на экране
-│               ├── soundboard/               # Джукбокс, спецэффекты, R2-D2
+│               │   └── RingVisualizer.kt     # Real-time concentric ring canvas
+│               ├── soundboard/               # Jukebox, sound effects, R2-D2
 │               │   ├── SoundboardScreen.kt
 │               │   └── SfxGrid.kt
-│               ├── chronos/                  # Управление 4 стилями часов и синк времени
+│               ├── chronos/                  # 4 clock styles and time sync
 │               │   ├── ChronosScreen.kt
 │               │   └── TimeSyncCard.kt
-│               └── oracle/                   # Текстовый лог диалогов с LLM
+│               └── oracle/                   # Text terminal & LLM transcript
 │                   ├── OracleTerminalScreen.kt
 │                   └── PromptHistoryList.kt
 ```
 
 ---
 
-## 4. Спецификация сетевого клиента (Kotlin)
+## 4. Network Client Specification (Kotlin)
 
-### 4.1. Бинарный заголовок пакета (`protocol/CelestialPacket.kt`)
+### 4.1. Binary Packet Header (`protocol/CelestialPacket.kt`)
 
-Структура полностью соответствует Си-структуре `net_packet_header_t` (`sizeof == 14`, Little-Endian):
+The structure precisely matches C structure `net_packet_header_t` (`sizeof == 14`, Little-Endian):
 
 ```kotlin
 package com.celestial.companion.protocol
@@ -112,12 +111,12 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 data class CelestialPacket(
-    val magic: Int = ProtocolConstants.MAGIC,       // 0x454C4543 ("CELE")
+    val magic: Int = ProtocolConstants.MAGIC,                 // 0x454C4543 ("CELE")
     val version: UByte = ProtocolConstants.VERSION.toUByte(), // 2
-    val msgType: UByte,                             // NetMessageType
-    val seqNum: UShort,                             // Инкрементный счетчик
-    val payloadLen: UShort,                         // Длина полезной нагрузки
-    val requestId: UInt,                            // Идентификатор сессии
+    val msgType: UByte,                                       // NetMessageType
+    val seqNum: UShort,                                       // Monotonic sequence number
+    val payloadLen: UShort,                                   // Payload byte length
+    val requestId: UInt,                                      // Session identifier
     val payload: ByteArray = ByteArray(0)
 ) {
     fun toBytes(): ByteArray {
@@ -165,7 +164,7 @@ data class CelestialPacket(
 }
 ```
 
-### 4.2. Типы сообщений и команды расширения (`protocol/NetMessageType.kt`)
+### 4.2. Message Types (`protocol/NetMessageType.kt`)
 
 ```kotlin
 package com.celestial.companion.protocol
@@ -184,10 +183,10 @@ enum class NetMessageType(val code: UByte) {
     PROGRESS(0x0Bu),
     ERROR(0x0Cu),
     
-    // Расширение для мобильного пульта:
-    APP_COMMAND(0x20u),        // Установка режима, анимации, громкости
-    APP_TIME_SYNC(0x21u),      // Синхронизация времени со смартфоном
-    APP_TELEMETRY(0x22u);      // Расширенный запрос телеметрии
+    // Companion App Remote Controls:
+    APP_COMMAND(0x20u),        // Mode, animation, volume configuration
+    APP_TIME_SYNC(0x21u),      // Time sync from smartphone clock
+    APP_TELEMETRY(0x22u);      // Extended telemetry query
 
     companion object {
         fun fromCode(code: UByte): NetMessageType? = entries.find { it.code == code }
@@ -195,7 +194,7 @@ enum class NetMessageType(val code: UByte) {
 }
 ```
 
-### 4.3. Сетевой UDP клиент (`network/StaffUdpTransport.kt`)
+### 4.3. UDP Transport (`network/StaffUdpTransport.kt`)
 
 ```kotlin
 package com.celestial.companion.network
@@ -280,53 +279,64 @@ class StaffUdpTransport(
 
 ---
 
-## 5. Модели UI и экранов приложения
+## 5. UI Models and App Screens
 
-### 5.1. Экран `DashboardScreen` (Главный пульт)
-- **Верхний статус-бар**: Индикатор связи (Зелёный пульс `ONLINE 192.168.x.x`), задержка (RTT пинг), текущее состояние посоха (`IDLE`, `LISTENING`, `SPEAKING`).
-- **Центральный интерактивный диск**:
-  - Колесо режимов: `[GUIDE]`, `[GALAXY]`, `[SOLAR]`, `[TERRA]`, `[CHRONOS]`, `[COSMIC FX]`, `[ORACLE]`.
-  - Свайп или вращение диска на экране мгновенно переключает режим на физическом посохе.
-- **Быстрые ползунки**:
-  - Слайдер громкости (0..100%).
-  - Быстрый выбор языка (`[EN]`, `[AUTO]`, `[DE]`, `[RU]`).
-  - Быстрый выбор LLM ядра (`DeepSeek`, `Eddie`, `Grok`, `Marvin`).
+### 5.1. Screen `DashboardScreen` (Mission Control)
+- **Status Header**: Connectivity status (`ONLINE 192.168.x.x`), RTT latency, active staff state (`IDLE`, `LISTENING`, `SPEAKING`).
+- **Mode Wheel**: Interactive rotary disk for `[GUIDE]`, `[GALAXY]`, `[SOLAR]`, `[TERRA]`, `[CHRONOS]`, `[COSMIC FX]`, `[ORACLE]`.
+- **Fast Sliders**:
+  - Volume slider (0..100%).
+  - Language dialect selector (`[EN]` default, `[AUTO]`, `[DE]`, `[RU]`).
+  - Neural engine selector (`DeepSeek`, `Eddie`, `Grok`, `Marvin`).
 
-### 5.2. Экран `ChronosScreen` (Управление часами)
-- **Карточки стилей**:
-  1. `DIAL CHRONOS` (12H аналоговый циферблат)
-  2. `AETHER HOURGLASS` (концентрический накопитель)
-  3. `CHROMA PRISMATIC` (цветовой спектр)
-  4. `CELESTIAL ORRERY` (планетарные орбиты)
-- **Кнопка «Синхронизировать время»**:
-  - Считывает системное локальное время смартфона с миллисекундами и отправляет пакет `APP_TIME_SYNC`.
-  - Посох обновляет базу секунд и обнуляет таймер миллисекунд с перезвоном.
+### 5.2. Screen `ChronosScreen` (Clock Management)
+- **Style Cards**:
+  1. `DIAL CHRONOS` (12H astronomical dial)
+  2. `AETHER HOURGLASS` (concentric fluid accumulator)
+  3. `CHROMA PRISMATIC` (spectral color encoding)
+  4. `CELESTIAL ORRERY` (kinematic orbits)
+- **Time Sync Button**:
+  - Transmits high-precision phone time to staff via `APP_TIME_SYNC` packet.
+  - Staff synchronizes RTC and chimes.
 
-### 5.3. Экран `LedControlScreen` (Световые кольца)
-- **Визуализатор колец (RingVisualizer)**: Canvas с 3 кольцами (24 + 12 + 6 LED) + центральный кристалл, повторяющий цвет и анимацию в реальном времени.
-- **Список пресетов**: 18 анимаций от `Rainbow` до `Quantum Shift`.
-- **Слайдер Power Cap**: Ограничение мощности светодиодов (10%..25% для безопасности питания).
+### 5.3. Screen `LedControlScreen` (Concentric Rings)
+- **Ring Visualizer**: Real-time Canvas rendering 3 rings (24 + 12 + 6 LEDs) and central stone.
+- **Preset Gallery**: 18 lighting animations from `Rainbow Runes` to `Quantum Shift`.
+- **Power Cap Slider**: Enforces safety limit (10%..25% maximum power).
 
-### 5.4. Экран `SoundboardScreen` (Джукбокс и Спецэффекты)
-- **Секция R2-D2 Droid**:
-  - Кнопка `Happy Chirp` (радостный свист).
-  - Кнопка `Sassy Chatter` (дерзкая болтовня дроида).
-  - Кнопка `Panic Alarm` (панический вопль).
-  - Кнопка `Clock Chime` (астромех-перезвон).
-- **Секция Sci-Fi FX**: `Warp Jump`, `Photon Laser`, `Pulsar`, `Portal`, `Supernova`.
-- **Секция Jukebox**: Плеер чиптюна с выбором дорожки.
+### 5.4. Screen `SoundboardScreen` (Jukebox & Effects)
+- **R2-D2 Droid Section**: `Happy Chirp`, `Sassy Chatter`, `Panic Alarm`, `Clock Chime`.
+- **Sci-Fi FX Section**: `Warp Jump`, `Photon Laser`, `Pulsar`, `Portal`, `Supernova`.
+- **Jukebox Section**: 8-bit retro track player.
+
+### 5.5. Screen `OracleTerminalScreen` (Gemma 4 Multimodal Studio & Live Processing Monitor)
+- **Live Processing Monitor Bar**:
+  - Phase telemetry badge: `[INGESTING]` -> `[THINKING]` (CoT) -> `[STREAMING]` -> `[COMPLETED]` / `[STOPPED]`.
+  - Real-time performance HUD: Live elapsed time (`⏱ 0.8s`), emitted token count (`✦ 34 tok`), throughput speed (`⚡ 29.5 tok/s`), modality chip (`[TEXT]`, `[VISION]`, `[AUDIO]`).
+  - Progress shimmer tracking active token generation.
+  - Active "Stop / Halt Generation" control.
+- **Chain-of-Thought (Reasoning) Trace**:
+  - Live folding reasoning accordion showing real-time thought projection duration (`REASONING (CoT) • 0.8s`).
+- **Live Streaming Answer Display**:
+  - Prompt context card displaying submitted query and vision image thumbnail.
+  - Token-by-token live stream without waiting for full response.
+  - Smooth animated blinking cursor (`▌`) during active emission.
+  - Voice TTS synthesis, UDP broadcast to Staff OLED & speaker, and clipboard tools.
+  - Collapsible session dialogue archive.
 
 ---
 
-## 6. План внедрения
+## 6. Implementation Stages
 
-1. **Фаза 1 (Протокол и каркас)**:
-   - Создание структуры проекта Android в репозитории (`android/`).
-   - Реализация `CelestialPacket` и тестов парсера.
-   - Базовый UDP слушатель и отправка команд в локальную сеть.
-2. **Фаза 2 (UI Compose Dashboard)**:
-   - Разработка темы и экранов Dashboard / Chronos / Soundboard.
-   - Двусторонняя синхронизация с прошивкой Pico 2 W.
-3. **Фаза 3 (BLE транспорт & Mobile Brain)**:
-   - Добавление BLE сервиса для прямого подключения без точки доступа.
-   - Встраивание локального Whisper/TTS для полностью автономной работы без ПК.
+1. **Phase 1 (Protocol & Core)**:
+   - Android project structure in `android/`.
+   - `CelestialPacket` implementation and unit tests.
+   - Low-latency UDP networking layer.
+2. **Phase 2 (Compose UI Dashboard)**:
+   - Dark theme, dashboard, chronos, and soundboard screens.
+   - Bidirectional state synchronization with Pico 2 W firmware.
+3. **Phase 3 (Gemma 4 Multimodal Brain & Live Streaming)**:
+   - Real-time token streaming with live throughput and latency telemetry.
+   - Live Chain-of-Thought reasoning traces and on-device multimodal ingestion.
+   - Direct Wi-Fi / BLE UDP audio-inquiry relay from staff microphone to phone brain.
+

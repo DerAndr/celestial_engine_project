@@ -149,26 +149,28 @@ def check_adult_mode_toggle(user_text, detected_lang, config):
     norm = user_text.lower().strip()
 
     enable_patterns = [
+        "enable adult mode", "turn on adult mode", "activate adult mode", "adult mode on", "unfiltered mode",
+        "erwachsenenmodus an", "erwachsenenmodus aktivieren", "18 plus an",
         "включи режим для взрослых", "активируй режим для взрослых", "режим для взрослых",
         "включи 18+", "режим 18+", "включи восемнадцать плюс", "режим восемнадцать плюс",
-        "разреши мат", "включи мат", "можно ругаться",
-        "enable adult mode", "turn on adult mode", "activate adult mode", "adult mode on"
+        "разреши мат", "включи мат", "можно ругаться"
     ]
     disable_patterns = [
+        "disable adult mode", "turn off adult mode", "family mode", "adult mode off", "safe mode",
+        "erwachsenenmodus aus", "erwachsenenmodus deaktivieren", "jugendschutz an",
         "выключи режим для взрослых", "отключи режим для взрослых", "выключи 18+", "отключи 18+",
         "выключи восемнадцать плюс", "отключи восемнадцать плюс",
-        "приличный режим", "детский режим", "запрети мат", "выключи мат", "нельзя ругаться",
-        "disable adult mode", "turn off adult mode", "family mode", "adult mode off"
+        "приличный режим", "детский режим", "запрети мат", "выключи мат", "нельзя ругаться"
     ]
 
     if any(p in norm for p in enable_patterns):
         config["adult_mode"] = True
         save_config(config)
         print("  [ADULT MODE] >> ACTIVATED by voice command (18+ UNRESTRICTED)")
-        if "ru" in detected_lang.lower():
-            return True, "Внимание! Протоколы приличия отключены. Режим для взрослых активирован. Можешь не сдерживать выражения."
-        elif "de" in detected_lang.lower():
+        if "de" in detected_lang.lower():
             return True, "Achtung! Anstandsfilter deaktiviert. Erwachsenenmodus 18+ ist jetzt aktiv."
+        elif "ru" in detected_lang.lower():
+            return True, "Внимание! Протоколы приличия отключены. Режим для взрослых активирован. Можешь не сдерживать выражения."
         else:
             return True, "Attention! Decency filters disabled. Adult mode 18+ is now active."
 
@@ -176,26 +178,38 @@ def check_adult_mode_toggle(user_text, detected_lang, config):
         config["adult_mode"] = False
         save_config(config)
         print("  [ADULT MODE] >> DEACTIVATED by voice command (PG-13 FAMILY SAFE)")
-        if "ru" in detected_lang.lower():
-            return True, "Протоколы приличия восстановлены. Режим вежливости и культурной речи активен."
-        elif "de" in detected_lang.lower():
+        if "de" in detected_lang.lower():
             return True, "Anstandsprotokolle wiederhergestellt. Höflichkeitsmodus ist jetzt aktiv."
+        elif "ru" in detected_lang.lower():
+            return True, "Протоколы приличия восстановлены. Режим вежливости и культурной речи активен."
         else:
             return True, "Decency protocols restored. Family-friendly polite mode is now active."
 
     # Check for local model switching commands
-    gemma_patterns = ["включи гемму", "переключи на гемму", "модель гемма", "переключись на гемму", "выбери гемму", "включи gemma", "switch to gemma", "use gemma", "gemma mode"]
-    qwen_patterns = ["включи квен", "переключи на квен", "модель квен", "переключись на квен", "выбери квен", "включи qwen", "switch to qwen", "use qwen", "qwen mode"]
-    llama_patterns = ["включи ламу", "переключи на ламу", "модель лама", "switch to llama", "use llama"]
+    gemma_patterns = [
+        "switch to gemma", "use gemma", "gemma mode", "activate gemma",
+        "wechsel zu gemma", "gemma aktivieren",
+        "включи гемму", "переключи на гемму", "модель гемма", "переключись на гемму", "выбери гемму", "включи gemma"
+    ]
+    qwen_patterns = [
+        "switch to qwen", "use qwen", "qwen mode", "activate qwen",
+        "wechsel zu qwen", "qwen aktivieren",
+        "включи квен", "переключи на квен", "модель квен", "переключись на квен", "выбери квен", "включи qwen"
+    ]
+    llama_patterns = [
+        "switch to llama", "use llama", "llama mode", "activate llama",
+        "wechsel zu llama", "llama aktivieren",
+        "включи ламу", "переключи на ламу", "модель лама"
+    ]
 
     if any(p in norm for p in gemma_patterns):
         config["local_model"] = "gemma2:2b"
         save_config(config)
         print("  [LOCAL MODEL] >> Switched to gemma2:2b (Google Gemma 2)")
-        if "ru" in detected_lang.lower():
-            return True, "Локальное ядро переключено на Google Gemma 2. Превосходный выбор для космических изысканий."
-        elif "de" in detected_lang.lower():
+        if "de" in detected_lang.lower():
             return True, "Lokaler KI-Kern auf Google Gemma 2 umgeschaltet."
+        elif "ru" in detected_lang.lower():
+            return True, "Локальное ядро переключено на Google Gemma 2. Превосходный выбор для космических изысканий."
         else:
             return True, "Local AI core switched to Google Gemma 2. Ready for queries."
 
@@ -203,10 +217,10 @@ def check_adult_mode_toggle(user_text, detected_lang, config):
         config["local_model"] = "qwen2.5:1.5b"
         save_config(config)
         print("  [LOCAL MODEL] >> Switched to qwen2.5:1.5b (Alibaba Qwen 2.5)")
-        if "ru" in detected_lang.lower():
-            return True, "Локальное ядро переключено на Qwen 2.5. Высокоскоростной полиглот активен."
-        elif "de" in detected_lang.lower():
+        if "de" in detected_lang.lower():
             return True, "Lokaler KI-Kern auf Qwen 2.5 umgeschaltet."
+        elif "ru" in detected_lang.lower():
+            return True, "Локальное ядро переключено на Qwen 2.5. Высокоскоростной полиглот активен."
         else:
             return True, "Local AI core switched to Qwen 2.5. High-speed multilingual reasoning active."
 
@@ -214,10 +228,10 @@ def check_adult_mode_toggle(user_text, detected_lang, config):
         config["local_model"] = "llama3.2:1b"
         save_config(config)
         print("  [LOCAL MODEL] >> Switched to llama3.2:1b (Meta Llama 3.2)")
-        if "ru" in detected_lang.lower():
-            return True, "Локальное ядро переключено на Llama 3.2."
-        elif "de" in detected_lang.lower():
+        if "de" in detected_lang.lower():
             return True, "Lokaler KI-Kern auf Llama 3.2 umgeschaltet."
+        elif "ru" in detected_lang.lower():
+            return True, "Локальное ядро переключено на Llama 3.2."
         else:
             return True, "Local AI core switched to Llama 3.2."
 
@@ -337,18 +351,18 @@ def transcribe_audio(wav_path, lang_code):
     return None, target_lang
 
 def get_fallback_answer(lang_tag):
-    if "ru" in lang_tag.lower():
-        return "В Путеводителе сказано: Не паникуй! Связь с ядром прервана, но ответ на Главный Вопрос бытия всё ещё сорок два."
-    elif "de" in lang_tag.lower():
+    if "de" in lang_tag.lower():
         return "Im Reiseführer steht: KEINE PANIK! Das Sub-Etha-Relais schweigt, aber die Antwort auf alle Fragen lautet noch immer zweiundvierzig."
+    elif "ru" in lang_tag.lower():
+        return "В Путеводителе сказано: Не паникуй! Связь с ядром прервана, но ответ на Главный Вопрос бытия всё ещё сорок два."
     else:
         return "The Guide says: DON'T PANIC! The sub-etha relay is temporarily offline, but the answer remains forty-two."
 
 def get_silence_answer(lang_tag):
-    if "ru" in lang_tag.lower():
-        return "Путеводитель слышит лишь тишину космоса. Проверь полотенце и нажми кнопку снова."
-    elif "de" in lang_tag.lower():
+    if "de" in lang_tag.lower():
         return "Der Reiseführer hört nur kosmische Stille. Nimm dein Handtuch und frage erneut."
+    elif "ru" in lang_tag.lower():
+        return "Путеводитель слышит лишь тишину космоса. Проверь полотенце и нажми кнопку снова."
     else:
         return "The Guide hears only cosmic silence. Grab your towel and consult the guide again."
 
@@ -572,7 +586,7 @@ def process_query_worker(transport, session):
             ai_text = (query_llm(user_text, detected_lang, session.lang, session.model, config, adult_mode=adult_mode)
                        if user_text else get_silence_answer(detected_lang))
             # If cloud returned connection fallback message and local AI is available, use local AI
-            if user_text and HAS_LOCAL_AI and any(k in ai_text.lower() for k in ["связь с ядром прервана", "temporarily offline", "sub-etha-relais"]):
+            if user_text and HAS_LOCAL_AI and any(k in ai_text.lower() for k in ["temporarily offline", "sub-etha relay", "sub-etha-relais", "связь с ядром прервана"]):
                 print(f"[REQUEST {session.request_id}] Cloud LLM unreachable; falling back to Local Pi 5 LLM...")
                 local_ans = local_ai_engine.local_query_llm(user_text, detected_lang, adult_mode=adult_mode)
                 if local_ans:

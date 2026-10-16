@@ -27,13 +27,13 @@ Connect the Bourns PEC11R-4225F-S0024 rotary encoder (Channel A, Channel B, Push
 
 ## Wiring Table (Confirmed Working)
 
-| Encoder Terminal (на энкодере) | Физический вывод энкодера | Куда на Pico (колонка `b`) | RP2350 GPIO / Функция | Назначение |
+| Encoder Terminal | Physical Encoder Pin | Pico Location (Column `b`) | RP2350 GPIO / Function | Purpose |
 | :--- | :--- | :--- | :--- | :--- |
-| **Сигнал A** | Сторона 3 ножек: **левая ножка** | **Pin 9** (Ряд 9 слева `b9`) | GPIO 6 (`PIN_ENCODER_A`) | Квадратурный сигнал A (pull-up вкл) |
-| **Общий C (GND)** | Сторона 3 ножек: **средняя ножка** | **Pin 8** (Ряд 8 слева `b8`) | Ground (Земля) | Общая земля сигналов A и B |
-| **Сигнал B** | Сторона 3 ножек: **правая ножка** | **Pin 10** (Ряд 10 слева `b10`) | GPIO 7 (`PIN_ENCODER_B`) | Квадратурный сигнал B (pull-up вкл) |
-| **Кнопка SW1** | Сторона 2 ножек: **ножка 1** | **Pin 11** (Ряд 11 слева `b11`) | GPIO 8 (`PIN_ENCODER_SW`) | Кнопка вала (pull-up вкл, замыкает на GND) |
-| **Кнопка SW2** | Сторона 2 ножек: **ножка 2** | **Pin 13** (Ряд 13 слева `b13`) | Ground (Земля) | Земля кнопки вала |
+| **Signal A** | 3-pin side: **left pin** | **Pin 9** (Row 9 left `b9`) | GPIO 6 (`PIN_ENCODER_A`) | Quadrature signal A (pull-up enabled) |
+| **Common C (GND)** | 3-pin side: **center pin** | **Pin 8** (Row 8 left `b8`) | Ground (GND) | Shared ground for signals A and B |
+| **Signal B** | 3-pin side: **right pin** | **Pin 10** (Row 10 left `b10`) | GPIO 7 (`PIN_ENCODER_B`) | Quadrature signal B (pull-up enabled) |
+| **Switch SW1** | 2-pin side: **pin 1** | **Pin 11** (Row 11 left `b11`) | GPIO 8 (`PIN_ENCODER_SW`) | Shaft push switch (pull-up enabled, shorts to GND) |
+| **Switch SW2** | 2-pin side: **pin 2** | **Pin 13** (Row 13 left `b13`) | Ground (GND) | Ground reference for push switch |
 
 ## Tests & Milestones
 - [x] Implement quadrature decoder and mode navigation in firmware (`firmware/src/encoder.c`)

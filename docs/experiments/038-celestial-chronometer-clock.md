@@ -1,64 +1,64 @@
-# Эксперимент 038 — Астрономический Хронометр: 2 представления часов (Directional Dial и Orientation-Independent Hourglass)
+# Experiment 038 — Astronomical Chronometer: Two Clock Styles (Directional Dial & Orientation-Independent Hourglass)
 
-**Дата**: 2026-10-13  
-**Цель**: Реализовать два полноценных визуальных представления часов на 3 концентрических кольцах (43 LED) и центральном камне:
-1. **Направленный астрономический циферблат (`DIAL CHRONOS`)** со стрелками и летящей кометой.
-2. **Ориентационно-независимый кольцевой накопитель («Песочные часы» / `AETHER HOURGLASS`)**, читаемый под любым углом поворота посоха в руке без привязки к фиксированному «верху/12 часам».
-
----
-
-## 1. Физическая раскладка 43 LED
-
-- **Центральный камень (Center Stone, индекс 0)**: 1 LED в центре.
-- **Внутреннее кольцо (Inner Jewel Ring, индексы 1..6)**: 6 LED.
-- **Среднее кольцо (Middle Ring, индексы 7..18)**: 12 LED.
-- **Внешнее кольцо (Outer Ring, индексы 19..42)**: 24 LED.
+**Date**: 2026-10-13  
+**Objectives**: Implement two visual clock representations across 3 concentric rings (43 LEDs) and the center jewel:
+1. **Directional Astronomical Dial (`DIAL CHRONOS`)** with hands and flying comet.
+2. **Orientation-Independent Fluid Accumulator (`AETHER HOURGLASS`)**, readable at any tilt angle without relying on an upright 12 o'clock orientation.
 
 ---
 
-## 2. Представление 1: «DIAL CHRONOS» (Направленный циферблат)
+## 1. Physical Layout (43 LEDs)
 
-- **Центральный камень (0)**: Пульсирующий маятник 1 Гц (янтарный/топаз) + вспышка новой минуты.
-- **Внутреннее кольцо (1..6)**: 10-секундные декады (аметистовый ореол).
-- **Среднее кольцо (7..18)**: 12-часовой циферблат со стрелкой солнечного золота, плавно перетекающей к следующему часу пропорционально минутам. Кардинальные метки (12, 3, 6, 9) подсвечены кобальтовым сапфиром.
-- **Внешнее кольцо (19..42)**:
-  - Изумрудный минутный маркер с субпиксельным сглаживанием.
-  - Бегущая секундная комета (алмазно-белая звезда с 3-пиксельным затухающим лазурным хвостом), обегающая периметр за 60 секунд.
-- **Экран OLED**: Круглый аналоговый циферблат с часовой, минутной и секундной стрелками.
+- **Center Stone (Index 0)**: 1 LED at geometric center.
+- **Inner Jewel Ring (Indices 1..6)**: 6 LEDs.
+- **Middle Ring (Indices 7..18)**: 12 LEDs.
+- **Outer Ring (Indices 19..42)**: 24 LEDs.
 
 ---
 
-## 3. Представление 2: «AETHER HOURGLASS» (Ориентационно-независимый накопитель)
+## 2. Style 1: "DIAL CHRONOS" (Directional Dial)
 
-Не требует знания, где находится отметка «12 часов». Время считывается напрямую по **пропорции / количеству горящих светодиодов** на каждом кольце, подобно концентрическим сосудам с жидким светом:
+- **Center Stone (0)**: 1 Hz pulsing pendulum (amber/topaz) + minute flash.
+- **Inner Ring (1..6)**: 10-second decades (amethyst halo).
+- **Middle Ring (7..18)**: 12-hour dial with golden hour hand, smoothly advancing with elapsed minutes. Cardinal points (12, 3, 6, 9) illuminated in cobalt sapphire.
+- **Outer Ring (19..42)**:
+  - Emerald minute marker with subpixel smoothing.
+  - Flying second comet (diamond-white head with 3-pixel fading azure tail) completing circuit every 60 seconds.
+- **OLED Screen**: Classic circular analog clock face with hour, minute, and second hands.
 
-| Кольцо | Роль | Принцип считывания | Цветовая гамма |
+---
+
+## 3. Style 2: "AETHER HOURGLASS" (Orientation-Independent Accumulator)
+
+Does not require knowing which way is "up". Time is read directly by the **proportion and count of illuminated LEDs** on each ring:
+
+| Ring | Role | Reading Principle | Color Palette |
 |---|---|---|---|
-| **Центральный камень** (0) | Маятник | Ритмичный пульс 1 Гц + вспышка минуты | Тёплый янтарь / Белая сверхновая |
-| **Среднее кольцо** (7..18, 12 LED) | **Часы** | Зажигается ровно **H** светодиодов (от 1 до 12). Следующий светодиод постепенно наполняется светом по ходу минут. Достаточно сосчитать горящие светодиоды под любым углом! | Имперское солнечное золото (`RGB: 255, 175, 20`) |
-| **Внешнее кольцо** (19..42, 24 LED) | **Минуты** | Заполняющаяся жидкая дуга от 0 до 24 LED (1 LED = 2.5 мин): 6 LED = 15 мин (четверть кольца), 12 LED = 30 мин (половина кольца), 18 LED = 45 мин. На фронте дуги мерцает капля времени. | Жидкий изумруд / Циан (`RGB: 0, 220, 160`) |
-| **Внутреннее кольцо** (1..6, 6 LED) | **Декады секунд** | Зажигается от 1 до 6 LED (каждый LED = 10 секунд). | Небесный аметист / Пурпур (`RGB: 170, 35, 220`) |
+| **Center Stone** (0) | Pendulum | Rhythmic 1 Hz pulse + minute flash | Warm Amber / White Supernova |
+| **Middle Ring** (7..18, 12 LEDs) | **Hours** | Exactly **H** LEDs illuminate ($1..12$). The next LED progressively brightens with minutes. Simply count illuminated LEDs from any angle! | Imperial Solar Gold (`RGB: 255, 175, 20`) |
+| **Outer Ring** (19..42, 24 LEDs) | **Minutes** | Progressive liquid fill arc from 0 to 24 LEDs (1 LED = 2.5 min): 6 LEDs = 15 min (quarter ring), 12 LEDs = 30 min (half ring), 18 LEDs = 45 min. Leading drop pulses with time. | Liquid Emerald / Cyan (`RGB: 0, 220, 160`) |
+| **Inner Ring** (1..6, 6 LEDs) | **Decades of Seconds** | 1 to 6 LEDs illuminate (each LED = 10 seconds). | Celestial Amethyst / Purple (`RGB: 170, 35, 220`) |
 
-- **Экран OLED**: 3 концентрические дуги заполнения, растущие пропорционально времени + цифровое время `HH:MM:SS` + индикатор `RADIAL ACC`.
-
----
-
-## 4. Интерактивное управление (Bourns PEC11R)
-
-В режиме `[05] CHRONOS`:
-1. Клик по энкодеру входит в 3-фазную настройку:
-   - **Фаза 0 `[STYLE]`**: Вращение энкодера мгновенно переключает между `AETHER HOURGLASS` и `DIAL CHRONOS` с живым превью на кольцах и экране.
-   - **Фаза 1 `[SET HH]`**: Вращение подводит часы (±1 ч).
-   - **Фаза 2 `[SET MM]`**: Вращение подводит минуты (±1 мин).
-   - **Фаза 3**: Клик подтверждает настройки, издаёт гармоничный перезвон и возвращается в режим показа времени.
-2. Кнопка `QUERY` в любой момент отменяет/закрывает настройку.
-3. Оба эффекта (`CELESTIAL CLOCK` и `AETHER HOURGLASS`) также доступны в постоянном меню `[08] RUNE LEDS`.
+- **OLED Screen**: 3 concentric fluid arcs expanding proportionally with elapsed time + digital `HH:MM:SS` + `RADIAL ACC` indicator.
 
 ---
 
-## 5. Верификация
+## 4. Interactive Controls (Bourns PEC11R)
 
-- **Аппаратные тесты C** (`.\scripts\check-audio.ps1`): 17/17 PASS.
-- **Python Регрессии** (`test_regressions.py`, `test_brain_transport.py`): 30/30 PASS.
-- **Сборка и прошивка**: `celestial_firmware.uf2` прошит напрямую в Pico 2 W через `picotool`.
-- **Серийный монитор (COM9)**: подтвердил запуск, работу экрана OLED, Wi-Fi и доступность всех 16 режимов анимации (`L0..L15`).
+In `[05] CHRONOS` mode:
+1. Clicking encoder switch (SW) enters 3-phase configuration:
+   - **Phase 0 `[STYLE]`**: Turning encoder instantly swaps between `AETHER HOURGLASS` and `DIAL CHRONOS` with live preview on rings and OLED.
+   - **Phase 1 `[SET HH]`**: Turning adjusts hours ($\pm 1$ h).
+   - **Phase 2 `[SET MM]`**: Turning adjusts minutes ($\pm 1$ min).
+   - **Phase 3**: Clicking confirms settings, chimes, and returns to active clock mode.
+2. Pressing `QUERY` button at any time cancels/closes configuration without changes.
+3. Both clock styles are also selectable in the general `[08] RUNE LEDS` animation menu.
+
+---
+
+## 5. Verification
+
+- **C Native Driver Tests** (`.\scripts\check-audio.ps1`): 17/17 PASS.
+- **Python Regressions** (`test_regressions.py`, `test_brain_transport.py`): 30/30 PASS.
+- **Build & Flash**: `celestial_firmware.uf2` flashed directly to Pico 2 W via `picotool`.
+- **Serial Monitor (COM9)**: Confirmed clean boot, OLED updates, Wi-Fi connectivity, and all 16 animation presets (`L0..L15`).

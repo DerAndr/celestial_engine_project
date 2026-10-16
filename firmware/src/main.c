@@ -25,10 +25,8 @@
 
 typedef enum {
     MODE_STATUS = 0,    // Main utilitarian status with datetime
-    MODE_FUN,           // Cosmic Crew & Architecture illustration
-    MODE_GALAXY,        // Milky Way galaxy map with Sol marker
-    MODE_SOLAR,         // Solar System orrery with Earth marker
-    MODE_EARTH,         // Earth close-up planetary zoom
+    MODE_ARCHITECTURE,  // Dynamic 2-Node Architecture diagram (pure pictograms, no text!)
+    MODE_COSMOS,        // Unified Cosmos: Galaxy -> Solar System -> Terra (click to zoom in-out)
     MODE_CLOCK,         // Celestial Chronometer / Astronomical Clock
     MODE_AI_MODEL,      // Target Cloud LLM Core selector
     MODE_LANGUAGE,      // Language dialect selector
@@ -44,10 +42,8 @@ typedef enum {
 
 static const char *MODE_NAMES[MODE_COUNT] = {
     "GUIDE",
-    "COSMIC CREW",
-    "GALAXY",
-    "SOL SYSTEM",
-    "TERRA",
+    "ARCHITECTURE",
+    "COSMOS",
     "CHRONOS",
     "AI CORE",
     "LINGUA",
@@ -59,6 +55,15 @@ static const char *MODE_NAMES[MODE_COUNT] = {
     "ORACLE",
     "SYSTEM"
 };
+
+typedef enum {
+    COSMOS_ZOOM_GALAXY = 0,
+    COSMOS_ZOOM_SOLAR = 1,
+    COSMOS_ZOOM_TERRA = 2,
+    COSMOS_ZOOM_COUNT = 3
+} cosmos_zoom_t;
+
+static int cosmos_zoom_level = COSMOS_ZOOM_GALAXY;
 
 static int active_ai_model_idx = 0; // Default index into dynamic host catalog
 static int selected_ai_model_idx = 0;
@@ -411,47 +416,61 @@ static void draw_ai_model_screen(int sel_model, int act_model) {
     net_host_type_t pref = net_client_get_preferred_host();
     net_host_type_t active_h = net_client_get_host_type();
 
-    // Row 0 (y=14): Host Selector
-    bool host_selected = (sel_model == 0);
-    const char *pref_tag = (pref == HOST_TYPE_PI5) ? "< PI 5 >" :
-                           (pref == HOST_TYPE_PHONE) ? "< PHONE >" :
-                           "< AUTO >";
-    char host_str[32];
-    snprintf(host_str, sizeof(host_str), "HOST: %s (%s)", pref_tag,
-             active_h == HOST_TYPE_PI5 ? "PI5" : active_h == HOST_TYPE_PHONE ? "PHN" : "STB");
-    if (host_selected) {
-        sh1106_fill_rect(4, 13, 116, 9, true);
-        sh1106_draw_string(6, 14, host_str, false);
-    } else {
-        sh1106_draw_string(6, 14, host_str, true);
+    int total_items = 1 + count;
+    int visible_rows = 4;
+    int scroll_top = 0;
+    if (sel_model >= visible_rows) {
+        scroll_top = sel_model - (visible_rows - 1);
     }
+    if (scroll_top > total_items - visible_rows && total_items > visible_rows) {
+        scroll_top = total_items - visible_rows;
+    }
+    if (scroll_top < 0) scroll_top = 0;
 
-    // Rows 1..4 (y=24, 34, 44, 54): Models
-    for (int i = 0; i < count && i < 4; i++) {
-        int y = 24 + i * 10;
-        bool is_selected = (sel_model == i + 1);
-        bool is_active = (i == act_model);
-        const char *name = net_client_get_model_name(i);
+    for (int r = 0; r < visible_rows; r++) {
+        int item_idx = scroll_top + r;
+        if (item_idx >= total_items) break;
+        int y = 14 + r * 10;
+        bool is_selected = (sel_model == item_idx);
 
-        if (is_selected) {
-            sh1106_fill_rect(4, y - 1, 116, 9, true);
-            char item_str[32];
-            snprintf(item_str, sizeof(item_str), "> %s %s",
-                     name, is_active ? "*" : "");
-            sh1106_draw_string(6, y, item_str, false);
+        if (item_idx == 0) {
+            // Row: Host Selector
+            const char *pref_tag = (pref == HOST_TYPE_PI5) ? "< PI 5 >" :
+                                   (pref == HOST_TYPE_PHONE) ? "< PHONE >" :
+                                   "< AUTO >";
+            char host_str[32];
+            snprintf(host_str, sizeof(host_str), "HOST: %s (%s)", pref_tag,
+                     active_h == HOST_TYPE_PI5 ? "PI5" : active_h == HOST_TYPE_PHONE ? "PHN" : "STB");
+            if (is_selected) {
+                sh1106_fill_rect(4, y - 1, 116, 9, true);
+                sh1106_draw_string(6, y, host_str, false);
+            } else {
+                sh1106_draw_string(6, y, host_str, true);
+            }
         } else {
+            // Row: Model item
+            int m_idx = item_idx - 1;
+            bool is_active = (m_idx == act_model);
+            const char *name = net_client_get_model_name(m_idx);
             char item_str[32];
-            snprintf(item_str, sizeof(item_str), "  %s %s",
-                     name, is_active ? "[ACTIVE]" : "");
-            sh1106_draw_string(6, y, item_str, true);
+            if (is_selected) {
+                sh1106_fill_rect(4, y - 1, 116, 9, true);
+                snprintf(item_str, sizeof(item_str), "> %s %s", name, is_active ? "*" : "");
+                sh1106_draw_string(6, y, item_str, false);
+            } else {
+                snprintf(item_str, sizeof(item_str), "  %s %s", name, is_active ? "[ACTIVE]" : "");
+                sh1106_draw_string(6, y, item_str, true);
+            }
         }
     }
 
     // Vertical scrollbar track on right border (x: 122..124)
-    sh1106_draw_rect(122, 14, 3, 48, true);
-    int total_items = 1 + count;
-    int thumb_y = 15 + (sel_model * 38) / (total_items > 1 ? (total_items - 1) : 1);
-    sh1106_fill_rect(122, thumb_y, 3, 9, true);
+    if (total_items > visible_rows) {
+        sh1106_draw_rect(122, 14, 3, 44, true);
+        int track_h = 44 - 10;
+        int thumb_y = 14 + (sel_model * track_h) / (total_items - 1);
+        sh1106_fill_rect(122, thumb_y, 3, 10, true);
+    }
 
     oled_ready = sh1106_update();
 }
@@ -907,7 +926,7 @@ static void draw_solar_system_card(uint32_t now_ms, int32_t rot_pos) {
             sh1106_draw_pixel(lx, ly, true);
         }
 
-        // 5. Dynamic Indicator Arrow pointing directly to Earth ("и стрелки - типа мы сейчас там")
+        // 5. Dynamic Indicator Arrow pointing directly to Earth ("directional indicator arrows showing current presence")
         bool arrow_visible = ((now_ms / 250) % 3) != 0;
         if (arrow_visible) {
             if (ey >= cy) {
@@ -1284,160 +1303,199 @@ static void draw_clock_card(uint32_t now_ms, int32_t rot_pos) {
     draw_marquee(51, clock_ticker, now_ms);
 }
 
-static void draw_fun_card(uint32_t now_ms) {
+static void draw_circle_outline(int cx, int cy, int r) {
+    int x = r;
+    int y = 0;
+    int err = 0;
+    while (x >= y) {
+        sh1106_draw_pixel(cx + x, cy + y, true);
+        sh1106_draw_pixel(cx + y, cy + x, true);
+        sh1106_draw_pixel(cx - y, cy + x, true);
+        sh1106_draw_pixel(cx - x, cy + y, true);
+        sh1106_draw_pixel(cx - x, cy - y, true);
+        sh1106_draw_pixel(cx - y, cy - x, true);
+        sh1106_draw_pixel(cx + y, cy - x, true);
+        sh1106_draw_pixel(cx + x, cy - y, true);
+        if (err <= 0) {
+            y += 1;
+            err += 2*y + 1;
+        }
+        if (err > 0) {
+            x -= 1;
+            err -= 2*x + 1;
+        }
+    }
+}
+
+static void draw_architecture_card(uint32_t now_ms) {
     // -------------------------------------------------------------
-    // Dynamic 2-Node Architecture: STAFF <===> ACTIVE AI HOST (Pi 5 OR Phone)
+    // Pure Pictogram Dynamic Architecture: STAFF <===> ACTIVE AI HOST
+    // Clean cybernetic HUD layout without cluttered text
     // -------------------------------------------------------------
     net_host_type_t host_type = net_client_get_host_type();
 
-    // 1. Human Explorer with Celestial Staff (Left: x=6..28)
-    // Helmet
-    sh1106_draw_rect(6, 17, 7, 7, true);
-    sh1106_draw_pixel(9, 20, true); // visor glass
-    // Suit & Body
-    sh1106_draw_rect(6, 24, 7, 8, true);
-    // Boots
-    sh1106_draw_line(7, 32, 6, 38, true);
-    sh1106_draw_line(11, 32, 12, 38, true);
-    // Arm holding staff
-    sh1106_draw_line(13, 25, 17, 27, true);
-    // Celestial Staff rod
-    sh1106_draw_line(18, 15, 18, 39, true);
-    // Staff glowing runic orb
-    sh1106_draw_rect(16, 14, 5, 5, true);
-    sh1106_draw_pixel(18, 16, true);
-    if ((now_ms / 200) % 2 == 0) {
-        sh1106_draw_pixel(18, 11, true); // ethereal spark
-    }
-    sh1106_draw_string(6, 40, "STAFF", true);
+    // 1. Futuristic HUD Frame Corner Brackets
+    sh1106_draw_line(4, 15, 12, 15, true);
+    sh1106_draw_line(4, 15, 4, 23, true);
+    sh1106_draw_line(123, 15, 115, 15, true);
+    sh1106_draw_line(123, 15, 123, 23, true);
+    sh1106_draw_line(4, 59, 12, 59, true);
+    sh1106_draw_line(4, 59, 4, 51, true);
+    sh1106_draw_line(123, 59, 115, 59, true);
+    sh1106_draw_line(123, 59, 123, 51, true);
 
-    // 2. High-Tech Animated Wireless Data Link (Center: x=24..80)
-    if (host_type == HOST_TYPE_PI5) {
-        sh1106_draw_string(34, 16, "5GHz UDP", true);
-        sh1106_draw_line(24, 27, 82, 27, true);
-        // Bidirectional packet pulses
-        int p_out = 24 + (int)((now_ms / 45) % 58);
-        sh1106_draw_pixel(p_out, 26, true);
-        sh1106_draw_pixel(p_out, 27, true);
-        sh1106_draw_pixel(p_out, 28, true);
-        int p_in = 82 - (int)((now_ms / 55) % 58);
-        sh1106_draw_pixel(p_in, 26, true);
-        sh1106_draw_pixel(p_in, 27, true);
-        sh1106_draw_pixel(p_in, 28, true);
-        sh1106_draw_string(32, 33, "< SUB-ETHA >", true);
-    } else if (host_type == HOST_TYPE_PHONE) {
-        sh1106_draw_string(33, 16, "PHONE LINK", true);
-        sh1106_draw_line(24, 27, 82, 27, true);
-        // Mobile direct packet pulses
-        int p_out = 24 + (int)((now_ms / 50) % 58);
-        sh1106_draw_pixel(p_out, 26, true);
-        sh1106_draw_pixel(p_out, 27, true);
-        sh1106_draw_pixel(p_out, 28, true);
-        int p_in = 82 - (int)((now_ms / 65) % 58);
-        sh1106_draw_pixel(p_in, 26, true);
-        sh1106_draw_pixel(p_in, 27, true);
-        sh1106_draw_pixel(p_in, 28, true);
-        sh1106_draw_string(34, 33, "< DIRECT >", true);
+    // 2. Staff Headpiece Pictogram (Left: centered around x=20, y=34)
+    // 3 concentric rings at the top
+    draw_circle_outline(20, 24, 7); // Outer ring (24 LED)
+    draw_circle_outline(20, 24, 4); // Middle ring (12 LED)
+    sh1106_fill_rect(19, 23, 3, 3, true); // Inner gemstone core (1+6 LED)
+    // Pulsing ethereal spark on the staff pinnacle
+    if ((now_ms / 180) % 2 == 0) {
+        sh1106_draw_pixel(20, 15, true);
+        sh1106_draw_pixel(19, 16, true);
+        sh1106_draw_pixel(21, 16, true);
+    }
+    // Staff Shaft Rod
+    sh1106_draw_line(20, 31, 20, 56, true);
+    // Metallic handle brackets
+    sh1106_draw_line(17, 37, 23, 37, true);
+    sh1106_draw_line(18, 46, 22, 46, true);
+
+    // 3. High-Tech Animated Wireless Data Link (Center: x=30..90)
+    if (host_type == HOST_TYPE_PI5 || host_type == HOST_TYPE_PHONE) {
+        // Staff radiating antenna arcs: ) )) )))
+        sh1106_draw_line(30, 29, 32, 33, true);
+        sh1106_draw_line(32, 33, 30, 37, true);
+        sh1106_draw_line(34, 27, 37, 33, true);
+        sh1106_draw_line(37, 33, 34, 39, true);
+
+        // Host radiating antenna arcs: ((( (( (
+        sh1106_draw_line(89, 27, 86, 33, true);
+        sh1106_draw_line(86, 33, 89, 39, true);
+        sh1106_draw_line(93, 29, 91, 33, true);
+        sh1106_draw_line(91, 33, 93, 37, true);
+
+        // Center carrier beam line
+        sh1106_draw_line(40, 33, 83, 33, true);
+
+        // Moving data packets flying in both directions
+        int p_out = 40 + (int)((now_ms / 35) % 43);
+        sh1106_fill_rect(p_out, 32, 2, 3, true);
+
+        int p_in = 83 - (int)((now_ms / 42) % 43);
+        sh1106_fill_rect(p_in, 32, 2, 3, true);
+
+        // Radio signal quality dots (x: 58..66, y: 44..48)
+        sh1106_fill_rect(56, 47, 2, 2, true);
+        sh1106_fill_rect(60, 45, 2, 4, true);
+        sh1106_fill_rect(64, 43, 2, 6, true);
+        sh1106_fill_rect(68, 41, 2, 8, true);
     } else {
-        sh1106_draw_string(35, 16, "SCANNING", true);
-        // Broken link with gap
-        sh1106_draw_line(24, 27, 44, 27, true);
-        sh1106_draw_string(49, 24, "x", true);
-        sh1106_draw_line(60, 27, 82, 27, true);
-        sh1106_draw_string(32, 33, "< NO BEACON >", true);
+        // Disconnected / Scanning mode: searching radar arcs
+        int scan_phase = (int)((now_ms / 300) % 3);
+        if (scan_phase >= 0) {
+            sh1106_draw_line(42, 31, 44, 33, true);
+            sh1106_draw_line(44, 33, 42, 35, true);
+        }
+        if (scan_phase >= 1) {
+            sh1106_draw_line(48, 29, 51, 33, true);
+            sh1106_draw_line(51, 33, 48, 37, true);
+        }
+        if (scan_phase >= 2) {
+            sh1106_draw_line(54, 27, 58, 33, true);
+            sh1106_draw_line(58, 33, 54, 39, true);
+        }
+        // Interrupted link cross symbol
+        sh1106_draw_line(68, 30, 74, 36, true);
+        sh1106_draw_line(68, 36, 74, 30, true);
     }
 
-    // 3. Active AI Brain Host (Right: x=82..124)
+    // 4. Host Hardware Pictogram (Right: centered around x=108, y=34)
     if (host_type == HOST_TYPE_PI5) {
         // Raspberry Pi 5 Wearable Neural Core
-        sh1106_draw_rect(84, 16, 40, 23, true);
-        // Cooler heatsink fins on top
-        for (int fx = 87; fx <= 121; fx += 5) {
-            sh1106_draw_line(fx, 13, fx, 16, true);
+        // Outer SoC body
+        sh1106_draw_rect(96, 21, 24, 24, true);
+        // Corner mounting vias
+        sh1106_draw_pixel(98, 23, true);
+        sh1106_draw_pixel(117, 23, true);
+        sh1106_draw_pixel(98, 42, true);
+        sh1106_draw_pixel(117, 42, true);
+        // Heatsink cooling fins on top
+        for (int fx = 99; fx <= 117; fx += 3) {
+            sh1106_draw_line(fx, 17, fx, 20, true);
         }
-        // Active spinning cooling fan
-        sh1106_draw_rect(88, 22, 11, 11, true);
-        int fstep = (int)((now_ms / 100) % 4);
+        // Animated spinning active cooling fan (circle with rotating 4 blades)
+        draw_circle_outline(108, 33, 6);
+        int fstep = (int)((now_ms / 80) % 4);
         if (fstep == 0) {
-            sh1106_draw_line(89, 27, 97, 27, true);
-            sh1106_draw_line(93, 23, 93, 31, true);
+            sh1106_draw_line(103, 33, 113, 33, true);
+            sh1106_draw_line(108, 28, 108, 38, true);
         } else if (fstep == 1) {
-            sh1106_draw_line(90, 24, 96, 30, true);
-            sh1106_draw_line(90, 30, 96, 24, true);
+            sh1106_draw_line(104, 29, 112, 37, true);
+            sh1106_draw_line(104, 37, 112, 29, true);
         } else if (fstep == 2) {
-            sh1106_draw_line(93, 23, 93, 31, true);
-            sh1106_draw_line(89, 27, 97, 27, true);
+            sh1106_draw_line(108, 28, 108, 38, true);
+            sh1106_draw_line(103, 33, 113, 33, true);
         } else {
-            sh1106_draw_line(96, 24, 90, 30, true);
-            sh1106_draw_line(90, 24, 96, 30, true);
+            sh1106_draw_line(112, 29, 104, 37, true);
+            sh1106_draw_line(104, 29, 112, 37, true);
         }
-        // Chip text & blink LED
-        sh1106_draw_string(102, 19, "Pi5", true);
+        // Activity status LED blinker
         if ((now_ms / 200) % 2 == 0) {
-            sh1106_draw_pixel(120, 19, true); // activity LED
+            sh1106_draw_pixel(116, 24, true);
         }
-        // Model tag (e.g. GEMMA, DEEP, QWEN)
-        sh1106_draw_string(102, 28, net_client_get_model_tag(active_ai_model_idx), true);
-
-        sh1106_draw_string(83, 40, "PI 5 BRAIN", true);
     } else if (host_type == HOST_TYPE_PHONE) {
-        // Android Smartphone Companion
-        sh1106_draw_rect(91, 15, 26, 24, true);
-        // Rounded corners
-        sh1106_draw_pixel(91, 15, false);
-        sh1106_draw_pixel(116, 15, false);
-        sh1106_draw_pixel(91, 38, false);
-        sh1106_draw_pixel(116, 38, false);
-        // Earpiece speaker
-        sh1106_draw_line(102, 16, 105, 16, true);
-        // Phone screen
-        sh1106_draw_rect(93, 18, 22, 18, true);
-        // Home indicator bar
-        sh1106_draw_line(101, 37, 106, 37, true);
+        // Smartphone Companion Pictogram
+        sh1106_draw_rect(99, 19, 18, 28, true);
+        // Screen border
+        sh1106_draw_rect(101, 22, 14, 20, true);
+        // Top camera hole / speaker
+        sh1106_draw_pixel(107, 20, true);
+        // Home gesture bar
+        sh1106_draw_line(105, 44, 110, 44, true);
 
-        // Animated soundwave / AI speech pulse lines on phone screen
-        int h1 = 2 + (int)((now_ms / 140) % 7);
-        int h2 = 2 + (int)((now_ms / 100) % 9);
-        int h3 = 2 + (int)((now_ms / 170) % 6);
-        sh1106_draw_line(98, 32, 98, 32 - h1, true);
-        sh1106_draw_line(103, 32, 103, 32 - h2, true);
-        sh1106_draw_line(108, 32, 108, 32 - h3, true);
-
-        // Antenna broadcast arcs above phone
-        if ((now_ms / 250) % 2 == 0) {
-            sh1106_draw_pixel(102, 12, true);
-            sh1106_draw_pixel(104, 11, true);
-            sh1106_draw_pixel(106, 12, true);
-        }
-
-        sh1106_draw_string(82, 40, "PHONE BRAIN", true);
+        // Animated audio equalizer bars on phone screen
+        int bar1 = 2 + (int)((now_ms / 120) % 8);
+        int bar2 = 2 + (int)((now_ms / 90) % 11);
+        int bar3 = 2 + (int)((now_ms / 150) % 7);
+        sh1106_draw_line(104, 39, 104, 39 - bar1, true);
+        sh1106_draw_line(107, 39, 107, 39 - bar2, true);
+        sh1106_draw_line(110, 39, 110, 39 - bar3, true);
     } else {
-        // Standalone / Disconnected
-        sh1106_draw_rect(88, 16, 32, 23, true);
-        sh1106_draw_string(91, 20, "OFFLINE", true);
-        sh1106_draw_string(94, 28, "NO AI", true);
-        sh1106_draw_string(82, 40, "STANDALONE", true);
+        // Standalone / Disconnected IC Chip (dashed outline)
+        sh1106_draw_rect(98, 22, 20, 22, true);
+        sh1106_draw_line(96, 26, 98, 26, true);
+        sh1106_draw_line(96, 32, 98, 32, true);
+        sh1106_draw_line(96, 38, 98, 38, true);
+        sh1106_draw_line(118, 26, 120, 26, true);
+        sh1106_draw_line(118, 32, 120, 32, true);
+        sh1106_draw_line(118, 38, 120, 38, true);
+        sh1106_draw_pixel(107, 32, true);
     }
 
-    // -------------------------------------------------------------
-    // Footer: Dynamic Architecture Marquee Ticker
-    // -------------------------------------------------------------
-    sh1106_draw_line(2, 49, 125, 49, true);
+    // Bottom Decorative Energy Bar
+    sh1106_draw_line(30, 56, 98, 56, true);
+    int pulse_x = 30 + (int)((now_ms / 60) % 68);
+    sh1106_draw_pixel(pulse_x, 56, false);
+}
 
-    char arch_ticker[160];
-    if (host_type == HOST_TYPE_PI5) {
-        snprintf(arch_ticker, sizeof(arch_ticker),
-            "// CELESTIAL Mk.V // LINKED TO PI 5 WEARABLE CORE // MODEL: %s // DON'T PANIC! // 42 //",
-            net_client_get_model_name(active_ai_model_idx));
-    } else if (host_type == HOST_TYPE_PHONE) {
-        snprintf(arch_ticker, sizeof(arch_ticker),
-            "// CELESTIAL Mk.V // DIRECT MOBILE PHONE LINK // MODEL: %s // DON'T PANIC! // 42 //",
-            net_client_get_model_name(active_ai_model_idx));
+static void draw_cosmos_card(uint32_t now_ms, int32_t rot_pos) {
+    if (cosmos_zoom_level == COSMOS_ZOOM_GALAXY) {
+        draw_galaxy_card(now_ms, rot_pos);
+    } else if (cosmos_zoom_level == COSMOS_ZOOM_SOLAR) {
+        draw_solar_system_card(now_ms, rot_pos);
     } else {
-        snprintf(arch_ticker, sizeof(arch_ticker),
-            "// CELESTIAL Mk.V // AUTONOMOUS RUNIC MODE // SCANNING FOR PI 5 OR PHONE // DON'T PANIC! // 42 //");
+        draw_earth_card(now_ms, rot_pos);
     }
-    draw_marquee(52, arch_ticker, now_ms);
+
+    // Top Right Zoom Level Badge (x: 93..125, y: 2..10)
+    sh1106_fill_rect(93, 2, 33, 9, true);
+    const char *z_tag = (cosmos_zoom_level == COSMOS_ZOOM_GALAXY) ? "1x" :
+                        (cosmos_zoom_level == COSMOS_ZOOM_SOLAR)  ? "1k" :
+                                                                    "1M";
+    char z_str[16];
+    snprintf(z_str, sizeof(z_str), "[Z:%s]", z_tag);
+    sh1106_draw_string(95, 3, z_str, false);
 }
 
 static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_feedback) {
@@ -1534,23 +1592,13 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             break;
         }
 
-        case MODE_FUN: {
-            draw_fun_card(now_ms);
+        case MODE_ARCHITECTURE: {
+            draw_architecture_card(now_ms);
             break;
         }
 
-        case MODE_GALAXY: {
-            draw_galaxy_card(now_ms, pos);
-            break;
-        }
-
-        case MODE_SOLAR: {
-            draw_solar_system_card(now_ms, pos);
-            break;
-        }
-
-        case MODE_EARTH: {
-            draw_earth_card(now_ms, pos);
+        case MODE_COSMOS: {
+            draw_cosmos_card(now_ms, pos);
             break;
         }
 
@@ -1841,12 +1889,10 @@ int main(void) {
             anim_to_run = LED_ANIM_DATA_RECV;
         } else if (current_state == STATE_SPEAKING) {
             anim_to_run = LED_ANIM_EXPAND_SPEECH;
-        } else if (current_mode_idx == MODE_GALAXY && !led_edit_mode) {
-            anim_to_run = LED_ANIM_GALAXY;
-        } else if (current_mode_idx == MODE_SOLAR && !led_edit_mode) {
-            anim_to_run = LED_ANIM_SOLAR;
-        } else if (current_mode_idx == MODE_EARTH && !led_edit_mode) {
-            anim_to_run = LED_ANIM_EARTH;
+        } else if (current_mode_idx == MODE_COSMOS && !led_edit_mode) {
+            anim_to_run = (cosmos_zoom_level == COSMOS_ZOOM_GALAXY) ? LED_ANIM_GALAXY :
+                          (cosmos_zoom_level == COSMOS_ZOOM_SOLAR)  ? LED_ANIM_SOLAR :
+                                                                     LED_ANIM_EARTH;
         } else if (current_mode_idx == MODE_CLOCK && !led_edit_mode) {
             int style_to_show = (clock_style_edit_mode && selected_clock_style < CLOCK_STYLE_COUNT) ?
                                 selected_clock_style : active_clock_style;
@@ -2356,10 +2402,19 @@ int main(void) {
                 audio_play_voice((voice_phrase_id_t)active_voice_idx);
                 LOG_INFO("VOICE", "Entering Voice Oracle! Speaking %s",
                          audio_get_voice_name((voice_phrase_id_t)active_voice_idx));
-            } else if (current_mode_idx == MODE_GALAXY || current_mode_idx == MODE_SOLAR || current_mode_idx == MODE_EARTH || current_mode_idx == MODE_FUN) {
+            } else if (current_mode_idx == MODE_COSMOS) {
+                cosmos_zoom_level = (cosmos_zoom_level + 1) % COSMOS_ZOOM_COUNT;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
-                audio_play_cosmic_sfx(COSMIC_SFX_R2D2_HAPPY);
-                LOG_INFO("MAP", "Probed celestial coordinates in mode [%s]!", MODE_NAMES[current_mode_idx]);
+                audio_play_cosmic_sfx((cosmos_zoom_level == COSMOS_ZOOM_GALAXY) ? COSMIC_SFX_WARP :
+                                      (cosmos_zoom_level == COSMOS_ZOOM_SOLAR)  ? COSMIC_SFX_PORTAL :
+                                                                                 COSMIC_SFX_R2D2_HAPPY);
+                LOG_INFO("COSMOS", "Zoomed to level %d (%s)!", cosmos_zoom_level,
+                         (cosmos_zoom_level == COSMOS_ZOOM_GALAXY) ? "MILKY WAY GALAXY" :
+                         (cosmos_zoom_level == COSMOS_ZOOM_SOLAR)  ? "SOLAR SYSTEM" : "TERRA");
+            } else if (current_mode_idx == MODE_ARCHITECTURE) {
+                click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                audio_play_cosmic_sfx(COSMIC_SFX_PULSAR);
+                LOG_INFO("ARCH", "Probed architecture schematic!");
             } else {
                 active_confirmed_mode = current_mode_idx;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);

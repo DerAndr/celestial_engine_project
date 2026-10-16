@@ -22,8 +22,8 @@ Verify the normally-open button on GP9 (Pico Pin 12), stable hold/release detect
 | Component Terminal | Where on Breadboard | Pico Physical Pin | RP2350 GPIO / Function | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | **Button Legs** | `d24`, `f24`, `d22`, `f22` | — | 4-pin tactile switch straddling gutter | Verified mechanical seating |
-| **Signal Wire (Orange)** | **Ряд 24 слева (`c24`)** | **Pin 12** (Ряд 12 слева `b12`) | **GPIO 9** (`PIN_QUERY_BTN`) | Active LOW (Internal pull-up) |
-| **Ground Wire (Black)** | **Ряд 22 справа (`h22`)** | **Pin 18** (Ряд 18 слева `b18`) | **GND** | Ground Reference (Diagonal connection) |
+| **Signal Wire (Orange)** | **Row 24 left (`c24`)** | **Pin 12** (Row 12 left `b12`) | **GPIO 9** (`PIN_QUERY_BTN`) | Active LOW (Internal pull-up) |
+| **Ground Wire (Black)** | **Row 22 right (`h22`)** | **Pin 18** (Row 18 left `b18`) | **GND** | Ground Reference (Diagonal connection) |
 
 ## Current interaction (0.7.1-P4; physical regression pending)
 - **Hold QUERY**: After 30 ms stability, enter `LISTENING`; OLED shows `[ MIC ] LISTENING`, a hold timer and the live mic meter.

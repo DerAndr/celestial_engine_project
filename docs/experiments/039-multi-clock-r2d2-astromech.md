@@ -1,65 +1,65 @@
-# Эксперимент 039 — Квартет представлений часов и астромех-язык R2-D2
+# Experiment 039 — Quartet of Clock Styles & R2-D2 Astromech Suite
 
-**Дата**: 2026-10-13  
-**Цель**: 
-1. Расширить подменю часов до **4 различных представлений** (включая полноцветное кодирование времени без привязки к ориентации и кинетический ордери-хронометр).
-2. Реализовать забавный **астромех-язык R2-D2** (синтезатор свистов, трелей, панических воплей и болтовни дроида, доступный как в звуковых эффектах, так и в качестве отдельного языка интерфейса `ASTROMECH [R2]`).
+**Date**: 2026-10-13  
+**Objectives**: 
+1. Expand the clock style submenu to **4 distinct representations** (including orientation-free spectral time encoding and a kinetic planetary orrery).
+2. Implement a dedicated **R2-D2 Astromech sound suite** (synthesizer for whistles, chirps, panic screams, and droid banter, accessible in the sound effect player).
 
 ---
 
-## 1. 4 представления часов (Clock Styles Sub-Menu)
+## 1. Four Clock Styles (`CHRONOS` Sub-Menu)
 
-В режиме `[05] CHRONOS` подменю стиля предлагает 4 полноценных независимых алгоритма визуализации времени на 43 светодиодах и OLED:
+In `[05] CHRONOS` mode, the style submenu offers 4 independent algorithms for visualizing time across 43 LEDs and OLED:
 
-| Стиль | Имя | Тип | Описание колец и цветового кодирования |
+| Style | Name | Type | Ring Mapping & Color Encoding |
 |---|---|---|---|
-| **0** | **`DIAL CHRONOS`** | Направленный циферблат | **Среднее (12 LED)**: 12-часовой циферблат с часовой стрелкой золота.<br>**Внешнее (24 LED)**: Изумрудный минутный маркер + летящая алмазная комета с лазурным хвостом.<br>**Внутреннее (6 LED)**: Эскапмент/тик.<br>**Центр (1 LED)**: Янтарный маятник 1 Гц.<br>*OLED*: Классический аналоговый циферблат со стрелками. |
-| **1** | **`AETHER HOURGLASS`** | Концентрический накопитель (Orientation-free) | **Среднее (12 LED)**: Количество горящих LED = текущий час ($1..12$) золотым светом.<br>**Внешнее (24 LED)**: Заполняющаяся жидкая дуга минут ($0..24$ LED) цвета циан.<br>**Внутреннее (6 LED)**: Декады секунд ($0..6$ LED) аметистовым светом.<br>**Центр (1 LED)**: Пульс 1 Гц + вспышка минуты.<br>*OLED*: 3 жидкие концентрические дуги заполнения. |
-| **2** | **`CHROMA PRISMATIC`** | Спектрально-кодированные часы (Orientation-free) | **Полное цветовое кодирование времени**:<br>• **Среднее (12 LED)**: Все 12 LED равномерно светятся **Цветом Текущего Часа** (12 радужных оттенков спектра от Рубина до Мадженты). Позволяет с одного взгляда на посох из любого угла комнаты мгновенно определить час!<br>• **Внешнее (24 LED)**: Цвет кольца меняется каждые 10 минут по 6 декадам (Циан, Изумруд, Золото, Плазма, Коралл, Аметист), дуга пропорционально наполняется минутами ($0..24$ LED).<br>• **Внутреннее (6 LED)**: 6 спектральных самоцветов (Красный, Оранжевый, Жёлтый, Зелёный, Лазурный, Фиолетовый) зажигаются на каждые 10 секунд минуты.<br>• **Центр (1 LED)**: 1 Гц хроматическое сердце, меняющее цвет каждую 10-секундную декаду.<br>*OLED*: Спектральные концентрические точки + динамическая шкала декад `[R O Y G C V]`. |
-| **3** | **`CELESTIAL ORRERY`** | Кинетический планетарный хронометр (Orientation-free) | **Концентрические планетарные орбиты**:<br>• **Центр (1 LED)**: Солнце с лучами солнечной короны.<br>• **Внутреннее (6 LED)**: Дышащее гармоническое силовое поле часа (золото утром, фиолетовый вечером).<br>• **Среднее (12 LED)**: Орбита минутной планеты со спутником, плавно обращающаяся по кругу.<br>• **Внешнее (24 LED)**: Секундная комета с затухающим ионным хвостом, совершающая полный оборот за 60 секунд.<br>*OLED*: Планетарный ордери с орбитами и вращающимися небесными телами. |
+| **0** | **`DIAL CHRONOS`** | Directional Dial | **Middle (12 LED)**: 12-hour dial with golden hour hand.<br>**Outer (24 LED)**: Emerald minute marker + flying diamond comet with azure tail.<br>**Inner (6 LED)**: Escapement tick.<br>**Center (1 LED)**: Amber 1 Hz pendulum.<br>*OLED*: Classic analog clock face with hands. |
+| **1** | **`AETHER HOURGLASS`** | Concentric Accumulator (Orientation-free) | **Middle (12 LED)**: Number of illuminated LEDs = current hour ($1..12$) in radiant gold.<br>**Outer (24 LED)**: Liquid fill arc of minutes ($0..24$ LED) in cyan.<br>**Inner (6 LED)**: Decades of seconds ($0..6$ LED) in amethyst.<br>**Center (1 LED)**: 1 Hz pulse + minute flash.<br>*OLED*: 3 concentric liquid fill arcs. |
+| **2** | **`CHROMA PRISMATIC`** | Spectral Clock (Orientation-free) | **Full Spectral Time Encoding**:<br>• **Middle (12 LED)**: All 12 LEDs uniformly glow in the **Color of Current Hour** (12 rainbow spectral tints from Ruby to Magenta). Allows instant reading from across the room at any angle!<br>• **Outer (24 LED)**: Ring tint shifts every 10 minutes across 6 decades (Cyan, Emerald, Gold, Plasma, Coral, Amethyst); arc proportionally fills with minutes ($0..24$ LED).<br>• **Inner (6 LED)**: 6 spectral gemstones (Red, Orange, Yellow, Green, Azure, Violet) illuminate for every 10 seconds of the minute.<br>• **Center (1 LED)**: 1 Hz chromatic heart shifting color every 10-second decade.<br>*OLED*: Spectral concentric dots + dynamic decade scale `[R O Y G C V]`. |
+| **3** | **`CELESTIAL ORRERY`** | Kinetic Planetary Clock (Orientation-free) | **Concentric Planetary Orbits**:<br>• **Center (1 LED)**: Sun with solar corona rays.<br>• **Inner (6 LED)**: Breathing harmonic forcefield of the hour (gold morning, purple evening).<br>• **Middle (12 LED)**: Orbit of minute planet with moon, smoothly revolving.<br>• **Outer (24 LED)**: Second comet with fading ion tail completing a circuit in 60 seconds.<br>*OLED*: Planetary orrery with orbits and revolving celestial bodies. |
 
 ---
 
-## 2. Навигация в часах и Демо-режим R2-D2
+## 2. Clock Navigation and R2-D2 Demo Suite
 
-### 2.1. Удобная навигация в часах `[05] CHRONOS`
-Устранена громоздкая многоступенчатая настройка. Навигация приведена к общему интуитивному стандарту посоха:
-1. **Переключение стиля часов**:
-   - Находясь на `CHRONOS`, **нажатие кнопки энкодера (SW)** открывает выбор стиля (`clock_style_edit_mode`).
-   - Вращение энкодера листает стили (`DIAL`, `HOURGLASS`, `CHROMA`, `ORRERY`) с **мгновенным предпросмотром на светодиодных кольцах** и экране!
-   - Повторное **нажатие SW** немедленно фиксирует стиль, воспроизводит гармонический перезвон и возвращает в обычный режим.
-2. **Настройка времени (Часы и Минуты)**:
-   - В списке стилей 5-м пунктом доступен выбор `SET TIME` (или через удержание).
-   - При выборе `SET TIME`: вращение настраивает часы (`[HH]:MM`), клик переходит к минутам (`HH:[MM]`), клик сохраняет время и обнуляет секунды.
-   - В любой момент нажатие кнопки `QUERY` отменяет настройку и выходит без изменений.
+### 2.1. Seamless Navigation in `[05] CHRONOS`
+Simplified, unified interaction model:
+1. **Switching Clock Style**:
+   - While on `CHRONOS`, **pressing the encoder switch (SW)** opens style selection (`clock_style_edit_mode`).
+   - Turning the encoder cycles through styles (`DIAL`, `HOURGLASS`, `CHROMA`, `ORRERY`) with **instantaneous preview on LED rings** and OLED!
+   - Pressing **SW again** commits the style, chimes, and returns to normal time display.
+2. **Setting Time (Hours and Minutes)**:
+   - A dedicated 5th item `SET TIME` is available in the style list.
+   - When entering `SET TIME`: turning adjusts hours (`[HH]:MM`), clicking moves to minutes (`HH:[MM]`), clicking again saves time and resets seconds to zero.
+   - Pressing the `QUERY` button at any time cancels and exits without saving.
 
-### 2.2. Демо-сьюит звуковых эффектов и R2-D2 (`[11] COSMIC FX`)
-- Языки оракула (`LINGUA`) очищены от дроидных титров и содержат только реальные человеческие языки: `[EN]`, `[AUTO]`, `[DE]`, `[RU]`.
-- Все звуки и синтезатор R2-D2 вынесены в **полноценный интерактивный демо-режим `COSMIC FX`** в главном меню:
-  - 10 звуковых Sci-Fi эффектов:
-    1. `WARP JUMP` (разгон гипердвигателя)
-    2. `PULSAR BEACON` (ритмичный маяк пульсара)
-    3. `ALIEN SCANNER` (арпеджио инопланетного сканера)
-    4. `PHOTON LASER` (лазерный выстрел)
-    5. `TRACTOR BEAM` (гравитационный луч)
-    6. `STARGATE PORTAL` (шиммер портала)
-    7. `SUPERNOVA BASS` (суб-басовый взрыв)
-    8. `R2-D2 HAPPY CHIRP` (радостный свист и трель дроида)
-    9. `R2-D2 DROID CHATTER` (дерзкая болтовня астромеха)
-    10. `R2-D2 PANIC SCREAM` (визг тревоги дроида)
-  - Управление: вращение энкодера выбирает звук, клик SW запускает воспроизведение, кнопка `QUERY` выходит в меню.
+### 2.2. Sound Effects and R2-D2 Demo Suite (`[11] COSMIC FX`)
+- Oracle dialect selection (`LINGUA`) is reserved for real spoken languages: `[EN]` (default), `[AUTO]`, `[DE]`, `[RU]`.
+- All sound effects and the R2-D2 synth are consolidated into an interactive **`COSMIC FX` suite** in the main menu:
+  - 10 Sci-Fi sound effects:
+    1. `WARP JUMP` (hyperdrive spool and jump)
+    2. `PULSAR BEACON` (rhythmic pulsar ping)
+    3. `ALIEN SCANNER` (alien sensor arpeggio)
+    4. `PHOTON LASER` (plasma blaster blast)
+    5. `TRACTOR BEAM` (gravitational beam)
+    6. `STARGATE PORTAL` (portal shimmer)
+    7. `SUPERNOVA BASS` (deep sub-bass detonation)
+    8. `R2-D2 HAPPY CHIRP` (joyful whistle and trill)
+    9. `R2-D2 DROID CHATTER` (sassy astromech banter)
+    10. `R2-D2 PANIC SCREAM` (alarm screech)
+  - Controls: Turning encoder selects effect, clicking SW plays it, pressing `QUERY` returns to menu.
 
 ---
 
-## 3. Верификация
+## 3. Verification
 
-1. **Компиляция**:
-   - Сборка `firmware/build/celestial_firmware.uf2` завершена без ошибок и предупреждений (18 эффектов LED `0..17`, 5 языков, 4 стиля часов).
-2. **Тесты**:
+1. **Compilation**:
+   - Built `firmware/build/celestial_firmware.uf2` with zero errors or warnings (18 LED effects `0..17`, multilingual selector, 4 clock styles).
+2. **Automated Tests**:
    - `.\scripts\check-audio.ps1`: **17/17 PASS**.
    - `python -m unittest discover -s tests -p "test_*.py" -v`: **30/30 PASS**.
-3. **Прошивка на физическую плату**:
-   - Прошита на Pico 2 W с помощью `picotool 2.3.1 load -f -x`.
-   - Серийный порт `COM9`:
+3. **Flashing to Physical Hardware**:
+   - Loaded to Pico 2 W via `picotool 2.3.1 load -f -x`.
+   - Serial monitor (`COM9`):
      - `Tick #33 | OLED: ONLINE | State: IDLE | Mode: [GUIDE] | Vol: 30% | Net: ONLINE (192.168.178.101)`
-     - Команда `L` подтвердила переключение всех 18 режимов светодиодов.
+     - Command `L` confirmed cycling through all 18 LED animation modes.

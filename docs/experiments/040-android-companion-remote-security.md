@@ -1,48 +1,56 @@
-# Эксперимент 040 — Защищённый сетевой протокол Celestial Companion (Android ⟷ Pico 2 W)
+# Experiment 040 — Secure Network Protocol for Celestial Companion (Android ⟷ Pico 2 W)
 
-**Дата**: 2026-10-14  
-**Цель**: 
-1. Реализовать нативное мобильное приложение-компаньон под Android 15/16/17 (Pixel 9 Pro XL) с адаптивным Edge-to-Edge интерфейсом.
-2. Организовать защищённый двусторонний бинарный UDP-протокол управления посохом (режимы, громкость, анимации, аудио-эффекты, синхронизация времени).
-3. Обеспечить криптографическую защиту команд через локальный секретный ключ без риска утечки в публичные репозитории.
+**Date**: 2026-10-14  
+**Objectives**: 
+1. Implement a native mobile companion app for Android 15/16/17 (Pixel 9 Pro XL) with an adaptive Edge-to-Edge interface.
+2. Establish a secure bidirectional binary UDP protocol for remote staff control (modes, volume, animations, sound effects, time synchronization).
+3. Ensure cryptographic command authentication via a local secret key without risk of leaking credentials to public repositories.
 
 ---
 
-## 1. Архитектура безопасности (Zero-Leak Protocol)
+## 1. Security Architecture (Zero-Leak Protocol)
 
-### 1.1. Модель аутентификации
-Каждая команда удалённого управления (`APP_COMMAND`, `APP_TIME_SYNC`) снабжается 32-битным токеном:
+### 1.1. Authentication Model
+Every remote command (`APP_COMMAND`, `APP_TIME_SYNC`) is authenticated with a 32-bit token:
 $$\text{Token} = \text{FNV-1a}(\text{SecretPasskey})$$
 
-- На стороне микроконтроллера (RP2350 Pico 2 W) секрет компилируется из локального заголовочного файла `wifi_credentials.h`, находящегося в `.gitignore`.
-- На стороне Android ключ вводится пользователем в интерфейсе приложения и сохраняется в защищённом изолированном хранилище приложения (`SharedPreferences`).
-- В исходный код и историю git попадает исключительно шаблон `wifi_credentials.h.example`.
-- Микроконтроллер проверяет хеш каждого входящего пакета. Неподписанные или скомпрометированные пакеты немедленно отбрасываются с выводом в лог:
+- On the microcontroller side (RP2350 Pico 2 W), the secret is compiled from the local `wifi_credentials.h` header, which is strictly tracked in `.gitignore`.
+- On the Android side, the passkey is entered by the user in app settings and stored in encrypted app storage (`SharedPreferences`).
+- Only `wifi_credentials.h.example` is committed to git history.
+- The microcontroller verifies the hash of every incoming command packet. Unauthenticated or compromised packets are dropped immediately and logged:
   `[SECURITY] Rejected unauthorized command from IP:PORT`
 
-### 1.2. Сетевой транспорт и автообнаружение
-- **Слушающий сокет**: микроконтроллер явно привязывается к порту 5005 (`udp_bind(udp_client_pcb, IP_ADDR_ANY, 5005)`).
-- **Маяк обнаружения (Discovery Beacon)**: раз в секунду посох отправляет широковещательный `HEARTBEAT` на подсеть (`255.255.255.255:5005`). Приложение на телефоне автоматически фиксирует IP-адрес посоха в реальном времени.
+### 1.2. Network Transport & Discovery
+- **Listening Socket**: Microcontroller binds explicitly to port 5005 (`udp_bind(udp_client_pcb, IP_ADDR_ANY, 5005)`).
+- **Discovery Beacon**: Once per second, the staff sends a broadcast `HEARTBEAT` across the subnet (`255.255.255.255:5005`). The smartphone app automatically captures and updates the staff IP in real time.
 
 ---
 
-## 2. Верификация
+## 2. Verification
 
-1. **Компиляция прошивки**:
-   - `ninja -C firmware/build celestial_firmware` — успешно (0 ошибок).
-   - Прошивка загружена на Pico 2 W через `picotool.exe load -f -x`.
-2. **Сборка Android APK**:
-   - GitHub Actions workflow `Build Android Companion APK` — успешно.
-   - Установка на Pixel 9 Pro XL через ADB — без сбоев.
-3. **Физическая связь**:
-   - Пинг Pixel 9 Pro XL (`192.168.178.46`) ⟷ Pico 2 W (`192.168.178.101`): 0% потерь.
-   - В логе микроконтроллера подтверждён приём авторизованных команд:
-     - Переключение режимов (`'M'`)
-     - Воспроизведение звуковых эффектов (`'C'`)
-     - Синхронизация эпохи времени (`'X'`)
-   - Попытка отправки команды с фиктивным токеном успешно заблокирована микроконтроллером.
+1. **Firmware Compilation**:
+   - `ninja -C firmware/build celestial_firmware` — successful (0 errors).
+   - Firmware flashed to Pico 2 W via `picotool.exe load -f -x`.
+2. **Android APK Build**:
+   - GitHub Actions workflow `Build Android Companion APK` — successful.
+   - Installed to Pixel 9 Pro XL via ADB — smooth launch.
+3. **Physical Connectivity**:
+   - Ping Pixel 9 Pro XL (`192.168.178.46`) ⟷ Pico 2 W (`192.168.178.101`): 0% packet loss.
+   - Microcontroller serial log confirmed authorized command execution:
+     - Mode switching (`'M'`)
+     - Sound effect playback (`'C'`)
+     - Epoch time synchronization (`'X'`)
+   - Attempting commands with an invalid passkey token was cleanly rejected by the microcontroller.
+4. **43-LED Concentric Headpiece Mirroring**:
+   - Native Compose visualizer (`ConcentricLedRingsView`) mirrors the physical 43-LED WS2812B headpiece:
+     - Index 0: Center gemstone
+     - Indices 1..6: Inner ring (6 LEDs)
+     - Indices 7..18: Middle ring (12 LEDs)
+     - Indices 19..42: Outer ring (24 LEDs)
+   - 33 Hz animation engine faithfully emulates all 18 firmware algorithms (`BREATHE` through `CLOCK_ORRERY`).
+   - Bidirectionally synchronized with Pico 2 W via UDP telemetry (`activeLedAnim`).
 
 ---
 
-## 3. Статус
-**PASSED** — защищённое управление посохом со смартфона полностью функционирует.
+## 3. Status
+**PASSED** — secure staff remote control from smartphone is fully operational.

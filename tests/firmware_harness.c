@@ -28,6 +28,19 @@ const char* net_client_get_ip_str(void) { return "0.0.0.0"; }
 const char* net_client_get_active_ssid(void) { return "TEST_SSID"; }
 const char* net_client_get_server_ip_str(void) { return "127.0.0.1"; }
 uint16_t net_client_get_server_port(void) { return 5005; }
+net_host_type_t net_client_get_host_type(void) { return HOST_TYPE_PI5; }
+const char* net_client_get_host_name(void) { return "Pi 5 Brain"; }
+void net_client_set_preferred_host(net_host_type_t pref) { (void)pref; }
+net_host_type_t net_client_get_preferred_host(void) { return HOST_TYPE_PI5; }
+uint8_t net_client_get_model_count(void) { return 4; }
+const char* net_client_get_model_name(uint8_t idx) { (void)idx; return "DeepSeek V3"; }
+const char* net_client_get_model_tag(uint8_t idx) { (void)idx; return "DSK"; }
+uint8_t net_client_get_model_theme(uint8_t idx) { (void)idx; return 0; }
+uint8_t net_client_get_model_id(uint8_t idx) { return idx; }
+bool net_client_request_catalog(void) { return true; }
+bool net_client_poll_remote_command(remote_cmd_t *cmd) { if (cmd) cmd->has_command = false; return false; }
+void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style) { (void)mode; (void)state; (void)volume; (void)anim; (void)clock_style; }
+bool net_client_has_paired_companion(void) { return false; }
 bool net_client_send_query_start(uint8_t l, uint8_t m) { (void)l; (void)m; return true; }
 bool net_client_send_audio_chunk(const int16_t *s, size_t c) { (void)s; (void)c; return true; }
 bool net_client_send_query_end(void) { return true; }

@@ -821,11 +821,19 @@ uint8_t net_client_get_model_count(void) {
 }
 
 const char* net_client_get_model_name(uint8_t idx) {
+    if (active_catalog.model_count == 0) {
+        if (idx == 0) return DEFAULT_STANDALONE_CATALOG.models[0].name;
+        return "UNKNOWN";
+    }
     if (idx >= active_catalog.model_count) return "UNKNOWN";
     return active_catalog.models[idx].name;
 }
 
 const char* net_client_get_model_tag(uint8_t idx) {
+    if (active_catalog.model_count == 0) {
+        if (idx == 0) return DEFAULT_STANDALONE_CATALOG.models[0].tag;
+        return "???";
+    }
     if (idx >= active_catalog.model_count) return "???";
     return active_catalog.models[idx].tag;
 }

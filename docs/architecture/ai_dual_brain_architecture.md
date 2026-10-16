@@ -1,113 +1,113 @@
-# Архитектура «Универсального Мозга»: Полная Независимость от Pi 5 и Android App
+# "Universal Brain" Architecture: Host Independence from Pi 5 and Android App
 
-Документ описывает эволюцию серверной архитектуры проекта **CELESTIAL ENGINE Mk.V**: переход от жесткой привязки к носимому одноплатнику или мобильному приложению к **Универсальной Хост-Агностической Архитектуре (Universal Host-Agnostic & Cloud Brain Architecture)**.
-
----
-
-## 1. Принцип Полной Независимости: Агностицизм к Хосту
-
-Посох (Raspberry Pi Pico 2 W) взаимодействует с «Мозгом» по бинарному протоколу **UDP Protocol v2** на порту **5005**.  
-Посох физически и логически отделен от вычислительного узла и **не зависит ни от Raspberry Pi 5, ни от специализированного приложения для Android**:
-
-1. **Отказ от необходимости Android-приложения (Zero-App Tethering):**
-   - Разработка нативного APK (Kotlin, Jetpack Compose, LiteRT, системные Foreground Services) исключена из обязательного критического пути.
-   - Android OS агрессивно выгружает фоновые сервисы при экономии энергии (Doze Mode).
-   - **Решение:** Смартфон (Google Pixel 9 Pro, iPhone или любой 4G/5G роутер) используется исключительно как **стандартная мобильная точка доступа (Wi-Fi Hotspot)** для раздачи интернета. На смартфоне **не требуется устанавливать никаких приложений**!
-2. **Отказ от блокирующей зависимости от Raspberry Pi 5:**
-   - После аппаратного инцидента с питанием NVMe на плате Geekworm X1002 (см. [Отчет 037](../hardware/rpi5_nvme_migration_incident_report.md)) система ожидает адаптер Pimoroni PIM699.
-   - Носимый одноплатник с 4× 18650 аккумуляторами и активным охлаждением остается **опциональным автономным узлом**, но прогресс проекта не блокируется физическим железом.
-3. **Автономный Оракул на борту Посоха (Standalone Resilience):**
-   - Если сервер недоступен, нет Wi-Fi или разрядился телефон, посох **не превращается в бесполезный реквизит**.
-   - В прошивку интегрирован **Standalone Offline Oracle**: при зажатии QUERY посох слушает микрофон, визуализирует звук концентрическим вихрем на 43 WS2812B светодиодах, а при отпускании — синтезирует космический отклик, воспроизводит локальные фразы из флеш-памяти (EN/DE/RU) и бегущую строку пророчеств на OLED-дисплее.
+This document describes the evolution of the server architecture for **CELESTIAL ENGINE Mk.V**: the transition from tight coupling with a wearable single-board computer or mobile app to a **Universal Host-Agnostic & Cloud Brain Architecture**.
 
 ---
 
-## 2. Четыре Топологии Развертывания
+## 1. Principle of Full Independence: Host Agnosticism
+
+The staff (Raspberry Pi Pico 2 W) communicates with the "Brain" over binary **UDP Protocol v2** on port **5005**.  
+The staff is physically and logically decoupled from the computing node and **depends neither on the Raspberry Pi 5 nor on a specialized Android application**:
+
+1. **Zero-App Tethering:**
+   - Native mobile APK development (Kotlin, Jetpack Compose, LiteRT, system Foreground Services) is removed from the critical path.
+   - Mobile OS battery optimizations (e.g. Android Doze Mode) aggressively terminate background network daemons.
+   - **Solution:** The smartphone (Google Pixel 9 Pro, iPhone, or any 4G/5G mobile hotspot) functions strictly as a **standard Wi-Fi Hotspot** for internet connectivity. **No client apps need to be installed or run on the phone**!
+2. **Decoupling from Wearable Raspberry Pi 5 Blockers:**
+   - Following the NVMe hardware power fault on the Geekworm X1002 board (see [Report 037](../hardware/rpi5_nvme_migration_incident_report.md)), the project moved to the Pimoroni PIM699 adapter.
+   - The wearable single-board computer with 4× 18650 cells and Active Cooler remains an **optional autonomous node**, but physical hardware delays do not block progress.
+3. **Onboard Staff Resilience (Standalone Offline Oracle):**
+   - If the server is unreachable, Wi-Fi drops, or the phone battery drains, the staff **remains fully responsive**.
+   - Integrated **Standalone Offline Oracle**: holding QUERY senses microphone input, visualizes audio via a concentric vortex across 43 WS2812B LEDs, and releasing it synthesizes a cosmic response, plays local flash-stored audio cues (English default, Deutsch, Russian), and scrolls retro-futuristic prophecies across the SH1106 OLED display.
+
+---
+
+## 2. Four Deployment Topologies
 
 ```mermaid
 graph TD
-    Staff["Посох: Pico 2 W (RP2350)<br>43 LED + I2S Микрофон + Динамик + SH1106 OLED"]
+    Staff["Staff: Pico 2 W (RP2350)<br>43 LEDs + I2S Mic + Speaker + SH1106 OLED"]
     
-    Staff <== "UDP v2 (Порт 5005)" ==> NetRouter{"Сетевой Профиль Посоха"}
+    Staff <== "UDP v2 (Port 5005)" ==> NetRouter{"Staff Network Profile"}
     
-    NetRouter -->|"Топология 1: Полевой Zero-App (Приоритет)"| Hotspot["Смартфон / 4G Hotspot (Без приложений!)"]
-    Hotspot -.->|"Интернет / LTE"| Cloud["Облачный Сервер (VPS / Docker / Tunnel)<br>ai_brain_server.py (OpenRouter / Groq)"]
+    NetRouter -->|"Topology 1: Field Zero-App (Primary)"| Hotspot["Smartphone / 4G Hotspot (Zero Apps!)"]
+    Hotspot -.->|"Internet / LTE"| Cloud["Cloud Server (VPS / Docker / Tunnel)<br>ai_brain_server.py (OpenRouter / Groq)"]
     
-    NetRouter -->|"Топология 2: Домашняя отладка"| HomeWiFi["Домашний Роутер Wi-Fi"]
-    HomeWiFi -.->|"LAN 192.168.178.x"| DevPC["Dev PC / Ноутбук (ai_brain_server.py)"]
+    NetRouter -->|"Topology 2: Home Dev"| HomeWiFi["Home Wi-Fi Router"]
+    HomeWiFi -.->|"LAN 192.168.178.x"| DevPC["Dev Workstation / Laptop (ai_brain_server.py)"]
     
-    NetRouter -->|"Топология 3: Опциональный SBC"| Pi5["Wearable Raspberry Pi 5 (16 GB)<br>X1209 + PIM699 Base"]
+    NetRouter -->|"Topology 3: Optional SBC"| Pi5["Wearable Raspberry Pi 5 (16 GB)<br>X1209 + PIM699 Base"]
     
-    Staff -.->|"Топология 4: Офлайн (Нет сети)"| Standalone["Бортовой Standalone Oracle<br>Флеш-аудио + Бегущая строка 42"]
+    Staff -.->|"Topology 4: Standalone (No Network)"| Standalone["Onboard Standalone Oracle<br>Flash Audio + Marquee 42"]
 ```
 
-### Сравнительная Матрица Топологий
+### Topology Comparison Matrix
 
-| Параметр | 1. Полевой Zero-App (Hotspot + Cloud) | 2. Домашний (Dev PC) | 3. Автономный Посох (Standalone) | 4. Носимый SBC (Pi 5) |
+| Parameter | 1. Field Zero-App (Hotspot + Cloud) | 2. Home (Dev PC) | 3. Standalone Staff | 4. Wearable SBC (Pi 5) |
 | :--- | :--- | :--- | :--- | :--- |
-| **Необходимое железо** | Посох + Любой смартфон с Hotspot | Посох + ПК / Ноутбук | **Только Посох!** | Посох + Pi 5 + X1209 + PIM699 |
-| **Приложения на телефоне** | **0 (Только включить хотспот)** | 0 | 0 | 0 |
-| **Хост сервера** | Облачный VPS / Docker / Домашний ПК | Локальный компьютер | Встроенный RP2350 (C/C++) | Одноплатник в рюкзаке |
-| **Качество AI** | Максимальное (OpenRouter, DeepSeek, Groq) | Максимальное (OpenRouter) | Процедурное бортовое (42, Кин-дза-дза) | Локальное либо гибридное |
-| **Задержка ответа** | 0.8 – 1.4 с | 0.8 – 1.2 с | **0.05 с (Мгновенно)** | 1.5 – 3.0 с (локально) |
-| **Масса носимого оборудования** | ~350 г (только посох + телефон) | ~350 г (посох) | **~350 г (только посох)** | ~950 г (посох + рюкзак с Pi 5) |
+| **Required Hardware** | Staff + Any smartphone hotspot | Staff + PC / Laptop | **Staff Only!** | Staff + Pi 5 + X1209 + PIM699 |
+| **Apps on Phone** | **0 (Only enable hotspot)** | 0 | 0 | 0 |
+| **Server Host** | Cloud VPS / Docker / Dev PC | Local computer | Onboard RP2350 (C/C++) | Wearable SBC in backpack |
+| **AI Capability** | Maximum (OpenRouter, DeepSeek, Groq) | Maximum (OpenRouter) | Procedural onboard (42, Sci-Fi) | Local offline or hybrid |
+| **Response Latency** | 0.8 – 1.4 s | 0.8 – 1.2 s | **0.05 s (Instantaneous)** | 1.5 – 3.0 s (local) |
+| **Carried Equipment Mass** | ~350 g (staff + phone in pocket) | ~350 g (staff) | **~350 g (staff only)** | ~950 g (staff + Pi 5 backpack) |
 
 ---
 
-## 3. Двухпрофильная Сетевая Архитектура в Прошивке
+## 3. Dual-Profile Network Architecture in Firmware
 
-Для того чтобы пользователю не требовалось перекомпилировать прошивку при выходе из дома, в `wifi_credentials.h` и `net_client.c` реализована поддержка двух профилей:
+To eliminate the need for firmware recompilation when transitioning between home and mobile environments, `wifi_credentials.h` and `net_client.c` implement two network profiles:
 
-1. **Основной профиль (Primary):** Домашний Wi-Fi (`WIFI_SSID`, `WIFI_PASSWORD`, `BRAIN_SERVER_IP`).
-2. **Резервный профиль (Fallback):** Точка доступа телефона (`WIFI_FALLBACK_SSID`, `WIFI_FALLBACK_PASSWORD`, `BRAIN_FALLBACK_SERVER_IP`).
+1. **Primary Profile:** Home Wi-Fi (`WIFI_SSID`, `WIFI_PASSWORD`, `BRAIN_SERVER_IP`).
+2. **Fallback Profile:** Mobile hotspot (`WIFI_FALLBACK_SSID`, `WIFI_FALLBACK_PASSWORD`, `BRAIN_FALLBACK_SERVER_IP`).
 
-### Логика автоматического переключения (Auto-Failover):
-- При включении посох пытается подключиться к домашней сети.
-- Если после 3 попыток домашняя сеть недоступна (пользователь вышел на улицу), клиент автоматически переключается на профиль точки доступа смартфона и перенаправляет трафик на облачный IP.
-- Статус отображается на странице `[ SYSTEM ]` OLED-экрана:
-  - `AP: <Имя активной сети>`
-  - `HOST: <IP сервера>:<Порт>`
-  - `BRAIN: READY` (если сервер отвечает) либо `STANDALONE` (если сервер недоступен).
+### Automated Failover Logic:
+- On boot, the staff attempts to associate with the primary home network.
+- If after 3 connection attempts the home network is unavailable (user stepped outside), the client automatically fails over to the mobile hotspot profile and points traffic to the cloud server IP.
+- Network status is reported on the `[ SYSTEM ]` OLED card:
+  - `AP: <Active Network SSID>`
+  - `HOST: <Server IP>:<Port>`
+  - `BRAIN: READY` (when server heartbeats respond) or `STANDALONE` (when disconnected).
 
 ---
 
-## 4. Пайплайн «Мозга» без Приложений (Zero-App Brain Pipeline)
+## 4. Zero-App Brain Pipeline
 
 ```text
-[Посох: Микрофон INMP441]
-           │ (UDP 16 кГц PCM mono через Wi-Fi Hotspot)
+[Staff: INMP441 Microphone]
+           │ (UDP 16 kHz PCM mono via Wi-Fi Hotspot)
            ▼
-[Сервер ai_brain_server.py (Cloud VPS / Домашний ПК)]
+[Server ai_brain_server.py (Cloud VPS / Dev PC / Pi 5)]
            │
-           ├─► [STT: Google Web Speech / Groq Whisper API]
-           │        │ (Текст запроса)
+           ├─► [STT: Google Web Speech / Groq Whisper API / Local Whisper]
+           │        │ (User query text)
            │        ▼
-           ├─► [LLM: OpenRouter (DeepSeek V3, Ministral, Grok, Llama 3.3)]
-           │        │ (Текст ответа с юмором Автостопом по Галактике)
+           ├─► [LLM: OpenRouter (DeepSeek V3, Ministral, Grok, Llama 3.3) / Ollama]
+           │        │ (Douglas Adams retro-sci-fi response text)
            │        ▼
-           └─► [TTS: Edge-TTS (en-US, de-DE, ru-RU)]
+           └─► [TTS: Edge-TTS / Piper (en-US default, de-DE, ru-RU)]
                     │
-                    ▼ (Сжатие / конвертация ffmpeg в 16 кГц PCM)
-[Посох: Потоковый I2S буфер MAX98357A + OLED Marquee]
+                    ▼ (ffmpeg stream conversion to 16 kHz 16-bit PCM)
+[Staff: Streaming MAX98357A I2S buffer + OLED Marquee]
 ```
 
 ---
 
-## 5. Обновленный План Реализации
+## 5. Implementation Roadmap
 
-### Фаза 1: Сетевая независимость и бортовой Оракул (Выполнено)
-* [x] Добавлена поддержка двух Wi-Fi профилей (Дом + Мобильный Hotspot) в `net_client.c`.
-* [x] Реализован **Standalone Offline Oracle**: зажатие QUERY без сервера запускает локальный замер голоса, анимацию вихря и выдает бортовое пророчество с локальным голосом из флеш-памяти.
-* [x] Расширен вывод телеметрии в меню `[ SYSTEM ]` (активная AP, адрес сервера, готовность Оракула).
-* [x] В `ai_brain_server.py` добавлены переменные окружения (`BRAIN_PORT`, `BRAIN_API_KEY`, `BRAIN_API_BASE`, `BRAIN_MODEL`) для запуска в облаке без правки JSON.
-* [x] Созданы `tools/Dockerfile` и `tools/docker-compose.yml` для мгновенного облачного деплоя.
+### Phase 1: Network Independence and Onboard Oracle (Completed)
+* [x] Add dual Wi-Fi profile support (Home + Mobile Hotspot) in `net_client.c`.
+* [x] Implement **Standalone Offline Oracle**: holding QUERY without server connectivity triggers local sound level meter, vortex animation, and delivers onboard prophecy with local flash speech.
+* [x] Expand telemetry display in `[ SYSTEM ]` menu (active AP, server address, Oracle readiness).
+* [x] Add environment variables to `ai_brain_server.py` (`BRAIN_PORT`, `BRAIN_API_KEY`, `BRAIN_API_BASE`, `BRAIN_MODEL`) for containerized deployment.
+* [x] Create `tools/Dockerfile` and `tools/docker-compose.yml` for cloud deployment.
 
-### Фаза 2: Облачный запуск и полевое тестирование
-* [ ] Запуск `ai_brain_server.py` на облачном VPS (либо домашнем ПК с открытым UDP-портом / Cloudflare tunnel).
-* [ ] Проверка подключения посоха к точке доступа смартфона на улице без использования ПК.
-* [ ] Замер задержек STT -> LLM -> TTS в реальных условиях мобильной сети 4G/LTE.
+### Phase 2: Cloud Deployment and Field Validation
+* [ ] Deploy `ai_brain_server.py` on cloud VPS (or home server with forwarded port / tunnel).
+* [ ] Verify staff hotspot pairing outdoors without workstation dependencies.
+* [ ] Benchmark STT -> LLM -> TTS roundtrip latency over 4G/LTE mobile networks.
 
-### Фаза 3: Параллельный трек Pi 5 (Аппаратный резерв)
-* [ ] Получение адаптера **Pimoroni PIM699 (NVMe Base)**.
-* [ ] Монтаж на Raspberry Pi 5 с Lexar NM790 1 TB и проверка sustained write тестов.
-* [ ] Развертывание `ai_brain_server.py` как автономного `systemd`-сервиса на Pi 5 в качестве резервного рюкзачного узла.
+### Phase 3: Parallel Pi 5 Track (Hardware Standalone Reserve)
+* [x] Receive **Pimoroni PIM699 (NVMe Base)** adapter.
+* [x] Mount on Raspberry Pi 5 with Lexar NM790 1 TB and verify sustained write stress tests.
+* [x] Deploy `ai_brain_server.py` as autonomous `systemd` service on Pi 5 as backpack companion node.

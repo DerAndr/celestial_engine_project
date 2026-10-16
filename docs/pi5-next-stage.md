@@ -1,10 +1,10 @@
-# Следующий этап — сервер на Raspberry Pi 5
+# Next Stage — Server on Raspberry Pi 5
 
-Сначала подтвердить исправленную пару Pico 1.0.16 + сервер v2 на текущем ПК по [036](experiments/036-response-review-and-fullscreen-text.md). Новый аппаратный результат ещё не получен. Затем перенести **тот же работающий сервер**, сохранив его облачные STT/LLM/TTS. Hotspot и полностью локальные модели — отдельные будущие этапы: не менять сразу сеть, транспорт и AI.
+First, confirm the revised pair Pico 1.0.16 + server v2 on the development PC per [036](experiments/036-response-review-and-fullscreen-text.md). The new hardware result is not yet verified. Then migrate **the exact same working server**, retaining its cloud STT/LLM/TTS. Standalone Hotspot and fully local models are separate future stages: avoid changing network, transport, and AI all at once.
 
-Pi 5 питается отдельно от посоха; использовать имеющийся Active Cooler. Для первого переноса подключить Pico и Pi к прежнему Wi-Fi роутеру. Физический кабель данных между ними не требуется. GPIO и питание посоха не меняются.
+The Pi 5 is powered independently from the staff; use the existing Active Cooler. For the initial migration, connect both Pico and Pi to the same home Wi-Fi router. No physical data cable between them is required. Staff GPIO and power remain unchanged.
 
-На Raspberry Pi OS из корня клонированного репозитория:
+On Raspberry Pi OS from the repository root:
 
 ```bash
 sudo apt update
@@ -15,8 +15,8 @@ hostname -I
 .venv/bin/python tools/mock_brain_server.py
 ```
 
-Сначала проверить mock, затем остановить его Ctrl+C и запустить `.venv/bin/python tools/ai_brain_server.py`. Одновременно порт 5005 занимает только один сервер. Перенести существующую приватную конфигурацию сервера отдельно; она исключена из Git. Не публиковать ключи. Текущий AI требует интернета; автономные локальные эффекты/музыка на Pico его не требуют.
+First test the mock server, then stop it with `Ctrl+C` and start `.venv/bin/python tools/ai_brain_server.py`. Only one server can bind to port 5005 at a time. Copy the existing private server configuration separately; it is excluded from git. Do not publish API keys. The cloud AI requires internet access; standalone local effects and music on Pico do not.
 
-В локальном `firmware/src/wifi_credentials.h` заменить только `BRAIN_SERVER_IP` на адрес Pi; оставить прежний SSID/пароль. Собрать `cmake --build firmware/build --target celestial_firmware --parallel 4` на рабочем компьютере и прошить UF2. В SYSTEM сервер должен стать READY. Удержание QUERY → запись, отпускание → PROCESSING → крупный текст и весь ответ → IDLE. Длинный ответ и повторный запрос не должны воспроизводить старый результат.
+In the local `firmware/src/wifi_credentials.h`, update only `BRAIN_SERVER_IP` to the Pi's IP address, keeping the existing SSID/password. Build `cmake --build firmware/build --target celestial_firmware --parallel 4` on the development workstation and flash the UF2. In SYSTEM mode, the server should indicate READY. Holding QUERY → recording, releasing → PROCESSING → fullscreen text and full response playback → IDLE. Long responses and subsequent queries must not repeat stale audio.
 
-После подтверждения: оформить запуск сервера как service, выбрать адрес/обнаружение сервера, затем отдельно обсуждать hotspot и локальные STT/TTS. Не начинать батарейную интеграцию Pi или новую пайку ради переноса софта.
+After validation: register the server as a systemd service, configure server discovery/addressing, then discuss mobile hotspot and on-device STT/TTS in isolation. Do not begin Pi battery integration or new soldering purely for software migration.

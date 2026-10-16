@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import com.celestial.companion.domain.model.StaffLanguage
 import com.celestial.companion.domain.model.StaffMode
 import com.celestial.companion.domain.model.StaffState
+import com.celestial.companion.ui.screens.cosmos.CosmosZoomView
+import com.celestial.companion.ui.screens.leds.ConcentricLedRingsView
 import com.celestial.companion.ui.theme.*
 
 @Composable
@@ -121,7 +123,7 @@ fun DashboardScreen(
             }
         }
 
-        // 1.5 Connection Architecture Card
+        // 1.5 Connection Architecture Card (Simplified Pure Pictogram Scheme)
         val connectionMode by viewModel.connectionMode.collectAsState()
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -131,73 +133,215 @@ fun DashboardScreen(
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Interactive 3-Node Architecture Pictogram Scheme (No text clutter)
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DeepVoid)
+                        .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                        .padding(vertical = 12.dp, horizontal = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "CONNECTION ARCHITECTURE",
-                        color = TextMuted,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = connectionMode.title,
-                        color = when (connectionMode) {
-                            com.celestial.companion.domain.repository.ConnectionMode.STANDALONE_PHONE -> EmeraldGreen
-                            com.celestial.companion.domain.repository.ConnectionMode.PHONE_BRAIN_SERVER -> AetherCyan
-                            com.celestial.companion.domain.repository.ConnectionMode.MESH_ACTIVE -> RunicGold
-                        },
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                    // Node 1: Phone
+                    val phoneActive = connectionMode != com.celestial.companion.domain.repository.ConnectionMode.STANDALONE_PHONE
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(if (phoneActive) AetherCyan.copy(alpha = 0.2f) else SpaceBlack)
+                            .border(1.5.dp, if (phoneActive) AetherCyan else CardBorder, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Smartphone,
+                            contentDescription = "Phone",
+                            tint = if (phoneActive) AetherCyan else TextMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    com.celestial.companion.domain.repository.ConnectionMode.entries.forEach { mode ->
-                        val isSelected = mode == connectionMode
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) DeepVoid else SpaceBlack)
-                                .border(
-                                    1.dp,
-                                    if (isSelected) AetherCyan else CardBorder,
-                                    RoundedCornerShape(8.dp)
-                                )
-                                .clickable { viewModel.setConnectionMode(mode) }
-                                .padding(vertical = 8.dp, horizontal = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = when (mode) {
-                                    com.celestial.companion.domain.repository.ConnectionMode.STANDALONE_PHONE -> "Phone Only"
-                                    com.celestial.companion.domain.repository.ConnectionMode.PHONE_BRAIN_SERVER -> "Phone Brain"
-                                    com.celestial.companion.domain.repository.ConnectionMode.MESH_ACTIVE -> "Full Mesh"
-                                },
-                                color = if (isSelected) AetherCyan else TextSecondary,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                fontFamily = FontFamily.Monospace
+                    // Wireless Link 1 (Phone <-> Staff)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .size(4.dp)
+                                    .clip(CircleShape)
+                                    .background(if (phoneActive) AetherCyan else CardBorder)
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.Sync,
+                            contentDescription = "Sync",
+                            tint = if (phoneActive) AetherCyan else CardBorder,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .size(4.dp)
+                                    .clip(CircleShape)
+                                    .background(if (phoneActive) AetherCyan else CardBorder)
                             )
                         }
                     }
+
+                    // Node 2: Staff
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(RunicGold.copy(alpha = 0.2f))
+                            .border(1.5.dp, if (telemetry.isOnline) RunicGold else CardBorder, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = "Staff",
+                            tint = if (telemetry.isOnline) RunicGold else TextMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // Wireless Link 2 (Staff <-> Pi 5)
+                    val meshActive = connectionMode == com.celestial.companion.domain.repository.ConnectionMode.MESH_ACTIVE
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .size(4.dp)
+                                    .clip(CircleShape)
+                                    .background(if (meshActive) EmeraldGreen else CardBorder)
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.Wifi,
+                            contentDescription = "Link",
+                            tint = if (meshActive) EmeraldGreen else CardBorder,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        repeat(3) {
+                            Box(
+                                modifier = Modifier
+                                    .size(4.dp)
+                                    .clip(CircleShape)
+                                    .background(if (meshActive) EmeraldGreen else CardBorder)
+                            )
+                        }
+                    }
+
+                    // Node 3: Pi 5
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(if (meshActive) EmeraldGreen.copy(alpha = 0.2f) else SpaceBlack)
+                            .border(1.5.dp, if (meshActive) EmeraldGreen else CardBorder, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Memory,
+                            contentDescription = "Pi 5",
+                            tint = if (meshActive) EmeraldGreen else TextMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
-                Text(
-                    text = connectionMode.subtitle,
-                    color = TextSecondary,
-                    fontSize = 11.sp
-                )
+                // 3 Pictogram Selector Pills (Clean icons, no text clutter)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    com.celestial.companion.domain.repository.ConnectionMode.entries.forEach { mode ->
+                        val isSelected = mode == connectionMode
+                        val activeColor = when (mode) {
+                            com.celestial.companion.domain.repository.ConnectionMode.STANDALONE_PHONE -> EmeraldGreen
+                            com.celestial.companion.domain.repository.ConnectionMode.PHONE_BRAIN_SERVER -> AetherCyan
+                            com.celestial.companion.domain.repository.ConnectionMode.MESH_ACTIVE -> RunicGold
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) DeepVoid else SpaceBlack)
+                                .border(
+                                    1.5.dp,
+                                    if (isSelected) activeColor else CardBorder,
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable { viewModel.setConnectionMode(mode) }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                when (mode) {
+                                    com.celestial.companion.domain.repository.ConnectionMode.STANDALONE_PHONE -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Smartphone,
+                                            contentDescription = null,
+                                            tint = if (isSelected) activeColor else TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    com.celestial.companion.domain.repository.ConnectionMode.PHONE_BRAIN_SERVER -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Smartphone,
+                                            contentDescription = null,
+                                            tint = if (isSelected) activeColor else TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Sync,
+                                            contentDescription = null,
+                                            tint = if (isSelected) activeColor else TextMuted,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = if (isSelected) activeColor else TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    com.celestial.companion.domain.repository.ConnectionMode.MESH_ACTIVE -> {
+                                        Icon(
+                                            imageVector = Icons.Default.Smartphone,
+                                            contentDescription = null,
+                                            tint = if (isSelected) activeColor else TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Memory,
+                                            contentDescription = null,
+                                            tint = if (isSelected) activeColor else TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.AutoAwesome,
+                                            contentDescription = null,
+                                            tint = if (isSelected) activeColor else TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -340,6 +484,85 @@ fun DashboardScreen(
             }
         }
 
+        // Live Staff Headpiece Light Ring Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Circular frame with concentric rings animation
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape)
+                        .background(DeepVoid)
+                        .border(1.dp, CardBorder, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ConcentricLedRingsView(
+                        animation = telemetry.activeLedAnim,
+                        modifier = Modifier.size(96.dp),
+                        size = 96.dp
+                    )
+                }
+
+                // Info & Sync Status
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (telemetry.connected) EmeraldGreen else AmberWarning)
+                        )
+                        Text(
+                            text = if (telemetry.connected) "PICO 2 W SYNCED" else "LOCAL SIMULATION",
+                            color = if (telemetry.connected) EmeraldGreen else AmberWarning,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    Text(
+                        text = telemetry.activeLedAnim.displayName,
+                        color = AetherCyan,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+
+                    Text(
+                        text = telemetry.activeLedAnim.subtitle,
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        maxLines = 2
+                    )
+
+                    Text(
+                        text = "43 LEDs • GP15 PIO • 33 Hz Tick",
+                        color = TextMuted,
+                        fontSize = 9.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+
         // 2. Active Mode Display & Selector
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -402,6 +625,9 @@ fun DashboardScreen(
                 }
             }
         }
+
+        // 2.5 Unified Interactive Cosmos View (Click to Zoom: Galaxy -> Solar -> Terra)
+        CosmosZoomView()
 
         // 3. Dynamic AI Host & Mobile Catalog Card
         val phoneBrainActive by viewModel.phoneBrainActive.collectAsState()

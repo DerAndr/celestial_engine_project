@@ -8,6 +8,7 @@ import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -35,10 +36,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.celestial.companion.ai.AiProcessingPhase
 import com.celestial.companion.ai.GemmaVariant
 import com.celestial.companion.domain.model.StaffLanguage
 import com.celestial.companion.domain.repository.ConnectionMode
 import com.celestial.companion.ui.screens.dashboard.DashboardViewModel
+import com.celestial.companion.ui.screens.dashboard.OracleChatMessage
 import com.celestial.companion.ui.theme.*
 import java.util.Locale
 
@@ -53,6 +56,14 @@ fun OracleTerminalScreen(
     val connectionMode by viewModel.connectionMode.collectAsState()
     val currentLanguage by viewModel.currentLanguage.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
+    val processingPhase by viewModel.processingPhase.collectAsState()
+    val liveElapsedMs by viewModel.liveElapsedMs.collectAsState()
+    val liveTokenCount by viewModel.liveTokenCount.collectAsState()
+    val liveTokensPerSec by viewModel.liveTokensPerSec.collectAsState()
+    val liveModality by viewModel.liveModality.collectAsState()
+    val activePrompt by viewModel.activePrompt.collectAsState()
+    val activeImage by viewModel.activeImage.collectAsState()
+    val chatHistory by viewModel.chatHistory.collectAsState()
     val liveThoughtTrace by viewModel.liveThoughtTrace.collectAsState()
     val liveStreamingText by viewModel.liveStreamingText.collectAsState()
     val gemmaResult by viewModel.gemmaResult.collectAsState()
@@ -61,6 +72,19 @@ fun OracleTerminalScreen(
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var thinkingModeEnabled by remember { mutableStateOf(true) }
     var showThinkingCard by remember { mutableStateOf(true) }
+    var showHistoryDialog by remember { mutableStateOf(false) }
+
+    // Blinking cursor for live token streaming
+    val infiniteTransition = rememberInfiniteTransition(label = "cursorBlink")
+    val cursorAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "cursorAlpha"
+    )
 
     // Android Text-to-Speech engine (Defaults to English, switches dynamically)
     var ttsEngine by remember { mutableStateOf<TextToSpeech?>(null) }
@@ -566,27 +590,28 @@ fun OracleTerminalScreen(
                         )
                     }
 
-                    // Query Button
+                    // Query / Stop Button
                     Button(
                         onClick = {
-                            val prompt = promptInput.ifBlank { "What prophecies do the celestial stars reveal?" }
-                            viewModel.queryGemma(prompt, selectedBitmap)
+                            if (isGenerating) {
+                                viewModel.cancelGeneration()
+                            } else {
+                                val prompt = promptInput.ifBlank { "What prophecies do the celestial stars reveal?" }
+                                viewModel.queryGemma(prompt, selectedBitmap)
+                            }
                         },
-                        enabled = !isGenerating,
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = AetherCyan),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isGenerating) Color(0xFFC62828) else AetherCyan
+                        ),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         if (isGenerating) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = SpaceBlack,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Reasoning...", color = SpaceBlack, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Stop, contentDescription = "Stop", tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Stop Generation", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         } else {
-                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = SpaceBlack)
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = SpaceBlack, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Query Gemma 4", color = SpaceBlack, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
@@ -595,9 +620,148 @@ fun OracleTerminalScreen(
             }
         }
 
-        // 4. Chain-of-Thought (CoT) Thinking Trace
+        // 4. Live Processing Monitor Bar (Active Telemetry, Phase, Speed, Elapsed Time)
         AnimatedVisibility(
-            visible = (liveThoughtTrace.isNotBlank() || isGenerating) && thinkingModeEnabled
+            visible = processingPhase != AiProcessingPhase.IDLE || isGenerating || gemmaResult != null
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = DeepVoid),
+                border = BorderStroke(
+                    1.dp,
+                    if (isGenerating) AetherCyan else CardBorder
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Phase badge and control header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(9.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        when (processingPhase) {
+                                            AiProcessingPhase.INGESTING -> AetherCyan
+                                            AiProcessingPhase.THINKING -> RunicGold
+                                            AiProcessingPhase.STREAMING -> EmeraldGreen
+                                            AiProcessingPhase.COMPLETED -> EmeraldGreen
+                                            AiProcessingPhase.CANCELLED -> Color(0xFFFF9800)
+                                            AiProcessingPhase.ERROR -> Color.Red
+                                            AiProcessingPhase.IDLE -> TextMuted
+                                        }
+                                    )
+                            )
+                            Text(
+                                text = "MONITOR: [${processingPhase.displayName.uppercase()}]",
+                                color = when (processingPhase) {
+                                    AiProcessingPhase.INGESTING -> AetherCyan
+                                    AiProcessingPhase.THINKING -> RunicGold
+                                    AiProcessingPhase.STREAMING -> EmeraldGreen
+                                    AiProcessingPhase.COMPLETED -> EmeraldGreen
+                                    AiProcessingPhase.CANCELLED -> Color(0xFFFF9800)
+                                    AiProcessingPhase.ERROR -> Color.Red
+                                    AiProcessingPhase.IDLE -> TextMuted
+                                },
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+
+                        if (isGenerating) {
+                            Button(
+                                onClick = { viewModel.cancelGeneration() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0x33FF5252)),
+                                border = BorderStroke(1.dp, Color(0xFFFF5252)),
+                                shape = RoundedCornerShape(6.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Icon(Icons.Default.Stop, contentDescription = "Halt", tint = Color(0xFFFF5252), modifier = Modifier.size(12.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("HALT", color = Color(0xFFFF5252), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else if (chatHistory.isNotEmpty()) {
+                            Text(
+                                text = "CLEAR LOG",
+                                color = TextMuted,
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.clickable { viewModel.clearChatHistory() }
+                            )
+                        }
+                    }
+
+                    // Live Metrics Strip (Elapsed, Tokens, tok/s, Modality)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SpaceBlack)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "⏱ ${"%.1f".format(liveElapsedMs / 1000f)}s",
+                            color = TextPrimary,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "✦ $liveTokenCount tok",
+                            color = AetherCyan,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "⚡ ${if (liveTokensPerSec > 0f) "%.1f".format(liveTokensPerSec) else "--"} tok/s",
+                            color = if (liveTokensPerSec > 0f) EmeraldGreen else TextMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "[$liveModality]",
+                            color = RunicGold,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    // Shimmering progress bar during active streaming
+                    if (isGenerating) {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp),
+                            color = when (processingPhase) {
+                                AiProcessingPhase.INGESTING -> AetherCyan
+                                AiProcessingPhase.THINKING -> RunicGold
+                                AiProcessingPhase.STREAMING -> EmeraldGreen
+                                else -> AetherCyan
+                            },
+                            trackColor = SpaceBlack
+                        )
+                    }
+                }
+            }
+        }
+
+        // 5. Chain-of-Thought (CoT) Thinking Trace
+        AnimatedVisibility(
+            visible = (liveThoughtTrace.isNotBlank() || (isGenerating && processingPhase == AiProcessingPhase.THINKING)) && thinkingModeEnabled
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -621,8 +785,13 @@ fun OracleTerminalScreen(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Icon(Icons.Default.Psychology, contentDescription = null, tint = RunicGold, modifier = Modifier.size(16.dp))
+                            val thoughtTitle = if (isGenerating && processingPhase == AiProcessingPhase.THINKING) {
+                                "REASONING (CHAIN-OF-THOUGHT) • ${"%.1f".format(liveElapsedMs / 1000f)}s"
+                            } else {
+                                "REASONING (CHAIN-OF-THOUGHT)"
+                            }
                             Text(
-                                text = "GEMMA 4 REASONING (CHAIN-OF-THOUGHT)",
+                                text = thoughtTitle,
                                 color = RunicGold,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
@@ -638,7 +807,7 @@ fun OracleTerminalScreen(
 
                     if (showThinkingCard) {
                         Text(
-                            text = liveThoughtTrace.ifBlank { "Initializing Gemma 4 token projectors..." },
+                            text = liveThoughtTrace.ifBlank { "Analyzing runes and latent celestial coordinates..." },
                             color = TextSecondary,
                             fontSize = 12.sp,
                             lineHeight = 18.sp,
@@ -649,7 +818,7 @@ fun OracleTerminalScreen(
             }
         }
 
-        // 5. Live Oracle Prophecy / Answer Card
+        // 6. Live Oracle Prophecy / Answer Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
@@ -674,29 +843,84 @@ fun OracleTerminalScreen(
                     )
 
                     // Metrics Strip
-                    gemmaResult?.let { res ->
+                    if (gemmaResult != null) {
+                        val res = gemmaResult!!
                         Text(
                             text = "${res.latencyMs}ms • ${"%.1f".format(res.tokensPerSec)} tok/s • [${res.modalityUsed}]",
                             color = EmeraldGreen,
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
                         )
+                    } else if (isGenerating) {
+                        Text(
+                            text = "⚡ ${if (liveTokensPerSec > 0f) "%.1f".format(liveTokensPerSec) else "--"} tok/s",
+                            color = AetherCyan,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                // Show Prompt Context Header if available
+                if (activePrompt.isNotBlank()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(DeepVoid)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        activeImage?.let { bmp ->
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = "Active Image",
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                            )
+                        }
+                        Text(
+                            text = "Q: $activePrompt",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            maxLines = 2
+                        )
                     }
                 }
 
                 val currentText = when {
                     liveStreamingText.isNotBlank() -> liveStreamingText
+                    isGenerating && processingPhase == AiProcessingPhase.INGESTING -> "Projecting multimodal tokens into Gemma 4 latent space..."
+                    isGenerating && processingPhase == AiProcessingPhase.THINKING -> "Synthesizing cosmic reasoning & ephemeris..."
                     telemetry.lastAiResponseText.isNotBlank() -> telemetry.lastAiResponseText
                     else -> "The Celestial Oracle is listening.\nType a query above, attach an image for multimodal vision inspection, or speak through the staff microphone."
                 }
 
-                Text(
-                    text = currentText,
-                    color = TextPrimary,
-                    fontSize = 14.sp,
-                    lineHeight = 22.sp,
-                    fontFamily = FontFamily.Monospace
-                )
+                // Live Streaming Output with Blinking Cursor
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(
+                        text = currentText,
+                        color = TextPrimary,
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (isGenerating && (processingPhase == AiProcessingPhase.STREAMING || processingPhase == AiProcessingPhase.THINKING)) {
+                        Text(
+                            text = "▌",
+                            color = AetherCyan.copy(alpha = cursorAlpha),
+                            fontSize = 14.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
 
                 HorizontalDivider(color = CardBorder, thickness = 1.dp)
 
@@ -748,6 +972,70 @@ fun OracleTerminalScreen(
                             .border(1.dp, CardBorder, RoundedCornerShape(8.dp))
                     ) {
                         Icon(Icons.Default.ContentCopy, contentDescription = "Copy", tint = TextSecondary)
+                    }
+                }
+            }
+        }
+
+        // 7. Recent Dialogue History (Collapsible)
+        if (chatHistory.size > 2) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = DeepVoid),
+                border = BorderStroke(1.dp, CardBorder)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showHistoryDialog = !showHistoryDialog },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "DIALOGUE ARCHIVE (${chatHistory.size / 2} EXCHANGES)",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Icon(
+                            if (showHistoryDialog) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            tint = TextSecondary
+                        )
+                    }
+
+                    if (showHistoryDialog) {
+                        chatHistory.takeLast(6).forEach { msg ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (msg.isUser) SpaceBlack else CardSurface)
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = if (msg.isUser) "USER:" else "ORACLE:",
+                                    color = if (msg.isUser) AetherCyan else RunicGold,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    text = msg.text,
+                                    color = TextPrimary,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 3
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -15,19 +15,18 @@ enum class StaffState(val displayName: String) {
 
 enum class StaffMode(val id: Int, val displayName: String, val subtitle: String) {
     GUIDE(0, "GUIDE", "Celestial Status & Telemetry"),
-    GALAXY(1, "GALAXY", "Milky Way Galactic Map"),
-    SOLAR(2, "SOL SYSTEM", "Solar Planetary Orbits"),
-    TERRA(3, "TERRA", "Earth Close-Up Zoom"),
-    CHRONOS(4, "CHRONOS", "Astronomical Chronometer"),
-    AI_MODEL(5, "AI CORE", "Cloud Neural Engine Selector"),
-    LANGUAGE(6, "LINGUA", "Language Dialect"),
-    VOLUME(7, "VOLUME", "Master Audio Volume"),
-    LED_CORE(8, "RUNE LEDS", "3-Ring WS2812B Animations"),
-    MIC_TEST(9, "MIC VU", "INMP441 Microphone Meter"),
-    CHIPTUNE(10, "JUKEBOX", "8-Bit Retro Chiptunes"),
-    COSMIC(11, "COSMIC FX", "Sci-Fi & Astromech Sound Suite"),
-    VOICE(12, "ORACLE", "Arcane Spoken Liturgy"),
-    SYSTEM(13, "SYSTEM", "RP2350 M33 Hardware Telemetry");
+    ARCHITECTURE(1, "ARCHITECTURE", "Staff & AI Host Wireless Link"),
+    COSMOS(2, "COSMOS", "Galactic Map, Solar Orrery & Terra Zoom"),
+    CHRONOS(3, "CHRONOS", "Astronomical Chronometer"),
+    AI_MODEL(4, "AI CORE", "Cloud Neural Engine Selector"),
+    LANGUAGE(5, "LINGUA", "Language Dialect"),
+    VOLUME(6, "VOLUME", "Master Audio Volume"),
+    LED_CORE(7, "RUNE LEDS", "3-Ring WS2812B Animations"),
+    MIC_TEST(8, "MIC VU", "INMP441 Microphone Meter"),
+    CHIPTUNE(9, "JUKEBOX", "8-Bit Retro Chiptunes"),
+    COSMIC(10, "COSMIC FX", "Sci-Fi & Astromech Sound Suite"),
+    VOICE(11, "ORACLE", "Arcane Spoken Liturgy"),
+    SYSTEM(12, "SYSTEM", "RP2350 M33 Hardware Telemetry");
 
     companion object {
         fun fromId(id: Int): StaffMode {
@@ -49,25 +48,27 @@ enum class ClockStyle(val id: Int, val title: String, val desc: String) {
     }
 }
 
-enum class LedAnimation(val id: Int, val title: String) {
-    RAINBOW(0, "Rainbow Runes"),
-    AURORA(1, "Aurora Borealis"),
-    BREATHE(2, "Cosmic Pulse"),
-    SPARKLE(3, "Starlight Sparkle"),
-    CHASE(4, "Orbital Chase"),
-    FIRE(5, "Solar Flare / Fire"),
-    WAVE(6, "Aetheric Wave"),
-    COLOR_WIPE(7, "Color Wipe"),
-    THEATER(8, "Theater Marquee"),
-    GALAXY(9, "Milky Way Spiral"),
-    SOLAR(10, "Planetary Orrery"),
-    EARTH(11, "Terra Atmosphere"),
-    CLOCK_DIAL(12, "Chronos Dial"),
-    CLOCK_HOURGLASS(13, "Aether Hourglass"),
-    CLOCK_PRISMATIC(14, "Chroma Prismatic"),
-    CLOCK_ORRERY(15, "Celestial Orrery"),
-    SPEECH_EXPAND(16, "Speech Waves"),
-    QUANTUM(17, "Quantum Shift");
+enum class LedAnimation(val id: Int, val title: String, val subtitle: String) {
+    BREATHE(0, "Cosmic Breathe", "Slow cosmic breathing across all 3 rings"),
+    VORTEX(1, "Galaxy Vortex", "Spinning galaxy comet vortex & singularity"),
+    SNAKE(2, "Cosmic Snake", "Cosmic dragon snake winding across rings"),
+    RAINBOW(3, "Rainbow Wave", "Smooth chromatic rotating rainbow wave"),
+    PULSAR(4, "Pulsar Shockwave", "Cosmic heartbeat / pulsar shockwave"),
+    PLASMA(5, "Solar Plasma", "Living solar plasma & turbulent solar flare"),
+    STARS(6, "Starry Night", "Deep navy & diamond starlight sparkle"),
+    VOICE(7, "Voice Halo", "Live audio & voice reactive VU halo"),
+    SOLAR(8, "Solar Orrery", "Solar Orrery concentric planetary rings"),
+    DATA_RECV(9, "Data Reception", "Concentric data reception radar ripples"),
+    EXPAND_SPEECH(10, "Sonic Expansion", "Expanding sonic ripples from core outward"),
+    GALAXY(11, "Milky Way Galaxy", "Milky Way galactic spiral & Sol beacon"),
+    EARTH(12, "Terra Planet", "Terra globe: azure oceans, emerald land, aurora"),
+    HALLOWEEN(13, "Halloween Spook", "Jack-o'-Lantern amber & spooky ectoplasm"),
+    CLOCK_DIAL(14, "Celestial Clock", "3-ring astronomical dial with comet hand"),
+    CLOCK_HOURGLASS(15, "Aether Hourglass", "Concentric ring liquid accumulator"),
+    CLOCK_PRISMATIC(16, "Chroma Prismatic", "Full spectral color-encoded clock"),
+    CLOCK_ORRERY(17, "Celestial Orrery", "Kinematic triple planetary orbital clock");
+
+    val displayName: String get() = title
 
     companion object {
         fun fromId(id: Int): LedAnimation {

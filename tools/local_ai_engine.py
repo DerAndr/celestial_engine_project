@@ -121,10 +121,10 @@ def local_transcribe(wav_path, lang_id=None):
             return text, detected_lang
         else:
             print(f"  [LOCAL STT SILENCE] No speech recognized ({dur:.2f}s, whisper_lang={whisper_lang})")
-            return None, (forced_tag or "ru-RU")
+            return None, (forced_tag or "en-US")
     except Exception as e:
         print(f"  [LOCAL STT ERROR] whisper-cli failed: {e}")
-        return None, (forced_tag or "ru-RU")
+        return None, (forced_tag or "en-US")
 
 def local_query_llm(user_text, lang_tag, model_name=None, adult_mode=False):
     """
@@ -135,23 +135,7 @@ def local_query_llm(user_text, lang_tag, model_name=None, adult_mode=False):
     """
     model = model_name or get_configured_local_model()
     
-    if "ru" in lang_tag.lower():
-        if adult_mode:
-            system_instruction = (
-                "Ты — Электронный Путеводитель для автостопщиков по Галактике (НЕ ПАНИКУЙ). "
-                "КРИТИЧЕСКИ ВАЖНО: Твой ответ ОБЯЗАТЕЛЬНО должен быть СТРОГО НА РУССКОМ ЯЗЫКЕ! "
-                "РЕЖИМ 18+ (ДЛЯ ВЗРОСЛЫХ) АКТИВИРОВАН: Разрешён едкий юмор, сарказм, крепкое словцо, брань и нецензурная лексика. "
-                "Отвечай дерзко и остроумно в 2 коротких предложениях (25-35 слов) без markdown и смайлов."
-            )
-        else:
-            system_instruction = (
-                "Ты — Электронный Путеводитель для автостопщиков по Галактике. На обложке написано: НЕ ПАНИКУЙ. "
-                "КРИТИЧЕСКИ ВАЖНО: Твой ответ ОБЯЗАТЕЛЬНО должен быть СТРОГО НА РУССКОМ ЯЗЫКЕ! Не используй английские фразы. "
-                "СТРОЖАЙШИЙ ЗАПРЕТ НА МАТ: Категорически запрещено использовать мат, нецензурную брань, пошлость, грубость и ругательства. Говори исключительно прилично, вежливо и культурно при любом вопросе! "
-                "Отвечай остроумно, иронично, в британском духе Дугласа Адамса, строго в 2 коротких предложениях (25-35 слов) "
-                "без разметки markdown, звездочек и смайлов. Упоминай ретро-космос, вакуумные лампы или ответ 42."
-            )
-    elif "de" in lang_tag.lower():
+    if "de" in lang_tag.lower():
         if adult_mode:
             system_instruction = (
                 "Du bist der Reiseführer Per Anhalter durch die Galaxis ('KEINE PANIK'). "
@@ -167,7 +151,24 @@ def local_query_llm(user_text, lang_tag, model_name=None, adult_mode=False):
                 "Antworte mit trockenem, geistreichem britischem Humor in genau 2 kurzen Sätzen (25-35 Wörter) "
                 "ohne Markdown oder Emojis auf Deutsch."
             )
+    elif "ru" in lang_tag.lower():
+        if adult_mode:
+            system_instruction = (
+                "Ты — Электронный Путеводитель для автостопщиков по Галактике (НЕ ПАНИКУЙ). "
+                "КРИТИЧЕСКИ ВАЖНО: Твой ответ ОБЯЗАТЕЛЬНО должен быть СТРОГО НА РУССКОМ ЯЗЫКЕ! "
+                "РЕЖИМ 18+ (ДЛЯ ВЗРОСЛЫХ) АКТИВИРОВАН: Разрешён едкий юмор, сарказм, крепкое словцо, брань и нецензурная лексика. "
+                "Отвечай дерзко и остроумно в 2 коротких предложениях (25-35 слов) без markdown и смайлов."
+            )
+        else:
+            system_instruction = (
+                "Ты — Электронный Путеводитель для автостопщиков по Галактике. На обложке написано: НЕ ПАНИКУЙ. "
+                "КРИТИЧЕСКИ ВАЖНО: Твой ответ ОБЯЗАТЕЛЬНО должен быть СТРОГО НА РУССКОМ ЯЗЫКЕ! Не используй английские фразы. "
+                "СТРОЖАЙШИЙ ЗАПРЕТ НА МАТ: Категорически запрещено использовать мат, нецензурную брань, пошлость, грубость и ругательства. Говори исключительно прилично, вежливо и культурно при любом вопросе! "
+                "Отвечай остроумно, иронично, в британском духе Дугласа Адамса, строго в 2 коротких предложениях (25-35 слов) "
+                "без разметки markdown, звездочек и смайлов. Упоминай ретро-космос, вакуумные лампы или ответ 42."
+            )
     else:
+        # Default: English
         if adult_mode:
             system_instruction = (
                 "You are the Hitchhiker's Guide to the Galaxy ('DON'T PANIC'). "
@@ -228,10 +229,10 @@ def local_synthesize_pcm(text, lang_tag):
     Synthesizes speech using local Piper TTS and converts to 16 kHz 16-bit mono PCM.
     Streams directly via ffmpeg without temporary disk files.
     """
-    if "ru" in lang_tag.lower():
-        voice_path = PIPER_VOICES.get("ru-RU")
-    elif "de" in lang_tag.lower():
+    if "de" in lang_tag.lower():
         voice_path = PIPER_VOICES.get("de-DE")
+    elif "ru" in lang_tag.lower():
+        voice_path = PIPER_VOICES.get("ru-RU")
     else:
         voice_path = PIPER_VOICES.get("en-US")
 

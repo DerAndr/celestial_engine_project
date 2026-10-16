@@ -68,6 +68,16 @@ data class GemmaConfig(
     val systemPrompt: String = "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic intelligence. Deliver concise, razor-sharp prophecies and technical observations. When analyzing imagery or audio, explain subtle celestial signatures."
 )
 
+enum class AiProcessingPhase(val displayName: String, val shortTag: String) {
+    IDLE("Idle", "IDLE"),
+    INGESTING("Ingesting Inputs", "INGEST"),
+    THINKING("Reasoning (CoT)", "THINK"),
+    STREAMING("Streaming Output", "STREAM"),
+    COMPLETED("Completed", "DONE"),
+    CANCELLED("Cancelled", "STOP"),
+    ERROR("Anomaly", "ERR")
+}
+
 data class GemmaResult(
     val prompt: String,
     val thoughtTrace: String = "",
@@ -80,6 +90,7 @@ data class GemmaResult(
 )
 
 sealed class GemmaStreamChunk {
+    data class PhaseChanged(val phase: AiProcessingPhase, val details: String = "") : GemmaStreamChunk()
     data class ThoughtToken(val token: String) : GemmaStreamChunk()
     data class OutputToken(val token: String) : GemmaStreamChunk()
     data class Complete(val result: GemmaResult) : GemmaStreamChunk()
@@ -135,8 +146,17 @@ class GemmaModelEngine(
 
         Log.i(TAG, "Starting Gemma 4 stream inference: modality=$modality, promptLen=${prompt.length}, thinking=${config.enableThinking}")
 
+        // 1. Ingestion Phase: project vision/audio/text tokens into Gemma 4 multimodal space
+        val ingestDetails = when {
+            hasImage && hasAudio -> "Projecting ${image?.width}x${image?.height} bitmap & ${audioBytes?.size ?: 0} B PCM"
+            hasImage -> "Encoding visual patches: ${image?.width}x${image?.height}px"
+            hasAudio -> "Encoding acoustic spectral tokens: ${audioBytes?.size ?: 0} bytes"
+            else -> "Tokenizing prompt: ${prompt.length} chars"
+        }
+        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.INGESTING, ingestDetails))
+        delay(60)
+
         val simulatedThoughts = mutableListOf<String>()
-        val simulatedAnswers = mutableListOf<String>()
 
         // Generate context-aware thoughts and answers based on modality and prompt
         if (config.enableThinking && config.variant.hasThinkingMode) {
@@ -176,22 +196,25 @@ class GemmaModelEngine(
 
         val prophecyText = buildResponseText(prompt, hasImage, hasAudio)
 
-        // Stream thoughts
+        // 2. Reasoning Phase: stream Chain-of-Thought
         val fullThoughtTrace = StringBuilder()
         if (config.enableThinking && config.variant.hasThinkingMode) {
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Synthesizing Chain-of-Thought trace"))
             for (step in simulatedThoughts) {
-                delay(120)
-                emit(GemmaStreamChunk.ThoughtToken("• $step\n"))
-                fullThoughtTrace.append("• ").append(step).append("\n")
+                delay(80)
+                val line = "• $step\n"
+                emit(GemmaStreamChunk.ThoughtToken(line))
+                fullThoughtTrace.append(line)
             }
-            delay(100)
+            delay(60)
         }
 
-        // Stream answer tokens
+        // 3. Streaming Phase: emit answer tokens live
+        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Emitting output tokens"))
         val fullAnswer = StringBuilder()
         val tokens = prophecyText.split(" ")
         for (tok in tokens) {
-            delay(40)
+            delay(35)
             val chunk = "$tok "
             fullAnswer.append(chunk)
             emit(GemmaStreamChunk.OutputToken(chunk))
@@ -211,6 +234,7 @@ class GemmaModelEngine(
             modelTag = config.variant.tag
         )
 
+        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Inference completed in ${totalDurationMs}ms"))
         emit(GemmaStreamChunk.Complete(finalResult))
     }
 
@@ -272,6 +296,8 @@ class GemmaModelEngine(
                     "Все три узла (Посох Pico 2 W, носимый Pi 5 и смартфон) на связи. Gemma 4 E2B работает в штатном режиме."
                 lower.contains("кто ты") || lower.contains("who are you") ->
                     "Я — Небесный Оракул на базе Google Gemma 4 с локальной мультимодальной обработкой."
+                lower.contains("время") || lower.contains("time") ->
+                    "Хронометр синхронизирован. Эпоха сверена с системным временем. Пески времени текут без искажений."
                 else -> {
                     val oracles = listOf(
                         "Небесное полотно открывает конвергенцию: энергия струится через три кольца без искажений.",
@@ -288,11 +314,11 @@ class GemmaModelEngine(
                     "Visual scan completed. The camera captured an ethereal artifact. Geometric luminosity and surface contours suggest high harmonic alignment with local aether."
                 hasAudio ->
                     "Acoustic spectral analysis resolved. Voice waveform indicates query concerning current epoch. The celestial matrix responds: 'The stars favor decisive momentum.'"
-                lower.contains("status") || lower.contains("система") ->
+                lower.contains("status") ->
                     "All three nodes (Pico 2 W Staff, Wearable Pi 5, Companion Phone) are online and resonant. Gemma 4 E2B engine operating at nominal latency. Standalone mode operational."
-                lower.contains("who are you") || lower.contains("кто ты") ->
+                lower.contains("who are you") ->
                     "I am the Celestial Oracle powered by Google Gemma 4 on-device multimodal intelligence. I perceive light, sound, and cosmic runes."
-                lower.contains("time") || lower.contains("время") ->
+                lower.contains("time") ->
                     "Chronos alignment verified. Epoch synchronized with device clock. The sands of the cosmic hourglass flow without distortion."
                 else -> {
                     val oracles = listOf(

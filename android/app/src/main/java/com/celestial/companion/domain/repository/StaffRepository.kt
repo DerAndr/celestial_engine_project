@@ -24,6 +24,12 @@ enum class ConnectionMode(val title: String, val subtitle: String) {
     MESH_ACTIVE("FULL MESH", "Staff + Wearable Pi 5 + Companion Phone connected")
 }
 
+data class IncomingStaffVoiceQuery(
+    val audioBytes: ByteArray,
+    val senderIp: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 class StaffRepository(
     private val transport: StaffTransport,
     val gemmaEngine: GemmaModelEngine? = null
@@ -190,6 +196,9 @@ class StaffRepository(
         transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, endPacket)
     }
 
+    private val _staffVoiceQueries = kotlinx.coroutines.flow.MutableSharedFlow<IncomingStaffVoiceQuery>(extraBufferCapacity = 8)
+    val staffVoiceQueries: kotlinx.coroutines.flow.SharedFlow<IncomingStaffVoiceQuery> = _staffVoiceQueries.asSharedFlow()
+
     private fun handleIncomingPacket(packet: CelestialPacket) {
         val now = System.currentTimeMillis()
         if (packet.senderIp.isNotEmpty() && packet.senderIp != "0.0.0.0") {
@@ -242,29 +251,33 @@ class StaffRepository(
                 incomingAudioStream.reset()
 
                 if (_phoneBrainActive.value) {
-                    scope.launch {
-                        val result = gemmaEngine?.generate("Analyze voice inquiry from staff", audioBytes = audioData)
-                            ?: GemmaResult(
-                                prompt = "Staff query",
-                                outputText = "The celestial oracle hears your voice. Resonance is true.",
-                                latencyMs = 180,
-                                tokensPerSec = 28f,
-                                modalityUsed = "AUDIO",
-                                modelTag = "G4-MM"
-                            )
-
-                        _telemetry.value = _telemetry.value.copy(
-                            lastAiResponseText = result.outputText,
-                            state = StaffState.SPEAKING
-                        )
-
-                        // Transmit text & markers back to staff
-                        broadcastAiResponse(result.outputText, activeStaffIp)
-
-                        delay(1200)
-                        _telemetry.value = _telemetry.value.copy(
-                            state = StaffState.IDLE
-                        )
+                    val emitted = _staffVoiceQueries.tryEmit(IncomingStaffVoiceQuery(audioData, activeStaffIp))
+                    if (!emitted || _staffVoiceQueries.subscriptionCount.value == 0) {
+                        scope.launch {
+                            val fullAnswer = StringBuilder()
+                            gemmaEngine?.streamInference("Analyze voice inquiry from staff", audioBytes = audioData)?.collect { chunk ->
+                                when (chunk) {
+                                    is com.celestial.companion.ai.GemmaStreamChunk.OutputToken -> {
+                                        fullAnswer.append(chunk.token)
+                                        _telemetry.value = _telemetry.value.copy(
+                                            lastAiResponseText = fullAnswer.toString()
+                                        )
+                                    }
+                                    is com.celestial.companion.ai.GemmaStreamChunk.Complete -> {
+                                        _telemetry.value = _telemetry.value.copy(
+                                            lastAiResponseText = chunk.result.outputText,
+                                            state = StaffState.SPEAKING
+                                        )
+                                        broadcastAiResponse(chunk.result.outputText, activeStaffIp)
+                                        delay(1200)
+                                        _telemetry.value = _telemetry.value.copy(
+                                            state = StaffState.IDLE
+                                        )
+                                    }
+                                    else -> {}
+                                }
+                            }
+                        }
                     }
                 }
             }
