@@ -415,12 +415,26 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
         return;
     }
 
-    // Check if heartbeat came from Phone (even if server_ip_addr was temporarily pointing to Pi 5)
+    // Check if heartbeat came from Phone / Companion App (not from Pi 5)
     if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0 &&
-        has_paired_companion && ip_addr_cmp(addr, &companion_ip_addr)) {
+        (!ip_addr_cmp(addr, &pi5_server_ip_addr) || port != pi5_server_port)) {
         last_phone_heartbeat_rx_ms = now;
-        if (active_host_type == HOST_TYPE_PHONE) {
+        companion_ip_addr = *addr;
+        companion_port = port ? port : CELESTIAL_NET_DEFAULT_PORT;
+        has_paired_companion = true;
+
+        if (preferred_host == HOST_TYPE_PHONE || (preferred_host == HOST_TYPE_NONE && (now - last_pi5_heartbeat_rx_ms > 4000))) {
+            active_host_type = HOST_TYPE_PHONE;
+            server_ip_addr = companion_ip_addr;
+            active_server_port = companion_port;
             last_server_heartbeat_rx_ms = now;
+            if (has_phone_catalog) {
+                memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
+                strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+            } else {
+                memcpy(&active_catalog, &DEFAULT_PHONE_CATALOG, sizeof(active_catalog));
+                strncpy(active_host_name, DEFAULT_PHONE_CATALOG.host_name, sizeof(active_host_name));
+            }
         }
         if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
             uint32_t server_epoch = 0;
@@ -792,6 +806,25 @@ bool net_client_ping_server(void) {
         cyw43_arch_lwip_end();
     }
 
+    // 2b. If active server is NOT Phone and we have a paired companion, probe the phone
+    if (active_host_type != HOST_TYPE_PHONE && has_paired_companion && udp_client_pcb != NULL && current_status == NET_STATUS_CONNECTED) {
+        size_t total_len = sizeof(net_packet_header_t);
+        cyw43_arch_lwip_begin();
+        struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, total_len, PBUF_RAM);
+        if (p != NULL) {
+            net_packet_header_t *hdr = (net_packet_header_t *)p->payload;
+            hdr->magic = CELESTIAL_NET_MAGIC;
+            hdr->version = CELESTIAL_NET_VERSION;
+            hdr->msg_type = NET_MSG_HEARTBEAT;
+            hdr->seq_num = tx_seq_counter++;
+            hdr->payload_len = 0;
+            hdr->request_id = 0;
+            udp_sendto(udp_client_pcb, p, &companion_ip_addr, companion_port ? companion_port : CELESTIAL_NET_DEFAULT_PORT);
+            pbuf_free(p);
+        }
+        cyw43_arch_lwip_end();
+    }
+
     // 3. Broadcast Discovery Beacon to subnet (255.255.255.255:5005) so Companion App discovers staff
     if (udp_client_pcb != NULL && current_status == NET_STATUS_CONNECTED) {
         size_t total_len = sizeof(net_packet_header_t);
@@ -1024,6 +1057,13 @@ void net_client_set_preferred_host(net_host_type_t pref) {
         if (has_paired_companion) {
             server_ip_addr = companion_ip_addr;
             active_server_port = companion_port ? companion_port : BRAIN_SERVER_PORT;
+        } else if (active_ap_profile == 1 && strlen(BRAIN_FALLBACK_SERVER_IP) > 0) {
+            ipaddr_aton(BRAIN_FALLBACK_SERVER_IP, &server_ip_addr);
+            active_server_port = BRAIN_FALLBACK_SERVER_PORT;
+        } else {
+            // Default hotspot gateway IP when phone tethering is active
+            ipaddr_aton("192.168.43.1", &server_ip_addr);
+            active_server_port = BRAIN_SERVER_PORT;
         }
         if (has_phone_catalog) {
             memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
@@ -1032,7 +1072,8 @@ void net_client_set_preferred_host(net_host_type_t pref) {
             memcpy(&active_catalog, &DEFAULT_PHONE_CATALOG, sizeof(active_catalog));
             strncpy(active_host_name, DEFAULT_PHONE_CATALOG.host_name, sizeof(active_host_name));
         }
-        printf("[NET] Host preference locked to PHONE BRAIN\n");
+        printf("[NET] Host preference locked to PHONE BRAIN (%s:%d)\n",
+               ip4addr_ntoa(&server_ip_addr), (int)active_server_port);
     } else if (pref == HOST_TYPE_PI5) {
         active_host_type = HOST_TYPE_PI5;
         server_ip_addr = pi5_server_ip_addr;

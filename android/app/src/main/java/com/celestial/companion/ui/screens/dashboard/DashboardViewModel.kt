@@ -90,7 +90,7 @@ class DashboardViewModel(
         viewModelScope.launch {
             repository.staffVoiceQueries.collect { query ->
                 queryGemma(
-                    prompt = "Staff voice inquiry (${query.audioBytes.size} bytes PCM)",
+                    prompt = "",
                     audioBytes = query.audioBytes,
                     broadcastOnComplete = true,
                     targetStaffIp = query.senderIp
@@ -177,7 +177,7 @@ class DashboardViewModel(
         // Append to chat history
         val userMsg = OracleChatMessage(
             isUser = true,
-            text = prompt,
+            text = prompt.ifBlank { if (hasAudio) "🎤 [VOICE INQUIRY FROM STAFF (${audioBytes?.size ?: 0} B)]" else "..." },
             image = image,
             modalityUsed = modality
         )

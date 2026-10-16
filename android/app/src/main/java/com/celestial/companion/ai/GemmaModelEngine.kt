@@ -21,6 +21,8 @@ import java.io.IOException
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 private const val TAG = "GemmaModelEngine"
 
@@ -241,15 +243,24 @@ class GemmaModelEngine(
 
                 val userObj = JSONObject().apply {
                     put("role", "user")
-                    if (hasImage && image != null) {
-                        val contentArr = JSONArray()
-                        val textQuery = prompt.ifBlank {
-                            when (config.language) {
+                    val contentArr = JSONArray()
+                    val textQuery = prompt.ifBlank {
+                        when {
+                            hasAudio -> when (config.language) {
+                                StaffLanguage.GERMAN -> "Höre dir diese Audioanfrage vom Stab genau an und antworte direkt und prägnant auf Deutsch."
+                                StaffLanguage.RUSSIAN -> "Внимательно прослушай этот голосовой запрос с посоха и ответь прямо и кратко на русском языке без markdown и эмодзи."
+                                else -> "Listen carefully to this voice inquiry from the celestial staff and respond directly and concisely without markdown or emojis."
+                            }
+                            hasImage -> when (config.language) {
                                 StaffLanguage.GERMAN -> "Beschreibe detailliert, was du in diesem Bild siehst, und offenbare seine kosmische Bedeutung."
                                 StaffLanguage.RUSSIAN -> "Опиши подробно, что ты видишь на этом изображении, и открой его скрытый смысл."
                                 else -> "Describe what you see in this image in detail and reveal its celestial omen."
                             }
+                            else -> "Reveal the celestial omen for this hour."
                         }
+                    }
+
+                    if (hasImage && image != null) {
                         contentArr.put(JSONObject().apply {
                             put("type", "text")
                             put("text", textQuery)
@@ -273,13 +284,29 @@ class GemmaModelEngine(
                                 put("url", dataUrl)
                             })
                         })
+                    }
+
+                    if (hasAudio && audioBytes != null && audioBytes.isNotEmpty()) {
+                        if (!hasImage) {
+                            contentArr.put(JSONObject().apply {
+                                put("type", "text")
+                                put("text", textQuery)
+                            })
+                        }
+                        val wavBytes = pcm16ToWav(audioBytes)
+                        val base64Audio = Base64.encodeToString(wavBytes, Base64.NO_WRAP)
+                        contentArr.put(JSONObject().apply {
+                            put("type", "input_audio")
+                            put("input_audio", JSONObject().apply {
+                                put("data", base64Audio)
+                                put("format", "wav")
+                            })
+                        })
+                    }
+
+                    if (hasImage || hasAudio) {
                         put("content", contentArr)
                     } else {
-                        val textQuery = when {
-                            hasAudio -> "$prompt (Voice audio stream attached: ${audioBytes?.size} bytes)"
-                            prompt.isBlank() -> "Reveal the celestial omen for this hour."
-                            else -> prompt
-                        }
                         put("content", textQuery)
                     }
                 }
@@ -444,6 +471,47 @@ class GemmaModelEngine(
             emit(GemmaStreamChunk.OutputToken(errMsg))
         }
         .flowOn(Dispatchers.IO)
+
+    /**
+     * Converts raw 16 kHz 16-bit mono signed PCM audio bytes into a valid RIFF WAV container.
+     */
+    private fun pcm16ToWav(
+        pcmData: ByteArray,
+        sampleRate: Int = 16000,
+        channels: Short = 1,
+        bitsPerSample: Short = 16
+    ): ByteArray {
+        val totalAudioLen = pcmData.size
+        val totalDataLen = totalAudioLen + 36
+        val byteRate = sampleRate * channels * (bitsPerSample / 8)
+
+        val header = ByteArray(44)
+        val buf = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN)
+
+        // RIFF header
+        buf.put("RIFF".toByteArray(Charsets.US_ASCII))
+        buf.putInt(totalDataLen)
+        buf.put("WAVE".toByteArray(Charsets.US_ASCII))
+
+        // 'fmt ' subchunk
+        buf.put("fmt ".toByteArray(Charsets.US_ASCII))
+        buf.putInt(16) // Subchunk1Size for PCM
+        buf.putShort(1) // AudioFormat: 1 = PCM
+        buf.putShort(channels)
+        buf.putInt(sampleRate)
+        buf.putInt(byteRate)
+        buf.putShort((channels * (bitsPerSample / 8)).toShort()) // BlockAlign
+        buf.putShort(bitsPerSample)
+
+        // 'data' subchunk
+        buf.put("data".toByteArray(Charsets.US_ASCII))
+        buf.putInt(totalAudioLen)
+
+        val out = ByteArray(44 + totalAudioLen)
+        System.arraycopy(header, 0, out, 0, 44)
+        System.arraycopy(pcmData, 0, out, 44, totalAudioLen)
+        return out
+    }
 
     /**
      * One-shot synchronous/coroutine generation.

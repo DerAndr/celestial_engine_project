@@ -381,8 +381,9 @@ fun DashboardScreen(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // 1. Lock Phone
                     Button(
                         onClick = { viewModel.setStaffHost(2) },
                         modifier = Modifier.weight(1f),
@@ -397,14 +398,15 @@ fun DashboardScreen(
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         Text(
-                            text = "LOCK TO PHONE",
+                            text = "LOCK PHONE",
                             color = if (telemetry.preferredHost == 2) SpaceBlack else TextPrimary,
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
                     }
 
+                    // 2. Lock Pi 5
                     Button(
                         onClick = { viewModel.setStaffHost(1) },
                         modifier = Modifier.weight(1f),
@@ -419,9 +421,32 @@ fun DashboardScreen(
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         Text(
-                            text = "PI 5 BRAIN",
+                            text = "LOCK PI 5",
                             color = if (telemetry.preferredHost == 1) SpaceBlack else TextPrimary,
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    // 3. Auto Mesh
+                    Button(
+                        onClick = { viewModel.setStaffHost(0) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (telemetry.preferredHost == 0) RunicGold else DeepVoid
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (telemetry.preferredHost == 0) RunicGold else CardBorder
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "AUTO MESH",
+                            color = if (telemetry.preferredHost == 0) SpaceBlack else TextPrimary,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
@@ -600,6 +625,171 @@ fun DashboardScreen(
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace
                     )
+                }
+            }
+        }
+
+        // 1.95 Complete Live Hardware & Network Telemetry Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (telemetry.isOnline) EmeraldGreen else Color.Red)
+                        )
+                        Text(
+                            text = "LIVE HARDWARE TELEMETRY",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    Text(
+                        text = if (telemetry.isOnline) "RP2350 LINK ACTIVE" else "NO LINK / SIM",
+                        color = if (telemetry.isOnline) EmeraldGreen else TextMuted,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                HorizontalDivider(color = CardBorder, thickness = 1.dp)
+
+                // Row 1: Network & Host routing
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TelemetryItem(
+                        label = "TARGET ENDPOINT",
+                        value = "${viewModel.getStaffIp()}:5005",
+                        onClick = { showIpDialog = true }
+                    )
+                    TelemetryItem(
+                        label = "AI HOST ROUTE",
+                        value = telemetry.activeHost
+                    )
+                    TelemetryItem(
+                        label = "LOCK MODE",
+                        value = when (telemetry.preferredHost) {
+                            1 -> "LOCKED PI 5"
+                            2 -> "LOCKED PHONE"
+                            else -> "AUTO MESH"
+                        }
+                    )
+                }
+
+                // Row 2: Audio & State
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TelemetryItem(
+                        label = "STAFF STATE",
+                        value = telemetry.state.displayName
+                    )
+                    TelemetryItem(
+                        label = "DAC I2S AUDIO",
+                        value = if (telemetry.isAudioPlaying) "PLAYING" else "STANDBY"
+                    )
+                    TelemetryItem(
+                        label = "AUDIO VOL",
+                        value = "${telemetry.volumePercent}%"
+                    )
+                }
+
+                // Row 3: Clock, Dialect, Packets
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TelemetryItem(
+                        label = "CLOCK STYLE",
+                        value = telemetry.clockStyle.displayName
+                    )
+                    TelemetryItem(
+                        label = "TTS DIALECT",
+                        value = telemetry.language.displayName
+                    )
+                    TelemetryItem(
+                        label = "UDP PACKET TICK",
+                        value = "#${telemetry.tickNumber}"
+                    )
+                }
+
+                // Row 4: Live Microphone Meter (INMP441 I2S VU)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DeepVoid)
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "INMP441 MIC VU LEVEL",
+                            color = TextMuted,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${telemetry.micLevelPercent}%",
+                            color = if (telemetry.micLevelPercent > 50) EmeraldGreen else AetherCyan,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // Meter Bar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(CardBorder)
+                    ) {
+                        val fraction = (telemetry.micLevelPercent / 100f).coerceIn(0f, 1f)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(fraction)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(
+                                    when {
+                                        telemetry.micLevelPercent > 75 -> Color(0xFFFF5252)
+                                        telemetry.micLevelPercent > 35 -> RunicGold
+                                        else -> EmeraldGreen
+                                    }
+                                )
+                        )
+                    }
                 }
             }
         }

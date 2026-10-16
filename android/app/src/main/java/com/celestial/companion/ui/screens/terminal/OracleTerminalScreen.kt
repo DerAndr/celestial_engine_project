@@ -273,7 +273,7 @@ fun OracleTerminalScreen(
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Lock to Phone Brain
                     Button(
@@ -290,9 +290,9 @@ fun OracleTerminalScreen(
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         Text(
-                            text = "LOCK TO PHONE",
+                            text = "LOCK PHONE",
                             color = if (telemetry.preferredHost == 2) SpaceBlack else TextPrimary,
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
@@ -313,9 +313,32 @@ fun OracleTerminalScreen(
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         Text(
-                            text = "PI 5 BRAIN",
+                            text = "LOCK PI 5",
                             color = if (telemetry.preferredHost == 1) SpaceBlack else TextPrimary,
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    // Auto Mesh
+                    Button(
+                        onClick = {
+                            viewModel.setStaffHost(0)
+                            Toast.makeText(context, "Switched Staff to AUTO MESH.", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (telemetry.preferredHost == 0) RunicGold else DeepVoid
+                        ),
+                        border = BorderStroke(1.dp, if (telemetry.preferredHost == 0) RunicGold else CardBorder),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "AUTO MESH",
+                            color = if (telemetry.preferredHost == 0) SpaceBlack else TextPrimary,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )

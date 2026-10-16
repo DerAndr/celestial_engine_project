@@ -2340,6 +2340,7 @@ int main(void) {
                     LOG_INFO("AI_MODEL", "Toggled preferred host to: %d (Active Core: %s)",
                              next_pref, net_client_get_model_name(active_ai_model_idx));
                     need_display_update = true;
+                    broadcast_telemetry();
                 } else {
                     ai_model_edit_mode = false;
                     uint8_t m_count = net_client_get_model_count();
@@ -2731,6 +2732,16 @@ int main(void) {
                         need_display_update = true;
                         LOG_INFO("MODE", "Switched to mode [%d] %s", current_mode_idx, MODE_NAMES[current_mode_idx]);
                     }
+                }
+            } else if (cmd_c == 'W' || cmd_c == 'w') {
+                int h = getchar_timeout_us(20000);
+                if (h >= '0' && h <= '2') {
+                    net_host_type_t new_pref = (net_host_type_t)(h - '0');
+                    net_client_set_preferred_host(new_pref);
+                    need_display_update = true;
+                    broadcast_telemetry();
+                    LOG_INFO("HOST", "Host preference set to %d via serial (%s)",
+                             (int)new_pref, new_pref == HOST_TYPE_PI5 ? "PI5 LOCK" : new_pref == HOST_TYPE_PHONE ? "PHONE LOCK" : "AUTO MESH");
                 }
             }
             cmd_c = getchar_timeout_us(0);
