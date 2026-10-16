@@ -212,6 +212,20 @@ class StaffRepository(
                     lastSeenTimestamp = now,
                     tickNumber = packet.seqNum.toLong()
                 )
+                if (_phoneBrainActive.value) {
+                    val target = if (packet.senderIp.isNotEmpty() && packet.senderIp != "0.0.0.0") packet.senderIp else activeStaffIp
+                    scope.launch {
+                        val epochSec = (System.currentTimeMillis() / 1000).toInt()
+                        val buf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(epochSec).array()
+                        val respPacket = CelestialPacket(
+                            msgType = NetMessageType.HEARTBEAT,
+                            seqNum = packet.seqNum,
+                            requestId = 0,
+                            payload = buf
+                        )
+                        udpTransport.sendPacket(respPacket, target)
+                    }
+                }
             }
             NetMessageType.CATALOG_REQ -> {
                 if (_phoneBrainActive.value) {

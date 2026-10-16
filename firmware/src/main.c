@@ -52,7 +52,7 @@ static const char *MODE_NAMES[MODE_COUNT] = {
     "MIC VU",
     "JUKEBOX",
     "COSMIC FX",
-    "ORACLE",
+    "REPLICAS",
     "SYSTEM"
 };
 
@@ -219,7 +219,7 @@ static const char* const OFFLINE_PROPHECIES_RU[] = {
     "ORAKUL VESHCHAYET: ZVEZDY BLAGOPRIYATSTVUYUT PUTESHESTVIYU. KU!"
 };
 
-static void trigger_offline_oracle(int lang_idx) {
+static void __attribute__((unused)) trigger_offline_oracle(int lang_idx) {
     offline_oracle_mode = true;
     uint32_t seed = to_ms_since_boot(get_absolute_time());
 
@@ -661,13 +661,13 @@ static void draw_voice_screen(int phrase_idx, bool is_playing) {
 
     // Header banner
     sh1106_fill_rect(2, 2, 124, 12, true);
-    sh1106_draw_string(18, 4, "[ VOICE ORACLE ]", false);
+    sh1106_draw_string(14, 4, "[ PRESET REPLICAS ]", false);
 
     // Phrase index & status
     char num_buf[48];
     snprintf(num_buf, sizeof(num_buf), "VOICE %d/%d  %s",
              phrase_idx + 1, audio_get_voice_count(),
-             is_playing ? "[SPEAKING]" : "[READY]");
+             is_playing ? "[PLAYING]" : "[READY]");
     sh1106_draw_string(6, 18, num_buf, true);
 
     // Phrase Description
@@ -684,7 +684,7 @@ static void draw_voice_screen(int phrase_idx, bool is_playing) {
 
     // Footer instruction
     sh1106_draw_line(2, 51, 125, 51, true);
-    sh1106_draw_string(4, 54, "TURN:SEL SW:SPEAK QRY:EX", true);
+    sh1106_draw_string(4, 54, "TURN:SEL SW:PLAY QRY:EXIT", true);
 
     oled_ready = sh1106_update();
 }
@@ -1735,7 +1735,7 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             sh1106_draw_string(6, 27, audio_get_voice_name((voice_phrase_id_t)active_voice_idx), true);
             sh1106_draw_string(6, 37, "BUF : FLASH AUDIO", true);
             sh1106_draw_line(2, 47, 125, 47, true);
-            draw_marquee(51, "// ARCANE LITURGY // CLICK SW TO SPEAK // ROTATE TO SELECT //", now_ms);
+            draw_marquee(51, "// ARCANE LITURGY // CLICK SW TO PLAY PRESET // HOLD QUERY BTN TO TALK //", now_ms);
             break;
         }
 
@@ -2072,16 +2072,11 @@ int main(void) {
                 LOG_INFO("CLOCK", "Cancelled Clock Time setup via button.");
                 need_display_update = true;
             } else {
-                // Readiness check: if Brain is online, stream to Cloud/Host; if not, enter Standalone Offline Oracle!
-                if (!net_client_is_server_ready()) {
-                    offline_oracle_mode = true;
-                    audio_stop_all();
-                    current_state = STATE_LISTENING;
-                    easter_egg_active = false;
-                    mic_record_start();
-                    audio_play_tone(784.0f, 40); // G5 crisp prompt chirp: Offline Oracle listening!
-                    LOG_INFO("QUERY", ">>> QUERY PRESSED: Brain server offline -> Entering OFFLINE ORACLE mode (Lang: %s) <<<",
-                             LANG_NAMES[active_lang_idx]);
+                if (!net_client_is_connected()) {
+                    // Wi-Fi is not connected - provide immediate audible & visual feedback
+                    not_ready_feedback_until = delayed_by_ms(get_absolute_time(), 2000);
+                    audio_play_tone(220.0f, 120);
+                    LOG_WARN("QUERY", "Query button pressed but Wi-Fi is disconnected!");
                     need_display_update = true;
                 } else {
                     offline_oracle_mode = false;
@@ -2117,21 +2112,13 @@ int main(void) {
                      (unsigned long)rec_ms,
                      (int)session_peak);
 
-            // Reject and cancel if shorter than 300 ms OR silent/empty (peak < 100)
-            if (rec_ms < 300 || session_peak < 100) {
-                LOG_INFO("QUERY", "Recording rejected (duration %lu ms < 300 ms or peak %d < 100). Query cancelled.",
-                         (unsigned long)rec_ms, (int)session_peak);
-                if (!offline_oracle_mode) net_client_cancel();
+            // Reject only tiny accidental taps (< 150 ms)
+            if (rec_ms < 150) {
+                LOG_INFO("QUERY", "Recording rejected (duration %lu ms < 150 ms). Query cancelled.",
+                         (unsigned long)rec_ms);
+                net_client_cancel();
                 current_state = STATE_IDLE;
-                offline_oracle_mode = false;
-                audio_play_tone(220.0f, 60); // Short low blip: discarded
-            } else if (offline_oracle_mode) {
-                LOG_INFO("OFFLINE_ORACLE", "Finishing local voice capture (%zu samples, %lu ms). Triggering prophecy...",
-                         recorded_samples, (unsigned long)rec_ms);
-                trigger_offline_oracle(active_lang_idx);
-                current_state = STATE_SPEAKING;
-                speaking_start_ms = to_ms_since_boot(get_absolute_time());
-                audio_play_blip();
+                audio_play_tone(220.0f, 60); // Short low blip: tap ignored
             } else {
                 LOG_INFO("NET", "Finishing live Wi-Fi UDP voice stream (%zu samples, %lu ms)...",
                          recorded_samples, (unsigned long)rec_ms);

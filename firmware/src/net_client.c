@@ -375,6 +375,7 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                     active_host_type = HOST_TYPE_PHONE;
                     server_ip_addr = *addr;
                     active_server_port = port;
+                    last_server_heartbeat_rx_ms = now;
                     memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
                     strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
                     printf("[NET] Active Host: ANDROID PHONE (%s, %d models)\n", ip4addr_ntoa(addr), m_count);
@@ -403,6 +404,25 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 }
                 printf("[NET] Restored Active Host to PI 5 (%s)\n", ip4addr_ntoa(&server_ip_addr));
             }
+        }
+        if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
+            uint32_t server_epoch = 0;
+            pbuf_copy_partial(p, &server_epoch, sizeof(uint32_t), sizeof(hdr));
+            if (server_epoch > 1700000000) {
+                extern void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis);
+                set_current_time_epoch(server_epoch, 0);
+            }
+        }
+        pbuf_free(p);
+        return;
+    }
+
+    // Check if heartbeat came from Phone (even if server_ip_addr was temporarily pointing to Pi 5)
+    if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0 &&
+        has_paired_companion && ip_addr_cmp(addr, &companion_ip_addr)) {
+        last_phone_heartbeat_rx_ms = now;
+        if (active_host_type == HOST_TYPE_PHONE) {
+            last_server_heartbeat_rx_ms = now;
         }
         if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
             uint32_t server_epoch = 0;
@@ -595,12 +615,13 @@ void net_client_update(void) {
 
         // Host auto-failover watchdog (only in auto mode):
         if (preferred_host == HOST_TYPE_NONE && active_host_type == HOST_TYPE_PI5) {
-            if (now - last_server_heartbeat_rx_ms > 4500) {
+            if (now - last_pi5_heartbeat_rx_ms > 4500) {
                 // Pi 5 has gone silent!
                 if (has_phone_catalog && (now - last_phone_heartbeat_rx_ms < 15000)) {
                     active_host_type = HOST_TYPE_PHONE;
                     server_ip_addr = companion_ip_addr;
                     active_server_port = companion_port;
+                    last_server_heartbeat_rx_ms = last_phone_heartbeat_rx_ms;
                     memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
                     strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
                     printf("[NET] FAILOVER: Pi 5 heartbeat timed out. Switched AI Host to ANDROID PHONE (%s)\n",
@@ -660,7 +681,12 @@ bool net_client_is_server_ready(void) {
         return false;
     }
     uint32_t now = to_ms_since_boot(get_absolute_time());
-    return (last_server_heartbeat_rx_ms > 0 && (now - last_server_heartbeat_rx_ms <= 8000));
+    if (active_host_type == HOST_TYPE_PHONE) {
+        return (last_phone_heartbeat_rx_ms > 0 && (now - last_phone_heartbeat_rx_ms <= 15000));
+    } else if (active_host_type == HOST_TYPE_PI5) {
+        return (last_pi5_heartbeat_rx_ms > 0 && (now - last_pi5_heartbeat_rx_ms <= 15000));
+    }
+    return (last_server_heartbeat_rx_ms > 0 && (now - last_server_heartbeat_rx_ms <= 15000));
 }
 
 const char* net_client_get_ip_str(void) {
