@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" width="100%" height="auto">
+  <defs>
+    <radialGradient id="hudGrad" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#121824"/>
+      <stop offset="100%" stop-color="#080B10"/>
+    </radialGradient>
+    <filter id="glowAether" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="760" height="220" rx="12" fill="url(#hudGrad)" stroke="#1F293D" stroke-width="1.5"/>
+
+  <!-- OLED Frame Border (SH1106 128x64 Simulation) -->
+  <rect x="30" y="25" width="700" height="170" rx="6" fill="#000000" stroke="#00E5FF" stroke-width="1.5"/>
+
+  <!-- HUD Status Bar -->
+  <text x="45" y="44" fill="#00E5FF" font-family="monospace, monospace" font-size="11" font-weight="bold">[01] ARCHITECTURE</text>
+  <text x="400" y="44" fill="#64748B" font-family="monospace, monospace" font-size="10">CYBERNETIC SCHEMATIC</text>
+  <text x="715" y="44" text-anchor="end" fill="#00E5FF" font-family="monospace, monospace" font-size="11" font-weight="bold">[EN]  100%</text>
+  <line x1="45" y1="50" x2="715" y2="50" stroke="#1E293B" stroke-width="1"/>
+
+  <!-- ================= LEFT: STAFF NODE ================= -->
+  <g transform="translate(130, 115)">
+    <!-- Concentric Rings Arc -->
+    <ellipse cx="0" cy="-8" rx="18" ry="12" fill="none" stroke="#00E5FF" stroke-width="1.5"/>
+    <ellipse cx="0" cy="-8" rx="28" ry="18" fill="none" stroke="#00E5FF" stroke-width="1.2" stroke-dasharray="3,3"/>
+    <ellipse cx="0" cy="-8" rx="38" ry="24" fill="none" stroke="#00E5FF" stroke-width="1" stroke-dasharray="4,4"/>
+    <!-- Glowing Gemstone -->
+    <circle cx="0" cy="-8" r="4" fill="#FFD700" filter="url(#glowAether)"/>
+    <!-- Staff Rod -->
+    <line x1="0" y1="16" x2="0" y2="48" stroke="#00E5FF" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="-8" y1="26" x2="8" y2="26" stroke="#00E5FF" stroke-width="2"/>
+    <!-- Pinnacle Spark -->
+    <circle cx="0" cy="-35" r="2" fill="#00E5FF" filter="url(#glowAether)"/>
+    <line x1="0" y1="-32" x2="0" y2="-27" stroke="#00E5FF" stroke-width="1"/>
+
+    <text x="0" y="65" text-anchor="middle" fill="#F1F5F9" font-family="system-ui, sans-serif" font-size="10" font-weight="bold">STAFF NODE</text>
+    <text x="0" y="77" text-anchor="middle" fill="#64748B" font-family="monospace, monospace" font-size="9">Pico 2 W (RP2350)</text>
+  </g>
+
+  <!-- ================= CENTER: WIRELESS LINK ================= -->
+  <g transform="translate(380, 105)">
+    <!-- Radiating Waves Left -->
+    <path d="M -30,-16 A 25,25 0 0,0 -30,16" fill="none" stroke="#00E5FF" stroke-width="1.5"/>
+    <path d="M -45,-26 A 38,38 0 0,0 -45,26" fill="none" stroke="#00E5FF" stroke-width="1.2" stroke-dasharray="3,2"/>
+    
+    <!-- Bidirectional Flow Indicator -->
+    <line x1="-20" y1="0" x2="20" y2="0" stroke="#38BDF8" stroke-width="2"/>
+    <polygon points="-20,0 -12,-4 -12,4" fill="#38BDF8"/>
+    <polygon points="20,0 12,-4 12,4" fill="#38BDF8"/>
+    
+    <!-- Flowing Packets -->
+    <circle cx="-5" cy="0" r="3" fill="#FFD700" filter="url(#glowAether)"/>
+    <circle cx="8" cy="0" r="2.5" fill="#00E5FF"/>
+
+    <!-- Radiating Waves Right -->
+    <path d="M 30,-16 A 25,25 0 0,1 30,16" fill="none" stroke="#00E5FF" stroke-width="1.5"/>
+    <path d="M 45,-26 A 38,38 0 0,1 45,26" fill="none" stroke="#00E5FF" stroke-width="1.2" stroke-dasharray="3,2"/>
+
+    <text x="0" y="32" text-anchor="middle" fill="#38BDF8" font-family="monospace, monospace" font-size="10" font-weight="bold">UDP PORT 5005</text>
+    <text x="0" y="46" text-anchor="middle" fill="#64748B" font-family="system-ui, sans-serif" font-size="9">Zero-Latency Mesh</text>
+  </g>
+
+  <!-- ================= RIGHT: HOST NODE (Pi 5) ================= -->
+  <g transform="translate(630, 115)">
+    <!-- Pi 5 Board Outline -->
+    <rect x="-35" y="-30" width="70" height="60" rx="4" fill="#0A0E17" stroke="#00E5FF" stroke-width="1.8"/>
+    <!-- Cooling Fins -->
+    <line x1="-28" y1="-22" x2="28" y2="-22" stroke="#1E293B" stroke-width="1.5"/>
+    <line x1="-28" y1="-14" x2="28" y2="-14" stroke="#1E293B" stroke-width="1.5"/>
+    <line x1="-28" y1="-6" x2="28" y2="-6" stroke="#1E293B" stroke-width="1.5"/>
+    
+    <!-- Active Cooler Fan Silhouette -->
+    <circle cx="0" cy="8" r="14" fill="#06121E" stroke="#00E5FF" stroke-width="1"/>
+    <!-- 4 Blades -->
+    <line x1="-10" y1="8" x2="10" y2="8" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="0" y1="-2" x2="0" y2="18" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="0" cy="8" r="3" fill="#FFD700"/>
+
+    <text x="0" y="65" text-anchor="middle" fill="#F1F5F9" font-family="system-ui, sans-serif" font-size="10" font-weight="bold">HOST NODE</text>
+    <text x="0" y="77" text-anchor="middle" fill="#64748B" font-family="monospace, monospace" font-size="9">Raspberry Pi 5 (Active Cooler)</text>
+  </g>
+</svg>

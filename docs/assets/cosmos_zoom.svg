@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 240" width="100%" height="auto">
+  <defs>
+    <radialGradient id="spaceGrad" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#141926"/>
+      <stop offset="100%" stop-color="#0B0E14"/>
+    </radialGradient>
+    <filter id="glowPortal" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="760" height="240" rx="12" fill="url(#spaceGrad)" stroke="#1F293D" stroke-width="1.5"/>
+
+  <!-- ================= LEVEL 0: GALAXY (1x) ================= -->
+  <g transform="translate(40, 25)">
+    <rect width="180" height="190" rx="8" fill="#0E131F" stroke="#1E293B" stroke-width="1"/>
+    <text x="90" y="24" text-anchor="middle" fill="#00E5FF" font-family="system-ui, sans-serif" font-size="11" font-weight="bold">LEVEL 0: GALAXY (1x)</text>
+    <text x="90" y="38" text-anchor="middle" fill="#64748B" font-family="monospace, monospace" font-size="9">Milky Way Spiral Map</text>
+
+    <!-- Galactic Core & Spiral Arms -->
+    <ellipse cx="90" cy="105" rx="55" ry="32" fill="none" stroke="#334155" stroke-width="1" stroke-dasharray="3,3"/>
+    <ellipse cx="90" cy="105" rx="35" ry="20" fill="none" stroke="#475569" stroke-width="1.2" stroke-dasharray="4,4"/>
+    <circle cx="90" cy="105" r="5" fill="#FFD700" filter="url(#glowPortal)"/>
+    <text x="90" y="122" text-anchor="middle" fill="#FFD700" font-family="monospace, monospace" font-size="8">Sgr A*</text>
+
+    <!-- Sol Beacon -->
+    <circle cx="118" cy="95" r="3.5" fill="#00E5FF" filter="url(#glowPortal)"/>
+    <text x="126" y="98" fill="#00E5FF" font-family="monospace, monospace" font-size="8">Sol</text>
+
+    <rect x="25" y="160" width="130" height="18" rx="4" fill="#162238"/>
+    <text x="90" y="172" text-anchor="middle" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="9">LED_ANIM_GALAXY</text>
+  </g>
+
+  <!-- Transition Arrow 1 -->
+  <g transform="translate(225, 110)">
+    <path d="M 5,10 L 25,10 M 20,5 L 25,10 L 20,15" fill="none" stroke="#00E5FF" stroke-width="2"/>
+    <text x="15" y="-6" text-anchor="middle" fill="#64748B" font-family="monospace, monospace" font-size="8">CLICK</text>
+    <text x="15" y="28" text-anchor="middle" fill="#38BDF8" font-family="monospace, monospace" font-size="8">Zoom In</text>
+  </g>
+
+  <!-- ================= LEVEL 1: SOLAR (1,000x) ================= -->
+  <g transform="translate(260, 25)">
+    <rect width="180" height="190" rx="8" fill="#0E131F" stroke="#1E293B" stroke-width="1"/>
+    <text x="90" y="24" text-anchor="middle" fill="#38BDF8" font-family="system-ui, sans-serif" font-size="11" font-weight="bold">LEVEL 1: SOLAR (1,000x)</text>
+    <text x="90" y="38" text-anchor="middle" fill="#64748B" font-family="monospace, monospace" font-size="9">Keplerian Planetary Orrery</text>
+
+    <!-- Central Sun -->
+    <circle cx="90" cy="105" r="8" fill="#FFD700" filter="url(#glowPortal)"/>
+    <circle cx="90" cy="105" r="3.5" fill="#FFF9C4"/>
+
+    <!-- Planetary Orbits -->
+    <circle cx="90" cy="105" r="22" fill="none" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
+    <circle cx="90" cy="105" r="36" fill="none" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
+    <circle cx="90" cy="105" r="50" fill="none" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="3,3"/>
+
+    <!-- Earth & Moon -->
+    <circle cx="125" cy="105" r="3.5" fill="#38BDF8"/>
+    <circle cx="132" cy="101" r="1.5" fill="#E2E8F0"/>
+    <text x="125" y="122" text-anchor="middle" fill="#38BDF8" font-family="monospace, monospace" font-size="8">Earth</text>
+
+    <rect x="25" y="160" width="130" height="18" rx="4" fill="#162238"/>
+    <text x="90" y="172" text-anchor="middle" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="9">LED_ANIM_SOLAR</text>
+  </g>
+
+  <!-- Transition Arrow 2 -->
+  <g transform="translate(445, 110)">
+    <path d="M 5,10 L 25,10 M 20,5 L 25,10 L 20,15" fill="none" stroke="#38BDF8" stroke-width="2"/>
+    <text x="15" y="-6" text-anchor="middle" fill="#64748B" font-family="monospace, monospace" font-size="8">CLICK</text>
+    <text x="15" y="28" text-anchor="middle" fill="#818CF8" font-family="monospace, monospace" font-size="8">Zoom In</text>
+  </g>
+
+  <!-- ================= LEVEL 2: TERRA (1,000,000x) ================= -->
+  <g transform="translate(480, 25)">
+    <rect width="180" height="190" rx="8" fill="#0E131F" stroke="#1E293B" stroke-width="1"/>
+    <text x="90" y="24" text-anchor="middle" fill="#818CF8" font-family="system-ui, sans-serif" font-size="11" font-weight="bold">LEVEL 2: TERRA (1,000,000x)</text>
+    <text x="90" y="38" text-anchor="middle" fill="#64748B" font-family="monospace, monospace" font-size="9">Planetary Globe &amp; Orbit</text>
+
+    <!-- Globe Silhouette -->
+    <circle cx="90" cy="105" r="32" fill="#0F172A" stroke="#818CF8" stroke-width="1.5" filter="url(#glowPortal)"/>
+    <!-- Continents approximation -->
+    <path d="M 80,85 Q 92,80 98,90 Q 105,95 95,108 Q 85,115 80,105 Z" fill="#10B981" opacity="0.6"/>
+    <path d="M 95,112 Q 105,115 102,125 Q 92,130 90,120 Z" fill="#10B981" opacity="0.6"/>
+
+    <!-- Orbital Moon Path -->
+    <ellipse cx="90" cy="105" rx="46" ry="16" fill="none" stroke="#475569" stroke-width="1" stroke-dasharray="3,3"/>
+    <circle cx="132" cy="100" r="3" fill="#E2E8F0"/>
+    <text x="145" y="103" fill="#94A3B8" font-family="monospace, monospace" font-size="8">Moon</text>
+
+    <rect x="25" y="160" width="130" height="18" rx="4" fill="#162238"/>
+    <text x="90" y="172" text-anchor="middle" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="9">LED_ANIM_EARTH</text>
+  </g>
+
+  <!-- Cycle Loop Arrow back to Galaxy -->
+  <g transform="translate(685, 110)">
+    <path d="M 0,10 Q 25,-60 -210,-90 Q -450,-120 -640,0" fill="none" stroke="#475569" stroke-width="1" stroke-dasharray="3,3"/>
+  </g>
+</svg>

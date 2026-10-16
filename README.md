@@ -2,16 +2,19 @@
 
 <div align="center">
 
-[![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%20Pico%202%20W%20(RP2350)-C51A4A?style=for-the-badge&logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/products/raspberry-pi-pico-2-w/)
-[![Compute](https://img.shields.io/badge/Wearable%20Brain-Raspberry%20Pi%205%20(16GB)-C51A4A?style=for-the-badge&logo=raspberrypi&logoColor=white)](https://www.raspberrypi.com/products/raspberry-pi-5/)
-[![Storage](https://img.shields.io/badge/NVMe%20Storage-Lexar%20NM790%201TB%20(PCIe%20Gen%203%20%40%20688%20MB%2Fs)-006699?style=for-the-badge&logo=fastlane&logoColor=white)](https://shop.pimoroni.com/products/nvme-base)
-[![Firmware](https://img.shields.io/badge/Firmware-v1.0.19--COSMOS--ZOOM-00E5FF?style=for-the-badge&logo=c&logoColor=white)](firmware/)
-
-[![CI](https://img.shields.io/badge/CI-Core%20Engine%20%7C%20Android%20Passed-3DDC84?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DerAndr/celestial_engine_project/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
-[![AI Models](https://img.shields.io/badge/Local%20AI-Ollama%20Gemma%202%20%7C%20Qwen%202.5-8A2BE2?style=for-the-badge&logo=google&logoColor=white)](tools/)
-[![Companion](https://img.shields.io/badge/Android%20Companion-Jetpack%20Compose%20%7C%20Pixel%209%20Pro%20XL-3DDC84?style=for-the-badge&logo=android&logoColor=white)](android/)
-[![Safety](https://img.shields.io/badge/Safety%20Guardrails-Family%20Safe%20(PG--13%20Default)-00C853?style=for-the-badge)](tools/brain_config.json)
+<p align="center">
+  <a href="firmware/"><img src="https://img.shields.io/badge/Platform-RP2350%20(Pico%202%20W)-C51A4A?style=flat-square&logo=raspberrypi&logoColor=white" alt="Platform"></a>
+  <a href="tools/"><img src="https://img.shields.io/badge/Wearable%20Brain-Raspberry%20Pi%205%20(16GB)-C51A4A?style=flat-square&logo=raspberrypi&logoColor=white" alt="Pi 5"></a>
+  <a href="docs/hardware/inventory.md"><img src="https://img.shields.io/badge/NVMe-Lexar%20NM790%201TB-006699?style=flat-square&logo=fastlane&logoColor=white" alt="NVMe"></a>
+  <a href="firmware/"><img src="https://img.shields.io/badge/Firmware-v1.0.20-00E5FF?style=flat-square&logo=c&logoColor=white" alt="Firmware"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License"></a>
+</p>
+<p align="center">
+  <a href="https://github.com/DerAndr/celestial_engine_project/actions"><img src="https://img.shields.io/badge/CI-Tests%20Passing-3DDC84?style=flat-square&logo=githubactions&logoColor=white" alt="CI"></a>
+  <a href="tools/"><img src="https://img.shields.io/badge/Local%20AI-Gemma%202%20%7C%20Qwen%202.5-8A2BE2?style=flat-square&logo=google&logoColor=white" alt="AI Models"></a>
+  <a href="android/"><img src="https://img.shields.io/badge/Companion-Android%20Compose-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android"></a>
+  <a href="tools/brain_config.json"><img src="https://img.shields.io/badge/Safety-PG--13%20Guardrails-00C853?style=flat-square" alt="Safety"></a>
+</p>
 
 **Autonomous Interactive AI Staff & Wearable Edge Compute System**  
 *Embedded RP2350 M33 controller • 43-LED concentric WS2812B headpiece • Duplex I2S audio • Dual-Brain wearable Raspberry Pi 5 AI Server (100% Autonomous Offline + Hybrid Cloud Fallback) • Native Android Companion.*
@@ -122,34 +125,19 @@ flowchart TB
 
 The physical headpiece features **43 addressable WS2812B RGB LEDs** arranged in three concentric rings centered around a single core gemstone:
 
-```text
-                             . - ~ ~ ~ - .
-                         . '    Ring 3    ' .
-                       /      (24 LEDs)       \
-                     /    . - ~ ~ ~ - .         \
-                    /   /    Ring 2     \        \
-                   |   /    (12 LEDs)    \   #19  |
-                   |  |   . - ~ - .   #07 |   o   |
-                   |  |  / Ring 1  \   o  |       |
-                   |  | | (6 LEDs)  |     |       |
-                   |  | |    #00    |     |       |
-             #31 o |  | |  [Core]   |     |       |
-                   |  | |     o     |     |       |
-                   |  |  \   #01   /      |       |
-                   |  |   ' - _ - '       |       |
-                   |   \                 /   o #42|
-                    \   \               /        /
-                     \    ' - ~ ~ ~ - '         /
-                       \                       /
-                         ' .       o #25   . '
-                             ' - _ _ _ - '
-```
+<p align="center">
+  <img src="docs/assets/concentric_rings.svg" alt="43-LED Concentric Headpiece Schematic" width="100%" />
+</p>
 
 ### Ring Topology & Power Distribution
-- **Center Core (Gemstone):** 1 LED (`Index #00`) — focal optical center.
-- **Inner Ring:** 6 LEDs (`Indices #01 – #06`), 60° angular spacing.
-- **Middle Ring:** 12 LEDs (`Indices #07 – #18`), 30° angular spacing.
-- **Outer Ring:** 24 LEDs (`Indices #19 – #42`), 15° angular spacing.
+
+| Ring Tier | LED Count | Angular Spacing | Logical Indices | Logical Function | Hardware Rail |
+| :--- | :---: | :---: | :---: | :--- | :---: |
+| **Core Gemstone** | **1** | — | `Index #00` | Center focal anchor & voice prompt status | 5V / VBUS (18% Cap) |
+| **Inner Ring 1** | **6** | 60° | `Indices #01 – #06` | High-speed vortex singularity & hours | 5V / VBUS (18% Cap) |
+| **Middle Ring 2**| **12** | 30° | `Indices #07 – #18` | Chromatic rainbow & minutes indicator | 5V / VBUS (18% Cap) |
+| **Outer Ring 3** | **24** | 15° | `Indices #19 – #42` | Star map orbits, plasma flares & seconds | 5V / VBUS (18% Cap) |
+
 - **Electrical Safety Cap:** Firmware enforces an unbreakable **18% global brightness ceiling** (`0x2E` maximum channel value), drawing less than 650 mA on full white while keeping LEDs cool to the touch.
 
 ### 18 Firmware Animation Modes
@@ -162,14 +150,9 @@ All animations execute at **33 Hz** driven by PIO DMA:
 
 Astronomy, Keplerian orbits, and planetary navigation are consolidated into a single interactive viewport on both the staff OLED (`MODE_COSMOS`) and the companion Android app:
 
-```text
-  [ LEVEL 0: GALAXY (1x) ]          [ LEVEL 1: SOLAR (1,000x) ]         [ LEVEL 2: TERRA (1,000,000x) ]
-     .  :  *  .  :  *                     \     |     /                          . --- .
-    :   .  ( Sgr A* )  .                   \    o    /                        /  _--_   \
-      *  Perseus Arm  *              --- (Sun)  *  (Earth) ---              |  ( Europe ) |
-    .   :  * Sol o  :                         /   |   \                      \    Africa  /
-      :  Scutum Arm  .                       /    |    \                        ' --- '
-```
+<p align="center">
+  <img src="docs/assets/cosmos_zoom.svg" alt="Unified Cosmos Zoom Viewport" width="100%" />
+</p>
 
 1. **Level 0 — Milky Way Galaxy (`1x`)**: Spiral arm star map, rotating Perseus & Scutum-Centaurus arms, Sagittarius A* core, and blinking Sol beacon.
 2. **Level 1 — Solar System Orrery (`1,000x`)**: Keplerian planetary orbits (Mercury, Venus, Earth with Moon, Mars), dynamic directional presence arrow pointing to Earth.
@@ -184,18 +167,9 @@ Astronomy, Keplerian orbits, and planetary navigation are consolidated into a si
 
 Mode `[01] ARCHITECTURE` on the staff OLED renders a pure pictogram schematic with zero text clutter:
 
-```text
-+-------------------------------------------------------------------------+
-| [01] ARCHITECTURE                                              [EN] 85% |
-|                                                                         |
-|         ( * )                 ) ) )                   [ === ]           |
-|        (( * ))              ( ( (                     | [*] | (Fan)     |
-|          |||             <=========>                  [ === ]           |
-|                                                                         |
-|      STAFF NODE            WIRELESS LINK                   HOST NODE    |
-|   (Concentric Rings)    (Bidirectional UDP)           (Pi 5 / Phone / IC) |
-+-------------------------------------------------------------------------+
-```
+<p align="center">
+  <img src="docs/assets/cybernetic_hud.svg" alt="Cybernetic Architecture HUD" width="100%" />
+</p>
 
 - **Staff Node (Left):** Three concentric ring arcs, glowing center core, staff rod, and pulsing ethereal pinnacle sparks.
 - **Wireless Link (Center):** Radiating antenna wave arcs with bidirectional data packets flying between nodes.

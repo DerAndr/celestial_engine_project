@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 420" width="100%" height="auto">
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#141926"/>
+      <stop offset="100%" stop-color="#0B0E14"/>
+    </radialGradient>
+    <filter id="glowCyan" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glowGold" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Card Background -->
+  <rect width="760" height="420" rx="12" fill="url(#bgGrad)" stroke="#1F293D" stroke-width="1.5"/>
+
+  <!-- Concentric Orbital Tracks -->
+  <circle cx="250" cy="210" r="50" fill="none" stroke="#1E2B45" stroke-dasharray="3,3" stroke-width="1.2"/>
+  <circle cx="250" cy="210" r="95" fill="none" stroke="#1E2B45" stroke-dasharray="4,4" stroke-width="1.2"/>
+  <circle cx="250" cy="210" r="145" fill="none" stroke="#1E2B45" stroke-dasharray="4,4" stroke-width="1.2"/>
+
+  <!-- Radial Guide Rays -->
+  <line x1="95" y1="210" x2="405" y2="210" stroke="#162032" stroke-width="1"/>
+  <line x1="250" y1="55" x2="250" y2="365" stroke="#162032" stroke-width="1"/>
+
+  <!-- Center Gemstone (LED 0) -->
+  <circle cx="250" cy="210" r="9" fill="#FFD700" filter="url(#glowGold)"/>
+  <circle cx="250" cy="210" r="3.5" fill="#FFFBEB"/>
+  <!-- Inner Ring 1 (6 LEDs) -->
+  <circle cx="250.0" cy="160.0" r="5.0" fill="#00E5FF" filter="url(#glowCyan)"/>  <circle cx="250.0" cy="160.0" r="2.0" fill="#E0F7FA"/>  <circle cx="293.3" cy="185.0" r="5.0" fill="#00E5FF" filter="url(#glowCyan)"/>  <circle cx="293.3" cy="185.0" r="2.0" fill="#E0F7FA"/>  <circle cx="293.3" cy="235.0" r="5.0" fill="#00E5FF" filter="url(#glowCyan)"/>  <circle cx="293.3" cy="235.0" r="2.0" fill="#E0F7FA"/>  <circle cx="250.0" cy="260.0" r="5.0" fill="#00E5FF" filter="url(#glowCyan)"/>  <circle cx="250.0" cy="260.0" r="2.0" fill="#E0F7FA"/>  <circle cx="206.7" cy="235.0" r="5.0" fill="#00E5FF" filter="url(#glowCyan)"/>  <circle cx="206.7" cy="235.0" r="2.0" fill="#E0F7FA"/>  <circle cx="206.7" cy="185.0" r="5.0" fill="#00E5FF" filter="url(#glowCyan)"/>  <circle cx="206.7" cy="185.0" r="2.0" fill="#E0F7FA"/>
+  <!-- Middle Ring 2 (12 LEDs) -->
+  <circle cx="250.0" cy="115.0" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="250.0" cy="115.0" r="1.6" fill="#F0F9FF"/>  <circle cx="297.5" cy="127.7" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="297.5" cy="127.7" r="1.6" fill="#F0F9FF"/>  <circle cx="332.3" cy="162.5" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="332.3" cy="162.5" r="1.6" fill="#F0F9FF"/>  <circle cx="345.0" cy="210.0" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="345.0" cy="210.0" r="1.6" fill="#F0F9FF"/>  <circle cx="332.3" cy="257.5" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="332.3" cy="257.5" r="1.6" fill="#F0F9FF"/>  <circle cx="297.5" cy="292.3" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="297.5" cy="292.3" r="1.6" fill="#F0F9FF"/>  <circle cx="250.0" cy="305.0" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="250.0" cy="305.0" r="1.6" fill="#F0F9FF"/>  <circle cx="202.5" cy="292.3" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="202.5" cy="292.3" r="1.6" fill="#F0F9FF"/>  <circle cx="167.7" cy="257.5" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="167.7" cy="257.5" r="1.6" fill="#F0F9FF"/>  <circle cx="155.0" cy="210.0" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="155.0" cy="210.0" r="1.6" fill="#F0F9FF"/>  <circle cx="167.7" cy="162.5" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="167.7" cy="162.5" r="1.6" fill="#F0F9FF"/>  <circle cx="202.5" cy="127.7" r="4.2" fill="#38BDF8" filter="url(#glowCyan)"/>  <circle cx="202.5" cy="127.7" r="1.6" fill="#F0F9FF"/>
+  <!-- Outer Ring 3 (24 LEDs) -->
+  <circle cx="250.0" cy="65.0" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="287.5" cy="69.9" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="322.5" cy="84.4" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="352.5" cy="107.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="375.6" cy="137.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="390.1" cy="172.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="395.0" cy="210.0" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="390.1" cy="247.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="375.6" cy="282.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="352.5" cy="312.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="322.5" cy="335.6" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="287.5" cy="350.1" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="250.0" cy="355.0" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="212.5" cy="350.1" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="177.5" cy="335.6" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="147.5" cy="312.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="124.4" cy="282.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="109.9" cy="247.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="105.0" cy="210.0" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="109.9" cy="172.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="124.4" cy="137.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="147.5" cy="107.5" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="177.5" cy="84.4" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>  <circle cx="212.5" cy="69.9" r="3.6" fill="#818CF8" filter="url(#glowCyan)"/>
+  <!-- Pointer Callouts -->
+  <line x1="250" y1="210" x2="175" y2="130" stroke="#FFD700" stroke-width="1.2" stroke-dasharray="2,2"/>
+  <circle cx="175" cy="130" r="2.5" fill="#FFD700"/>
+  <text x="168" y="134" text-anchor="end" fill="#FFD700" font-family="monospace, monospace" font-size="11" font-weight="bold">Core Gemstone (#00)</text>
+
+  <line x1="293.3" y1="185.0" x2="365" y2="155" stroke="#00E5FF" stroke-width="1.2" stroke-dasharray="2,2"/>
+  <text x="370" y="159" fill="#00E5FF" font-family="monospace, monospace" font-size="11">Inner Ring 1: 6 LEDs (#01..#06)</text>
+
+  <line x1="345.0" y1="210.0" x2="385" y2="210" stroke="#38BDF8" stroke-width="1.2" stroke-dasharray="2,2"/>
+  <text x="390" y="214" fill="#38BDF8" font-family="monospace, monospace" font-size="11">Middle Ring 2: 12 LEDs (#07..#18)</text>
+
+  <line x1="352.5" y1="312.5" x2="365" y2="285" stroke="#818CF8" stroke-width="1.2" stroke-dasharray="2,2"/>
+  <text x="370" y="289" fill="#818CF8" font-family="monospace, monospace" font-size="11">Outer Ring 3: 24 LEDs (#19..#42)</text>
+
+  <!-- Technical Specs Panel (Right) -->
+  <g transform="translate(485, 45)">
+    <rect width="245" height="330" rx="8" fill="#0E131F" stroke="#1E293B" stroke-width="1"/>
+    <text x="16" y="32" fill="#F1F5F9" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="bold">43-LED Concentric Headpiece</text>
+    <text x="16" y="50" fill="#64748B" font-family="monospace, monospace" font-size="10">WS2812B RGB • PIO0 SM1 DMA</text>
+
+    <line x1="16" y1="65" x2="229" y2="65" stroke="#1E293B" stroke-width="1"/>
+
+    <text x="16" y="88" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="11">Addressable Pixels</text>
+    <text x="229" y="88" text-anchor="end" fill="#00E5FF" font-family="monospace, monospace" font-size="12" font-weight="bold">43 Nodes</text>
+
+    <text x="16" y="115" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="11">Concentric Topology</text>
+    <text x="229" y="115" text-anchor="end" fill="#F8FAFC" font-family="monospace, monospace" font-size="11">1 + 6 + 12 + 24</text>
+
+    <text x="16" y="142" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="11">Hardware Power Cap</text>
+    <text x="229" y="142" text-anchor="end" fill="#10B981" font-family="monospace, monospace" font-size="11" font-weight="bold">18% (0x2E Max)</text>
+
+    <text x="16" y="169" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="11">Full White Power Draw</text>
+    <text x="229" y="169" text-anchor="end" fill="#F8FAFC" font-family="monospace, monospace" font-size="11">&lt; 650 mA @ 5V</text>
+
+    <text x="16" y="196" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="11">Hardware DMA Refresh</text>
+    <text x="229" y="196" text-anchor="end" fill="#F8FAFC" font-family="monospace, monospace" font-size="11">33 Hz (30 ms)</text>
+
+    <text x="16" y="223" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="11">Animation Presets</text>
+    <text x="229" y="223" text-anchor="end" fill="#F8FAFC" font-family="monospace, monospace" font-size="11">18 Unique Modes</text>
+
+    <line x1="16" y1="240" x2="229" y2="240" stroke="#1E293B" stroke-width="1"/>
+
+    <rect x="14" y="254" width="217" height="58" rx="6" fill="#131C30" stroke="#1E3A8A" stroke-width="1"/>
+    <text x="22" y="273" fill="#00E5FF" font-family="system-ui, sans-serif" font-size="10" font-weight="bold">COMPANION CANVAS MIRROR</text>
+    <text x="22" y="291" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="10">Real-time 33 Hz synchronization</text>
+    <text x="22" y="303" fill="#94A3B8" font-family="system-ui, sans-serif" font-size="10">with Android Jetpack Compose</text>
+  </g>
+</svg>
