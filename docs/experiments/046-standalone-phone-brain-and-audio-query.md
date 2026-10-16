@@ -36,3 +36,10 @@ Added a dedicated `LIVE HARDWARE TELEMETRY` card in `DashboardScreen.kt`:
 
 ## 5. Standalone Hotspot Guide
 Created `docs/guides/mobile-hotspot-standalone.md` documenting field deployment with Android Mobile Hotspot (2.4 GHz, `192.168.43.1`).
+
+## 6. Observed Physical Result & Active Bug
+- **Observation**:
+  - Pico sounds chirp (880 Hz) and OLED enters `LISTENING` with mic VU meter.
+  - On release, Pico transitions to `PROCESSING`.
+  - However, the end-to-end cycle to Phone (audio receipt -> transcription / generation -> TTS streaming back to MAX98357A speaker and OLED text display) did not complete successfully.
+- **Status**: **BUG-VOICE-01** logged in [`docs/tasks.md`](../tasks.md). Scheduled for next session debugging.

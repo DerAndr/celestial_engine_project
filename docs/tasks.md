@@ -39,4 +39,15 @@ Updated 2026-10-11 after new commits and user observations. The staff operates s
 - [x] Deploy and verify `ai_brain_server.py` server on autonomous Raspberry Pi 5 in local network (`celestial-brain.service` active on `192.168.178.51:5005`, OpenRouter DeepSeek V3 + Edge-TTS 7.3.1 verified).
 - [ ] Flash Pico 2 W with built firmware `celestial_firmware.uf2` (pointing to `192.168.178.51`) and verify voice query cycle on physical staff.
 
+## Known Issues / Active Bugs (To Debug Next Session)
+
+- **BUG-VOICE-01: Voice query cycle between Pico and Phone Companion App not fully operational end-to-end**:
+  - *Symptom observed by user*: When QUERY button is held, Pico plays chirp and displays LISTENING; on release Pico transitions to PROCESSING. However, the end-to-end cycle (Phone receiving full audio stream, Gemma/Gemini transcribing/answering, streaming speech TTS back to MAX98357A speaker, and displaying text on OLED) did not complete successfully as expected.
+  - *Status*: Open for next debugging session.
+  - *Next Investigation Steps*:
+    1. Check real-time logcat on phone during query (`adb logcat -s StaffRepository:V GemmaModelEngine:V DashboardViewModel:V`).
+    2. Check if Pico sends audio chunks to the phone's IP or if packets are dropped/rejected due to port/firewall or length.
+    3. Check whether phone TTS synthesis completes and whether `streamAudioToStaff` transmits chunks back to Pico.
+    4. Verify Pico `response_gate` state machine when receiving `RESP_START` / `RESP_CHUNK` from phone.
+
 Rewriting LED lighting code **for four rings is removed from active planning**, as the fourth ring has been permanently removed. Cosmetic improvements to the three rings remain in the backlog and do not block the Pi track.
