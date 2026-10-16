@@ -44,6 +44,8 @@ void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint
     (void)mode; (void)state; (void)volume; (void)anim; (void)clock_style; (void)lang; (void)host_type; (void)pref_host;
 }
 bool net_client_has_paired_companion(void) { return false; }
+bool net_client_has_unsolicited_text(void) { return false; }
+void net_client_clear_unsolicited_text(void) {}
 bool net_client_send_query_start(uint8_t l, uint8_t m) { (void)l; (void)m; return true; }
 bool net_client_send_audio_chunk(const int16_t *s, size_t c) { (void)s; (void)c; return true; }
 bool net_client_send_query_end(void) { return true; }

@@ -16,8 +16,10 @@ import java.util.concurrent.atomic.AtomicInteger
 private const val TAG = "StaffUdpTransport"
 
 class StaffUdpTransport(
-    private val localPort: Int = ProtocolConstants.DEFAULT_PORT
+    private val localPort: Int = ProtocolConstants.DEFAULT_PORT,
+    private val context: android.content.Context? = null
 ) : StaffTransport {
+    private var multicastLock: android.net.wifi.WifiManager.MulticastLock? = null
 
     private var socket: DatagramSocket? = null
     private val seqCounter = AtomicInteger(1)
@@ -31,6 +33,17 @@ class StaffUdpTransport(
     override fun start() {
         if (isRunning) return
         isRunning = true
+
+        try {
+            val wifiManager = context?.applicationContext?.getSystemService(android.content.Context.WIFI_SERVICE) as? android.net.wifi.WifiManager
+            multicastLock = wifiManager?.createMulticastLock("celestial_udp_lock")?.apply {
+                setReferenceCounted(true)
+                acquire()
+                Log.i(TAG, "Acquired WifiManager.MulticastLock successfully")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not acquire MulticastLock: ${e.message}")
+        }
 
         scope.launch {
             while (isActive && isRunning) {

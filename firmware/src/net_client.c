@@ -144,6 +144,7 @@ static uint32_t last_status_check_ms = 0;
 static volatile bool resp_is_receiving = false;
 static volatile bool resp_is_ready = false;
 static char resp_text_buffer[512] = "";
+static volatile bool unsolicited_text_ready = false;
 
 static uint32_t last_server_heartbeat_rx_ms = 0;
 static uint32_t last_heartbeat_tx_ms = 0;
@@ -370,18 +371,15 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 memcpy(&phone_catalog_cache, &cat, sizeof(cat));
                 has_phone_catalog = true;
 
-                if (preferred_host == HOST_TYPE_PHONE ||
-                    (preferred_host == HOST_TYPE_NONE && (now - last_pi5_heartbeat_rx_ms > 4000 || active_host_type != HOST_TYPE_PI5))) {
-                    active_host_type = HOST_TYPE_PHONE;
-                    server_ip_addr = *addr;
-                    active_server_port = port;
-                    last_server_heartbeat_rx_ms = now;
-                    memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
-                    strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
-                    printf("[NET] Active Host: ANDROID PHONE (%s, %d models)\n", ip4addr_ntoa(addr), m_count);
-                } else {
-                    printf("[NET] Cached Phone Catalog (%d models), Pi 5 remains active\n", m_count);
-                }
+                // When phone pushes its catalog, activate it and lock preferred_host to PHONE
+                preferred_host = HOST_TYPE_PHONE;
+                active_host_type = HOST_TYPE_PHONE;
+                server_ip_addr = *addr;
+                active_server_port = port;
+                last_server_heartbeat_rx_ms = now;
+                memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
+                strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+                printf("[NET] Pushed Catalog Activated: ANDROID PHONE (%s, %d models)\n", ip4addr_ntoa(addr), m_count);
             }
         }
         pbuf_free(p);
@@ -432,6 +430,23 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 set_current_time_epoch(server_epoch, 0);
             }
         }
+        pbuf_free(p);
+        return;
+    }
+
+    // Direct Text Broadcast from Companion App / Brain Host (e.g. "To Staff" action in app)
+    if (hdr.msg_type == NET_MSG_RESP_TEXT && hdr.payload_len > 0) {
+        uint8_t raw_text[512];
+        uint16_t copy_len = (hdr.payload_len < sizeof(raw_text)) ? hdr.payload_len : (uint16_t)(sizeof(raw_text) - 1);
+        pbuf_copy_partial(p, raw_text, copy_len, sizeof hdr);
+        sanitize_oled_text(resp_text_buffer, raw_text, copy_len, sizeof(resp_text_buffer));
+
+        companion_ip_addr = *addr;
+        companion_port = port;
+        has_paired_companion = true;
+        unsolicited_text_ready = true;
+
+        printf("[NET] Received Broadcast Text from %s:%d: \"%s\"\n", ip4addr_ntoa(addr), (int)port, resp_text_buffer);
         pbuf_free(p);
         return;
     }
@@ -876,6 +891,14 @@ bool net_client_poll_remote_command(remote_cmd_t *cmd) {
 
 bool net_client_has_paired_companion(void) {
     return has_paired_companion;
+}
+
+bool net_client_has_unsolicited_text(void) {
+    return unsolicited_text_ready;
+}
+
+void net_client_clear_unsolicited_text(void) {
+    unsolicited_text_ready = false;
 }
 
 void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style,

@@ -311,6 +311,7 @@ class DashboardViewModel(
 
     fun broadcastPhoneCatalog() {
         viewModelScope.launch {
+            repository.executeCommand(StaffCommand.SetHost(2))
             repository.executeCommand(StaffCommand.BroadcastCatalog())
         }
     }

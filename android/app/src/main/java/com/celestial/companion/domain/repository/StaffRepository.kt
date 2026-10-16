@@ -171,30 +171,14 @@ class StaffRepository(
             msgType = NetMessageType.RESP_TEXT,
             seqNum = 1,
             payloadLen = textBytes.size,
-            requestId = 1L,
+            requestId = 0L,
             payload = textBytes
         )
+        // Send direct to active staff IP
         transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, textPacket)
-
-        val startPacket = CelestialPacket(
-            msgType = NetMessageType.RESP_START,
-            seqNum = 1,
-            payloadLen = 0,
-            requestId = 1L,
-            payload = ByteArray(0)
-        )
-        transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, startPacket)
-
-        delay(150)
-
-        val endPacket = CelestialPacket(
-            msgType = NetMessageType.RESP_END,
-            seqNum = 2,
-            payloadLen = 0,
-            requestId = 1L,
-            payload = ByteArray(0)
-        )
-        transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, endPacket)
+        // Also send to subnet broadcast so if staff IP differed it still arrives
+        transport.sendPacket("255.255.255.255", ProtocolConstants.DEFAULT_PORT, textPacket)
+        Log.i(TAG, "broadcastAiResponse: sent ${textBytes.size} bytes of text to $targetIp and broadcast")
     }
 
     private val _staffVoiceQueries = kotlinx.coroutines.flow.MutableSharedFlow<IncomingStaffVoiceQuery>(extraBufferCapacity = 8)
@@ -223,7 +207,7 @@ class StaffRepository(
                             requestId = 0,
                             payload = buf
                         )
-                        udpTransport.sendPacket(respPacket, target)
+                        transport.sendPacket(target, ProtocolConstants.DEFAULT_PORT, respPacket)
                     }
                 }
             }

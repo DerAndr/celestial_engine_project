@@ -1986,6 +1986,18 @@ int main(void) {
             broadcast_telemetry();
         }
 
+        // Check for unsolicited broadcast text pushed from Companion App (e.g. "To Staff")
+        if (net_client_has_unsolicited_text()) {
+            net_client_clear_unsolicited_text();
+            audio_stop_all();
+            current_state = STATE_SPEAKING;
+            speaking_start_ms = to_ms_since_boot(get_absolute_time());
+            audio_play_chime(); // Arcane chime plays through MAX98357A speaker!
+            need_display_update = true;
+            broadcast_telemetry();
+            LOG_INFO("NET", "Displaying broadcast text from Companion on OLED: %s", net_client_get_response_text());
+        }
+
         // Check incoming Brain response or timeout in STATE_PROCESSING
         if (current_state == STATE_PROCESSING) {
             uint32_t now_ms = to_ms_since_boot(get_absolute_time());
@@ -2132,17 +2144,20 @@ int main(void) {
             broadcast_telemetry();
         }
 
-        // Return from SPEAKING to IDLE once PCM/stream playback finishes
+        // Return from SPEAKING to IDLE once PCM/stream playback finishes AND at least 8s for text read
         if (current_state == STATE_SPEAKING && !audio_is_stream_playing() && !audio_is_pcm16_playing() && !audio_is_voice_playing() && !net_client_is_receiving_response()) {
-            net_client_consume_response();
-            current_state = STATE_IDLE;
-            offline_oracle_mode = false;
-            if (net_client_response_failed()) {
-                LOG_WARN("NET", "Response stream failed; returned to IDLE without accepting late audio.");
-                audio_play_tone(220.0f, 150);
-            } else LOG_INFO("AUDIO", "Response playback finished. Returned to IDLE.");
-            need_display_update = true;
-            broadcast_telemetry();
+            uint32_t spoken_ms = to_ms_since_boot(get_absolute_time()) - speaking_start_ms;
+            if (spoken_ms >= 8000) {
+                net_client_consume_response();
+                current_state = STATE_IDLE;
+                offline_oracle_mode = false;
+                if (net_client_response_failed()) {
+                    LOG_WARN("NET", "Response stream failed; returned to IDLE without accepting late audio.");
+                    audio_play_tone(220.0f, 150);
+                } else LOG_INFO("AUDIO", "Response playback finished. Returned to IDLE.");
+                need_display_update = true;
+                broadcast_telemetry();
+            }
         }
 
         // 3. Encoder rotation handling
