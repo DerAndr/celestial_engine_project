@@ -104,14 +104,20 @@ fun ChronosScreen(
         }
 
         // Live Staff Chronos HUD Display
-        StaffOledScreenView(
-            mode = StaffMode.CHRONOS,
-            state = telemetry.state,
-            clockStyle = telemetry.clockStyle,
-            volumePercent = telemetry.volumePercent,
-            language = telemetry.language,
-            modifier = Modifier.fillMaxWidth().height(125.dp)
-        )
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            StaffOledScreenView(
+                state = telemetry.state,
+                mode = StaffMode.CHRONOS,
+                volumePercent = telemetry.volumePercent,
+                clockStyle = telemetry.clockStyle,
+                activeHost = telemetry.activeHost,
+                aiModelId = telemetry.aiModelId,
+                micLevelPercent = telemetry.micLevelPercent,
+                cosmosZoom = telemetry.cosmosZoom,
+                isOnline = telemetry.isOnline,
+                width = 280.dp
+            )
+        }
 
         Text(
             text = "ASTRONOMICAL CLOCK STYLES",
