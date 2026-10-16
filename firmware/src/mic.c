@@ -233,6 +233,7 @@ void mic_record_start(void) {
 
 size_t mic_record_stop(void) {
     if (mic_record_active) {
+        mic_update(); // Drain final DMA buffer samples before ending
         mic_record_active = false;
         if (stream_buf_count > 0 && mic_stream_cb != NULL) {
             mic_stream_cb(stream_buf, stream_buf_count);

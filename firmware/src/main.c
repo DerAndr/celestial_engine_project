@@ -2046,6 +2046,22 @@ int main(void) {
                 cosmic_mode = false;
                 LOG_INFO("COSMIC", "Exited Cosmic FX Demo via button.");
                 need_display_update = true;
+            } else if (volume_edit_mode) {
+                volume_edit_mode = false;
+                LOG_INFO("VOLUME", "Exited volume edit via button.");
+                need_display_update = true;
+            } else if (led_edit_mode) {
+                led_edit_mode = false;
+                LOG_INFO("LEDS", "Exited LED menu via button.");
+                need_display_update = true;
+            } else if (mic_test_mode) {
+                mic_test_mode = false;
+                LOG_INFO("MIC", "Exited mic test via button.");
+                need_display_update = true;
+            } else if (easter_egg_active) {
+                easter_egg_active = false;
+                LOG_INFO("EASTER_EGG", "Exited easter egg screen via button.");
+                need_display_update = true;
             } else if (clock_style_edit_mode) {
                 clock_style_edit_mode = false;
                 LOG_INFO("CLOCK", "Exited Clock Style menu via button.");
@@ -2289,7 +2305,10 @@ int main(void) {
                     need_display_update = true;
                 } else {
                     ai_model_edit_mode = false;
-                    active_ai_model_idx = selected_ai_model_idx - 1;
+                    uint8_t m_count = net_client_get_model_count();
+                    int candidate = selected_ai_model_idx - 1;
+                    if (candidate < 0 || (m_count > 0 && candidate >= m_count)) candidate = 0;
+                    active_ai_model_idx = candidate;
                     uint8_t theme = net_client_get_model_theme(active_ai_model_idx);
                     leds_set_ai_model(theme);
                     click_feedback_until = delayed_by_ms(get_absolute_time(), 600);

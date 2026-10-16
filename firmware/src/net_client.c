@@ -167,6 +167,93 @@ static void acknowledge_response(const net_packet_header_t *received) {
     pbuf_free(ack);
 }
 
+static void sanitize_oled_text(char *dst, const uint8_t *src, size_t src_len, size_t max_dst) {
+    if (dst == NULL || max_dst == 0) return;
+    if (src == NULL || src_len == 0) {
+        dst[0] = '\0';
+        return;
+    }
+    size_t out_idx = 0;
+    for (size_t i = 0; i < src_len && out_idx + 4 < max_dst; ) {
+        uint8_t b1 = src[i];
+        if (b1 < 128) {
+            if (b1 >= 32 && b1 <= 126) {
+                dst[out_idx++] = (char)b1;
+            } else if (b1 == '\n' || b1 == '\r' || b1 == '\t') {
+                dst[out_idx++] = ' ';
+            }
+            i++;
+        } else if ((b1 == 0xC3) && (i + 1 < src_len)) {
+            uint8_t b2 = src[i + 1];
+            if (b2 == 0xA4) { dst[out_idx++] = 'a'; dst[out_idx++] = 'e'; }
+            else if (b2 == 0xB6) { dst[out_idx++] = 'o'; dst[out_idx++] = 'e'; }
+            else if (b2 == 0xBC) { dst[out_idx++] = 'u'; dst[out_idx++] = 'e'; }
+            else if (b2 == 0x9F) { dst[out_idx++] = 's'; dst[out_idx++] = 's'; }
+            else if (b2 == 0x84) { dst[out_idx++] = 'A'; dst[out_idx++] = 'e'; }
+            else if (b2 == 0x96) { dst[out_idx++] = 'O'; dst[out_idx++] = 'e'; }
+            else if (b2 == 0x9C) { dst[out_idx++] = 'U'; dst[out_idx++] = 'e'; }
+            else { dst[out_idx++] = ' '; }
+            i += 2;
+        } else if ((b1 == 0xD0 || b1 == 0xD1) && (i + 1 < src_len)) {
+            uint8_t b2 = src[i + 1];
+            uint16_t code = ((uint16_t)b1 << 8) | b2;
+            const char *tr = " ";
+            switch (code) {
+                case 0xD090: tr = "A"; break; case 0xD091: tr = "B"; break;
+                case 0xD092: tr = "V"; break; case 0xD093: tr = "G"; break;
+                case 0xD094: tr = "D"; break; case 0xD095: tr = "E"; break;
+                case 0xD081: tr = "Yo"; break; case 0xD096: tr = "Zh"; break;
+                case 0xD097: tr = "Z"; break; case 0xD098: tr = "I"; break;
+                case 0xD099: tr = "Y"; break; case 0xD09A: tr = "K"; break;
+                case 0xD09B: tr = "L"; break; case 0xD09C: tr = "M"; break;
+                case 0xD09D: tr = "N"; break; case 0xD09E: tr = "O"; break;
+                case 0xD09F: tr = "P"; break; case 0xD0A0: tr = "R"; break;
+                case 0xD0A1: tr = "S"; break; case 0xD0A2: tr = "T"; break;
+                case 0xD0A3: tr = "U"; break; case 0xD0A4: tr = "F"; break;
+                case 0xD0A5: tr = "Kh"; break; case 0xD0A6: tr = "Ts"; break;
+                case 0xD0A7: tr = "Ch"; break; case 0xD0A8: tr = "Sh"; break;
+                case 0xD0A9: tr = "Shch"; break; case 0xD0AA: tr = ""; break;
+                case 0xD0AB: tr = "Y"; break; case 0xD0AC: tr = ""; break;
+                case 0xD0AD: tr = "E"; break; case 0xD0AE: tr = "Yu"; break;
+                case 0xD0AF: tr = "Ya"; break;
+                case 0xD0B0: tr = "a"; break; case 0xD0B1: tr = "b"; break;
+                case 0xD0B2: tr = "v"; break; case 0xD0B3: tr = "g"; break;
+                case 0xD0B4: tr = "d"; break; case 0xD0B5: tr = "e"; break;
+                case 0xD191: tr = "yo"; break; case 0xD0B6: tr = "zh"; break;
+                case 0xD0B7: tr = "z"; break; case 0xD0B8: tr = "i"; break;
+                case 0xD0B9: tr = "y"; break; case 0xD0BA: tr = "k"; break;
+                case 0xD0BB: tr = "l"; break; case 0xD0BC: tr = "m"; break;
+                case 0xD0BD: tr = "n"; break; case 0xD0BE: tr = "o"; break;
+                case 0xD0BF: tr = "p"; break; case 0xD180: tr = "r"; break;
+                case 0xD181: tr = "s"; break; case 0xD182: tr = "t"; break;
+                case 0xD183: tr = "u"; break; case 0xD184: tr = "f"; break;
+                case 0xD185: tr = "kh"; break; case 0xD186: tr = "ts"; break;
+                case 0xD187: tr = "ch"; break; case 0xD188: tr = "sh"; break;
+                case 0xD189: tr = "shch"; break; case 0xD18A: tr = ""; break;
+                case 0xD18B: tr = "y"; break; case 0xD18C: tr = ""; break;
+                case 0xD18D: tr = "e"; break; case 0xD18E: tr = "yu"; break;
+                case 0xD18F: tr = "ya"; break;
+                default: tr = " "; break;
+            }
+            while (*tr && out_idx + 1 < max_dst) {
+                dst[out_idx++] = *tr++;
+            }
+            i += 2;
+        } else if (b1 == 0xE2 && i + 2 < src_len) {
+            uint8_t b2 = src[i+1], b3 = src[i+2];
+            if (b2 == 0x80 && (b3 == 0x98 || b3 == 0x99)) dst[out_idx++] = '\'';
+            else if (b2 == 0x80 && (b3 == 0x9C || b3 == 0x9D)) dst[out_idx++] = '"';
+            else if (b2 == 0x80 && (b3 == 0x93 || b3 == 0x94)) dst[out_idx++] = '-';
+            else dst[out_idx++] = ' ';
+            i += 3;
+        } else {
+            dst[out_idx++] = ' ';
+            i++;
+        }
+    }
+    dst[out_idx] = '\0';
+}
+
 static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *p,
                                          const ip_addr_t *addr, u16_t port) {
     (void)arg;
@@ -362,9 +449,11 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
             resp_is_receiving = resp_is_ready = false;
             break;
         case NET_MSG_RESP_TEXT:
-            if (!response_gate.ended && hdr.payload_len < sizeof(resp_text_buffer)) {
-                pbuf_copy_partial(p, resp_text_buffer, hdr.payload_len, sizeof hdr);
-                resp_text_buffer[hdr.payload_len] = '\0';
+            if (!response_gate.ended && hdr.payload_len > 0) {
+                uint8_t raw_text[512];
+                uint16_t copy_len = (hdr.payload_len < sizeof(raw_text)) ? hdr.payload_len : (uint16_t)(sizeof(raw_text) - 1);
+                pbuf_copy_partial(p, raw_text, copy_len, sizeof hdr);
+                sanitize_oled_text(resp_text_buffer, raw_text, copy_len, sizeof(resp_text_buffer));
                 ack = true;
             }
             break;

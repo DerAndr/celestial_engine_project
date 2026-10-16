@@ -294,6 +294,8 @@ def detect_language_from_text(text):
 def to_oled_ascii(text):
     """Converts unicode/cyrillic text to clean ASCII for OLED 5x7 display."""
     translit_map = {
+        'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss',
+        'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue',
         'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh',
         'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o',
         'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'kh', 'ц': 'ts',
@@ -319,7 +321,7 @@ def to_oled_ascii(text):
 def transcribe_audio(wav_path, lang_code):
     """Transcribes 16 kHz WAV audio to text using Google Web Speech."""
     if not HAS_SR:
-        return None, "ru-RU"
+        return None, "en-US"
 
     r = sr.Recognizer()
     r.operation_timeout = 15
@@ -331,9 +333,9 @@ def transcribe_audio(wav_path, lang_code):
             audio = r.record(source)
     except Exception as e:
         print(f"  [STT ERROR] Failed reading WAV: {e}")
-        return None, "ru-RU"
+        return None, "en-US"
 
-    target_lang = "ru-RU"
+    target_lang = "en-US"
     if lang_code == LANG_EN:
         target_lang = "en-US"
     elif lang_code == LANG_DE:
@@ -341,7 +343,7 @@ def transcribe_audio(wav_path, lang_code):
     elif lang_code == LANG_RU:
         target_lang = "ru-RU"
     else:
-        target_lang = "ru-RU"
+        target_lang = "en-US"
 
     print(f"  [STT] Processing audio ({audio.sample_rate}Hz, {audio.sample_width}B/s). Target: {target_lang}...")
     try:
