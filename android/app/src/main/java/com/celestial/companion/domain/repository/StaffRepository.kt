@@ -258,6 +258,13 @@ class StaffRepository(
                             val fullAnswer = StringBuilder()
                             gemmaEngine?.streamInference("Analyze voice inquiry from staff", audioBytes = audioData)?.collect { chunk ->
                                 when (chunk) {
+                                    is com.celestial.companion.ai.GemmaStreamChunk.PhaseChanged -> {
+                                        if (chunk.phase == com.celestial.companion.ai.AiProcessingPhase.ERROR) {
+                                            _telemetry.value = _telemetry.value.copy(
+                                                state = StaffState.IDLE
+                                            )
+                                        }
+                                    }
                                     is com.celestial.companion.ai.GemmaStreamChunk.OutputToken -> {
                                         fullAnswer.append(chunk.token)
                                         _telemetry.value = _telemetry.value.copy(

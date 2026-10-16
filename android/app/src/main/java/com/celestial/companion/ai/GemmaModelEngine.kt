@@ -7,9 +7,12 @@ import android.util.Log
 import com.celestial.companion.domain.model.StaffLanguage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.ByteArrayOutputStream
@@ -287,42 +290,36 @@ class GemmaModelEngine(
 
             val endpoint = config.apiBase.trimEnd('/') + "/chat/completions"
             val url = URL(endpoint)
-            val conn = withContext(Dispatchers.IO) {
-                (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    connectTimeout = 15000
-                    readTimeout = 30000
-                    doOutput = true
-                    doInput = true
-                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                    setRequestProperty("Authorization", "Bearer ${config.apiKey.trim()}")
-                    setRequestProperty("Accept", "text/event-stream")
-                    setRequestProperty("User-Agent", "CelestialEngineMk5-Companion/1.1")
-                }
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 15000
+                readTimeout = 30000
+                doOutput = true
+                doInput = true
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                setRequestProperty("Authorization", "Bearer ${config.apiKey.trim()}")
+                setRequestProperty("Accept", "text/event-stream")
+                setRequestProperty("User-Agent", "CelestialEngineMk5-Companion/1.1")
             }
 
-            withContext(Dispatchers.IO) {
+            try {
                 conn.outputStream.use { os ->
                     os.write(requestJson.toString().toByteArray(Charsets.UTF_8))
                     os.flush()
                 }
-            }
 
-            val responseCode = withContext(Dispatchers.IO) { conn.responseCode }
-            if (responseCode !in 200..299) {
-                val err = withContext(Dispatchers.IO) {
-                    conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
+                val responseCode = conn.responseCode
+                if (responseCode !in 200..299) {
+                    val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
+                    throw IOException("Server returned HTTP $responseCode: $err")
                 }
-                throw IOException("Server returned HTTP $responseCode: $err")
-            }
 
-            emit(GemmaStreamChunk.PhaseChanged(
-                if (config.enableThinking) AiProcessingPhase.THINKING else AiProcessingPhase.STREAMING,
-                "Receiving AI stream tokens..."
-            ))
+                emit(GemmaStreamChunk.PhaseChanged(
+                    if (config.enableThinking) AiProcessingPhase.THINKING else AiProcessingPhase.STREAMING,
+                    "Receiving AI stream tokens..."
+                ))
 
-            var insideThoughtTag = false
-            withContext(Dispatchers.IO) {
+                var insideThoughtTag = false
                 val reader = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8))
                 var line: String?
                 while (reader.readLine().also { line = it } != null) {
@@ -331,72 +328,113 @@ class GemmaModelEngine(
                     val data = l.substring(6).trim()
                     if (data == "[DONE]") break
 
-                    try {
-                        val chunkObj = JSONObject(data)
-                        val choices = chunkObj.optJSONArray("choices") ?: continue
-                        if (choices.length() == 0) continue
-                        val choice = choices.getJSONObject(0)
-                        val delta = choice.optJSONObject("delta") ?: continue
+                    val chunkObj = try {
+                        JSONObject(data)
+                    } catch (e: JSONException) {
+                        continue
+                    }
 
-                        // 1. Check for native reasoning_content (DeepSeek / Qwen think models)
-                        val reasoning = delta.optString("reasoning_content", "")
-                            .ifEmpty { delta.optString("reasoning", "") }
-                        if (reasoning.isNotEmpty()) {
-                            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Reasoning (CoT)"))
-                            emit(GemmaStreamChunk.ThoughtToken(reasoning))
-                            fullThoughtTrace.append(reasoning)
-                            tokenCount++
-                        }
+                    val choices = chunkObj.optJSONArray("choices") ?: continue
+                    if (choices.length() == 0) continue
+                    val choice = choices.getJSONObject(0)
+                    val delta = choice.optJSONObject("delta") ?: continue
 
-                        // 2. Regular content tokens
-                        val content = delta.optString("content", "")
-                        if (content.isNotEmpty()) {
-                            var remaining = content
-                            while (remaining.isNotEmpty()) {
-                                if (!insideThoughtTag) {
-                                    val tagStart = remaining.indexOf("<thought>")
-                                    if (tagStart != -1) {
-                                        if (tagStart > 0) {
-                                            val before = remaining.substring(0, tagStart)
-                                            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Streaming output"))
-                                            emit(GemmaStreamChunk.OutputToken(before))
-                                            fullAnswer.append(before)
-                                            tokenCount++
-                                        }
-                                        insideThoughtTag = true
-                                        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Reasoning (CoT)"))
-                                        remaining = remaining.substring(tagStart + 9)
-                                    } else {
+                    // 1. Check for native reasoning_content (DeepSeek / Qwen think models)
+                    val reasoning = delta.optString("reasoning_content", "")
+                        .ifEmpty { delta.optString("reasoning", "") }
+                    if (reasoning.isNotEmpty()) {
+                        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Reasoning (CoT)"))
+                        emit(GemmaStreamChunk.ThoughtToken(reasoning))
+                        fullThoughtTrace.append(reasoning)
+                        tokenCount++
+                    }
+
+                    // 2. Regular content tokens
+                    val content = delta.optString("content", "")
+                    if (content.isNotEmpty()) {
+                        var remaining = content
+                        while (remaining.isNotEmpty()) {
+                            if (!insideThoughtTag) {
+                                val thoughtIdx = remaining.indexOf("<thought>")
+                                val thinkIdx = remaining.indexOf("<think>")
+                                val tagStart = when {
+                                    thoughtIdx != -1 && thinkIdx != -1 -> minOf(thoughtIdx, thinkIdx)
+                                    thoughtIdx != -1 -> thoughtIdx
+                                    else -> thinkIdx
+                                }
+                                val tagLen = if (tagStart != -1 && tagStart == thoughtIdx) 9 else 7
+
+                                if (tagStart != -1) {
+                                    if (tagStart > 0) {
+                                        val before = remaining.substring(0, tagStart)
                                         emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Streaming output"))
-                                        emit(GemmaStreamChunk.OutputToken(remaining))
-                                        fullAnswer.append(remaining)
+                                        emit(GemmaStreamChunk.OutputToken(before))
+                                        fullAnswer.append(before)
                                         tokenCount++
-                                        remaining = ""
                                     }
+                                    insideThoughtTag = true
+                                    emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Reasoning (CoT)"))
+                                    remaining = remaining.substring(tagStart + tagLen)
                                 } else {
-                                    val tagEnd = remaining.indexOf("</thought>")
-                                    if (tagEnd != -1) {
-                                        val thoughtPart = remaining.substring(0, tagEnd)
+                                    emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Streaming output"))
+                                    emit(GemmaStreamChunk.OutputToken(remaining))
+                                    fullAnswer.append(remaining)
+                                    tokenCount++
+                                    remaining = ""
+                                }
+                            } else {
+                                val thoughtEnd = remaining.indexOf("</thought>")
+                                val thinkEnd = remaining.indexOf("</think>")
+                                val tagEnd = when {
+                                    thoughtEnd != -1 && thinkEnd != -1 -> minOf(thoughtEnd, thinkEnd)
+                                    thoughtEnd != -1 -> thoughtEnd
+                                    else -> thinkEnd
+                                }
+                                val closeTagLen = if (tagEnd != -1 && tagEnd == thoughtEnd) 10 else 8
+
+                                if (tagEnd != -1) {
+                                    val thoughtPart = remaining.substring(0, tagEnd)
+                                    if (thoughtPart.isNotEmpty()) {
                                         emit(GemmaStreamChunk.ThoughtToken(thoughtPart))
                                         fullThoughtTrace.append(thoughtPart)
                                         tokenCount++
-                                        insideThoughtTag = false
-                                        remaining = remaining.substring(tagEnd + 10).trimStart()
-                                    } else {
-                                        emit(GemmaStreamChunk.ThoughtToken(remaining))
-                                        fullThoughtTrace.append(remaining)
-                                        tokenCount++
-                                        remaining = ""
                                     }
+                                    insideThoughtTag = false
+                                    remaining = remaining.substring(tagEnd + closeTagLen).trimStart()
+                                } else {
+                                    emit(GemmaStreamChunk.ThoughtToken(remaining))
+                                    fullThoughtTrace.append(remaining)
+                                    tokenCount++
+                                    remaining = ""
                                 }
                             }
                         }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error parsing chunk: ${e.message}")
                     }
                 }
+            } finally {
+                conn.disconnect()
             }
-        } catch (e: Exception) {
+
+            val totalDurationMs = (System.currentTimeMillis() - t0).coerceAtLeast(1)
+            val tokPerSec = (tokenCount.toFloat() / (totalDurationMs / 1000f)).coerceAtLeast(0.1f)
+
+            val finalResult = GemmaResult(
+                prompt = prompt,
+                thoughtTrace = fullThoughtTrace.toString().trim(),
+                outputText = fullAnswer.toString().trim(),
+                latencyMs = totalDurationMs,
+                tokensPerSec = tokPerSec,
+                modalityUsed = modality,
+                modelTag = config.variant.tag
+            )
+
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Inference completed in ${totalDurationMs}ms"))
+            emit(GemmaStreamChunk.Complete(finalResult))
+        }
+        .catch { e ->
+            if (e is kotlinx.coroutines.CancellationException) {
+                throw e
+            }
             Log.e(TAG, "Inference error: ${e.message}", e)
             emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.ERROR, "Anomaly: ${e.localizedMessage}"))
             val errMsg = when (config.language) {
@@ -405,26 +443,8 @@ class GemmaModelEngine(
                 else -> "Connection error to AI core: ${e.localizedMessage ?: "Network unreachable"}. Please verify your device internet connection."
             }
             emit(GemmaStreamChunk.OutputToken(errMsg))
-            fullAnswer.append(errMsg)
-            tokenCount += 5
         }
-
-        val totalDurationMs = (System.currentTimeMillis() - t0).coerceAtLeast(1)
-        val tokPerSec = (tokenCount.toFloat() / (totalDurationMs / 1000f)).coerceAtLeast(0.1f)
-
-        val finalResult = GemmaResult(
-            prompt = prompt,
-            thoughtTrace = fullThoughtTrace.toString().trim(),
-            outputText = fullAnswer.toString().trim(),
-            latencyMs = totalDurationMs,
-            tokensPerSec = tokPerSec,
-            modalityUsed = modality,
-            modelTag = config.variant.tag
-        )
-
-        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Inference completed in ${totalDurationMs}ms"))
-        emit(GemmaStreamChunk.Complete(finalResult))
-    }
+        .flowOn(Dispatchers.IO)
 
     /**
      * One-shot synchronous/coroutine generation.
@@ -435,14 +455,17 @@ class GemmaModelEngine(
         audioBytes: ByteArray? = null
     ): GemmaResult = withContext(Dispatchers.Default) {
         var lastResult: GemmaResult? = null
+        val fallbackText = StringBuilder()
         streamInference(prompt, image, audioBytes).collect { chunk ->
-            if (chunk is GemmaStreamChunk.Complete) {
-                lastResult = chunk.result
+            when (chunk) {
+                is GemmaStreamChunk.OutputToken -> fallbackText.append(chunk.token)
+                is GemmaStreamChunk.Complete -> lastResult = chunk.result
+                else -> {}
             }
         }
         lastResult ?: GemmaResult(
             prompt = prompt,
-            outputText = "Celestial anomaly: inference interrupted.",
+            outputText = fallbackText.toString().ifBlank { "Celestial anomaly: inference interrupted." },
             latencyMs = 0,
             tokensPerSec = 0f,
             modalityUsed = "UNKNOWN",

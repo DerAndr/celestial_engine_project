@@ -214,6 +214,10 @@ class DashboardViewModel(
                     when (chunk) {
                         is GemmaStreamChunk.PhaseChanged -> {
                             _processingPhase.value = chunk.phase
+                            if (chunk.phase == AiProcessingPhase.ERROR) {
+                                liveTimerJob?.cancel()
+                                _isGenerating.value = false
+                            }
                         }
                         is GemmaStreamChunk.ThoughtToken -> {
                             _liveThoughtTrace.value += chunk.token
@@ -267,6 +271,7 @@ class DashboardViewModel(
                     }
                 }
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 liveTimerJob?.cancel()
                 _isGenerating.value = false
                 _processingPhase.value = AiProcessingPhase.ERROR
