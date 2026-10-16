@@ -527,11 +527,11 @@ fun DashboardScreen(
                             modifier = Modifier
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(if (telemetry.connected) EmeraldGreen else AmberWarning)
+                                .background(if (telemetry.isOnline) EmeraldGreen else RunicGold)
                         )
                         Text(
-                            text = if (telemetry.connected) "PICO 2 W SYNCED" else "LOCAL SIMULATION",
-                            color = if (telemetry.connected) EmeraldGreen else AmberWarning,
+                            text = if (telemetry.isOnline) "PICO 2 W SYNCED" else "LOCAL SIMULATION",
+                            color = if (telemetry.isOnline) EmeraldGreen else RunicGold,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace

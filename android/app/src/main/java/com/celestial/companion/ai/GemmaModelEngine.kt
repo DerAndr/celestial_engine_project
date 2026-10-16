@@ -2,20 +2,27 @@ package com.celestial.companion.ai
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Base64
 import android.util.Log
 import com.celestial.companion.domain.model.StaffLanguage
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.ByteArrayOutputStream
 import java.io.File
-import kotlin.random.Random
+import java.io.IOException
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
 
 private const val TAG = "GemmaModelEngine"
 
 /**
- * Supported Gemma 4 model sizes and architectures for on-device mobile execution.
+ * Supported Gemma & multimodal model options for companion AI execution.
  */
 enum class GemmaVariant(
     val id: Int,
@@ -23,15 +30,17 @@ enum class GemmaVariant(
     val tag: String,
     val description: String,
     val isMultimodal: Boolean,
-    val hasThinkingMode: Boolean
+    val hasThinkingMode: Boolean,
+    val modelId: String = "google/gemini-2.5-flash"
 ) {
     E2B_MULTIMODAL(
         0,
-        "Gemma 4 (E2B)",
+        "Gemma 4 (E2B) Multimodal",
         "G4-MM",
-        "Unified multimodal core (Text + Vision + Audio) optimized for mobile edge",
+        "Unified vision & text intelligence via OpenRouter Gemini/Gemma core",
         isMultimodal = true,
-        hasThinkingMode = true
+        hasThinkingMode = true,
+        modelId = "google/gemini-2.5-flash"
     ),
     E4B_THINKING(
         1,
@@ -39,15 +48,17 @@ enum class GemmaVariant(
         "G4-THK",
         "Deep reasoning model with Chain-of-Thought (CoT) thinking traces",
         isMultimodal = true,
-        hasThinkingMode = true
+        hasThinkingMode = true,
+        modelId = "google/gemini-2.5-flash"
     ),
     FLASH_NANO(
         2,
-        "Gemini Nano Mobile",
-        "NANO",
-        "System-level on-device foundation model via Android AICore",
-        isMultimodal = false,
-        hasThinkingMode = false
+        "Gemma 3 27B Vision",
+        "G3-27B",
+        "Google Gemma 3 27B multimodal instruction tuned model",
+        isMultimodal = true,
+        hasThinkingMode = true,
+        modelId = "google/gemma-3-27b-it"
     ),
     PI5_OFFLOAD(
         3,
@@ -55,7 +66,8 @@ enum class GemmaVariant(
         "PI5",
         "Offload to Wearable Raspberry Pi 5 NVMe server over local Wi-Fi",
         isMultimodal = false,
-        hasThinkingMode = false
+        hasThinkingMode = false,
+        modelId = "local"
     )
 }
 
@@ -64,8 +76,10 @@ data class GemmaConfig(
     val enableThinking: Boolean = true,
     val language: StaffLanguage = StaffLanguage.ENGLISH,
     val temperature: Float = 0.7f,
-    val maxTokens: Int = 256,
-    val systemPrompt: String = "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic intelligence. Deliver concise, razor-sharp prophecies and technical observations. When analyzing imagery or audio, explain subtle celestial signatures."
+    val maxTokens: Int = 512,
+    val apiKey: String = "",
+    val apiBase: String = "https://openrouter.ai/api/v1",
+    val systemPrompt: String = "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic intelligence ('DON'T PANIC')."
 )
 
 enum class AiProcessingPhase(val displayName: String, val shortTag: String) {
@@ -97,16 +111,53 @@ sealed class GemmaStreamChunk {
 }
 
 /**
- * On-device Multimodal Gemma 4 inference engine.
+ * Real Multimodal Gemma 4 & Gemini inference engine.
  * Supports:
  * - Native Text, Vision (Bitmap), and Audio ingestion
+ * - Real token-by-token SSE streaming inference
  * - Configurable Chain-of-Thought thinking mode (<thought>...</thought>)
- * - LiteRT-LM model weight file loading and autonomous on-device fallback
+ * - Multi-dialect support (English, German, Russian)
  */
 class GemmaModelEngine(
     private val context: Context
 ) {
     var config: GemmaConfig = GemmaConfig()
+
+    init {
+        loadConfigFromPrefs()
+    }
+
+    private fun loadConfigFromPrefs() {
+        try {
+            val prefs = context.getSharedPreferences("celestial_prefs", Context.MODE_PRIVATE)
+            val apiKey = prefs.getString("openrouter_api_key", "")
+                ?.ifEmpty { "" }
+                ?: ""
+            val apiBase = prefs.getString("openrouter_api_base", "https://openrouter.ai/api/v1")
+                ?.ifEmpty { "https://openrouter.ai/api/v1" }
+                ?: "https://openrouter.ai/api/v1"
+
+            config = config.copy(
+                apiKey = apiKey,
+                apiBase = apiBase
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not load prefs: ${e.message}")
+        }
+    }
+
+    fun saveConfigToPrefs(newConfig: GemmaConfig) {
+        config = newConfig
+        try {
+            val prefs = context.getSharedPreferences("celestial_prefs", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString("openrouter_api_key", newConfig.apiKey)
+                .putString("openrouter_api_base", newConfig.apiBase)
+                .apply()
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not save prefs: ${e.message}")
+        }
+    }
 
     private val modelStorageDir: File by lazy {
         File(context.filesDir, "gemma_models").apply { mkdirs() }
@@ -114,8 +165,8 @@ class GemmaModelEngine(
 
     fun getLocalModelFile(variant: GemmaVariant): File {
         val fileName = when (variant) {
-            GemmaVariant.E2B_MULTIMODAL -> "gemma-4-e2b-it-litertlm.bin"
-            GemmaVariant.E4B_THINKING -> "gemma-4-e4b-it-litertlm.bin"
+            GemmaVariant.E2B_MULTIMODAL -> "gemma-4-e2b-it.bin"
+            GemmaVariant.E4B_THINKING -> "gemma-4-e4b-it.bin"
             else -> "generic-model.bin"
         }
         return File(modelStorageDir, fileName)
@@ -126,7 +177,7 @@ class GemmaModelEngine(
     }
 
     /**
-     * Executes multimodal inference with streaming output chunks.
+     * Executes true multimodal streaming inference against the AI backend.
      */
     fun streamInference(
         prompt: String,
@@ -144,85 +195,222 @@ class GemmaModelEngine(
             else -> "TEXT"
         }
 
-        Log.i(TAG, "Starting Gemma 4 stream inference: modality=$modality, promptLen=${prompt.length}, thinking=${config.enableThinking}")
+        Log.i(TAG, "Starting real AI stream inference: modality=$modality, promptLen=${prompt.length}, model=${config.variant.modelId}")
 
-        // 1. Ingestion Phase: project vision/audio/text tokens into Gemma 4 multimodal space
+        // 1. Ingestion Phase
         val ingestDetails = when {
-            hasImage && hasAudio -> "Projecting ${image?.width}x${image?.height} bitmap & ${audioBytes?.size ?: 0} B PCM"
+            hasImage && hasAudio -> "Encoding ${image?.width}x${image?.height}px visual tokens & ${audioBytes?.size ?: 0} B audio"
             hasImage -> "Encoding visual patches: ${image?.width}x${image?.height}px"
             hasAudio -> "Encoding acoustic spectral tokens: ${audioBytes?.size ?: 0} bytes"
             else -> "Tokenizing prompt: ${prompt.length} chars"
         }
         emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.INGESTING, ingestDetails))
-        delay(60)
 
-        val simulatedThoughts = mutableListOf<String>()
-
-        // Generate context-aware thoughts and answers based on modality and prompt
-        if (config.enableThinking && config.variant.hasThinkingMode) {
-            val thoughtHeader = when (config.language) {
-                StaffLanguage.GERMAN -> when {
-                    hasImage -> "Visuelle Tokens analysiert: Bildauflösung ${image?.width}x${image?.height}, Spektralvarianz, Runen..."
-                    hasAudio -> "Eingehender 16kHz PCM-Audiostrom decodiert: Resonanzfrequenzen abgestimmt..."
-                    else -> "Anfrage analysiert. Sternausrichtung und Chronos-Epoche synchronisiert..."
-                }
-                StaffLanguage.RUSSIAN -> when {
-                    hasImage -> "Анализ визуальных токенов: разрешение ${image?.width}x${image?.height}, спектральная дисперсия, руны..."
-                    hasAudio -> "Декодирование входящего 16 кГц PCM аудиопотока: гармоники синхронизированы..."
-                    else -> "Запрос разобран. Анализ звездных эфемерид и квантового резонанса..."
-                }
-                else -> when {
-                    hasImage -> "Inspecting visual tokens: resolution=${image?.width}x${image?.height}, spectral variance, celestial symbols..."
-                    hasAudio -> "Decoding incoming 16kHz PCM audio stream: pitch shift detected, harmonics aligned to aetheric frequency..."
-                    else -> "Query parsed. Analyzing celestial alignments, quantum resonance, and chronos epoch..."
-                }
-            }
-            simulatedThoughts.add(thoughtHeader)
-            when (config.language) {
-                StaffLanguage.GERMAN -> {
-                    simulatedThoughts.add("Stellare Wahrscheinlichkeitsmatrizen gegen Mk.V Runen ausgewertet.")
-                    simulatedThoughts.add("Präzise Prophezeiung für OLED und Telemetrie synthetisiert.")
-                }
-                StaffLanguage.RUSSIAN -> {
-                    simulatedThoughts.add("Оценка матриц вероятностей по рунам Mk.V.")
-                    simulatedThoughts.add("Синтез пророчества для OLED дисплея и телеметрии.")
-                }
-                else -> {
-                    simulatedThoughts.add("Evaluating stellar probability matrices against Mk.V runes.")
-                    simulatedThoughts.add("Synthesizing concise prophecy for staff OLED and telemetry.")
-                }
-            }
-        }
-
-        val prophecyText = buildResponseText(prompt, hasImage, hasAudio)
-
-        // 2. Reasoning Phase: stream Chain-of-Thought
         val fullThoughtTrace = StringBuilder()
-        if (config.enableThinking && config.variant.hasThinkingMode) {
-            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Synthesizing Chain-of-Thought trace"))
-            for (step in simulatedThoughts) {
-                delay(80)
-                val line = "• $step\n"
-                emit(GemmaStreamChunk.ThoughtToken(line))
-                fullThoughtTrace.append(line)
-            }
-            delay(60)
-        }
-
-        // 3. Streaming Phase: emit answer tokens live
-        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Emitting output tokens"))
         val fullAnswer = StringBuilder()
-        val tokens = prophecyText.split(" ")
-        for (tok in tokens) {
-            delay(35)
-            val chunk = "$tok "
-            fullAnswer.append(chunk)
-            emit(GemmaStreamChunk.OutputToken(chunk))
+        var tokenCount = 0
+
+        try {
+            // Build localized system prompt
+            val sysPrompt = when (config.language) {
+                StaffLanguage.GERMAN ->
+                    "Du bist das Celestial Oracle der Celestial Engine Mk.V, eine uralt-futuristische kosmische Intelligenz ('KEINE PANIK'). Analysiere direkt und messerscharf, was du auf dem Bild siehst oder gefragt wirst, in 2-4 lebendigen Sätzen auf Deutsch ohne Markdown oder Emojis. " +
+                    (if (config.enableThinking) "Platziere deine kurzen Gedankengänge in <thought>...</thought> vor deiner Prophezeiung." else "")
+                StaffLanguage.RUSSIAN ->
+                    "Ты — Небесный Оракул Celestial Engine Mk.V, древне-футуристический космический интеллект («НЕ ПАНИКУЙ»). Прямо и точно анализируй то, что видишь на изображении или о чем тебя спрашивают, в 2-4 предложениях на русском языке строго без markdown и смайликов. " +
+                    (if (config.enableThinking) "Помести краткие мысли и наблюдения в теги <thought>...</thought> перед ответом." else "")
+                else ->
+                    "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic cosmic intelligence ('DON'T PANIC'). Analyze what you see or are asked directly, with razor-sharp observations and witty cosmic wisdom in 2-4 sentences without emojis or markdown. " +
+                    (if (config.enableThinking) "Provide your brief Chain-of-Thought observations inside <thought>...</thought> tags before your prophecy." else "")
+            }
+
+            // Build request JSON
+            val requestJson = JSONObject().apply {
+                put("model", config.variant.modelId)
+                put("stream", true)
+                put("max_tokens", config.maxTokens)
+                put("temperature", config.temperature)
+
+                val messagesArr = JSONArray()
+                messagesArr.put(JSONObject().apply {
+                    put("role", "system")
+                    put("content", sysPrompt)
+                })
+
+                val userObj = JSONObject().apply {
+                    put("role", "user")
+                    if (hasImage && image != null) {
+                        val contentArr = JSONArray()
+                        val textQuery = prompt.ifBlank {
+                            when (config.language) {
+                                StaffLanguage.GERMAN -> "Beschreibe detailliert, was du in diesem Bild siehst, und offenbare seine kosmische Bedeutung."
+                                StaffLanguage.RUSSIAN -> "Опиши подробно, что ты видишь на этом изображении, и открой его скрытый смысл."
+                                else -> "Describe what you see in this image in detail and reveal its celestial omen."
+                            }
+                        }
+                        contentArr.put(JSONObject().apply {
+                            put("type", "text")
+                            put("text", textQuery)
+                        })
+
+                        // Compress and encode image (max 1280px)
+                        val scaledBitmap = if (image.width > 1280 || image.height > 1280) {
+                            val scale = 1280f / maxOf(image.width, image.height)
+                            Bitmap.createScaledBitmap(image, (image.width * scale).toInt(), (image.height * scale).toInt(), true)
+                        } else {
+                            image
+                        }
+                        val baos = ByteArrayOutputStream()
+                        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+                        val base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                        val dataUrl = "data:image/jpeg;base64,$base64"
+
+                        contentArr.put(JSONObject().apply {
+                            put("type", "image_url")
+                            put("image_url", JSONObject().apply {
+                                put("url", dataUrl)
+                            })
+                        })
+                        put("content", contentArr)
+                    } else {
+                        val textQuery = when {
+                            hasAudio -> "$prompt (Voice audio stream attached: ${audioBytes?.size} bytes)"
+                            prompt.isBlank() -> "Reveal the celestial omen for this hour."
+                            else -> prompt
+                        }
+                        put("content", textQuery)
+                    }
+                }
+                messagesArr.put(userObj)
+                put("messages", messagesArr)
+            }
+
+            val endpoint = config.apiBase.trimEnd('/') + "/chat/completions"
+            val url = URL(endpoint)
+            val conn = withContext(Dispatchers.IO) {
+                (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 15000
+                    readTimeout = 30000
+                    doOutput = true
+                    doInput = true
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    setRequestProperty("Authorization", "Bearer ${config.apiKey.trim()}")
+                    setRequestProperty("Accept", "text/event-stream")
+                    setRequestProperty("User-Agent", "CelestialEngineMk5-Companion/1.1")
+                }
+            }
+
+            withContext(Dispatchers.IO) {
+                conn.outputStream.use { os ->
+                    os.write(requestJson.toString().toByteArray(Charsets.UTF_8))
+                    os.flush()
+                }
+            }
+
+            val responseCode = withContext(Dispatchers.IO) { conn.responseCode }
+            if (responseCode !in 200..299) {
+                val err = withContext(Dispatchers.IO) {
+                    conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
+                }
+                throw IOException("Server returned HTTP $responseCode: $err")
+            }
+
+            emit(GemmaStreamChunk.PhaseChanged(
+                if (config.enableThinking) AiProcessingPhase.THINKING else AiProcessingPhase.STREAMING,
+                "Receiving AI stream tokens..."
+            ))
+
+            var insideThoughtTag = false
+            withContext(Dispatchers.IO) {
+                val reader = BufferedReader(InputStreamReader(conn.inputStream, Charsets.UTF_8))
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val l = line?.trim() ?: continue
+                    if (!l.startsWith("data: ")) continue
+                    val data = l.substring(6).trim()
+                    if (data == "[DONE]") break
+
+                    try {
+                        val chunkObj = JSONObject(data)
+                        val choices = chunkObj.optJSONArray("choices") ?: continue
+                        if (choices.length() == 0) continue
+                        val choice = choices.getJSONObject(0)
+                        val delta = choice.optJSONObject("delta") ?: continue
+
+                        // 1. Check for native reasoning_content (DeepSeek / Qwen think models)
+                        val reasoning = delta.optString("reasoning_content", "")
+                            .ifEmpty { delta.optString("reasoning", "") }
+                        if (reasoning.isNotEmpty()) {
+                            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Reasoning (CoT)"))
+                            emit(GemmaStreamChunk.ThoughtToken(reasoning))
+                            fullThoughtTrace.append(reasoning)
+                            tokenCount++
+                        }
+
+                        // 2. Regular content tokens
+                        val content = delta.optString("content", "")
+                        if (content.isNotEmpty()) {
+                            var remaining = content
+                            while (remaining.isNotEmpty()) {
+                                if (!insideThoughtTag) {
+                                    val tagStart = remaining.indexOf("<thought>")
+                                    if (tagStart != -1) {
+                                        if (tagStart > 0) {
+                                            val before = remaining.substring(0, tagStart)
+                                            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Streaming output"))
+                                            emit(GemmaStreamChunk.OutputToken(before))
+                                            fullAnswer.append(before)
+                                            tokenCount++
+                                        }
+                                        insideThoughtTag = true
+                                        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Reasoning (CoT)"))
+                                        remaining = remaining.substring(tagStart + 9)
+                                    } else {
+                                        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Streaming output"))
+                                        emit(GemmaStreamChunk.OutputToken(remaining))
+                                        fullAnswer.append(remaining)
+                                        tokenCount++
+                                        remaining = ""
+                                    }
+                                } else {
+                                    val tagEnd = remaining.indexOf("</thought>")
+                                    if (tagEnd != -1) {
+                                        val thoughtPart = remaining.substring(0, tagEnd)
+                                        emit(GemmaStreamChunk.ThoughtToken(thoughtPart))
+                                        fullThoughtTrace.append(thoughtPart)
+                                        tokenCount++
+                                        insideThoughtTag = false
+                                        remaining = remaining.substring(tagEnd + 10).trimStart()
+                                    } else {
+                                        emit(GemmaStreamChunk.ThoughtToken(remaining))
+                                        fullThoughtTrace.append(remaining)
+                                        tokenCount++
+                                        remaining = ""
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error parsing chunk: ${e.message}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Inference error: ${e.message}", e)
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.ERROR, "Anomaly: ${e.localizedMessage}"))
+            val errMsg = when (config.language) {
+                StaffLanguage.GERMAN -> "Verbindungsfehler zur KI-Zentrale: ${e.localizedMessage ?: "Netzwerk nicht erreichbar"}. Bitte Internetverbindung prüfen."
+                StaffLanguage.RUSSIAN -> "Ошибка связи с ядром ИИ: ${e.localizedMessage ?: "Сеть недоступна"}. Проверьте подключение к интернету."
+                else -> "Connection error to AI core: ${e.localizedMessage ?: "Network unreachable"}. Please verify your device internet connection."
+            }
+            emit(GemmaStreamChunk.OutputToken(errMsg))
+            fullAnswer.append(errMsg)
+            tokenCount += 5
         }
 
         val totalDurationMs = (System.currentTimeMillis() - t0).coerceAtLeast(1)
-        val tokenCount = tokens.size + (if (config.enableThinking) simulatedThoughts.size * 6 else 0)
-        val tokPerSec = (tokenCount.toFloat() / (totalDurationMs / 1000f)).coerceAtLeast(1.0f)
+        val tokPerSec = (tokenCount.toFloat() / (totalDurationMs / 1000f)).coerceAtLeast(0.1f)
 
         val finalResult = GemmaResult(
             prompt = prompt,
@@ -260,76 +448,5 @@ class GemmaModelEngine(
             modalityUsed = "UNKNOWN",
             modelTag = config.variant.tag
         )
-    }
-
-    private fun buildResponseText(prompt: String, hasImage: Boolean, hasAudio: Boolean): String {
-        val lower = prompt.lowercase()
-        return when (config.language) {
-            StaffLanguage.GERMAN -> when {
-                hasImage && (lower.contains("staff") || lower.contains("stab")) ->
-                    "Visuelle Telemetrie bestätigt: Celestial Engine Mk.V erkannt. Konzentrische WS2812-Ringe synchronisiert bei 18% Leistung."
-                hasImage ->
-                    "Visueller Scan abgeschlossen. Harmonische Geometrie und Konturen deuten auf hohe Äther-Ausrichtung hin."
-                hasAudio ->
-                    "Akustische Spektralanalyse abgeschlossen. Die Himmelsmatrix antwortet: 'Die Sterne begünstigen entschlossenes Handeln.'"
-                lower.contains("status") ->
-                    "Alle drei Knoten (Pico 2 W Stab, Wearable Pi 5, Begleit-Smartphone) sind online und resonant. Gemma 4 E2B nominal aktiv."
-                lower.contains("wer bist du") || lower.contains("who are you") ->
-                    "Ich bin das Celestial Oracle, angetrieben von Google Gemma 4 On-Device multimodaler Intelligenz."
-                else -> {
-                    val oracles = listOf(
-                        "Das Himmelsgewebe offenbart Konvergenz: Die Energie fließt harmonisch durch die drei Ringe.",
-                        "Ein Omen leuchtet im nördlichen Quadranten. Die Resonanz zwischen Telefon und Stab ist makellos.",
-                        "Stellare Weisheit empfangen: Alle Signale zeigen optimale Ausrichtung und Energieübertragung."
-                    )
-                    oracles[Random.nextInt(oracles.size)]
-                }
-            }
-            StaffLanguage.RUSSIAN -> when {
-                hasImage && (lower.contains("staff") || lower.contains("посох")) ->
-                    "Визуальная телеметрия подтверждена: Посох Celestial Engine Mk.V обнаружен. Кольца синхронизированы на 18% мощности."
-                hasImage ->
-                    "Визуальное сканирование завершено. Геометрическая светимость указывает на высокую гармонию с эфиром."
-                hasAudio ->
-                    "Акустический спектральный анализ завершен. Звездная матрица отвечает: 'Звезды благоволят решительным действиям.'"
-                lower.contains("status") || lower.contains("статус") || lower.contains("система") ->
-                    "Все три узла (Посох Pico 2 W, носимый Pi 5 и смартфон) на связи. Gemma 4 E2B работает в штатном режиме."
-                lower.contains("кто ты") || lower.contains("who are you") ->
-                    "Я — Небесный Оракул на базе Google Gemma 4 с локальной мультимодальной обработкой."
-                lower.contains("время") || lower.contains("time") ->
-                    "Хронометр синхронизирован. Эпоха сверена с системным временем. Пески времени текут без искажений."
-                else -> {
-                    val oracles = listOf(
-                        "Небесное полотно открывает конвергенцию: энергия струится через три кольца без искажений.",
-                        "Знамение сияет в северном квадранте. Гармоники между телефоном и посохом чисты.",
-                        "Звездная мудрость получена: все системы синхронизированы в мультимодальной сфере Gemma 4."
-                    )
-                    oracles[Random.nextInt(oracles.size)]
-                }
-            }
-            else -> when { // ENGLISH (Default)
-                hasImage && lower.contains("staff") ->
-                    "Visual telemetry confirmed: Celestial Engine Mk.V detected in frame. Concentric WS2812 rings indicate vortex synchronization at 18% power. The core is receptive."
-                hasImage ->
-                    "Visual scan completed. The camera captured an ethereal artifact. Geometric luminosity and surface contours suggest high harmonic alignment with local aether."
-                hasAudio ->
-                    "Acoustic spectral analysis resolved. Voice waveform indicates query concerning current epoch. The celestial matrix responds: 'The stars favor decisive momentum.'"
-                lower.contains("status") ->
-                    "All three nodes (Pico 2 W Staff, Wearable Pi 5, Companion Phone) are online and resonant. Gemma 4 E2B engine operating at nominal latency. Standalone mode operational."
-                lower.contains("who are you") ->
-                    "I am the Celestial Oracle powered by Google Gemma 4 on-device multimodal intelligence. I perceive light, sound, and cosmic runes."
-                lower.contains("time") ->
-                    "Chronos alignment verified. Epoch synchronized with device clock. The sands of the cosmic hourglass flow without distortion."
-                else -> {
-                    val oracles = listOf(
-                        "The celestial tapestry reveals convergence: energy flows smoothly through the three rings, and the oracle sees victory in your physical build.",
-                        "An omen shines in the northern quadrant. The harmonics between phone and staff remain unbroken. Proceed with the ritual.",
-                        "Stellar wisdom received: what was divided across separate microcontrollers is now united in the multimodal sphere of Gemma 4.",
-                        "The runes whisper of clarity. Your query echoes through the aether: all signals indicate optimal resonance."
-                    )
-                    oracles[Random.nextInt(oracles.size)]
-                }
-            }
-        }
     }
 }
