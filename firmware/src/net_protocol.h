@@ -68,12 +68,15 @@ typedef enum {
 } staff_lang_id_t;
 
 typedef enum {
-    AI_MODEL_DEEPSEEK = 0,  // deepseek/deepseek-chat (Deep Thought — fastest & cheapest)
-    AI_MODEL_MISTRAL  = 1,  // mistralai/ministral-8b-2512 (Eddie the Ship Computer)
-    AI_MODEL_GROK     = 2,  // x-ai/grok-4.5 (Grok 4.5 Hitchhiker)
-    AI_MODEL_LLAMA    = 3,  // meta-llama/llama-3.3-70b-instruct (Marvin 70B)
-    AI_MODEL_LOCAL    = 4,  // Local Pi 5 Autonomous Core (100% Offline)
-    AI_MODEL_COUNT
+    AI_MODEL_DEEPSEEK    = 0,  // DeepSeek V3 (Deep Thought)
+    AI_MODEL_MISTRAL     = 1,  // Ministral 8B (Eddie)
+    AI_MODEL_GROK        = 2,  // Grok 4.5
+    AI_MODEL_LLAMA       = 3,  // Llama 3.3 70B (Marvin)
+    AI_MODEL_QWEN_05B    = 4,  // Qwen 2.5 0.5B Ultra-Fast Local (~3.5s)
+    AI_MODEL_GEMMA4_E2B  = 5,  // Gemma 4 Distilled 2B Local (~10s)
+    AI_MODEL_DEEPSEEK_R1 = 6,  // DeepSeek-R1 1.5B Distilled Reasoning Local
+    AI_MODEL_QWEN_15B    = 7,  // Qwen 2.5 1.5B Core Local
+    AI_MODEL_COUNT       = 8
 } staff_ai_model_id_t;
 
 #pragma pack(push, 1)

@@ -67,16 +67,31 @@ static net_host_type_t active_host_type = HOST_TYPE_NONE;
 static net_host_type_t preferred_host = HOST_TYPE_NONE;
 static char active_host_name[16] = "STANDBY";
 
-static const net_catalog_resp_t DEFAULT_STANDALONE_CATALOG = {
-    .host_type = HOST_TYPE_NONE,
-    .host_name = "STANDALONE",
-    .model_count = 5,
+static const net_catalog_resp_t DEFAULT_PI5_CATALOG = {
+    .host_type = HOST_TYPE_PI5,
+    .host_name = "PI 5 BRAIN",
+    .model_count = 8,
     .models = {
-        { 0, 0, "DEEP THOUGHT", "42" },
-        { 1, 1, "EDDIE (8B)",   "EDD" },
-        { 2, 2, "GROK 4.5",     "GRK" },
-        { 3, 3, "MARVIN (70B)", "MRV" },
-        { 4, 4, "PI 5 LOCAL",   "LOC" }
+        { 0, 0, "DEEP THOUGHT",   "42"  },
+        { 1, 1, "EDDIE (8B)",     "EDD" },
+        { 2, 2, "GROK 4.5",       "GRK" },
+        { 3, 3, "MARVIN (70B)",   "MRV" },
+        { 4, 4, "QWEN 0.5B FAST", "Q05" },
+        { 5, 4, "GEMMA 4 (E2B)",  "G4"  },
+        { 6, 2, "DEEPSEEK R1",    "R1"  },
+        { 7, 3, "QWEN 1.5B CORE", "Q15" }
+    }
+};
+
+static const net_catalog_resp_t DEFAULT_PHONE_CATALOG = {
+    .host_type = HOST_TYPE_PHONE,
+    .host_name = "PHONE BRAIN",
+    .model_count = 4,
+    .models = {
+        { 0, 4, "Gemma 4 (E2B)",  "G4-MM" },
+        { 1, 1, "Gemma 4 Think",  "G4THK" },
+        { 2, 0, "Gemini Nano",    "NANO"  },
+        { 3, 2, "Pi 5 Core",      "PI5"   }
     }
 };
 
@@ -413,8 +428,7 @@ void net_client_init(void) {
     active_server_port = get_current_server_port();
     ipaddr_aton(get_current_server_ip_str(), &server_ip_addr);
     ipaddr_aton(BRAIN_SERVER_IP, &pi5_server_ip_addr);
-    pi5_server_port = BRAIN_SERVER_PORT;
-    memcpy(&active_catalog, &DEFAULT_STANDALONE_CATALOG, sizeof(active_catalog));
+    memcpy(&active_catalog, &DEFAULT_PI5_CATALOG, sizeof(active_catalog));
     active_host_type = HOST_TYPE_NONE;
     strncpy(active_host_name, "STANDBY", sizeof(active_host_name));
     request_counter = get_rand_32(); /* Reboot must not reuse a still-running worker's ID. */
@@ -823,7 +837,7 @@ uint8_t net_client_get_model_count(void) {
 
 const char* net_client_get_model_name(uint8_t idx) {
     if (active_catalog.model_count == 0) {
-        if (idx == 0) return DEFAULT_STANDALONE_CATALOG.models[0].name;
+        if (idx == 0) return DEFAULT_PI5_CATALOG.models[0].name;
         return "UNKNOWN";
     }
     if (idx >= active_catalog.model_count) return "UNKNOWN";
@@ -832,7 +846,7 @@ const char* net_client_get_model_name(uint8_t idx) {
 
 const char* net_client_get_model_tag(uint8_t idx) {
     if (active_catalog.model_count == 0) {
-        if (idx == 0) return DEFAULT_STANDALONE_CATALOG.models[0].tag;
+        if (idx == 0) return DEFAULT_PI5_CATALOG.models[0].tag;
         return "???";
     }
     if (idx >= active_catalog.model_count) return "???";
@@ -862,7 +876,8 @@ void net_client_set_preferred_host(net_host_type_t pref) {
             memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
             strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
         } else {
-            strncpy(active_host_name, "PHONE BRAIN", sizeof(active_host_name));
+            memcpy(&active_catalog, &DEFAULT_PHONE_CATALOG, sizeof(active_catalog));
+            strncpy(active_host_name, DEFAULT_PHONE_CATALOG.host_name, sizeof(active_host_name));
         }
         printf("[NET] Host preference locked to PHONE BRAIN\n");
     } else if (pref == HOST_TYPE_PI5) {
@@ -873,7 +888,8 @@ void net_client_set_preferred_host(net_host_type_t pref) {
             memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
             strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
         } else {
-            strncpy(active_host_name, "PI 5 BRAIN", sizeof(active_host_name));
+            memcpy(&active_catalog, &DEFAULT_PI5_CATALOG, sizeof(active_catalog));
+            strncpy(active_host_name, DEFAULT_PI5_CATALOG.host_name, sizeof(active_host_name));
         }
         printf("[NET] Host preference locked to PI 5 BRAIN\n");
     } else {
@@ -885,6 +901,9 @@ void net_client_set_preferred_host(net_host_type_t pref) {
             if (has_pi5_catalog) {
                 memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
                 strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
+            } else {
+                memcpy(&active_catalog, &DEFAULT_PI5_CATALOG, sizeof(active_catalog));
+                strncpy(active_host_name, DEFAULT_PI5_CATALOG.host_name, sizeof(active_host_name));
             }
         } else if (has_phone_catalog || has_paired_companion) {
             active_host_type = HOST_TYPE_PHONE;
@@ -895,9 +914,16 @@ void net_client_set_preferred_host(net_host_type_t pref) {
             if (has_phone_catalog) {
                 memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
                 strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+            } else {
+                memcpy(&active_catalog, &DEFAULT_PHONE_CATALOG, sizeof(active_catalog));
+                strncpy(active_host_name, DEFAULT_PHONE_CATALOG.host_name, sizeof(active_host_name));
             }
+        } else {
+            memcpy(&active_catalog, &DEFAULT_PI5_CATALOG, sizeof(active_catalog));
+            strncpy(active_host_name, DEFAULT_PI5_CATALOG.host_name, sizeof(active_host_name));
         }
     }
+    net_client_request_catalog();
 }
 
 net_host_type_t net_client_get_preferred_host(void) {

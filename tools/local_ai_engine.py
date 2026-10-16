@@ -28,8 +28,8 @@ PIPER_VOICES = {
 }
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-DEFAULT_LOCAL_MODEL = "qwen2.5:1.5b"  # High-speed multilingual polyglot (Best latency/quality on Pi 5)
-AVAILABLE_LOCAL_MODELS = ["qwen2.5:1.5b", "gemma2:2b", "gemma4:e2b", "qwen2.5:0.5b", "llama3.2:1b"]
+DEFAULT_LOCAL_MODEL = "qwen2.5:0.5b"  # Ultra-low latency distilled polyglot (Fastest response on Pi 5)
+AVAILABLE_LOCAL_MODELS = ["qwen2.5:0.5b", "gemma4:e2b", "deepseek-r1:1.5b", "qwen2.5:1.5b", "gemma2:2b", "llama3.2:1b"]
 
 def get_configured_local_model():
     """Reads configured local model from brain_config.json, defaulting to gemma2:2b."""

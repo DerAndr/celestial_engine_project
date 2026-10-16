@@ -2278,8 +2278,14 @@ int main(void) {
                                                 (pref == HOST_TYPE_PI5)   ? HOST_TYPE_PHONE :
                                                                             HOST_TYPE_NONE;
                     net_client_set_preferred_host(next_pref);
+                    uint8_t m_cnt = net_client_get_model_count();
+                    if (active_ai_model_idx >= m_cnt) {
+                        active_ai_model_idx = 0;
+                    }
+                    leds_set_ai_model(net_client_get_model_theme(active_ai_model_idx));
                     audio_play_chime();
-                    LOG_INFO("AI_MODEL", "Toggled preferred host to: %d", next_pref);
+                    LOG_INFO("AI_MODEL", "Toggled preferred host to: %d (Active Core: %s)",
+                             next_pref, net_client_get_model_name(active_ai_model_idx));
                     need_display_update = true;
                 } else {
                     ai_model_edit_mode = false;

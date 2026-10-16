@@ -76,7 +76,17 @@ MODEL_PRESETS = {
     1: ("mistralai/ministral-8b-2512", "Eddie (Ministral 8B)"),
     2: ("x-ai/grok-4.5", "Grok 4.5"),
     3: ("meta-llama/llama-3.3-70b-instruct", "Marvin (Llama 70B)"),
-    4: ("local/llama3.2:1b", "Local Pi 5 (Offline Autonomous)")
+    4: ("local/qwen2.5:0.5b", "Qwen 0.5B Fast (Pi 5)"),
+    5: ("local/gemma4:e2b", "Gemma 4 E2B (Pi 5)"),
+    6: ("local/deepseek-r1:1.5b", "DeepSeek R1 (Pi 5)"),
+    7: ("local/qwen2.5:1.5b", "Qwen 1.5B Core (Pi 5)")
+}
+
+LOCAL_MODELS_BY_PRESET = {
+    4: "qwen2.5:0.5b",
+    5: "gemma4:e2b",
+    6: "deepseek-r1:1.5b",
+    7: "qwen2.5:1.5b"
 }
 
 
@@ -569,7 +579,7 @@ def process_query_worker(transport, session):
             wf.writeframes(cleaned_pcm)
         config = load_config()
         force_local = config.get("force_local_ai", False)
-        use_local_pipeline = (session.model == 4 or force_local) and HAS_LOCAL_AI
+        use_local_pipeline = (session.model in LOCAL_MODELS_BY_PRESET or session.model >= 4 or force_local) and HAS_LOCAL_AI
 
         # STT Selection: local Whisper.cpp is fast (0.9s), private, and offline; fallback to Google STT
         user_text = None
@@ -592,9 +602,9 @@ def process_query_worker(transport, session):
         adult_mode = config.get("adult_mode", False)
         mode_label = "18+ ADULT" if adult_mode else "PG-13 SAFE"
         if use_local_pipeline:
-            local_model = config.get("local_model", "gemma2:2b")
+            local_model = LOCAL_MODELS_BY_PRESET.get(session.model, config.get("local_model", "qwen2.5:0.5b"))
             print(f"[REQUEST {session.request_id}] Querying Local Pi 5 Core ({local_model}) [{mode_label}]...")
-            ai_text = (local_ai_engine.local_query_llm(user_text, detected_lang, adult_mode=adult_mode)
+            ai_text = (local_ai_engine.local_query_llm(user_text, detected_lang, adult_mode=adult_mode, model=local_model)
                        if user_text else get_silence_answer(detected_lang))
         else:
             preset_info = MODEL_PRESETS.get(session.model, ("cloud", "Cloud LLM"))[1]

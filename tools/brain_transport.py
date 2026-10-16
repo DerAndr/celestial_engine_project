@@ -29,11 +29,14 @@ def build_catalog_payload(host_type=1, host_name="PI 5 BRAIN", models=None):
     """
     if models is None:
         models = [
-            (0, 0, "Deep Thought", "42"),
-            (1, 1, "Eddie (8B)", "EDD"),
-            (2, 2, "Grok 4.5", "GRK"),
-            (3, 3, "Marvin (70B)", "MRV"),
-            (4, 4, "Pi 5 Local", "LOC")
+            (0, 0, "DEEP THOUGHT", "42"),
+            (1, 1, "EDDIE (8B)", "EDD"),
+            (2, 2, "GROK 4.5", "GRK"),
+            (3, 3, "MARVIN (70B)", "MRV"),
+            (4, 4, "QWEN 0.5B FAST", "Q05"),
+            (5, 0, "GEMMA 4 (E2B)", "G4"),
+            (6, 2, "DEEPSEEK R1", "R1"),
+            (7, 3, "QWEN 1.5B CORE", "Q15")
         ]
     h_bytes = host_name.encode('ascii')[:14]
     h_bytes = h_bytes + b'\x00' * (15 - len(h_bytes))

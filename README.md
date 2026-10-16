@@ -179,7 +179,9 @@ Mode `[01] ARCHITECTURE` on the staff OLED renders a pure pictogram schematic wi
 
 ## 🧠 Dual-Brain AI Engine
 
-The staff rotary encoder menu `[04] AI CORE` dynamically switches the reasoning engine across local offline and cloud models:
+The staff rotary encoder menu `[04] AI CORE` dynamically switches the reasoning target between **Raspberry Pi 5 Brain** (`< PI 5 >`), **Companion Smartphone Brain** (`< PHONE >`), or **Mesh Auto-Detect** (`< AUTO >`), exposing the active host's live catalog on the OLED:
+
+### Raspberry Pi 5 AI Core Catalog
 
 | Preset ID | Menu Name | Badge | Engine / Model | Execution Target | Typical Latency |
 | :---: | :--- | :---: | :--- | :--- | :---: |
@@ -187,14 +189,34 @@ The staff rotary encoder menu `[04] AI CORE` dynamically switches the reasoning 
 | **[1]** | `EDDIE (8B)` | `[EDD]`| Ministral 8B (`ministral-8b-2512`) | Cloud (OpenRouter) | ~2.0 – 3.0 s |
 | **[2]** | `GROK 4.5` | `[GRK]`| Grok 4.5 (`x-ai/grok-4.5`) | Cloud (OpenRouter) | ~3.0 – 4.5 s |
 | **[3]** | `MARVIN (70B)` | `[MRV]`| Llama 3.3 70B Instruct | Cloud (OpenRouter) | ~3.5 – 5.0 s |
-| **[4]** | `PI 5 LOCAL` | `[LOC]`| **Whisper Tiny + Gemma 2 (2B) + Piper** | **100% Offline Pi 5** | **~3.5 – 5.5 s** |
+| **[4]** | `QWEN 0.5B FAST` | `[Q05]`| **Qwen 2.5 0.5B (Distilled)** | **100% Offline Pi 5** | **~3.4 s** |
+| **[5]** | `GEMMA 4 (E2B)` | `[G4]` | **Gemma 4 Distilled 2B** | **100% Offline Pi 5** | **~10.2 s** |
+| **[6]** | `DEEPSEEK R1` | `[R1]` | **DeepSeek-R1 1.5B (Qwen Distill)** | **100% Offline Pi 5** | **~28.7 s (Thinking)** |
+| **[7]** | `QWEN 1.5B CORE` | `[Q15]`| **Qwen 2.5 1.5B (Multilingual Core)** | **100% Offline Pi 5** | **~6.5 s** |
+
+### Companion Smartphone AI Core Catalog (Pixel 9 Pro XL)
+
+| Preset ID | Menu Name | Badge | Engine / Model | Execution Target | Typical Latency |
+| :---: | :--- | :---: | :--- | :--- | :---: |
+| **[0]** | `Gemma 4 (E2B)` | `[G4-MM]` | Gemma 4 Multimodal Vision Core | On-Device Phone (Local NPU) | ~1.5 – 2.5 s |
+| **[1]** | `Gemma 4 Think` | `[G4THK]` | Gemma 4 Deep Reasoning Core | On-Device Phone (Local NPU) | ~2.0 – 3.5 s |
+| **[2]** | `Gemini Nano` | `[NANO]` | Android AICore Gemini Nano | On-Device Phone (System Service) | ~1.0 – 1.8 s |
+| **[3]** | `Pi 5 Core` | `[PI5]` | Relay to Pi 5 Gateway Core | Local Mesh Wi-Fi | ~3.5 – 5.5 s |
+
+### Staff Rotary Encoder Operation
+1. Rotate encoder to menu `[04] AI CORE` and click the encoder switch to enter Core selection.
+2. The topmost item is the **Host Selector**: `HOST: < AUTO >`, `HOST: < PI 5 >`, or `HOST: < PHONE >`.
+3. Click the encoder switch on the Host Selector row to toggle the target host. The staff instantly swaps its active catalog to the selected host and locks network queries to that target.
+4. Rotate below the Host Selector to scroll through available models with the right-edge scrollbar track.
+5. Click on any model to activate it. The concentric WS2812B LED rings will immediately flash the model's signature theme (Azure, Amber, Magenta, Steel, or Emerald).
 
 ### Local Models (Ollama on Pi 5 NVMe)
-1. **Google Gemma 2 2B (`gemma2:2b`)**: Primary default offline model — rich retro-sci-fi reasoning (*"DON'T PANIC"*).
-2. **Alibaba Qwen 2.5 1.5B (`qwen2.5:1.5b`)**: High-speed multilingual polyglot (superb German & Russian reasoning, ~15 tok/s).
-3. **Meta Llama 3.2 1B (`llama3.2:1b`)**: Compact low-latency fallback.
+1. **Alibaba Qwen 2.5 0.5B (`qwen2.5:0.5b`)**: Ultra-distilled low-latency offline core (~3.4 s end-to-end latency).
+2. **Google Gemma 4 Distilled 2B (`gemma4:e2b`)**: Rich retro-sci-fi reasoning (*"DON'T PANIC"*, Hitchhiker oracle personality).
+3. **DeepSeek-R1 1.5B (`deepseek-r1:1.5b`)**: Distilled reasoning model with transparent chain-of-thought `<think>` tags.
+4. **Alibaba Qwen 2.5 1.5B (`qwen2.5:1.5b`)**: High-speed multilingual polyglot (superb German & Russian reasoning).
 
-> **Voice Model Switching:** Hold QUERY and say *"Switch to Gemma"*, *"Use Qwen"*, or *"Switch to Llama"* (also supports German *"Wechsel zu Gemma"* and Russian *"Включи гемму"*) to switch local models on the fly without touching any keyboard.
+> **Voice Model Switching:** Hold QUERY and say *"Switch to Qwen"*, *"Switch to Gemma"*, or *"Switch to DeepSeek"* (also supports German *"Wechsel zu Gemma"* and Russian *"Включи гемму"*) to switch local models on the fly without touching any keyboard.
 
 ### Language Dialects
 - **English [EN]** — Default primary dialect across all prompts, system messages, and voice responses.
