@@ -39,7 +39,10 @@ uint8_t net_client_get_model_theme(uint8_t idx) { (void)idx; return 0; }
 uint8_t net_client_get_model_id(uint8_t idx) { return idx; }
 bool net_client_request_catalog(void) { return true; }
 bool net_client_poll_remote_command(remote_cmd_t *cmd) { if (cmd) cmd->has_command = false; return false; }
-void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style) { (void)mode; (void)state; (void)volume; (void)anim; (void)clock_style; }
+void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style,
+                               uint8_t lang, uint8_t host_type, uint8_t pref_host) {
+    (void)mode; (void)state; (void)volume; (void)anim; (void)clock_style; (void)lang; (void)host_type; (void)pref_host;
+}
 bool net_client_has_paired_companion(void) { return false; }
 bool net_client_send_query_start(uint8_t l, uint8_t m) { (void)l; (void)m; return true; }
 bool net_client_send_audio_chunk(const int16_t *s, size_t c) { (void)s; (void)c; return true; }

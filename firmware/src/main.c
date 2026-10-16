@@ -1777,6 +1777,14 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
     oled_ready = sh1106_update();
 }
 
+static inline void broadcast_telemetry(void) {
+    net_client_send_telemetry((uint8_t)current_mode_idx, (uint8_t)current_state,
+                              audio_get_volume(), (uint8_t)active_anim_idx,
+                              (uint8_t)active_clock_style, (uint8_t)active_lang_idx,
+                              (uint8_t)net_client_get_host_type(),
+                              (uint8_t)net_client_get_preferred_host());
+}
+
 int main(void) {
     stdio_init_all();
 
@@ -1975,9 +1983,7 @@ int main(void) {
                 default:
                     break;
             }
-            net_client_send_telemetry((uint8_t)current_mode_idx, (uint8_t)current_state,
-                                      audio_get_volume(), (uint8_t)active_anim_idx,
-                                      (uint8_t)active_clock_style);
+            broadcast_telemetry();
         }
 
         // Check incoming Brain response or timeout in STATE_PROCESSING
@@ -2080,6 +2086,7 @@ int main(void) {
                     need_display_update = true;
                 }
             }
+            broadcast_telemetry();
         }
 
         uint32_t held_dur = query_button_just_released();
@@ -2119,6 +2126,7 @@ int main(void) {
                 audio_play_blip(); // Crisp upload blip sound!
             }
             need_display_update = true;
+            broadcast_telemetry();
         }
 
         // Return from SPEAKING to IDLE once PCM/stream playback finishes
@@ -2131,6 +2139,7 @@ int main(void) {
                 audio_play_tone(220.0f, 150);
             } else LOG_INFO("AUDIO", "Response playback finished. Returned to IDLE.");
             need_display_update = true;
+            broadcast_telemetry();
         }
 
         // 3. Encoder rotation handling
@@ -2250,6 +2259,7 @@ int main(void) {
                          MODE_NAMES[current_mode_idx]);
 
                 prev_encoder_pos = curr_pos;
+                broadcast_telemetry();
                 need_display_update = true;
             }
         }
@@ -2422,6 +2432,7 @@ int main(void) {
                 LOG_INFO("ENCODER", ">>> SWITCH CLICKED! Active Mode Confirmed: [%s] <<<",
                          MODE_NAMES[active_confirmed_mode]);
             }
+            broadcast_telemetry();
             need_display_update = true;
         }
 
@@ -2454,6 +2465,7 @@ int main(void) {
                      net_client_get_host_name(),
                      query_button_is_held() ? "HELD" : "UP");
             if (AUDIO_DIAGNOSTIC_BOOT) audio_print_diagnostics();
+            broadcast_telemetry();
             need_display_update = true;
         }
 

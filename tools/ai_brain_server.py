@@ -186,6 +186,11 @@ def check_adult_mode_toggle(user_text, detected_lang, config):
             return True, "Decency protocols restored. Family-friendly polite mode is now active."
 
     # Check for local model switching commands
+    gemma4_patterns = [
+        "switch to gemma 4", "use gemma 4", "gemma 4 mode", "activate gemma 4", "gemma 4",
+        "wechsel zu gemma 4", "gemma 4 aktivieren",
+        "включи гемму 4", "переключи на гемму 4", "модель гемма 4", "включи gemma 4"
+    ]
     gemma_patterns = [
         "switch to gemma", "use gemma", "gemma mode", "activate gemma",
         "wechsel zu gemma", "gemma aktivieren",
@@ -201,6 +206,17 @@ def check_adult_mode_toggle(user_text, detected_lang, config):
         "wechsel zu llama", "llama aktivieren",
         "включи ламу", "переключи на ламу", "модель лама"
     ]
+
+    if any(p in norm for p in gemma4_patterns):
+        config["local_model"] = "gemma4:e2b"
+        save_config(config)
+        print("  [LOCAL MODEL] >> Switched to gemma4:e2b (Google Gemma 4 E2B)")
+        if "de" in detected_lang.lower():
+            return True, "Lokaler KI-Kern auf Google Gemma 4 E2B umgeschaltet."
+        elif "ru" in detected_lang.lower():
+            return True, "Локальное ядро переключено на Google Gemma 4 E2B."
+        else:
+            return True, "Local AI core switched to Google Gemma 4 E2B. Reasoning core active."
 
     if any(p in norm for p in gemma_patterns):
         config["local_model"] = "gemma2:2b"
@@ -253,7 +269,7 @@ def clean_pcm_samples(raw_bytes):
 
 def detect_language_from_text(text):
     if not text:
-        return "ru-RU"
+        return "en-US"
     if any("\u0400" <= c <= "\u04FF" for c in text):
         return "ru-RU"
     german_chars = set("äöüßÄÖÜ")
@@ -332,7 +348,7 @@ def transcribe_audio(wav_path, lang_code):
         print(f"  [STT ERROR] {type(e).__name__}: {e}")
 
     # Try other languages if primary target language didn't match
-    cands = ["ru-RU", "en-US", "de-DE"]
+    cands = ["en-US", "de-DE", "ru-RU"]
     if target_lang in cands:
         cands.remove(target_lang)
     for cand in cands:

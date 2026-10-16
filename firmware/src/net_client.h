@@ -70,7 +70,8 @@ typedef struct {
 } remote_cmd_t;
 
 bool net_client_poll_remote_command(remote_cmd_t *cmd);
-void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style);
+void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style,
+                               uint8_t lang, uint8_t host_type, uint8_t pref_host);
 bool net_client_has_paired_companion(void);
 
 #ifdef __cplusplus
