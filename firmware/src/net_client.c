@@ -916,11 +916,13 @@ void net_client_clear_unsolicited_text(void) {
 }
 
 void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style,
-                               uint8_t lang, uint8_t host_type, uint8_t pref_host) {
+                               uint8_t lang, uint8_t host_type, uint8_t pref_host,
+                               uint8_t ai_model, uint8_t mic_level, uint8_t cosmos_zoom, uint8_t is_audio_playing) {
     if (!has_paired_companion || udp_client_pcb == NULL || current_status != NET_STATUS_CONNECTED) {
         return;
     }
-    uint8_t payload[8] = { mode, state, volume, anim, clock_style, lang, host_type, pref_host };
+    uint8_t payload[12] = { mode, state, volume, anim, clock_style, lang, host_type, pref_host,
+                            ai_model, mic_level, cosmos_zoom, is_audio_playing };
     size_t total_len = sizeof(net_packet_header_t) + sizeof(payload);
     cyw43_arch_lwip_begin();
     struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, total_len, PBUF_RAM);

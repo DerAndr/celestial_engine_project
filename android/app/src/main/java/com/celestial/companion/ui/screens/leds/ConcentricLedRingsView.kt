@@ -11,11 +11,37 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.celestial.companion.domain.model.LedAnimation
+import com.celestial.companion.domain.model.StaffState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.util.Calendar
 import kotlin.math.*
 import kotlin.random.Random
+
+/**
+ * AI Neural Model LED Themes mirroring firmware/src/leds.c:
+ * - r1, g1, b1: Primary inner ring glow
+ * - r2, g2, b2: Secondary middle ring accent
+ * - cr, cg, cb: Center focal core highlight
+ */
+data class LlmLedTheme(
+    val r1: Int, val g1: Int, val b1: Int,
+    val r2: Int, val g2: Int, val b2: Int,
+    val cr: Int, val cg: Int, val cb: Int
+)
+
+val LLM_THEMES = listOf(
+    // 0: DEEP THOUGHT (DeepSeek V3) - Cosmic Deep Ocean Cyan & Diamond Blue
+    LlmLedTheme(0, 170, 255, 15, 70, 240, 180, 245, 255),
+    // 1: EDDIE (Ministral 8B) - Sunny Solar Amber & Radiant Gold
+    LlmLedTheme(255, 170, 15, 255, 100, 0, 255, 235, 90),
+    // 2: GROK (Grok 4.5) - Cyberpunk Neon Magenta & Acid Violet / Mint Green
+    LlmLedTheme(255, 15, 160, 150, 0, 255, 0, 255, 160),
+    // 3: MARVIN (Llama 70B) - Melancholic Glacial Steel-Blue & Frosted Silver
+    LlmLedTheme(90, 140, 215, 50, 75, 160, 190, 210, 245),
+    // 4: LOCAL (Pi 5 Edge) - Cyber Emerald Matrix & Raspberry Ruby Core
+    LlmLedTheme(10, 255, 90, 0, 200, 70, 255, 15, 80)
+)
 
 /**
  * Real-time Concentric WS2812B LED Rings visualizer for Celestial Engine Mk.V.
@@ -25,8 +51,8 @@ import kotlin.random.Random
  * - Middle Ring:  12 LEDs (Indices 7..18)
  * - Outer Ring:   24 LEDs (Indices 19..42)
  *
- * Runs all 18 firmware animation modes in real-time at 33 Hz, synchronizing
- * seamlessly with the active animation selected on the Pico 2 W.
+ * Runs all 18 firmware animation modes with exact mathematical parity to Pico 2 W RP2350,
+ * reactive to active state (LISTENING, PROCESSING, SPEAKING), voice volume, and neural model.
  */
 @Composable
 fun ConcentricLedRingsView(
@@ -34,21 +60,31 @@ fun ConcentricLedRingsView(
     modifier: Modifier = Modifier,
     size: Dp = 240.dp,
     micLevelPct: Int = 0,
+    aiModelId: Int = 0,
+    state: StaffState = StaffState.IDLE,
     brightnessPct: Int = 100
 ) {
     // 33 Hz animation tick loop matching firmware 30ms interval
     var animTick by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(animation) {
+    LaunchedEffect(animation, state) {
         while (isActive) {
             delay(30)
             animTick++
         }
     }
 
+    // Determine the actual rendered animation based on staff state
+    val effectiveAnimation = when (state) {
+        StaffState.LISTENING -> LedAnimation.VORTEX
+        StaffState.PROCESSING -> LedAnimation.DATA_RECV
+        StaffState.SPEAKING -> LedAnimation.EXPAND_SPEECH
+        StaffState.IDLE -> animation
+    }
+
     // Compute pixel RGB colors for all 43 LEDs
-    val colors = remember(animation, animTick, micLevelPct, brightnessPct) {
-        computeLedColors(animation, animTick, micLevelPct, brightnessPct)
+    val colors = remember(effectiveAnimation, animTick, micLevelPct, aiModelId, brightnessPct) {
+        computeLedColors(effectiveAnimation, animTick, micLevelPct, aiModelId, brightnessPct)
     }
 
     Box(
@@ -59,7 +95,6 @@ fun ConcentricLedRingsView(
             val cy = size.toPx() / 2f
             val maxR = (size.toPx() / 2f) * 0.88f
 
-            val rCenter = 0f
             val rInner = maxR * 0.33f
             val rMiddle = maxR * 0.64f
             val rOuter = maxR * 0.95f
@@ -72,7 +107,7 @@ fun ConcentricLedRingsView(
             drawCircle(color = guideColor, radius = rMiddle, center = Offset(cx, cy), style = Stroke(width = 1f))
             drawCircle(color = guideColor, radius = rOuter, center = Offset(cx, cy), style = Stroke(width = 1f))
 
-            // 2. Draw all 43 LEDs with lens body and glowing halo
+            // 2. Draw all 43 LEDs with lens body and glowing optical halo
             for (idx in 0 until 43) {
                 val (x, y) = when {
                     idx == 0 -> Offset(cx, cy)
@@ -127,52 +162,90 @@ fun ConcentricLedRingsView(
 }
 
 /**
- * Computes exact RGB colors for all 43 concentric LEDs matching the 18 firmware algorithms.
+ * Computes exact RGB colors for all 43 concentric LEDs matching firmware/src/leds.c.
  */
 private fun computeLedColors(
     animation: LedAnimation,
     tick: Long,
     micLevel: Int,
+    aiModelId: Int,
     brightnessPct: Int
 ): Array<Color> {
     val arr = Array(43) { Color.Black }
     val brightnessFactor = (brightnessPct.coerceIn(10, 100) / 100f)
+    val theme = LLM_THEMES.getOrElse(aiModelId) { LLM_THEMES[0] }
+
+    fun rgb(r: Int, g: Int, b: Int, alpha: Float = 1f): Color {
+        val rClamped = (r.coerceIn(0, 255) * brightnessFactor).toInt().coerceIn(0, 255)
+        val gClamped = (g.coerceIn(0, 255) * brightnessFactor).toInt().coerceIn(0, 255)
+        val bClamped = (b.coerceIn(0, 255) * brightnessFactor).toInt().coerceIn(0, 255)
+        return Color(rClamped, gClamped, bClamped).copy(alpha = alpha.coerceIn(0f, 1f))
+    }
 
     when (animation) {
         LedAnimation.BREATHE -> { // 0. Cosmic Breathe
             val angle = (tick % 120) * 2f * PI.toFloat() / 120f
             val breath = 0.2f + 0.8f * ((sin(angle) + 1f) * 0.5f)
             val baseHue = (tick * 0.8f) % 360f
-            val color = Color.hsv(baseHue, 0.85f, breath * brightnessFactor)
+            val color = Color.hsv(baseHue, 0.85f, (breath * brightnessFactor).coerceIn(0f, 1f))
             for (i in 0 until 43) arr[i] = color
         }
 
-        LedAnimation.VORTEX -> { // 1. Galaxy Vortex
-            val t = tick * 0.08f
-            // Center Singularity: pulsing cyan/gold
-            val centerPulse = (sin(t * 2f) + 1f) * 0.5f
-            arr[0] = Color(0xFF00E5FF).copy(alpha = (0.5f + 0.5f * centerPulse) * brightnessFactor)
+        LedAnimation.VORTEX -> { // 1. Galaxy Vortex (also used for STATE_LISTENING)
+            // Voice-reactive suction spiral into center RED recording core
+            val voiceGain = (micLevel.toFloat() / 100f).coerceIn(0f, 1f)
 
-            // Inner ring (1..6)
+            // Center LED 0: Pulsating RED recording indicator with vocal peak flare
+            val cWave = (sin(tick * 0.20f) + 1f) * 0.5f
+            val cr = (160 + 95f * (cWave * 0.4f + voiceGain * 0.6f)).toInt()
+            val cg = (theme.cg * 0.30f * voiceGain).toInt()
+            val cb = (theme.cb * 0.30f * voiceGain).toInt()
+            arr[0] = rgb(cr, cg, cb)
+
+            // Dynamic rotation speed accelerating with voice
+            val rotSpeed = 0.08f + 0.14f * voiceGain
+            val rot = tick * rotSpeed
+
+            // Ring 0 (1..6): Radius 1.0, Model primary
             for (i in 1..6) {
-                val rel = i - 1
-                val angle = rel * (360f / 6f) - (t * 50f)
-                val h = (180f + sin(Math.toRadians(angle.toDouble())).toFloat() * 60f) % 360f
-                arr[i] = Color.hsv(h, 0.9f, brightnessFactor)
+                val theta = (i - 1) * (2f * PI.toFloat() / 6f)
+                val diff = theta - rot
+                val armProx = cos(2f * diff)
+                val norm = (armProx + 1f) * 0.5f
+                val pwr = norm * norm * norm
+                val r = (theme.r1 * 0.08f + pwr * (theme.r1 * (0.75f + 0.25f * voiceGain))).toInt()
+                val g = (theme.g1 * 0.08f + pwr * (theme.g1 * (0.75f + 0.25f * voiceGain))).toInt()
+                val b = (theme.b1 * 0.08f + pwr * (theme.b1 * (0.75f + 0.25f * voiceGain))).toInt()
+                arr[i] = rgb(r, g, b)
             }
-            // Middle ring (7..18)
+
+            // Ring 1 (7..18): Radius 2.0, twist = 0.80 rad, Model accent
             for (i in 7..18) {
-                val rel = i - 7
-                val angle = rel * (360f / 12f) + (t * 35f)
-                val h = (220f + cos(Math.toRadians(angle.toDouble())).toFloat() * 70f) % 360f
-                arr[i] = Color.hsv(h, 0.95f, brightnessFactor)
+                val theta = (i - 7) * (2f * PI.toFloat() / 12f)
+                val diff = theta - 0.80f - rot
+                val armProx = cos(2f * diff)
+                val norm = (armProx + 1f) * 0.5f
+                val pwr = norm * norm * norm
+                val r = (theme.r2 * 0.08f + pwr * (theme.r2 * (0.75f + 0.25f * voiceGain))).toInt()
+                val g = (theme.g2 * 0.08f + pwr * (theme.g2 * (0.75f + 0.25f * voiceGain))).toInt()
+                val b = (theme.b2 * 0.08f + pwr * (theme.b2 * (0.75f + 0.25f * voiceGain))).toInt()
+                arr[i] = rgb(r, g, b)
             }
-            // Outer ring (19..42)
+
+            // Ring 2 (19..42): Radius 3.2, twist = 1.65 rad, Harmonic blend
+            val brR = (theme.r1 + theme.r2) * 0.5f
+            val brG = (theme.g1 + theme.g2) * 0.5f
+            val brB = (theme.b1 + theme.b2) * 0.5f
             for (i in 19..42) {
-                val rel = i - 19
-                val angle = rel * (360f / 24f) - (t * 25f)
-                val h = (260f + sin(Math.toRadians(angle.toDouble())).toFloat() * 80f) % 360f
-                arr[i] = Color.hsv(h, 0.85f, brightnessFactor)
+                val theta = (i - 19) * (2f * PI.toFloat() / 24f)
+                val diff = theta - 1.65f - rot
+                val armProx = cos(2f * diff)
+                val norm = (armProx + 1f) * 0.5f
+                val pwr = norm * norm * norm
+                val r = (brR * 0.05f + pwr * brR).toInt()
+                val g = (brG * 0.05f + pwr * brG).toInt()
+                val b = (brB * 0.05f + pwr * brB).toInt()
+                arr[i] = rgb(r, g, b)
             }
         }
 
@@ -183,9 +256,9 @@ private fun computeLedColors(
                 if (dist < 8) {
                     val fade = 1f - (dist / 8f)
                     val h = (140f + dist * 15f) % 360f // Emerald to cyan
-                    arr[i] = Color.hsv(h, 0.9f, fade * brightnessFactor)
+                    arr[i] = Color.hsv(h, 0.9f, (fade * brightnessFactor).coerceIn(0f, 1f))
                 } else {
-                    arr[i] = Color(0xFF030714)
+                    arr[i] = rgb(3, 7, 20)
                 }
             }
         }
@@ -199,29 +272,29 @@ private fun computeLedColors(
                     else -> Pair(120f, (i - 19) * (360f / 24f))
                 }
                 val hue = (relAngle + rFactor + tick * 4f) % 360f
-                arr[i] = Color.hsv(hue, 0.95f, brightnessFactor)
+                arr[i] = Color.hsv(hue, 0.95f, brightnessFactor.coerceIn(0f, 1f))
             }
         }
 
         LedAnimation.PULSAR -> { // 4. Pulsar Shockwave
             val cycle = (tick % 50).toInt()
-            for (i in 0 until 43) arr[i] = Color(0xFF02040A)
+            for (i in 0 until 43) arr[i] = rgb(2, 4, 10)
             when (cycle) {
                 in 0..8 -> {
                     val p = 1f - (cycle / 8f)
-                    arr[0] = Color(0xFFFFFFFF).copy(alpha = p * brightnessFactor)
+                    arr[0] = rgb((255 * p).toInt(), (255 * p).toInt(), (255 * p).toInt())
                 }
                 in 8..18 -> {
                     val p = 1f - ((cycle - 8) / 10f)
-                    for (i in 1..6) arr[i] = Color(0xFF00E5FF).copy(alpha = p * brightnessFactor)
+                    for (i in 1..6) arr[i] = rgb(0, (229 * p).toInt(), (255 * p).toInt())
                 }
                 in 18..32 -> {
                     val p = 1f - ((cycle - 18) / 14f)
-                    for (i in 7..18) arr[i] = Color(0xFF8A2BE2).copy(alpha = p * brightnessFactor)
+                    for (i in 7..18) arr[i] = rgb((138 * p).toInt(), (43 * p).toInt(), (226 * p).toInt())
                 }
                 in 30..48 -> {
                     val p = 1f - ((cycle - 30) / 18f)
-                    for (i in 19..42) arr[i] = Color(0xFFFF007F).copy(alpha = p * brightnessFactor)
+                    for (i in 19..42) arr[i] = rgb((255 * p).toInt(), 0, (127 * p).toInt())
                 }
             }
         }
@@ -234,7 +307,7 @@ private fun computeLedColors(
                 val v2 = cos(angle * 2f - t * 0.8f)
                 val plasma = ((v1 + v2 + 2f) / 4f).coerceIn(0f, 1f)
                 val hue = 15f + plasma * 45f // Red (15) to Yellow (60)
-                arr[i] = Color.hsv(hue, 1f, (0.4f + 0.6f * plasma) * brightnessFactor)
+                arr[i] = Color.hsv(hue, 1f, ((0.4f + 0.6f * plasma) * brightnessFactor).coerceIn(0f, 1f))
             }
         }
 
@@ -244,105 +317,169 @@ private fun computeLedColors(
                 val isTwinkle = rnd.nextInt(6) == 0
                 if (isTwinkle) {
                     val hue = rnd.nextFloat() * 60f + 180f // Cyan to Sapphire
-                    arr[i] = Color.hsv(hue, 0.4f, (0.7f + 0.3f * rnd.nextFloat()) * brightnessFactor)
+                    arr[i] = Color.hsv(hue, 0.4f, ((0.7f + 0.3f * rnd.nextFloat()) * brightnessFactor).coerceIn(0f, 1f))
                 } else {
-                    arr[i] = Color(0xFF060B1C)
+                    arr[i] = rgb(6, 11, 28)
                 }
             }
         }
 
         LedAnimation.VOICE -> { // 7. Voice Halo
             val level = if (micLevel > 0) micLevel else ((sin(tick * 0.15f) + 1f) * 45f).toInt()
-            arr[0] = Color(0xFFFFD700)
+            arr[0] = rgb(255, 215, 0)
             val innerActive = level > 15
             val midCount = ((level / 100f) * 12).toInt().coerceIn(0, 12)
             val outCount = ((level / 100f) * 24).toInt().coerceIn(0, 24)
 
-            for (i in 1..6) arr[i] = if (innerActive) Color(0xFF00E5FF) else Color(0xFF03101E)
+            for (i in 1..6) arr[i] = if (innerActive) rgb(0, 229, 255) else rgb(3, 16, 30)
             for (i in 7..18) {
-                arr[i] = if ((i - 7) < midCount) Color(0xFF00E676) else Color(0xFF02140A)
+                arr[i] = if ((i - 7) < midCount) rgb(0, 230, 118) else rgb(2, 20, 10)
             }
             for (i in 19..42) {
-                arr[i] = if ((i - 19) < outCount) Color(0xFFFF5252) else Color(0xFF140404)
+                arr[i] = if ((i - 19) < outCount) rgb(255, 82, 82) else rgb(20, 4, 4)
             }
         }
 
         LedAnimation.SOLAR -> { // 8. Solar Orrery
-            for (i in 0 until 43) arr[i] = Color(0xFF040612)
-            arr[0] = Color(0xFFFFD700) // Sol (Sun)
+            for (i in 0 until 43) arr[i] = rgb(4, 6, 18)
+            arr[0] = rgb(255, 215, 0) // Sol (Sun)
             // Mercury/Venus on inner ring
             val innerPos = ((tick / 3) % 6).toInt() + 1
-            arr[innerPos] = Color(0xFFFF9800)
+            arr[innerPos] = rgb(255, 152, 0)
             // Earth on middle ring
             val midPos = ((tick / 7) % 12).toInt() + 7
-            arr[midPos] = Color(0xFF00E5FF)
-            // Mars/Jupiter on outer ring
+            arr[midPos] = rgb(0, 229, 255)
+            // Mars & Jupiter on outer ring
             val outPos1 = ((tick / 11) % 24).toInt() + 19
             val outPos2 = (((tick / 17) + 8) % 24).toInt() + 19
-            arr[outPos1] = Color(0xFFFF3D00)
-            arr[outPos2] = Color(0xFFE040FB)
+            arr[outPos1] = rgb(255, 61, 0)
+            arr[outPos2] = rgb(224, 64, 251)
         }
 
-        LedAnimation.DATA_RECV -> { // 9. Data Reception
-            val sweep = ((tick * 2) % 24).toInt()
-            for (i in 0 until 43) arr[i] = Color(0xFF020C06)
-            arr[0] = Color(0xFF00E676)
-            for (i in 19..42) {
-                val rel = i - 19
-                if (rel == sweep) arr[i] = Color(0xFF00FF88)
-                else if ((sweep - rel + 24) % 24 < 5) {
-                    val fade = 1f - ((sweep - rel + 24) % 24) / 5f
-                    arr[i] = Color(0xFF00E676).copy(alpha = fade)
+        LedAnimation.DATA_RECV -> { // 9. Data Reception (also used for STATE_PROCESSING)
+            if (aiModelId == 4) { // Special Quantum Matrix animation for Pi 5 Edge
+                val coreBreathe = 0.5f + 0.5f * sin(tick * 0.45f)
+                arr[0] = rgb((255 * coreBreathe).toInt(), (15 * coreBreathe).toInt(), (80 * coreBreathe).toInt())
+
+                val r0Head = 1 + ((tick * 2) % 6).toInt()
+                for (i in 1..6) {
+                    arr[i] = if (i == r0Head) rgb(10, 255, 90) else rgb(0, 30, 15)
+                }
+
+                val r1Head = 7 + ((12 - (tick % 12)) % 12).toInt()
+                for (i in 7..18) {
+                    arr[i] = if (i == r1Head) rgb(0, 230, 180) else rgb(0, 25, 20)
+                }
+
+                val r2Head1 = 19 + ((tick * 3) % 24).toInt()
+                val r2Head2 = 19 + ((tick * 3 + 12) % 24).toInt()
+                for (i in 19..42) {
+                    arr[i] = if (i == r2Head1 || i == r2Head2) rgb(10, 255, 90) else rgb(2, 12, 6)
+                }
+            } else {
+                // Concentric data reception radar ripples cascading inward
+                val phase = (tick % 18).toInt()
+                for (i in 0 until 43) arr[i] = rgb(2, 8, 16)
+
+                // Inward cascade: Outer -> Middle -> Inner -> Center
+                when (phase) {
+                    in 0..5 -> {
+                        val d = phase / 5f
+                        val factor = 1f - d * 0.7f
+                        for (i in 19..42) arr[i] = rgb((theme.r2 * factor).toInt(), (theme.g2 * factor).toInt(), (theme.b2 * factor).toInt())
+                    }
+                    in 4..9 -> {
+                        val d = (phase - 4) / 5f
+                        val factor = 1f - d * 0.7f
+                        for (i in 7..18) arr[i] = rgb((theme.r1 * factor).toInt(), (theme.g1 * factor).toInt(), (theme.b1 * factor).toInt())
+                    }
+                    in 8..13 -> {
+                        val d = (phase - 8) / 5f
+                        val factor = 1f - d * 0.7f
+                        for (i in 1..6) arr[i] = rgb((theme.cr * factor).toInt(), (theme.cg * factor).toInt(), (theme.cb * factor).toInt())
+                    }
+                    in 12..17 -> {
+                        val d = (phase - 12) / 5f
+                        val factor = 1f - d * 0.5f
+                        arr[0] = rgb((theme.cr * factor).toInt(), (theme.cg * factor).toInt(), (theme.cb * factor).toInt())
+                    }
                 }
             }
         }
 
-        LedAnimation.EXPAND_SPEECH -> { // 10. Sonic Expansion
-            val phase = (tick % 36).toInt()
-            for (i in 0 until 43) arr[i] = Color(0xFF03050F)
-            when (phase) {
-                in 0..6 -> arr[0] = Color(0xFF00E5FF)
-                in 6..14 -> for (i in 1..6) arr[i] = Color(0xFF00E5FF)
-                in 14..24 -> for (i in 7..18) arr[i] = Color(0xFF8A2BE2)
-                in 24..35 -> for (i in 19..42) arr[i] = Color(0xFFFFD700)
+        LedAnimation.EXPAND_SPEECH -> { // 10. Sonic Expansion (also used for STATE_SPEAKING)
+            val wavePhase = (tick % 16).toInt()
+
+            // Center Core (0): Fires brightly at wave start
+            val cWave = if (wavePhase <= 3) (1.0f - wavePhase * 0.25f) else 0.20f
+            arr[0] = rgb((theme.cr * cWave).toInt(), (theme.cg * cWave).toInt(), (theme.cb * cWave).toInt())
+
+            // Ring 0 (1..6): Peak at phase 2..6
+            var r0Wave = 0.05f
+            if (wavePhase in 2..6) {
+                val d = (wavePhase - 2) / 4.0f
+                r0Wave = 1.0f - d * 0.8f
+            }
+            for (i in 1..6) {
+                arr[i] = rgb((theme.r1 * r0Wave + 6).toInt(), (theme.g1 * r0Wave + 6).toInt(), (theme.b1 * r0Wave + 6).toInt())
+            }
+
+            // Ring 1 (7..18): Peak at phase 5..9
+            var r1Wave = 0.05f
+            if (wavePhase in 5..9) {
+                val d = (wavePhase - 5) / 4.0f
+                r1Wave = 1.0f - d * 0.8f
+            }
+            for (i in 7..18) {
+                arr[i] = rgb((theme.r2 * r1Wave + 4).toInt(), (theme.g2 * r1Wave + 4).toInt(), (theme.b2 * r1Wave + 4).toInt())
+            }
+
+            // Ring 2 (19..42): Peak at phase 8..13
+            var r2Wave = 0.05f
+            if (wavePhase in 8..13) {
+                val d = (wavePhase - 8) / 5.0f
+                r2Wave = 1.0f - d * 0.8f
+            }
+            for (i in 19..42) {
+                arr[i] = rgb((theme.r1 * r2Wave + 2).toInt(), (theme.g1 * r2Wave + 2).toInt(), (theme.b1 * r2Wave + 2).toInt())
             }
         }
 
         LedAnimation.GALAXY -> { // 11. Milky Way Galaxy
             val t = tick * 0.05f
-            arr[0] = Color(0xFFFFD700) // Sol Core
+            arr[0] = rgb(255, 215, 0) // Sol Core
             for (i in 19..42) {
                 val rel = i - 19
                 val arm1 = ((rel + (t * 8f)) % 24).toInt()
                 val arm2 = ((rel + 12 + (t * 8f)) % 24).toInt()
                 if (arm1 in 0..3 || arm2 in 0..3) {
-                    arr[i] = Color(0xFFE040FB)
+                    arr[i] = rgb(224, 64, 251)
                 } else {
-                    arr[i] = Color(0xFF080314)
+                    arr[i] = rgb(8, 3, 20)
                 }
             }
             for (i in 7..18) {
-                arr[i] = Color.hsv((260f + (i * 10f) + tick * 2f) % 360f, 0.8f, brightnessFactor)
+                arr[i] = Color.hsv((260f + (i * 10f) + tick * 2f) % 360f, 0.8f, brightnessFactor.coerceIn(0f, 1f))
             }
         }
 
         LedAnimation.EARTH -> { // 12. Terra Planet
-            arr[0] = Color(0xFF00E5FF) // Core
-            for (i in 1..6) arr[i] = Color(0xFF00E676) // Continents
+            arr[0] = rgb(0, 229, 255) // Core
+            for (i in 1..6) arr[i] = rgb(0, 230, 118) // Continents
             for (i in 7..18) { // Oceans & Atmosphere
                 val isLand = (i % 3 == 0)
-                arr[i] = if (isLand) Color(0xFF00C853) else Color(0xFF0288D1)
+                arr[i] = if (isLand) rgb(0, 200, 83) else rgb(2, 136, 209)
             }
             for (i in 19..42) { // Outer Aurora Ribbon
-                val auroraHue = (120f + sin(tick * 0.08f + i * 0.3f) * 60f).toFloat()
-                arr[i] = Color.hsv(auroraHue, 0.9f, 0.8f * brightnessFactor)
+                val auroraHue = (120f + sin(tick * 0.08f + i * 0.3f) * 60f)
+                arr[i] = Color.hsv(auroraHue, 0.9f, (0.8f * brightnessFactor).coerceIn(0f, 1f))
             }
         }
 
         LedAnimation.HALLOWEEN -> { // 13. Halloween Spook
             for (i in 0 until 43) {
                 val isPumpkin = (i + (tick / 6)) % 2 == 0L
-                arr[i] = if (isPumpkin) Color(0xFFFF6600) else Color(0xFF8E24AA)
+                arr[i] = if (isPumpkin) rgb(255, 102, 0) else rgb(142, 36, 170)
             }
         }
 
@@ -352,22 +489,22 @@ private fun computeLedColors(
             val min = cal.get(Calendar.MINUTE)
             val hour = cal.get(Calendar.HOUR) % 12
 
-            for (i in 0 until 43) arr[i] = Color(0xFF030612)
+            for (i in 0 until 43) arr[i] = rgb(3, 6, 18)
             // Center Stone: 1 Hz pulsing second
             val secPulse = (sin((System.currentTimeMillis() % 1000) * 2f * PI.toFloat() / 1000f) + 1f) * 0.5f
-            arr[0] = Color(0xFF00E5FF).copy(alpha = (0.3f + 0.7f * secPulse) * brightnessFactor)
+            arr[0] = rgb((0 * secPulse).toInt(), (229 * (0.3f + 0.7f * secPulse)).toInt(), (255 * (0.3f + 0.7f * secPulse)).toInt())
 
             // Middle ring: 12 Hours
             val hourIdx = 7 + hour
-            if (hourIdx in 7..18) arr[hourIdx] = Color(0xFFFFD700)
+            if (hourIdx in 7..18) arr[hourIdx] = rgb(255, 215, 0)
 
             // Outer ring: Minutes (0..23 LEDs)
             val minIdx = 19 + ((min * 24) / 60)
-            if (minIdx in 19..42) arr[minIdx] = Color(0xFF00E676)
+            if (minIdx in 19..42) arr[minIdx] = rgb(0, 230, 118)
 
             // Seconds comet hand on outer ring
             val secIdx = 19 + ((sec * 24) / 60)
-            if (secIdx in 19..42) arr[secIdx] = Color(0xFFFF5252)
+            if (secIdx in 19..42) arr[secIdx] = rgb(255, 82, 82)
         }
 
         LedAnimation.CLOCK_HOURGLASS -> { // 15. Aether Hourglass
@@ -380,10 +517,10 @@ private fun computeLedColors(
             val fillMin = (min / 60f * 12).toInt()
             val fillSec = (sec / 60f * 24).toInt()
 
-            arr[0] = Color(0xFFFFD700)
-            for (i in 1..6) arr[i] = if ((i - 1) < fillHour) Color(0xFFFFD700) else Color(0xFF140D02)
-            for (i in 7..18) arr[i] = if ((i - 7) < fillMin) Color(0xFF00E5FF) else Color(0xFF02121A)
-            for (i in 19..42) arr[i] = if ((i - 19) < fillSec) Color(0xFF00E676) else Color(0xFF031408)
+            arr[0] = rgb(255, 215, 0)
+            for (i in 1..6) arr[i] = if ((i - 1) < fillHour) rgb(255, 215, 0) else rgb(20, 13, 2)
+            for (i in 7..18) arr[i] = if ((i - 7) < fillMin) rgb(0, 229, 255) else rgb(2, 18, 26)
+            for (i in 19..42) arr[i] = if ((i - 19) < fillSec) rgb(0, 230, 118) else rgb(3, 20, 8)
         }
 
         LedAnimation.CLOCK_PRISMATIC -> { // 16. Chroma Prismatic
@@ -402,20 +539,20 @@ private fun computeLedColors(
             val minLeds = (min * 24 / 60)
             for (i in 19..42) {
                 val rel = i - 19
-                arr[i] = if (rel < minLeds) Color.hsv((min * 6f) % 360f, 0.9f, 0.9f) else Color(0xFF040612)
+                arr[i] = if (rel < minLeds) Color.hsv((min * 6f) % 360f, 0.9f, 0.9f) else rgb(4, 6, 18)
             }
             arr[0] = Color.hsv((tick * 2f) % 360f, 1f, 1f)
         }
 
         LedAnimation.CLOCK_ORRERY -> { // 17. Celestial Orrery
-            for (i in 0 until 43) arr[i] = Color(0xFF030718)
-            arr[0] = Color(0xFFFFD700) // Solar core
+            for (i in 0 until 43) arr[i] = rgb(3, 7, 24)
+            arr[0] = rgb(255, 215, 0) // Solar core
             val o1 = 1 + ((tick / 4) % 6).toInt()
             val o2 = 7 + ((tick / 8) % 12).toInt()
             val o3 = 19 + ((tick / 16) % 24).toInt()
-            arr[o1] = Color(0xFF00E5FF)
-            arr[o2] = Color(0xFF00E676)
-            arr[o3] = Color(0xFFFF007F)
+            arr[o1] = rgb(0, 229, 255)
+            arr[o2] = rgb(0, 230, 118)
+            arr[o3] = rgb(255, 0, 127)
         }
     }
 

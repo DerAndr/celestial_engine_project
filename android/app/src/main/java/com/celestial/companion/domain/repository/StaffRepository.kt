@@ -374,6 +374,10 @@ class StaffRepository(
         val langId = if (payload.size >= 6) buffer.get().toInt() and 0xFF else 0
         val hostType = if (payload.size >= 7) buffer.get().toInt() and 0xFF else 0
         val prefHost = if (payload.size >= 8) buffer.get().toInt() and 0xFF else 0
+        val aiModelId = if (payload.size >= 9) buffer.get().toInt() and 0xFF else 0
+        val micLevel = if (payload.size >= 10) buffer.get().toInt() and 0xFF else 0
+        val cosmosZoom = if (payload.size >= 11) buffer.get().toInt() and 0xFF else 0
+        val isAudioPlaying = if (payload.size >= 12) (buffer.get().toInt() and 0xFF) != 0 else false
 
         _telemetry.value = _telemetry.value.copy(
             mode = StaffMode.fromId(modeId),
@@ -384,6 +388,10 @@ class StaffRepository(
             language = StaffLanguage.fromId(langId),
             activeHost = if (hostType == 1) "PI 5 BRAIN" else if (hostType == 2) "PHONE BRAIN" else _telemetry.value.activeHost,
             preferredHost = prefHost,
+            aiModelId = aiModelId,
+            micLevelPercent = micLevel,
+            cosmosZoom = cosmosZoom,
+            isAudioPlaying = isAudioPlaying,
             isOnline = true,
             lastSeenTimestamp = System.currentTimeMillis()
         )

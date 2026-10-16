@@ -15,7 +15,11 @@ data class StaffTelemetry(
     val roundTripTimeMs: Long = 0,
     val activeHost: String = "STANDALONE",
     val language: StaffLanguage = StaffLanguage.ENGLISH,
-    val preferredHost: Int = 0
+    val preferredHost: Int = 0,
+    val aiModelId: Int = 0,
+    val micLevelPercent: Int = 0,
+    val cosmosZoom: Int = 0,
+    val isAudioPlaying: Boolean = false
 )
 
 data class PhoneAiModel(

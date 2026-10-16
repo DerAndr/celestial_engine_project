@@ -149,6 +149,7 @@ void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis) {
 }
 
 static int active_anim_idx = LED_ANIM_RAINBOW;
+static int live_rendered_anim = LED_ANIM_RAINBOW;
 static int active_track_idx = 0;
 static int active_voice_idx = 0;
 static int active_cosmic_idx = 0;
@@ -1788,10 +1789,14 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
 
 static inline void broadcast_telemetry(void) {
     net_client_send_telemetry((uint8_t)current_mode_idx, (uint8_t)current_state,
-                              audio_get_volume(), (uint8_t)active_anim_idx,
+                              audio_get_volume(), (uint8_t)live_rendered_anim,
                               (uint8_t)active_clock_style, (uint8_t)active_lang_idx,
                               (uint8_t)net_client_get_host_type(),
-                              (uint8_t)net_client_get_preferred_host());
+                              (uint8_t)net_client_get_preferred_host(),
+                              (uint8_t)net_client_get_model_theme(active_ai_model_idx),
+                              mic_get_level_percent(),
+                              (uint8_t)cosmos_zoom_level,
+                              audio_is_playing() ? 1 : 0);
 }
 
 int main(void) {
@@ -1924,6 +1929,7 @@ int main(void) {
         get_current_time(&cur_h, &cur_m, &cur_s, &cur_ms);
         leds_set_clock_time(cur_h, cur_m, cur_s, cur_ms);
 
+        live_rendered_anim = anim_to_run;
         leds_update(easter_egg_active, led_edit_mode, anim_to_run, mic_get_level_percent());
 
         // Fast sampling of controls
@@ -1932,6 +1938,15 @@ int main(void) {
 
         // Service Wi-Fi & UDP networking
         net_client_update();
+
+        // Periodic 100 ms telemetry broadcast during active voice/query/processing/speech states
+        static absolute_time_t last_active_telemetry = {0};
+        if (current_state == STATE_LISTENING || current_state == STATE_SPEAKING || current_state == STATE_PROCESSING) {
+            if (absolute_time_diff_us(last_active_telemetry, get_absolute_time()) >= 100000) {
+                last_active_telemetry = get_absolute_time();
+                broadcast_telemetry();
+            }
+        }
 
         // Process authenticated Companion App remote commands
         remote_cmd_t rem_cmd;

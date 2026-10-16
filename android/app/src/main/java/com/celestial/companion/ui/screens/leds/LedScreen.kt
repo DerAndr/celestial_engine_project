@@ -97,7 +97,10 @@ fun LedScreen(
                 ) {
                     ConcentricLedRingsView(
                         animation = telemetry.activeLedAnim,
-                        size = 210.dp
+                        size = 210.dp,
+                        micLevelPct = telemetry.micLevelPercent,
+                        aiModelId = telemetry.aiModelId,
+                        state = telemetry.state
                     )
                 }
 

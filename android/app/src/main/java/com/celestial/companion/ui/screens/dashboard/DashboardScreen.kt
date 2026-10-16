@@ -28,6 +28,7 @@ import com.celestial.companion.domain.model.StaffMode
 import com.celestial.companion.domain.model.StaffState
 import com.celestial.companion.ui.screens.cosmos.CosmosZoomView
 import com.celestial.companion.ui.screens.leds.ConcentricLedRingsView
+import com.celestial.companion.ui.components.StaffOledScreenView
 import com.celestial.companion.ui.theme.*
 
 @Composable
@@ -484,40 +485,24 @@ fun DashboardScreen(
             }
         }
 
-        // Live Staff Headpiece Light Ring Card
+        // Live Staff Digital Twin: Headpiece WS2812B Rings + Shaft SH1106 OLED Display
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = CardSurface),
             border = androidx.compose.foundation.BorderStroke(1.dp, CardBorder)
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Circular frame with concentric rings animation
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .background(DeepVoid)
-                        .border(1.dp, CardBorder, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    ConcentricLedRingsView(
-                        animation = telemetry.activeLedAnim,
-                        modifier = Modifier.size(96.dp),
-                        size = 96.dp
-                    )
-                }
-
-                // Info & Sync Status
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                // Header row with sync indicator & staff state
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -530,33 +515,89 @@ fun DashboardScreen(
                                 .background(if (telemetry.isOnline) EmeraldGreen else RunicGold)
                         )
                         Text(
-                            text = if (telemetry.isOnline) "PICO 2 W SYNCED" else "LOCAL SIMULATION",
+                            text = if (telemetry.isOnline) "STAFF DIGITAL TWIN (LIVE)" else "STAFF DIGITAL TWIN (SIM)",
                             color = if (telemetry.isOnline) EmeraldGreen else RunicGold,
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
                     }
 
                     Text(
-                        text = telemetry.activeLedAnim.displayName,
-                        color = AetherCyan,
-                        fontSize = 15.sp,
+                        text = "STATE: ${telemetry.state.displayName}",
+                        color = when (telemetry.state) {
+                            StaffState.LISTENING -> Color(0xFFFF5252)
+                            StaffState.PROCESSING -> AetherCyan
+                            StaffState.SPEAKING -> EmeraldGreen
+                            StaffState.IDLE -> TextSecondary
+                        },
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
+                }
 
+                // Digital Twin Visualizer: Ring on the left, OLED Screen Mirror on the right
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Left: 43-LED Concentric Rings Visualizer
+                    Box(
+                        modifier = Modifier
+                            .size(110.dp)
+                            .clip(CircleShape)
+                            .background(DeepVoid)
+                            .border(1.dp, CardBorder, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        ConcentricLedRingsView(
+                            animation = telemetry.activeLedAnim,
+                            modifier = Modifier.size(106.dp),
+                            size = 106.dp,
+                            micLevelPct = telemetry.micLevelPercent,
+                            aiModelId = telemetry.aiModelId,
+                            state = telemetry.state
+                        )
+                    }
+
+                    // Right: SH1106 128x64 OLED HUD Screen Mirror
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        StaffOledScreenView(
+                            state = telemetry.state,
+                            mode = telemetry.mode,
+                            volumePercent = telemetry.volumePercent,
+                            clockStyle = telemetry.clockStyle,
+                            activeHost = telemetry.activeHost,
+                            aiModelId = telemetry.aiModelId,
+                            micLevelPercent = telemetry.micLevelPercent,
+                            cosmosZoom = telemetry.cosmosZoom,
+                            isOnline = telemetry.isOnline,
+                            width = 190.dp
+                        )
+                    }
+                }
+
+                // Subtitle / Specs footer
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = telemetry.activeLedAnim.subtitle,
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        maxLines = 2
+                        text = "43 LEDs • ${telemetry.activeLedAnim.displayName}",
+                        color = AetherCyan,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace
                     )
-
                     Text(
-                        text = "43 LEDs • GP15 PIO • 33 Hz Tick",
+                        text = "SH1106 OLED • I2C1 400kHz",
                         color = TextMuted,
-                        fontSize = 9.sp,
+                        fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
