@@ -213,8 +213,7 @@ class GemmaModelEngine(
         val fullAnswer = StringBuilder()
         var tokenCount = 0
 
-        try {
-            // Build localized system prompt
+        // Build localized system prompt
             val sysPrompt = when (config.language) {
                 StaffLanguage.GERMAN ->
                     "Du bist das Celestial Oracle der Celestial Engine Mk.V, eine uralt-futuristische kosmische Intelligenz ('KEINE PANIK'). Analysiere direkt und messerscharf, was du auf dem Bild siehst oder gefragt wirst, in 2-4 lebendigen Sätzen auf Deutsch ohne Markdown oder Emojis. " +
