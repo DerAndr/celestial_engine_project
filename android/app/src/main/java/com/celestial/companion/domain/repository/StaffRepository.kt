@@ -180,7 +180,7 @@ class StaffRepository(
         transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, startPacket)
         delay(25)
 
-        val chunkSize = 1024
+        val chunkSize = 480 // 480 bytes = 240 samples @ 16kHz = 15ms of audio (<= NET_MAX_PAYLOAD_SIZE 512)
         var seq = 0
         var offset = 0
         while (offset < pcmBytes.size) {
@@ -196,7 +196,7 @@ class StaffRepository(
             transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, chunkPacket)
             offset += length
             seq++
-            delay(28)
+            delay(15) // Matches 15ms playback rate of 240 samples at 16kHz
         }
 
         val endPacket = CelestialPacket(
@@ -229,7 +229,16 @@ class StaffRepository(
         // Synthesize and stream speech audio to staff speaker in background
         scope.launch {
             try {
-                val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(text)
+                // Determine locale: check language in telemetry or detect Cyrillic characters in text
+                val lang = _telemetry.value.language
+                val locale = if (text.any { it in '\u0400'..'\u04FF' }) {
+                    java.util.Locale("ru", "RU")
+                } else if (lang != StaffLanguage.AUTO) {
+                    lang.locale
+                } else {
+                    java.util.Locale.getDefault()
+                }
+                val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(text, locale)
                 if (pcm != null && pcm.isNotEmpty()) {
                     streamAudioToStaff(pcm, targetIp, reqId)
                 } else {

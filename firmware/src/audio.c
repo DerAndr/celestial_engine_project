@@ -829,9 +829,11 @@ bool audio_stream_push(const int16_t *samples, size_t count) {
     for (size_t i = 0; i < count; i++) {
         audio_stream_ring[audio_stream_write_idx++ & AUDIO_STREAM_RING_MASK] = samples[i];
     }
-    // Pre-buffer 0.25s (4000 samples) before kicking off DAC
-    if (!audio_stream_active && (audio_stream_write_idx - audio_stream_read_idx >= 4000)) {
+    // Pre-buffer 0.10s (1600 samples) before kicking off DAC
+    if (!audio_stream_active && (audio_stream_write_idx - audio_stream_read_idx >= 1600)) {
         audio_stream_active = true;
+        voice_active = false;
+        active_voice_clip = NULL;
         amp_wake();
     }
     restore_interrupts(save);
@@ -843,6 +845,8 @@ void audio_stream_finish(void) {
     audio_stream_eof = true;
     if (audio_stream_write_idx != audio_stream_read_idx) {
         audio_stream_active = true;
+        voice_active = false;
+        active_voice_clip = NULL;
         amp_wake();
     }
     restore_interrupts(save);

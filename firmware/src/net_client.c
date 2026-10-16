@@ -456,11 +456,9 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
         companion_ip_addr = *addr;
         companion_port = port;
         has_paired_companion = true;
-        if (!response_gate.active) {
-            response_gate_begin(&response_gate, hdr.request_id);
-            printf("[NET] Opened unsolicited audio stream gate for Req %lu from %s:%d\n",
-                   (unsigned long)hdr.request_id, ip4addr_ntoa(addr), (int)port);
-        }
+        response_gate_begin(&response_gate, hdr.request_id);
+        printf("[NET] Opened unsolicited audio stream gate for Req %lu from %s:%d\n",
+               (unsigned long)hdr.request_id, ip4addr_ntoa(addr), (int)port);
     }
 
     bool is_from_server = (ip_addr_cmp(addr, &server_ip_addr) && port == active_server_port);
@@ -512,6 +510,9 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 ack = response_gate_start(&response_gate, hdr.request_id);
                 if (ack && first) {
                     pbuf_copy_partial(p, &response_expected_samples, sizeof(uint32_t), sizeof hdr);
+                    audio_stop_voice();
+                    audio_stop_chiptune();
+                    audio_stop_cosmic_sfx();
                     audio_stream_reset();
                     response_received_samples = 0;
                     resp_is_receiving = true;
@@ -529,8 +530,7 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                     int16_t chunk[NET_MAX_PAYLOAD_SIZE / 2];
                     pbuf_copy_partial(p, chunk, hdr.payload_len, sizeof hdr);
                     size_t count = hdr.payload_len / 2;
-                    if (response_received_samples + count <= response_expected_samples &&
-                        audio_stream_push(chunk, count)) {
+                    if (audio_stream_push(chunk, count)) {
                         response_gate = candidate;
                         response_received_samples += count;
                         last_resp_chunk_rx_ms = now;
@@ -540,14 +540,11 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
             }
             break;
         case NET_MSG_RESP_END:
-            if (response_received_samples == response_expected_samples) {
-                bool first = !response_gate.ended;
+            if (!response_gate.ended && response_gate.started) {
                 ack = response_gate_end(&response_gate, hdr.request_id, hdr.seq_num);
-                if (ack && first) {
-                    audio_stream_finish();
-                    resp_is_receiving = false;
-                    resp_is_ready = true;
-                }
+                audio_stream_finish();
+                resp_is_receiving = false;
+                resp_is_ready = true;
             }
             break;
         default: break;

@@ -25,11 +25,13 @@ static inline bool response_gate_start(response_gate_t *g, uint32_t id) {
 static inline int response_gate_chunk(response_gate_t *g, uint32_t id, uint16_t seq) {
     if (!response_gate_matches(g, id) || !g->started || g->ended) return 0;
     if (seq == g->next_seq) { g->next_seq++; return 2; }
-    if (g->next_seq && seq == (uint16_t)(g->next_seq - 1)) return 1;
+    if (seq > g->next_seq) { g->next_seq = (uint16_t)(seq + 1); return 2; }
+    if (g->next_seq && seq < g->next_seq) return 1;
     return 0;
 }
 static inline bool response_gate_end(response_gate_t *g, uint32_t id, uint16_t seq) {
-    if (!response_gate_matches(g, id) || !g->started || seq != g->next_seq) return false;
+    (void)seq;
+    if (!response_gate_matches(g, id) || !g->started) return false;
     g->ended = true;
     return true;
 }

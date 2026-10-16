@@ -167,6 +167,19 @@ class StaffTtsSynthesizer(private val context: Context) {
             out
         }
 
+        // Peak volume normalization for loud, crisp playback on MAX98357A 3W amp
+        var maxPeak = 0
+        for (s in resampled) {
+            val absVal = kotlin.math.abs(s.toInt())
+            if (absVal > maxPeak) maxPeak = absVal
+        }
+        if (maxPeak in 501..27999) {
+            val scale = 28000.0 / maxPeak.toDouble()
+            for (i in resampled.indices) {
+                resampled[i] = (resampled[i] * scale).toInt().coerceIn(-32768, 32767).toShort()
+            }
+        }
+
         val outBytes = ByteArray(resampled.size * 2)
         val outBb = ByteBuffer.wrap(outBytes).order(ByteOrder.LITTLE_ENDIAN)
         for (s in resampled) {
