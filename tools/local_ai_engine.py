@@ -126,14 +126,14 @@ def local_transcribe(wav_path, lang_id=None):
         print(f"  [LOCAL STT ERROR] whisper-cli failed: {e}")
         return None, (forced_tag or "en-US")
 
-def local_query_llm(user_text, lang_tag, model_name=None, adult_mode=False):
+def local_query_llm(user_text, lang_tag, model_name=None, adult_mode=False, model=None, **kwargs):
     """
     Queries local Ollama on Pi 5.
     Returns witty Douglas Adams / retro-space sci-fi response.
     When adult_mode=False (default), strictly forbids profanity and vulgarity.
     When adult_mode=True, allows unfiltered adult humor and profanity.
     """
-    model = model_name or get_configured_local_model()
+    model = model or model_name or kwargs.get("model") or kwargs.get("model_name") or get_configured_local_model()
     
     if "de" in lang_tag.lower():
         if adult_mode:

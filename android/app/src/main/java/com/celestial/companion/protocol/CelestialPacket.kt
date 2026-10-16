@@ -20,8 +20,8 @@ data class CelestialPacket(
     val version: Int = ProtocolConstants.VERSION,
     val msgType: NetMessageType,
     val seqNum: Int,
-    val payloadLen: Int,
-    val requestId: Long,
+    val payloadLen: Int = 0,
+    val requestId: Long = 0L,
     val payload: ByteArray = ByteArray(0),
     val senderIp: String = ""
 ) {
@@ -29,6 +29,7 @@ data class CelestialPacket(
      * Serialize header and payload into a byte array in Little-Endian byte order.
      */
     fun toBytes(): ByteArray {
+        val actualLen = if (payloadLen > 0) payloadLen else payload.size
         val totalLen = ProtocolConstants.HEADER_SIZE + payload.size
         val buffer = ByteBuffer.allocate(totalLen).apply {
             order(ByteOrder.LITTLE_ENDIAN)
@@ -36,7 +37,7 @@ data class CelestialPacket(
             put(version.toByte())
             put(msgType.code.toByte())
             putShort((seqNum and 0xFFFF).toShort())
-            putShort((payloadLen and 0xFFFF).toShort())
+            putShort((actualLen and 0xFFFF).toShort())
             putInt((requestId and 0xFFFFFFFFL).toInt())
             if (payload.isNotEmpty()) {
                 put(payload)

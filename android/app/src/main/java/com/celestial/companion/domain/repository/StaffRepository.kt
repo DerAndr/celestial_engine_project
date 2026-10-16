@@ -204,7 +204,8 @@ class StaffRepository(
                         val respPacket = CelestialPacket(
                             msgType = NetMessageType.HEARTBEAT,
                             seqNum = packet.seqNum,
-                            requestId = 0,
+                            payloadLen = buf.size,
+                            requestId = 0L,
                             payload = buf
                         )
                         transport.sendPacket(target, ProtocolConstants.DEFAULT_PORT, respPacket)

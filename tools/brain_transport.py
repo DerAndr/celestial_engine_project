@@ -228,7 +228,9 @@ class BrainTransport:
             try:
                 worker(self, session)
             except Exception as exc:
-                print(f'[REQUEST ERROR] {session.request_id}: {type(exc).__name__}')
+                print(f'[REQUEST ERROR] {session.request_id}: {type(exc).__name__}: {exc}')
+                import traceback
+                traceback.print_exc()
                 self.send(session, MSG_ERROR, payload=b'Generation failed')
             finally:
                 session.done = True
