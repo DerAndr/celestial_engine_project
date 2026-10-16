@@ -302,13 +302,16 @@ static void draw_speaking_screen(uint32_t dur_ms, bool anim_blink) {
     sh1106_draw_rect(0, 0, 128, 64, true);
 
     uint32_t now_ms = to_ms_since_boot(get_absolute_time());
+    bool is_aud_active = audio_is_playing();
 
     // 1. Playback Header Banner
     sh1106_fill_rect(2, 2, 124, 12, true);
     if (offline_oracle_mode) {
         sh1106_draw_string(6, 4, "[ OFFLINE ORACLE SPEAKS ]", false);
-    } else {
+    } else if (is_aud_active) {
         sh1106_draw_string(8, 4, "[ THE GUIDE SPEAKS ]", false);
+    } else {
+        sh1106_draw_string(8, 4, "[ THE GUIDE TRANSMITS ]", false);
     }
 
     // 2. Oracle Response Marquee Box across screen
@@ -321,10 +324,16 @@ static void draw_speaking_screen(uint32_t dur_ms, bool anim_blink) {
     sh1106_draw_string(8, 18, "ORACLE:", true);
     draw_marquee(25, resp_text, now_ms);
 
-    // 3. Animated Graphic Equalizer / Soundwave
-    for (int b = 0; b < 14; b++) {
-        int h = 2 + (rand() % 8);
-        sh1106_fill_rect(8 + b * 8, 46 - h, 5, h, true);
+    // 3. Animated Graphic Equalizer / Soundwave (active only when audio plays)
+    if (is_aud_active) {
+        for (int b = 0; b < 14; b++) {
+            int h = 2 + (rand() % 8);
+            sh1106_fill_rect(8 + b * 8, 46 - h, 5, h, true);
+        }
+    } else {
+        // Calm steady transmission marker
+        sh1106_draw_line(8, 43, 80, 43, true);
+        sh1106_draw_string(8, 35, "[ PROPHECY ]", true);
     }
     char vol_tag[16];
     snprintf(vol_tag, sizeof(vol_tag), "V:%2d%%", (int)audio_get_volume());
@@ -1989,13 +1998,24 @@ int main(void) {
         // Check for unsolicited broadcast text pushed from Companion App (e.g. "To Staff")
         if (net_client_has_unsolicited_text()) {
             net_client_clear_unsolicited_text();
-            audio_stop_all();
+            if (!audio_is_stream_playing() && !net_client_is_receiving_response()) {
+                audio_play_voice(VOICE_ORACLE); // Play digitized human voice: "Oracle activated"!
+                audio_play_chime();              // Arcane chime plays through MAX98357A speaker!
+            }
             current_state = STATE_SPEAKING;
             speaking_start_ms = to_ms_since_boot(get_absolute_time());
-            audio_play_chime(); // Arcane chime plays through MAX98357A speaker!
             need_display_update = true;
             broadcast_telemetry();
             LOG_INFO("NET", "Displaying broadcast text from Companion on OLED: %s", net_client_get_response_text());
+        }
+
+        // Unsolicited incoming audio stream automatically switches staff to SPEAKING
+        if (current_state != STATE_SPEAKING && current_state != STATE_LISTENING &&
+            (audio_is_stream_playing() || net_client_is_receiving_response())) {
+            current_state = STATE_SPEAKING;
+            speaking_start_ms = to_ms_since_boot(get_absolute_time());
+            need_display_update = true;
+            broadcast_telemetry();
         }
 
         // Check incoming Brain response or timeout in STATE_PROCESSING

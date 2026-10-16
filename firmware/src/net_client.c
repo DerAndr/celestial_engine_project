@@ -157,14 +157,14 @@ static volatile uint32_t response_progress_ms;
 static uint32_t response_expected_samples, response_received_samples;
 
 /* Called only inside the lwIP callback, which already owns the SDK lock. */
-static void acknowledge_response(const net_packet_header_t *received) {
+static void acknowledge_response(const net_packet_header_t *received, const ip_addr_t *dst_ip, uint16_t dst_port) {
     struct pbuf *ack = pbuf_alloc(PBUF_TRANSPORT, sizeof(*received) + 1, PBUF_RAM);
     if (!ack) return;
     net_packet_header_t hdr = { CELESTIAL_NET_MAGIC, CELESTIAL_NET_VERSION,
         NET_MSG_ACK, received->seq_num, 1, received->request_id };
     memcpy(ack->payload, &hdr, sizeof hdr);
     ((uint8_t *)ack->payload)[sizeof hdr] = received->msg_type;
-    udp_sendto(udp_client_pcb, ack, &server_ip_addr, active_server_port);
+    udp_sendto(udp_client_pcb, ack, dst_ip, dst_port);
     pbuf_free(ack);
 }
 
@@ -451,7 +451,21 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
         return;
     }
 
-    if (!ip_addr_cmp(addr, &server_ip_addr) || port != active_server_port) {
+    // Direct Unsolicited Audio Stream from Companion App or Brain Host
+    if (hdr.msg_type == NET_MSG_RESP_START && hdr.payload_len == sizeof(uint32_t)) {
+        companion_ip_addr = *addr;
+        companion_port = port;
+        has_paired_companion = true;
+        if (!response_gate.active) {
+            response_gate_begin(&response_gate, hdr.request_id);
+            printf("[NET] Opened unsolicited audio stream gate for Req %lu from %s:%d\n",
+                   (unsigned long)hdr.request_id, ip4addr_ntoa(addr), (int)port);
+        }
+    }
+
+    bool is_from_server = (ip_addr_cmp(addr, &server_ip_addr) && port == active_server_port);
+    bool is_from_companion = (has_paired_companion && ip_addr_cmp(addr, &companion_ip_addr));
+    if (!is_from_server && !is_from_companion) {
         pbuf_free(p);
         return;
     }
@@ -540,7 +554,7 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
         }
         if (ack) {
             response_progress_ms = now;
-            acknowledge_response(&hdr);
+            acknowledge_response(&hdr, addr, port);
         }
     }
     pbuf_free(p);

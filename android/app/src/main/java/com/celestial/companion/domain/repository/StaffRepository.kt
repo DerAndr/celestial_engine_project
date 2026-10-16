@@ -33,9 +33,11 @@ data class IncomingStaffVoiceQuery(
 
 class StaffRepository(
     private val transport: StaffTransport,
-    val gemmaEngine: GemmaModelEngine? = null
+    val gemmaEngine: GemmaModelEngine? = null,
+    private val context: android.content.Context? = null
 ) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val ttsSynthesizer = context?.let { com.celestial.companion.audio.StaffTtsSynthesizer(it) }
 
     private val _telemetry = MutableStateFlow(StaffTelemetry())
     val telemetry: StateFlow<StaffTelemetry> = _telemetry.asStateFlow()
@@ -165,13 +167,57 @@ class StaffRepository(
         transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, packet)
     }
 
+    suspend fun streamAudioToStaff(pcmBytes: ByteArray, targetIp: String = activeStaffIp, reqId: Long = System.currentTimeMillis()) {
+        val sampleCount = pcmBytes.size / 2
+        val startPayload = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(sampleCount).array()
+        val startPacket = CelestialPacket(
+            msgType = NetMessageType.RESP_START,
+            seqNum = 1,
+            payloadLen = startPayload.size,
+            requestId = reqId,
+            payload = startPayload
+        )
+        transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, startPacket)
+        delay(25)
+
+        val chunkSize = 1024
+        var seq = 0
+        var offset = 0
+        while (offset < pcmBytes.size) {
+            val length = minOf(chunkSize, pcmBytes.size - offset)
+            val chunk = pcmBytes.copyOfRange(offset, offset + length)
+            val chunkPacket = CelestialPacket(
+                msgType = NetMessageType.RESP_CHUNK,
+                seqNum = seq,
+                payloadLen = chunk.size,
+                requestId = reqId,
+                payload = chunk
+            )
+            transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, chunkPacket)
+            offset += length
+            seq++
+            delay(28)
+        }
+
+        val endPacket = CelestialPacket(
+            msgType = NetMessageType.RESP_END,
+            seqNum = seq,
+            payloadLen = 0,
+            requestId = reqId,
+            payload = ByteArray(0)
+        )
+        transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, endPacket)
+        Log.i(TAG, "streamAudioToStaff: finished streaming $sampleCount samples ($seq chunks) to $targetIp")
+    }
+
     suspend fun broadcastAiResponse(text: String, targetIp: String = activeStaffIp) {
         val textBytes = text.toByteArray(Charsets.UTF_8)
+        val reqId = System.currentTimeMillis()
         val textPacket = CelestialPacket(
             msgType = NetMessageType.RESP_TEXT,
             seqNum = 1,
             payloadLen = textBytes.size,
-            requestId = 0L,
+            requestId = reqId,
             payload = textBytes
         )
         // Send direct to active staff IP
@@ -179,6 +225,20 @@ class StaffRepository(
         // Also send to subnet broadcast so if staff IP differed it still arrives
         transport.sendPacket("255.255.255.255", ProtocolConstants.DEFAULT_PORT, textPacket)
         Log.i(TAG, "broadcastAiResponse: sent ${textBytes.size} bytes of text to $targetIp and broadcast")
+
+        // Synthesize and stream speech audio to staff speaker in background
+        scope.launch {
+            try {
+                val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(text)
+                if (pcm != null && pcm.isNotEmpty()) {
+                    streamAudioToStaff(pcm, targetIp, reqId)
+                } else {
+                    Log.w(TAG, "TTS synthesis returned null/empty PCM, speech audio not streamed")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error synthesizing or streaming speech to staff: ${e.message}", e)
+            }
+        }
     }
 
     private val _staffVoiceQueries = kotlinx.coroutines.flow.MutableSharedFlow<IncomingStaffVoiceQuery>(extraBufferCapacity = 8)
