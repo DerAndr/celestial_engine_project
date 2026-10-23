@@ -454,6 +454,20 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 set_current_time_epoch(server_epoch, 0);
             }
         }
+
+        // Immediately send back a heartbeat ACK so Companion marks staff ONLINE right away!
+        struct pbuf *reply = pbuf_alloc(PBUF_TRANSPORT, sizeof(net_packet_header_t), PBUF_RAM);
+        if (reply != NULL) {
+            net_packet_header_t *rhdr = (net_packet_header_t *)reply->payload;
+            rhdr->magic = CELESTIAL_NET_MAGIC;
+            rhdr->version = CELESTIAL_NET_VERSION;
+            rhdr->msg_type = NET_MSG_HEARTBEAT;
+            rhdr->seq_num = tx_seq_counter++;
+            rhdr->payload_len = 0;
+            rhdr->request_id = 0;
+            udp_sendto(udp_client_pcb, reply, addr, port);
+            pbuf_free(reply);
+        }
         pbuf_free(p);
         return;
     }
@@ -583,6 +597,8 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
     pbuf_free(p);
 }
 
+static uint32_t last_reconnect_attempt_ms = 0;
+
 void net_client_init(void) {
     active_ap_profile = 0;
     ap_connect_failures = 0;
@@ -608,6 +624,7 @@ void net_client_init(void) {
         }
         udp_client_pcb = udp_new();
         if (udp_client_pcb != NULL) {
+            ip_set_option(udp_client_pcb, SOF_BROADCAST);
             udp_bind(udp_client_pcb, IP_ADDR_ANY, CELESTIAL_NET_DEFAULT_PORT);
             udp_recv(udp_client_pcb, net_client_udp_recv_callback, NULL);
         }
@@ -620,13 +637,12 @@ void net_client_init(void) {
         } else {
             current_status = NET_STATUS_ERROR;
         }
+        last_reconnect_attempt_ms = to_ms_since_boot(get_absolute_time());
     }
 #else
     current_status = NET_STATUS_DISCONNECTED;
 #endif
 }
-
-static uint32_t last_reconnect_attempt_ms = 0;
 
 void net_client_update(void) {
     uint32_t now = to_ms_since_boot(get_absolute_time());
@@ -651,6 +667,7 @@ void net_client_update(void) {
             cyw43_arch_lwip_begin();
             udp_client_pcb = udp_new();
             if (udp_client_pcb != NULL) {
+                ip_set_option(udp_client_pcb, SOF_BROADCAST);
                 udp_bind(udp_client_pcb, IP_ADDR_ANY, CELESTIAL_NET_DEFAULT_PORT);
                 udp_recv(udp_client_pcb, net_client_udp_recv_callback, NULL);
             }
@@ -708,11 +725,16 @@ void net_client_update(void) {
         }
 
 #if HAVE_WIFI_CREDENTIALS
-        if (now - last_reconnect_attempt_ms > 4000) {
+        // Allow up to 15 seconds for Wi-Fi association and DHCP negotiation.
+        // If the chip is actively negotiating (CYW43_LINK_JOIN / CYW43_LINK_NOIP), do not abort prematurely!
+        bool is_in_progress = (link_status == CYW43_LINK_JOIN || link_status == CYW43_LINK_NOIP);
+        uint32_t timeout_ms = is_in_progress ? 16000 : 10000;
+
+        if (now - last_reconnect_attempt_ms > timeout_ms) {
             last_reconnect_attempt_ms = now;
             ap_connect_failures++;
             if (strlen(WIFI_FALLBACK_SSID) > 0 && ap_connect_failures >= 3) {
-                // Toggle between primary (0) and fallback (1)
+                // Toggle between primary (0 = Hotspot) and fallback (1 = Home Wi-Fi)
                 active_ap_profile = (active_ap_profile == 0) ? 1 : 0;
                 ap_connect_failures = 0;
                 active_server_port = get_current_server_port();
@@ -722,6 +744,7 @@ void net_client_update(void) {
             }
             const char *ssid = get_current_ssid();
             if (strlen(ssid) > 0) {
+                printf("[NET] Connecting to Wi-Fi SSID [%s] (attempt %d)...\n", ssid, ap_connect_failures + 1);
                 cyw43_arch_wifi_connect_async(ssid, get_current_password(), CYW43_AUTH_WPA2_AES_PSK);
             }
         }
@@ -976,7 +999,7 @@ void net_client_clear_unsolicited_text(void) {
 void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style,
                                uint8_t lang, uint8_t host_type, uint8_t pref_host,
                                uint8_t ai_model, uint8_t mic_level, uint8_t cosmos_zoom, uint8_t is_audio_playing) {
-    if (!has_paired_companion || udp_client_pcb == NULL || current_status != NET_STATUS_CONNECTED) {
+    if (udp_client_pcb == NULL || current_status != NET_STATUS_CONNECTED) {
         return;
     }
     uint8_t payload[12] = { mode, state, volume, anim, clock_style, lang, host_type, pref_host,
@@ -993,7 +1016,13 @@ void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint
         hdr->payload_len = sizeof(payload);
         hdr->request_id = 0;
         memcpy((uint8_t *)p->payload + sizeof(*hdr), payload, sizeof(payload));
-        udp_sendto(udp_client_pcb, p, &companion_ip_addr, companion_port);
+        if (has_paired_companion) {
+            udp_sendto(udp_client_pcb, p, &companion_ip_addr, companion_port);
+        } else {
+            ip_addr_t bcast;
+            ip_addr_set_ip4_u32(&bcast, IPADDR_BROADCAST);
+            udp_sendto(udp_client_pcb, p, &bcast, CELESTIAL_NET_DEFAULT_PORT);
+        }
         pbuf_free(p);
     }
     cyw43_arch_lwip_end();

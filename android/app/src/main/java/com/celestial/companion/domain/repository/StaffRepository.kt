@@ -122,6 +122,30 @@ class StaffRepository(
                 }
             }
         }
+
+        // Auto-discovery beacon: broadcast heartbeat every 1.5s when offline to find staff dynamically
+        scope.launch {
+            while (isActive) {
+                if (!_telemetry.value.isOnline) {
+                    val curMs = System.currentTimeMillis()
+                    val localOffset = java.util.TimeZone.getDefault().getOffset(curMs)
+                    val epochSec = ((curMs + localOffset) / 1000).toInt()
+                    val buf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(epochSec).array()
+                    val ping = CelestialPacket(
+                        msgType = NetMessageType.HEARTBEAT,
+                        seqNum = 1,
+                        payloadLen = buf.size,
+                        requestId = 0L,
+                        payload = buf
+                    )
+                    transport.sendPacket("255.255.255.255", ProtocolConstants.DEFAULT_PORT, ping)
+                    if (activeStaffIp.isNotEmpty() && activeStaffIp != "255.255.255.255") {
+                        transport.sendPacket(activeStaffIp, ProtocolConstants.DEFAULT_PORT, ping)
+                    }
+                }
+                delay(1500)
+            }
+        }
     }
 
     fun setTargetStaffIp(ip: String) {
