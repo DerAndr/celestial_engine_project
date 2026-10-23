@@ -36,48 +36,69 @@ enum class GemmaVariant(
     val description: String,
     val isMultimodal: Boolean,
     val hasThinkingMode: Boolean,
-    val modelId: String = "google/gemini-2.5-flash"
+    val modelId: String = "google/gemma-4-31b-it",
+    val fallbackModelId: String = "google/gemini-2.5-flash"
 ) {
-    E2B_MULTIMODAL(
+    GEMMA_4_31B(
         0,
-        "Gemma 4 (E2B) Multimodal",
-        "G4-MM",
-        "Unified vision & text intelligence via OpenRouter Gemini/Gemma core",
+        "Gemma 4 (31B) Multimodal",
+        "G4-31B",
+        "Google Gemma 4 31B instruction-tuned multimodal vision & reasoning core",
         isMultimodal = true,
         hasThinkingMode = true,
-        modelId = "google/gemini-2.5-flash"
+        modelId = "google/gemma-4-31b-it",
+        fallbackModelId = "google/gemini-2.5-flash"
     ),
-    E4B_THINKING(
+    GEMMA_4_26B(
         1,
-        "Gemma 4 Think (E4B)",
-        "G4-THK",
-        "Deep reasoning model with Chain-of-Thought (CoT) thinking traces",
+        "Gemma 4 Think (26B A4B)",
+        "G4-26B",
+        "Google Gemma 4 26B Mixture-of-Experts with native CoT reasoning",
         isMultimodal = true,
         hasThinkingMode = true,
-        modelId = "google/gemini-2.5-flash"
+        modelId = "google/gemma-4-26b-a4b-it",
+        fallbackModelId = "google/gemini-2.5-flash"
     ),
-    FLASH_NANO(
+    GEMMA_3_27B(
         2,
         "Gemma 3 27B Vision",
         "G3-27B",
         "Google Gemma 3 27B multimodal instruction tuned model",
         isMultimodal = true,
         hasThinkingMode = true,
-        modelId = "google/gemma-3-27b-it"
+        modelId = "google/gemma-3-27b-it",
+        fallbackModelId = "google/gemini-2.5-flash"
+    ),
+    GEMINI_FLASH(
+        3,
+        "Gemini 2.5 Flash",
+        "G2.5-FL",
+        "Ultra-fast high-concurrency Gemini multimodal vision core",
+        isMultimodal = true,
+        hasThinkingMode = true,
+        modelId = "google/gemini-2.5-flash",
+        fallbackModelId = "google/gemma-3-27b-it"
     ),
     PI5_OFFLOAD(
-        3,
+        4,
         "Pi 5 Local Core",
         "PI5",
         "Offload to Wearable Raspberry Pi 5 NVMe server over local Wi-Fi",
         isMultimodal = false,
         hasThinkingMode = false,
-        modelId = "local"
-    )
+        modelId = "local",
+        fallbackModelId = "google/gemini-2.5-flash"
+    );
+
+    companion object {
+        val E2B_MULTIMODAL = GEMMA_4_31B
+        val E4B_THINKING = GEMMA_4_26B
+        val FLASH_NANO = GEMMA_3_27B
+    }
 }
 
 data class GemmaConfig(
-    val variant: GemmaVariant = GemmaVariant.E2B_MULTIMODAL,
+    val variant: GemmaVariant = GemmaVariant.GEMMA_4_31B,
     val enableThinking: Boolean = true,
     val language: StaffLanguage = StaffLanguage.ENGLISH,
     val temperature: Float = 0.7f,
@@ -266,15 +287,21 @@ class GemmaModelEngine(
                             put("text", textQuery)
                         })
 
-                        // Compress and encode image (max 1280px)
-                        val scaledBitmap = if (image.width > 1280 || image.height > 1280) {
-                            val scale = 1280f / maxOf(image.width, image.height)
-                            Bitmap.createScaledBitmap(image, (image.width * scale).toInt(), (image.height * scale).toInt(), true)
+                        // Compress and encode image (max 800px for speed, reliability & memory efficiency)
+                        val maxDim = 800
+                        val scaledBitmap = if (image.width > maxDim || image.height > maxDim) {
+                            val scale = maxDim.toFloat() / maxOf(image.width, image.height)
+                            val targetW = (image.width * scale).toInt().coerceAtLeast(1)
+                            val targetH = (image.height * scale).toInt().coerceAtLeast(1)
+                            Bitmap.createScaledBitmap(image, targetW, targetH, true)
                         } else {
                             image
                         }
                         val baos = ByteArrayOutputStream()
-                        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+                        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos)
+                        if (scaledBitmap != image) {
+                            scaledBitmap.recycle()
+                        }
                         val base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
                         val dataUrl = "data:image/jpeg;base64,$base64"
 
@@ -318,8 +345,8 @@ class GemmaModelEngine(
             val url = URL(endpoint)
             val conn = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
-                connectTimeout = 15000
-                readTimeout = 30000
+                connectTimeout = 30000
+                readTimeout = 60000
                 doOutput = true
                 doInput = true
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -336,8 +363,15 @@ class GemmaModelEngine(
 
                 val responseCode = conn.responseCode
                 if (responseCode !in 200..299) {
-                    val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
-                    throw IOException("Server returned HTTP $responseCode: $err")
+                    val rawErr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
+                    Log.e(TAG, "OpenRouter returned HTTP $responseCode for ${config.variant.modelId}: $rawErr")
+                    val parsedMsg = try {
+                        val json = JSONObject(rawErr)
+                        json.optJSONObject("error")?.optString("message") ?: rawErr
+                    } catch (_: Exception) {
+                        rawErr
+                    }
+                    throw IOException("AI Core ($responseCode): $parsedMsg")
                 }
 
                 emit(GemmaStreamChunk.PhaseChanged(

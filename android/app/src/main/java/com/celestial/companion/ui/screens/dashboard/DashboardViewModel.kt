@@ -7,6 +7,7 @@ import com.celestial.companion.ai.AiProcessingPhase
 import com.celestial.companion.ai.GemmaModelEngine
 import com.celestial.companion.ai.GemmaResult
 import com.celestial.companion.ai.GemmaStreamChunk
+import com.celestial.companion.ai.GemmaVariant
 import com.celestial.companion.domain.model.*
 import com.celestial.companion.domain.repository.ConnectionMode
 import com.celestial.companion.domain.repository.StaffRepository
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import android.util.Log
 
 data class OracleChatMessage(
     val id: String = java.util.UUID.randomUUID().toString(),
@@ -36,6 +38,8 @@ class DashboardViewModel(
     val gemmaEngine: GemmaModelEngine? = repository.gemmaEngine
 ) : ViewModel() {
 
+    private val TAG = "DashboardViewModel"
+
     val telemetry: StateFlow<StaffTelemetry> = repository.telemetry
     val phoneBrainActive: StateFlow<Boolean> = repository.phoneBrainActive
     val phoneModels: StateFlow<List<PhoneAiModel>> = repository.phoneModels
@@ -43,6 +47,9 @@ class DashboardViewModel(
 
     private val _currentLanguage = MutableStateFlow(StaffLanguage.ENGLISH)
     val currentLanguage: StateFlow<StaffLanguage> = _currentLanguage.asStateFlow()
+
+    private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMMA_4_31B)
+    val selectedModelVariant: StateFlow<GemmaVariant> = _selectedModelVariant.asStateFlow()
 
     // Real-Time Processing Monitoring State
     private val _processingPhase = MutableStateFlow(AiProcessingPhase.IDLE)
@@ -104,6 +111,14 @@ class DashboardViewModel(
         gemmaEngine?.config = gemmaEngine?.config?.copy(language = lang) ?: return
         viewModelScope.launch {
             repository.executeCommand(StaffCommand.SetLanguage(lang))
+        }
+    }
+
+    fun setModelVariant(variant: GemmaVariant) {
+        _selectedModelVariant.value = variant
+        gemmaEngine?.let { engine ->
+            val updatedConfig = engine.config.copy(variant = variant)
+            engine.saveConfigToPrefs(updatedConfig)
         }
     }
 
@@ -270,12 +285,13 @@ class DashboardViewModel(
                         }
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
+                Log.e(TAG, "Inference anomaly: ${e.message}", e)
                 liveTimerJob?.cancel()
                 _isGenerating.value = false
                 _processingPhase.value = AiProcessingPhase.ERROR
-                val errText = "Inference anomaly: ${e.message}"
+                val errText = "Inference anomaly: ${e.message ?: e.javaClass.simpleName}"
                 _liveStreamingText.value = errText
                 _chatHistory.value = _chatHistory.value.map { msg ->
                     if (msg.id == assistantMsgId) {

@@ -3,6 +3,8 @@ package com.celestial.companion.ui.screens.terminal
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.speech.tts.TextToSpeech
 import android.widget.Toast
@@ -67,6 +69,7 @@ fun OracleTerminalScreen(
     val liveThoughtTrace by viewModel.liveThoughtTrace.collectAsState()
     val liveStreamingText by viewModel.liveStreamingText.collectAsState()
     val gemmaResult by viewModel.gemmaResult.collectAsState()
+    val selectedModelVariant by viewModel.selectedModelVariant.collectAsState()
 
     var promptInput by remember { mutableStateOf("") }
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -135,17 +138,20 @@ fun OracleTerminalScreen(
         }
     }
 
-    // Image picker launcher for Vision Multimodality
+    // Memory-safe Image picker launcher for Vision Multimodality
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
             try {
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-                    selectedBitmap = BitmapFactory.decodeStream(stream)
+                val decoded = decodeSampledBitmap(context, uri, maxDimension = 800)
+                if (decoded != null) {
+                    selectedBitmap = decoded
+                } else {
+                    Toast.makeText(context, "Failed to decode image safely", Toast.LENGTH_SHORT).show()
                 }
-            } catch (e: Exception) {
-                Toast.makeText(context, "Error loading image: ${e.message}", Toast.LENGTH_SHORT).show()
+            } catch (t: Throwable) {
+                Toast.makeText(context, "Error loading image: ${t.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -412,60 +418,106 @@ fun OracleTerminalScreen(
             colors = CardDefaults.cardColors(containerColor = DeepVoid),
             border = BorderStroke(1.dp, CardBorder)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(EmeraldGreen)
+                            )
+                            Text(
+                                text = selectedModelVariant.displayName.uppercase(),
+                                color = AetherCyan,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        Text(
+                            text = selectedModelVariant.description,
+                            color = TextMuted,
+                            fontSize = 10.sp,
+                            maxLines = 2
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(EmeraldGreen)
-                        )
                         Text(
-                            text = "GEMMA 4 (E2B) MULTIMODAL",
-                            color = AetherCyan,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
+                            text = if (thinkingModeEnabled) "CoT ON" else "CoT OFF",
+                            color = if (thinkingModeEnabled) RunicGold else TextMuted,
+                            fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
                         )
+                        Switch(
+                            checked = thinkingModeEnabled,
+                            onCheckedChange = {
+                                thinkingModeEnabled = it
+                                viewModel.gemmaEngine?.config = viewModel.gemmaEngine?.config?.copy(enableThinking = it) ?: return@Switch
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = RunicGold,
+                                checkedTrackColor = Color(0x33FFD700)
+                            )
+                        )
                     }
-                    Text(
-                        text = "Native Vision • Voice • Text • CoT Thinking",
-                        color = TextMuted,
-                        fontSize = 11.sp
-                    )
                 }
 
+                // Interactive Model Selector Pills
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = if (thinkingModeEnabled) "CoT ON" else "CoT OFF",
-                        color = if (thinkingModeEnabled) RunicGold else TextMuted,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Switch(
-                        checked = thinkingModeEnabled,
-                        onCheckedChange = {
-                            thinkingModeEnabled = it
-                            viewModel.gemmaEngine?.config = viewModel.gemmaEngine?.config?.copy(enableThinking = it) ?: return@Switch
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = RunicGold,
-                            checkedTrackColor = Color(0x33FFD700)
-                        )
-                    )
+                    listOf(
+                        GemmaVariant.GEMMA_4_31B,
+                        GemmaVariant.GEMMA_4_26B,
+                        GemmaVariant.GEMMA_3_27B,
+                        GemmaVariant.GEMINI_FLASH
+                    ).forEach { variant ->
+                        val isSel = variant == selectedModelVariant
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSel) SpaceBlack else CardSurface)
+                                .border(
+                                    1.dp,
+                                    if (isSel) AetherCyan else CardBorder,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable { viewModel.setModelVariant(variant) }
+                                .padding(vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = variant.tag,
+                                color = if (isSel) AetherCyan else TextSecondary,
+                                fontSize = 10.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -636,7 +688,7 @@ fun OracleTerminalScreen(
                         } else {
                             Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = SpaceBlack, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Query Gemma 4", color = SpaceBlack, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Query ${selectedModelVariant.tag}", color = SpaceBlack, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1063,5 +1115,86 @@ fun OracleTerminalScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Safely decodes a downsampled bitmap from a content Uri, preserving aspect ratio,
+ * correcting EXIF camera orientation, and avoiding OutOfMemoryError on large camera photos.
+ */
+private fun decodeSampledBitmap(context: Context, uri: Uri, maxDimension: Int = 800): Bitmap? {
+    return try {
+        // Step 1: Decode image dimensions only
+        val boundsOptions = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, boundsOptions)
+        }
+        val origW = boundsOptions.outWidth
+        val origH = boundsOptions.outHeight
+        if (origW <= 0 || origH <= 0) return null
+
+        // Step 2: Compute power-of-two inSampleSize
+        var inSampleSize = 1
+        while (origW / (inSampleSize * 2) >= maxDimension || origH / (inSampleSize * 2) >= maxDimension) {
+            inSampleSize *= 2
+        }
+
+        // Step 3: Decode subsampled bitmap into memory
+        val decodeOptions = BitmapFactory.Options().apply {
+            this.inSampleSize = inSampleSize
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val sampledBitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, decodeOptions)
+        } ?: return null
+
+        // Step 4: Correct EXIF orientation
+        val orientation = try {
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                val exif = ExifInterface(stream)
+                exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+            } ?: ExifInterface.ORIENTATION_NORMAL
+        } catch (_: Throwable) {
+            ExifInterface.ORIENTATION_NORMAL
+        }
+
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.postScale(-1f, 1f)
+            ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.postScale(1f, -1f)
+        }
+
+        val orientedBitmap = if (!matrix.isIdentity) {
+            val rotated = Bitmap.createBitmap(sampledBitmap, 0, 0, sampledBitmap.width, sampledBitmap.height, matrix, true)
+            if (rotated != sampledBitmap) {
+                sampledBitmap.recycle()
+            }
+            rotated
+        } else {
+            sampledBitmap
+        }
+
+        // Step 5: Final scale down if oriented bitmap exceeds maxDimension
+        val currentMax = maxOf(orientedBitmap.width, orientedBitmap.height)
+        if (currentMax > maxDimension) {
+            val scale = maxDimension.toFloat() / currentMax
+            val targetW = (orientedBitmap.width * scale).toInt().coerceAtLeast(1)
+            val targetH = (orientedBitmap.height * scale).toInt().coerceAtLeast(1)
+            val scaled = Bitmap.createScaledBitmap(orientedBitmap, targetW, targetH, true)
+            if (scaled != orientedBitmap) {
+                orientedBitmap.recycle()
+            }
+            scaled
+        } else {
+            orientedBitmap
+        }
+    } catch (t: Throwable) {
+        android.util.Log.e("OracleTerminal", "Failed to decode sampled bitmap: ${t.message}", t)
+        null
     }
 }
