@@ -313,9 +313,18 @@ class StaffRepository(
 
     private fun handleIncomingPacket(packet: CelestialPacket) {
         val now = System.currentTimeMillis()
-        if (packet.senderIp.isNotEmpty() && packet.senderIp != "0.0.0.0") {
-            activeStaffIp = packet.senderIp
+        if (packet.senderIp.isEmpty() || packet.senderIp == "0.0.0.0" || packet.senderIp == "127.0.0.1") {
+            return
         }
+        val isSelf = try {
+            java.net.NetworkInterface.getNetworkInterfaces()?.toList()?.any { iface ->
+                iface.inetAddresses.toList().any { it.hostAddress == packet.senderIp }
+            } == true
+        } catch (_: Exception) { false }
+        if (isSelf) {
+            return
+        }
+        activeStaffIp = packet.senderIp
         when (packet.msgType) {
             NetMessageType.HEARTBEAT -> {
                 _telemetry.value = _telemetry.value.copy(

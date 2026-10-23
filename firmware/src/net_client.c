@@ -1022,6 +1022,9 @@ void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint
             ip_addr_t bcast;
             ip_addr_set_ip4_u32(&bcast, IPADDR_BROADCAST);
             udp_sendto(udp_client_pcb, p, &bcast, CELESTIAL_NET_DEFAULT_PORT);
+            if (server_ip_addr.addr != 0) {
+                udp_sendto(udp_client_pcb, p, &server_ip_addr, active_server_port);
+            }
         }
         pbuf_free(p);
     }

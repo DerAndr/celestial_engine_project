@@ -102,14 +102,78 @@ class StaffUdpTransport(
                 val bytes = packet.toBytes()
                 val targetAddr = InetAddress.getByName(targetIp)
                 val datagram = DatagramPacket(bytes, bytes.size, targetAddr, targetPort)
-                val s = socket ?: DatagramSocket().apply {
-                    broadcast = true
+
+                if (targetIp == "255.255.255.255") {
+                    var sentAny = false
+                    try {
+                        val interfaces = java.net.NetworkInterface.getNetworkInterfaces()?.toList() ?: emptyList()
+                        for (iface in interfaces) {
+                            if (!iface.isUp || iface.isLoopback) continue
+                            for (ifaceAddr in iface.interfaceAddresses) {
+                                val bcast = ifaceAddr.broadcast
+                                val local = ifaceAddr.address
+                                if (bcast != null && local is java.net.Inet4Address) {
+                                    try {
+                                        DatagramSocket(InetSocketAddress(local, 0)).use { boundSocket ->
+                                            boundSocket.broadcast = true
+                                            val bcastDatagram = DatagramPacket(bytes, bytes.size, bcast, targetPort)
+                                            boundSocket.send(bcastDatagram)
+                                            sentAny = true
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Multi-interface broadcast traversal: ${e.message}")
+                    }
+                    if (!sentAny) {
+                        val s = socket ?: DatagramSocket().apply { broadcast = true }
+                        s.send(datagram)
+                    }
+                } else {
+                    val matchedLocal = findMatchingLocalAddress(targetAddr)
+                    if (matchedLocal != null) {
+                        try {
+                            DatagramSocket(InetSocketAddress(matchedLocal, 0)).use { boundSocket ->
+                                boundSocket.send(datagram)
+                            }
+                            return@withContext
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed bound send from $matchedLocal to $targetIp: ${e.message}, falling back")
+                        }
+                    }
+                    val s = socket ?: DatagramSocket().apply { broadcast = true }
+                    s.send(datagram)
                 }
-                s.send(datagram)
             } catch (e: Exception) {
                 Log.e(TAG, "UDP send failed to $targetIp:$targetPort: ${e.message}")
             }
         }
+    }
+
+    private fun findMatchingLocalAddress(target: InetAddress): InetAddress? {
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()?.toList() ?: return null
+            val targetBytes = target.address
+            if (targetBytes.size != 4) return null
+            for (iface in interfaces) {
+                if (!iface.isUp || iface.isLoopback) continue
+                for (ifaceAddr in iface.interfaceAddresses) {
+                    val addr = ifaceAddr.address
+                    if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
+                        val addrBytes = addr.address
+                        if (targetBytes[0] == addrBytes[0] &&
+                            targetBytes[1] == addrBytes[1] &&
+                            targetBytes[2] == addrBytes[2]
+                        ) {
+                            return addr
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return null
     }
 
     override suspend fun sendCommand(targetIp: String, cmdCode: Byte, param: Byte, authToken: Int) {
