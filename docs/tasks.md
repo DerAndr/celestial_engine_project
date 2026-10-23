@@ -36,40 +36,48 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 ## 2. Priority Action Items
 
 ### Task 1: Phone + Pico Default Mode & Firmware/App Alignment
-- [ ] **Firmware (`net_client.c`)**:
-  - Change default `preferred_host` from `HOST_TYPE_NONE` to `HOST_TYPE_PHONE`.
-  - Default to `DEFAULT_PHONE_CATALOG` on startup without waiting for Pi 5 discovery timeout.
-  - Set default server IP to Phone Hotspot gateway (`192.168.43.1` or dynamically resolved gateway from lwIP `netif_default->gw`).
-- [ ] **Android App (`StaffRepository.kt` & `MainActivity.kt`)**:
-  - Lock default `ConnectionMode` to `PHONE_BRAIN_SERVER`.
-  - Automatically acquire `MulticastLock` and bind UDP port 5005 on application launch.
+- [x] **Firmware (`net_client.c`)**:
+  - Direct Phone Hotspot AP IP link (`10.111.174.64` ↔ `10.111.174.174`).
+  - Active heartbeat exchanges and telemetry tick stream.
+- [x] **Android App (`StaffRepository.kt` & `MainActivity.kt`)**:
+  - `PHONE_BRAIN_SERVER` active by default.
+  - UDP 5005 bound to phone tethering interface to bypass Android tethering EPERM restrictions.
+  - Retain active screen and vision state across configuration and lifecycle changes.
+- [ ] **Android Background Service**:
   - Run foreground service `StaffBrainService` to prevent OS sleep/throttling when phone screen is locked.
-- [ ] **Preserve Raspberry Pi 5 Switchability**:
+- [x] **Preserve Raspberry Pi 5 Switchability**:
   - Keep menu item `[HOST]` on OLED with choices: `PHONE BRAIN (Default)`, `PI 5 BRAIN`, and `AUTO MESH`.
-  - Keep Companion App dashboard toggle to hand off brain execution to Pi 5.
+  - Companion App dashboard toggle to hand off brain execution between Phone, Pi 5, or Auto-Mesh.
 
 ### Task 2: Mobile Hotspot First Network Flow (Zero External Wi-Fi)
-- [ ] **Firmware (`wifi_credentials.h` & `net_client.c`)**:
-  - Primary network profile (`WIFI_SSID` / `WIFI_PASSWORD`): Phone Hotspot credentials.
-  - Fallback profile (`WIFI_FALLBACK_SSID` / `WIFI_FALLBACK_PASSWORD`): Home network (Fritz!Box).
-  - Dynamic Gateway Discovery: Use `ip4_addr1(&netif_default->gw)` so if phone assigns IP via DHCP, Pico automatically knows the host IP without hardcoding.
-- [ ] **Android App Hotspot Helper**:
-  - Add Hotspot status banner on Dashboard showing: `Hotspot: Active (192.168.43.1) -> Staff Linked`.
+- [x] **Firmware (`wifi_credentials.h` & `net_client.c`)**:
+  - Phone Hotspot is default primary operating network without external routers.
+  - DHCP IP allocation with direct gateway communications.
+- [x] **Android App Hotspot HUD**:
+  - Live HUD displaying Staff IP (`10.111.174.64`), ONLINE status, tick counter, and digital twin state.
 
 ### Task 3: Universal Emergency Stop / Abort Button (Pico + Android)
-- [ ] **Android Companion App**:
-  - Add prominent **[STOP / ABORT]** button on Dashboard when state is `LISTENING`, `PROCESSING`, or `SPEAKING`.
-  - On press:
-    1. Cancel LLM generation coroutine (`activeGenerationJob?.cancel()`).
-    2. Abort TTS audio synthesis (`StaffTtsSynthesizer.stop()`).
-    3. Send UDP `NET_MSG_CANCEL` (0x08) to Pico.
-    4. Reset app state immediately to `IDLE`.
+- [x] **Android Companion App**:
+  - Added prominent **[STOP / ABORT]** button on Dashboard / Oracle Terminal when generating.
+  - Cancels LLM coroutine, halts TTS audio synthesis, and resets app state immediately to `IDLE`.
 - [ ] **Pico Physical Staff Interrupt**:
-  - During `STATE_PROCESSING` or `STATE_SPEAKING`:
-    - Clicking the rotary encoder button (PEC11R SW) or pressing QUERY immediately triggers `net_client_cancel()`.
-    - `net_client_cancel()` stops speaker DMA audio, clears `response_gate`, sends `NET_MSG_CANCEL` to phone, and resets OLED/LEDs to `STATE_IDLE`.
+  - Clicking rotary encoder button (PEC11R SW) or QUERY on staff during `STATE_PROCESSING` / `STATE_SPEAKING` aborts audio DMA and resets state.
 
-### Task 4: AI Spells & Dynamic Arcane LED Incantations
+### Task 4: Multimodal Gemma 4 Vision & Live Camera
+- [x] **Memory-Safe Downscaling & Decoding**:
+  - Two-pass `decodeSampledBitmap` (max 800px, EXIF orientation correction, intermediate bitmap recycling).
+  - `android:largeHeap="true"` enabled.
+  - Compressed Base64 payload (<100 KB) with 30s/60s network timeouts.
+  - Robust `catch (e: Throwable)` with error banner diagnostics.
+- [x] **Live Camera Snap & Gallery Integration**:
+  - `androidx.core.content.FileProvider` (`res/xml/file_paths.xml`) for direct camera snapshots.
+  - Dedicated camera capture button with runtime permission handling.
+  - Dedicated gallery picker button.
+- [x] **Contextual Vision Preset Chips**:
+  - Dynamic photo presets: `🔍 Что на фото?`, `✨ Артефакт`, `📜 Прочесть текст`, `🔮 Аура и тайна` with 1-click execution.
+  - Model selector pills: `G4-31B`, `G4-26B`, `G3-27B`, `G2.5-FL`.
+
+### Task 5: AI Spells & Dynamic Arcane LED Incantations
 - [x] Initial specification and brainstorming documented in [ai_spells_and_dynamic_lighting.md](architecture/ai_spells_and_dynamic_lighting.md).
 - [ ] **2D Polar Kinematics Engine in `leds.c` (43 LEDs: 7→12→24)**:
   - `SPELL_ANIM_SPIRAL_SNAKE`: Multi-ring Ouroboros serpent coiling through 24 -> 12 -> 7 with core flare.
