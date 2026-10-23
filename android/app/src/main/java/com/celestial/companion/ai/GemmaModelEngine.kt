@@ -526,11 +526,11 @@ CRITICAL INTENT RULES:
             emit(GemmaStreamChunk.OutputToken(errMsg))
             val errResult = GemmaResult(
                 prompt = prompt,
-                thoughtTrace = fullThoughtTrace.toString().trim(),
+                thoughtTrace = "",
                 outputText = errMsg,
-                latencyMs = (System.currentTimeMillis() - t0).coerceAtLeast(1),
+                latencyMs = 1L,
                 tokensPerSec = 0f,
-                modalityUsed = modality,
+                modalityUsed = if (audioBytes != null && audioBytes.isNotEmpty()) "AUDIO" else if (image != null) "VISION" else "TEXT",
                 modelTag = config.variant.tag
             )
             emit(GemmaStreamChunk.Complete(errResult))
