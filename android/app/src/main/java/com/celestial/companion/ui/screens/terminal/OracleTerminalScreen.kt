@@ -749,9 +749,9 @@ fun OracleTerminalScreen(
                             .border(1.dp, RunicGold, RoundedCornerShape(6.dp))
                             .clickable {
                                 val aiPrompt = when (currentLanguage) {
-                                    StaffLanguage.RUSSIAN -> "Сотвори совершенно безумное, смешное космическое заклинание! Придумай новое оригинальное имя, выбери крутую анимацию посоха и собери хитрый смешной набор звуков из доступных (WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC), и опиши его комический эффект."
-                                    StaffLanguage.GERMAN -> "Erschaffe einen völlig verrückten, lustigen kosmischen Zauberspruch! Erfinde einen originellen Namen, wähle eine coole LED-Animation und kombiniere lustige Soundeffekte (WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC)."
-                                    else -> "Conjure a wild, hilarious cosmic arcane spell! Invent an original spell name, select an LED animation, and assemble a funny chain of sound effects (WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC), and describe its comical effect."
+                                    StaffLanguage.RUSSIAN -> "Сотвори совершенно безумное космическое заклинание! Дай ему оригинальное английское имя, выбери анимацию посоха, собери хитрую цепочку странных звуков (WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC), и произнеси ритмичное заклинание в стиле абракадабра!"
+                                    StaffLanguage.GERMAN -> "Erschaffe einen völlig verrückten kosmischen Zauberspruch mit englischem Namen, wähle eine LED-Animation, kombiniere seltsame Soundeffekte und sprich eine rhythmische Abracadabra-Zauberformel!"
+                                    else -> "Conjure a wild cosmic arcane spell with an English name, select an LED animation, assemble a bizarre chain of sounds, and chant a rhythmic abracadabra incantation formula!"
                                 }
                                 promptInput = aiPrompt
                                 viewModel.queryGemma(aiPrompt)

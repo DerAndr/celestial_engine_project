@@ -96,7 +96,7 @@ class DashboardViewModel(
         _activeSpell.value = spell
         setLedAnimation(spell.animation)
         viewModelScope.launch {
-            repository.broadcastAiResponse("[SPELL] ${spell.name}")
+            repository.broadcastOledText("[SPELL] ${spell.name}")
         }
         playSoundSequence(spell.sounds)
         queryGemma(spell.prompt)
@@ -309,7 +309,7 @@ class DashboardViewModel(
                                     _activeSpell.value = spellDef
                                     setLedAnimation(ledAnim)
                                     viewModelScope.launch {
-                                        repository.broadcastAiResponse("[SPELL] $spellName")
+                                        repository.broadcastOledText("[SPELL] $spellName")
                                     }
                                     playSoundSequence(soundIds)
                                     Log.i(TAG, "Cast spell dynamically: '$spellName' with anim=$ledAnim and sounds=$soundIds")

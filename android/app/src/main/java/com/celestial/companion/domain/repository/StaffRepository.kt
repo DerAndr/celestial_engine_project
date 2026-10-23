@@ -267,7 +267,7 @@ class StaffRepository(
         Log.i(TAG, "streamAudioToStaff: finished streaming $sampleCount samples ($seq chunks) to $targetIp")
     }
 
-    suspend fun broadcastAiResponse(text: String, targetIp: String = activeStaffIp) {
+    suspend fun broadcastOledText(text: String, targetIp: String = activeStaffIp) {
         val textBytes = text.toByteArray(Charsets.UTF_8)
         val reqId = System.currentTimeMillis()
         val textPacket = CelestialPacket(
@@ -281,24 +281,32 @@ class StaffRepository(
         transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, textPacket)
         // Also send to subnet broadcast so if staff IP differed it still arrives
         transport.sendPacket("255.255.255.255", ProtocolConstants.DEFAULT_PORT, textPacket)
-        Log.i(TAG, "broadcastAiResponse: sent ${textBytes.size} bytes of text to $targetIp and broadcast")
+        Log.i(TAG, "broadcastOledText: sent ${textBytes.size} bytes of text to $targetIp and broadcast")
+    }
+
+    suspend fun broadcastAiResponse(text: String, targetIp: String = activeStaffIp) {
+        broadcastOledText(text, targetIp)
 
         // Synthesize and stream speech audio to staff speaker in background
         activeAudioJob?.cancel()
         activeAudioJob = scope.launch {
             try {
+                // Strip technical [SPELL: ...] tag so TTS only speaks the incantation / conversational reply
+                val speechText = text.replace(Regex("""\[SPELL:[^\]]*\]\s*"""), "").trim()
+                if (speechText.isBlank()) return@launch
+
                 // Determine locale: check language in telemetry or detect Cyrillic characters in text
                 val lang = _telemetry.value.language
-                val locale = if (text.any { it in '\u0400'..'\u04FF' }) {
+                val locale = if (speechText.any { it in '\u0400'..'\u04FF' }) {
                     java.util.Locale("ru", "RU")
                 } else if (lang != StaffLanguage.AUTO) {
                     lang.locale
                 } else {
-                    java.util.Locale.getDefault()
+                    java.util.Locale.US
                 }
-                val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(text, locale)
+                val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(speechText, locale)
                 if (pcm != null && pcm.isNotEmpty()) {
-                    streamAudioToStaff(pcm, targetIp, reqId)
+                    streamAudioToStaff(pcm, targetIp, System.currentTimeMillis())
                 } else {
                     Log.w(TAG, "TTS synthesis returned null/empty PCM, speech audio not streamed")
                 }

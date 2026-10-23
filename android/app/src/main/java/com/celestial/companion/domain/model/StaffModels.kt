@@ -125,39 +125,39 @@ data class SpellDefinition(
     companion object {
         val PRESET_SPELLS = listOf(
             SpellDefinition(
-                name = "Квантовая Утка",
+                name = "Quantum Quack",
                 animation = LedAnimation.SNAKE,
                 sounds = listOf(2, 9, 6), // Alien -> Droid Panic -> Supernova
-                prompt = "Сотвори заклинание Квантовой Резиновой Утки со смешными звуками!",
-                description = "Змейка • Сканер • Паника • Бабах"
+                prompt = "Cast the Quantum Quack arcane spell! Begin with [SPELL: Quantum Quack | ANIM: SNAKE | SOUNDS: ALIEN, PANIC, SUPERNOVA] and chant a funny abracadabra pseudo-Latin formula!",
+                description = "Snake • Alien • Panic • Nova"
             ),
             SpellDefinition(
-                name = "Плазменный Шторм",
+                name = "Plasma Storm",
                 animation = LedAnimation.PLASMA,
                 sounds = listOf(3, 0, 6), // Laser -> Warp -> Supernova
-                prompt = "Сотвори заклинание Яростного Плазменного Шторма с лазерами и гиперпрыжком!",
-                description = "Плазма • Лазер • Варп • Взрыв"
+                prompt = "Cast the Plasma Storm arcane spell! Begin with [SPELL: Plasma Storm | ANIM: PLASMA | SOUNDS: LASER, WARP, SUPERNOVA] and chant an epic abracadabra fire incantation!",
+                description = "Plasma • Laser • Warp • Nova"
             ),
             SpellDefinition(
-                name = "Паника Дроида",
+                name = "Droid Hysteria",
                 animation = LedAnimation.VORTEX,
                 sounds = listOf(7, 8, 9), // Happy -> Chatter -> Panic
-                prompt = "Сотвори заклинание Паники Астромеха с криками и пищанием дроида!",
-                description = "Вихрь • Свист • Болтовня • Крик"
+                prompt = "Cast the Droid Hysteria arcane spell! Begin with [SPELL: Droid Hysteria | ANIM: VORTEX | SOUNDS: R2_HAPPY, R2_CHATTER, R2_PANIC] and chant a hilarious astromech gibberish spell!",
+                description = "Vortex • Chirp • Chatter • Scream"
             ),
             SpellDefinition(
-                name = "Гравитационный Чих",
+                name = "Gravitational Sneeze",
                 animation = LedAnimation.PULSAR,
                 sounds = listOf(4, 2, 6), // Tractor -> Alien -> Supernova
-                prompt = "Сотвори заклинание Гравитационного Чиха со звуками пришельцев и варпа!",
-                description = "Пульсар • Трактор • Пришельцы • Бабах"
+                prompt = "Cast the Gravitational Sneeze arcane spell! Begin with [SPELL: Gravitational Sneeze | ANIM: PULSAR | SOUNDS: TRACTOR, ALIEN, SUPERNOVA] and chant a chaotic pseudo-Latin incantation!",
+                description = "Pulsar • Tractor • Alien • Nova"
             ),
             SpellDefinition(
-                name = "Астральный Портал",
+                name = "Astral Rift",
                 animation = LedAnimation.GALAXY,
                 sounds = listOf(5, 0, 7), // Portal -> Warp -> Happy
-                prompt = "Сотвори заклинание Открытия Астрального Портала со звуками космоса!",
-                description = "Галактика • Портал • Варп • Радость"
+                prompt = "Cast the Astral Rift arcane spell! Begin with [SPELL: Astral Rift | ANIM: GALAXY | SOUNDS: PORTAL, WARP, R2_HAPPY] and chant a mystical cosmic portal incantation!",
+                description = "Galaxy • Portal • Warp • Chirp"
             )
         )
     }

@@ -97,11 +97,11 @@ fun SoundboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 val soundCombos = listOf(
-                    Triple("🦆 Квантовая Утка", listOf(2, 9, 6), "Сканер • Паника • Взрыв"),
-                    Triple("🤖 Паника Дроида", listOf(7, 8, 9), "Свист • Болтовня • Крик"),
-                    Triple("⚡ Плазменный Шторм", listOf(3, 0, 6), "Лазер • Варп • Бабах"),
-                    Triple("🌀 Гравитационный Чих", listOf(4, 2, 6), "Трактор • Пришельцы • Взрыв"),
-                    Triple("🌌 Астральный Портал", listOf(5, 0, 7), "Портал • Варп • Радость")
+                    Triple("🦆 Quantum Quack", listOf(2, 9, 6), "Alien • Panic • Nova"),
+                    Triple("🤖 Droid Hysteria", listOf(7, 8, 9), "Chirp • Banter • Scream"),
+                    Triple("⚡ Plasma Storm", listOf(3, 0, 6), "Laser • Warp • Nova"),
+                    Triple("🌀 Gravity Sneeze", listOf(4, 2, 6), "Tractor • Alien • Nova"),
+                    Triple("🌌 Astral Rift", listOf(5, 0, 7), "Portal • Warp • Chirp")
                 )
 
                 soundCombos.forEach { (name, sounds, desc) ->
