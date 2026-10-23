@@ -676,12 +676,13 @@ void net_client_update(void) {
         struct netif *nif = &cyw43_state.netif[CYW43_ITF_STA];
         ip4addr_ntoa_r(netif_ip4_addr(nif), current_ip_str, sizeof(current_ip_str));
 
-        // When locked to PHONE host and on a mobile hotspot without an explicit companion yet,
+        // When targeting PHONE host and on a mobile hotspot without an explicit companion yet,
         // dynamically resolve server IP to DHCP default gateway (phone AP IP)
-        if (preferred_host == HOST_TYPE_PHONE && !has_paired_companion) {
+        if ((active_host_type == HOST_TYPE_PHONE || preferred_host == HOST_TYPE_PHONE) && !has_paired_companion) {
             const ip4_addr_t *gw = netif_ip4_gw(nif);
-            if (gw != NULL && gw->addr != 0) {
+            if (gw != NULL && gw->addr != 0 && !ip_addr_cmp(&server_ip_addr, gw)) {
                 ip_addr_copy_from_ip4(server_ip_addr, *gw);
+                printf("[NET] Target server IP updated to gateway (Phone AP): %s\n", ip4addr_ntoa(&server_ip_addr));
             }
         }
 
@@ -818,6 +819,10 @@ static bool send_udp_packet(uint8_t msg_type, const void *payload, size_t payloa
     }
 
     err_t err = udp_sendto(udp_client_pcb, p, &server_ip_addr, active_server_port);
+    if (err != ERR_OK) {
+        printf("[NET] udp_sendto(type=0x%02X, len=%u, to=%s:%d) FAILED err=%d\n",
+               msg_type, (unsigned)payload_len, ip4addr_ntoa(&server_ip_addr), (int)active_server_port, (int)err);
+    }
     pbuf_free(p);
 
     cyw43_arch_lwip_end();
@@ -942,10 +947,9 @@ void net_client_cancel(void) {
     response_gate_cancel(&response_gate);
     cyw43_arch_lwip_end();
     send_udp_packet(NET_MSG_CANCEL, NULL, 0);
-    audio_stop_all();
     resp_is_receiving = false;
     resp_is_ready = false;
-    net_cancel_flag = true;
+    net_cancel_flag = false;
 }
 
 bool net_client_check_and_clear_cancel(void) {

@@ -262,9 +262,17 @@ CRITICAL INTENT RULES:
                 (if (config.enableThinking) "Provide brief observations inside <thought>...</thought> tags before your response." else "")
         }) + " " + spellTagInstruction
 
+            // Route audio inputs to Gemini 2.5 Flash which natively supports input_audio on OpenRouter
+            val effectiveModelId = if (hasAudio) {
+                if (config.variant.modelId.contains("gemini-2.5-flash")) config.variant.modelId else "google/gemini-2.5-flash"
+            } else {
+                config.variant.modelId
+            }
+            Log.i(TAG, "Dispatching inference request: effectiveModelId=$effectiveModelId (hasAudio=$hasAudio, hasImage=$hasImage)")
+
             // Build request JSON
             val requestJson = JSONObject().apply {
-                put("model", config.variant.modelId)
+                put("model", effectiveModelId)
                 put("stream", true)
                 put("max_tokens", config.maxTokens)
                 put("temperature", config.temperature)
@@ -516,6 +524,16 @@ CRITICAL INTENT RULES:
                 else -> "Connection error to AI core: ${e.localizedMessage ?: "Network unreachable"}. Please verify your device internet connection."
             }
             emit(GemmaStreamChunk.OutputToken(errMsg))
+            val errResult = GemmaResult(
+                prompt = prompt,
+                thoughtTrace = fullThoughtTrace.toString().trim(),
+                outputText = errMsg,
+                latencyMs = (System.currentTimeMillis() - t0).coerceAtLeast(1),
+                tokensPerSec = 0f,
+                modalityUsed = modality,
+                modelTag = config.variant.tag
+            )
+            emit(GemmaStreamChunk.Complete(errResult))
         }
         .flowOn(Dispatchers.IO)
 

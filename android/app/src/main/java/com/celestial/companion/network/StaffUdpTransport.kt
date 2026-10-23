@@ -53,10 +53,10 @@ class StaffUdpTransport(
                         val s = DatagramSocket(null)
                         s.reuseAddress = true
                         try {
-                            s.bind(InetSocketAddress(localPort))
-                            Log.i(TAG, "Bound UDP socket to port $localPort")
+                            s.bind(InetSocketAddress(InetAddress.getByName("0.0.0.0"), localPort))
+                            Log.i(TAG, "Bound UDP socket to port $localPort on 0.0.0.0")
                         } catch (e: Exception) {
-                            Log.w(TAG, "Port $localPort busy, binding to ephemeral port: ${e.message}")
+                            Log.w(TAG, "Port $localPort busy on 0.0.0.0, binding to ephemeral port: ${e.message}")
                             s.bind(InetSocketAddress(0))
                         }
                         // Set broadcast and timeout strictly after binding
@@ -80,9 +80,13 @@ class StaffUdpTransport(
                 try {
                     val datagram = DatagramPacket(rxBuffer, rxBuffer.size)
                     currentSocket.receive(datagram)
-                    val senderIp = datagram.address?.hostAddress ?: ""
+                    val rawSender = datagram.address?.hostAddress ?: ""
+                    val senderIp = rawSender.removePrefix("/").removePrefix("::ffff:")
                     val packet = CelestialPacket.fromBytes(datagram.data, datagram.length, senderIp)
                     if (packet != null) {
+                        if (packet.msgType != NetMessageType.HEARTBEAT) {
+                            Log.i(TAG, "RX: ${packet.msgType} (#${packet.seqNum}, len=${packet.payloadLen}) from $senderIp")
+                        }
                         _incomingPackets.emit(packet)
                     }
                 } catch (e: java.net.SocketTimeoutException) {
@@ -96,6 +100,34 @@ class StaffUdpTransport(
         }
     }
 
+    private fun bindSocketToMatchingNetwork(socket: DatagramSocket, target: InetAddress): Boolean {
+        val cm = context?.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return false
+        try {
+            val targetBytes = target.address
+            if (targetBytes.size != 4) return false
+            for (network in cm.allNetworks) {
+                val lp = cm.getLinkProperties(network) ?: continue
+                for (la in lp.linkAddresses) {
+                    val addr = la.address
+                    if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
+                        val addrBytes = addr.address
+                        if (addrBytes[0] == targetBytes[0] &&
+                            addrBytes[1] == targetBytes[1] &&
+                            addrBytes[2] == targetBytes[2]
+                        ) {
+                            network.bindSocket(socket)
+                            Log.d(TAG, "Bound DatagramSocket to network $network (${lp.interfaceName}) for $target")
+                            return true
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "bindSocketToMatchingNetwork failed for $target: ${e.message}")
+        }
+        return false
+    }
+
     override suspend fun sendPacket(targetIp: String, targetPort: Int, packet: CelestialPacket) {
         withContext(Dispatchers.IO) {
             try {
@@ -105,46 +137,68 @@ class StaffUdpTransport(
 
                 if (targetIp == "255.255.255.255") {
                     var sentAny = false
-                    try {
-                        val interfaces = java.net.NetworkInterface.getNetworkInterfaces()?.toList() ?: emptyList()
-                        for (iface in interfaces) {
-                            if (!iface.isUp || iface.isLoopback) continue
-                            for (ifaceAddr in iface.interfaceAddresses) {
-                                val bcast = ifaceAddr.broadcast
-                                val local = ifaceAddr.address
-                                if (bcast != null && local is java.net.Inet4Address) {
+                    val cm = context?.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                    if (cm != null) {
+                        for (network in cm.allNetworks) {
+                            val lp = cm.getLinkProperties(network) ?: continue
+                            for (la in lp.linkAddresses) {
+                                val local = la.address
+                                if (local is java.net.Inet4Address && !local.isLoopbackAddress) {
                                     try {
                                         DatagramSocket(InetSocketAddress(local, 0)).use { boundSocket ->
                                             boundSocket.broadcast = true
-                                            val bcastDatagram = DatagramPacket(bytes, bytes.size, bcast, targetPort)
-                                            boundSocket.send(bcastDatagram)
+                                            try { network.bindSocket(boundSocket) } catch (_: Exception) {}
+                                            boundSocket.send(datagram)
                                             sentAny = true
                                         }
                                     } catch (_: Exception) {}
                                 }
                             }
                         }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Multi-interface broadcast traversal: ${e.message}")
+                    }
+                    if (!sentAny) {
+                        try {
+                            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()?.toList() ?: emptyList()
+                            for (iface in interfaces) {
+                                if (!iface.isUp || iface.isLoopback) continue
+                                for (ifaceAddr in iface.interfaceAddresses) {
+                                    val bcast = ifaceAddr.broadcast
+                                    val local = ifaceAddr.address
+                                    if (bcast != null && local is java.net.Inet4Address) {
+                                        try {
+                                            DatagramSocket(InetSocketAddress(local, 0)).use { boundSocket ->
+                                                boundSocket.broadcast = true
+                                                val bcastDatagram = DatagramPacket(bytes, bytes.size, bcast, targetPort)
+                                                boundSocket.send(bcastDatagram)
+                                                sentAny = true
+                                            }
+                                        } catch (_: Exception) {}
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Multi-interface broadcast traversal: ${e.message}")
+                        }
                     }
                     if (!sentAny) {
                         val s = socket ?: DatagramSocket().apply { broadcast = true }
                         s.send(datagram)
                     }
                 } else {
-                    val matchedLocal = findMatchingLocalAddress(targetAddr)
-                    if (matchedLocal != null) {
-                        try {
-                            DatagramSocket(InetSocketAddress(matchedLocal, 0)).use { boundSocket ->
-                                boundSocket.send(datagram)
-                            }
-                            return@withContext
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed bound send from $matchedLocal to $targetIp: ${e.message}, falling back")
+                    var sentDirect = false
+                    try {
+                        DatagramSocket().use { tempSocket ->
+                            bindSocketToMatchingNetwork(tempSocket, targetAddr)
+                            tempSocket.send(datagram)
+                            sentDirect = true
                         }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Direct network-bound send to $targetIp failed: ${e.message}, falling back")
                     }
-                    val s = socket ?: DatagramSocket().apply { broadcast = true }
-                    s.send(datagram)
+                    if (!sentDirect) {
+                        val s = socket ?: DatagramSocket().apply { broadcast = true }
+                        s.send(datagram)
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "UDP send failed to $targetIp:$targetPort: ${e.message}")

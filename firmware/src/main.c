@@ -2119,30 +2119,25 @@ int main(void) {
                 LOG_INFO("CLOCK", "Cancelled Clock Time setup via button.");
                 need_display_update = true;
             } else {
-                if (!net_client_is_connected()) {
-                    // Wi-Fi is not connected - provide immediate audible & visual feedback
-                    not_ready_feedback_until = delayed_by_ms(get_absolute_time(), 2000);
-                    audio_play_tone(220.0f, 120);
-                    LOG_WARN("QUERY", "Query button pressed but Wi-Fi is disconnected!");
-                    need_display_update = true;
-                } else {
-                    offline_oracle_mode = false;
-                    net_client_cancel();
-                    audio_stop_all();
-                    current_state = STATE_LISTENING;
-                    easter_egg_active = false;
-                    mic_record_start();
+                bool online = net_client_is_connected();
+                offline_oracle_mode = !online;
+                net_client_cancel();
+                audio_stop_all();
+                current_state = STATE_LISTENING;
+                easter_egg_active = false;
+                mic_record_start();
+                if (online) {
                     uint8_t mid = net_client_get_model_id(active_ai_model_idx);
                     if (!net_client_send_query_start((uint8_t)active_lang_idx, mid)) {
-                        mic_record_stop();
-                        current_state = STATE_IDLE;
-                        LOG_WARN("NET", "QUERY start send failed.");
+                        LOG_WARN("NET", "QUERY start UDP send failed; falling back to offline oracle mode.");
+                        offline_oracle_mode = true;
                     }
-                    audio_play_tone(880.0f, 40); // Crisp high prompt chirp (A5): "Ready! Speak now!"
-                    LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! Streaming to %s (Lang: %s, Model: %s)... <<<",
-                             net_client_get_host_name(), LANG_NAMES[active_lang_idx], net_client_get_model_name(active_ai_model_idx));
-                    need_display_update = true;
                 }
+                audio_play_tone(880.0f, 40); // Crisp high prompt chirp (A5): "Ready! Speak now!"
+                LOG_INFO("QUERY", ">>> QUERY PRESSED: Staff entered LISTENING state! Mode: %s (Lang: %s, Model: %s)... <<<",
+                         offline_oracle_mode ? "OFFLINE ORACLE" : "LIVE AI STREAM",
+                         LANG_NAMES[active_lang_idx], net_client_get_model_name(active_ai_model_idx));
+                need_display_update = true;
             }
             broadcast_telemetry();
         }
@@ -2166,6 +2161,13 @@ int main(void) {
                 net_client_cancel();
                 current_state = STATE_IDLE;
                 audio_play_tone(220.0f, 60); // Short low blip: tap ignored
+            } else if (offline_oracle_mode) {
+                LOG_INFO("ORACLE", "Speaking prophecy for %lu ms voice recording (peak: %d)...",
+                         (unsigned long)rec_ms, (int)session_peak);
+                current_state = STATE_SPEAKING;
+                speaking_start_ms = to_ms_since_boot(get_absolute_time());
+                trigger_offline_oracle(active_lang_idx);
+                audio_play_blip();
             } else {
                 LOG_INFO("NET", "Finishing live Wi-Fi UDP voice stream (%zu samples, %lu ms)...",
                          recorded_samples, (unsigned long)rec_ms);
@@ -2714,8 +2716,16 @@ int main(void) {
             } else if (cmd_c == 'E' || cmd_c == 'e') {
                 bool a, b, sw;
                 encoder_get_raw_pins(&a, &b, &sw);
-                printf("[ENCODER] GP6(A):%d GP7(B):%d GP8(SW):%d | pos:%ld | mode:[%s] | vol_edit:%d\n",
-                       a, b, sw, (long)encoder_get_position(), MODE_NAMES[current_mode_idx], volume_edit_mode);
+                printf("[PINS] GP6(A):%d GP7(B):%d GP8(SW):%d GP9(QRY):%d (held:%d) | pos:%ld | mode:[%s] | vol_edit:%d\n",
+                       a, b, sw, query_button_get_raw(), query_button_is_held(), (long)encoder_get_position(), MODE_NAMES[current_mode_idx], volume_edit_mode);
+            } else if (cmd_c == 'Q') {
+                LOG_INFO("SERIAL", "Simulating QUERY button PRESS via serial command 'Q'...");
+                query_button_simulate_press();
+                need_display_update = true;
+            } else if (cmd_c == 'q') {
+                LOG_INFO("SERIAL", "Simulating QUERY button RELEASE via serial command 'q'...");
+                query_button_simulate_release(2500);
+                need_display_update = true;
             } else if (cmd_c == '?' || cmd_c == 'h' || cmd_c == 'H') {
                 printf("[HELP] Available serial commands:\n");
                 printf("  B     - Reboot into BOOTSEL flash mode\n");
@@ -2729,7 +2739,8 @@ int main(void) {
                 printf("  D     - Play fixed 440 Hz diagnostic sine for 1 second\n");
                 printf("  U / N - 1 s 440 Hz with only positive / only negative samples\n");
                 printf("  A     - Print audio PCM / DMA / FIFO diagnostics\n");
-                printf("  E     - Print encoder pins / rotation status\n");
+                printf("  E     - Print encoder & query button pins status\n");
+                printf("  Q / q - Simulate QUERY button press / release\n");
                 printf("  > / < - Next / previous screen mode\n");
                 printf("  O<n>  - Jump directly to screen mode n (0..%d)\n", MODE_COUNT - 1);
             } else if (cmd_c == '>' || cmd_c == ']') {

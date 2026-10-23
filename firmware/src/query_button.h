@@ -44,6 +44,12 @@ uint32_t query_button_current_hold_ms(void);
  */
 bool query_button_get_raw(void);
 
+/**
+ * Simulation hooks for serial console debugging.
+ */
+void query_button_simulate_press(void);
+void query_button_simulate_release(uint32_t duration_ms);
+
 #ifdef __cplusplus
 }
 #endif
