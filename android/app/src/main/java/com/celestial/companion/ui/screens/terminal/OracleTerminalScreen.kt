@@ -1,6 +1,8 @@
 package com.celestial.companion.ui.screens.terminal
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -10,6 +12,9 @@ import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.compose.animation.core.*
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
@@ -138,7 +143,7 @@ fun OracleTerminalScreen(
         }
     }
 
-    // Memory-safe Image picker launcher for Vision Multimodality
+    // Memory-safe Image picker launcher for Vision Multimodality (Gallery)
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -153,6 +158,64 @@ fun OracleTerminalScreen(
             } catch (t: Throwable) {
                 Toast.makeText(context, "Error loading image: ${t.message}", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    // Direct Camera Photo Capture via FileProvider
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    val takePhotoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success && tempCameraUri != null) {
+            try {
+                val decoded = decodeSampledBitmap(context, tempCameraUri!!, maxDimension = 800)
+                if (decoded != null) {
+                    viewModel.setSelectedImage(decoded)
+                } else {
+                    Toast.makeText(context, "Failed to decode camera photo", Toast.LENGTH_SHORT).show()
+                }
+            } catch (t: Throwable) {
+                Toast.makeText(context, "Error loading camera photo: ${t.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun launchCameraIntent() {
+        try {
+            val photoFile = File(context.cacheDir, "celestial_snap_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                photoFile
+            )
+            tempCameraUri = uri
+            takePhotoLauncher.launch(uri)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Camera error: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            launchCameraIntent()
+        } else {
+            Toast.makeText(context, "Camera permission required to take photo", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun triggerCameraCapture() {
+        val hasCamPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasCamPermission) {
+            launchCameraIntent()
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
@@ -606,36 +669,87 @@ fun OracleTerminalScreen(
                     maxLines = 4
                 )
 
-                // Quick Prompt Chips
+                // Contextual Prompt Chips: Photo Presets vs General Presets
+                val isImageAttached = selectedBitmap != null
+
+                val chips: List<Pair<String, String>> = if (isImageAttached) {
+                    when (currentLanguage) {
+                        StaffLanguage.RUSSIAN -> listOf(
+                            "🔍 Что на фото?" to "Подробно опиши, что изображено на этой фотографии, и в чём её особенности.",
+                            "✨ Артефакт" to "Проанализируй видимые на фото объекты, материалы, руны или приборы и их назначение.",
+                            "📜 Прочесть текст" to "Найди, прочитай и переведи весь видимый текст, надписи или символы на этом фото.",
+                            "🔮 Аура и тайна" to "Определи мистическую ауру, потоки космической энергии и тайный смысл этой сцены."
+                        )
+                        StaffLanguage.GERMAN -> listOf(
+                            "🔍 Was ist auf dem Foto?" to "Beschreibe ausführlich, was auf diesem Foto zu sehen ist und erkläre die Details.",
+                            "✨ Artefakt-Scan" to "Analysiere die sichtbaren Objekte, Materialien, Runen oder Geräte auf diesem Foto.",
+                            "📜 Text lesen" to "Finde und lies alle sichtbaren Texte, Beschriftungen oder Runen auf diesem Bild.",
+                            "🔮 Mystische Aura" to "Interpretiere die mystische Aura, Energieflüsse und himmlischen Geheimnisse dieses Bildes."
+                        )
+                        else -> listOf(
+                            "🔍 Describe Photo" to "Describe in detail what you see in this photo and explain its key details.",
+                            "✨ Scan Artifact" to "Analyze the physical objects, materials, runes, or instruments in this photo and their purpose.",
+                            "📜 Read Text" to "Find, read, and transcribe any visible text, signs, labels, or runes in this image.",
+                            "🔮 Celestial Aura" to "Interpret the mystical aura, energy flows, and cosmic secrets of this scene."
+                        )
+                    }
+                } else {
+                    listOf(
+                        "Anomaly Scan" to "Scan celestial frequencies for reality anomalies and spatial fluctuations.",
+                        "Interpret Runes" to "Interpret current glowing rune state on the staff core and outer rings.",
+                        "Prophecy" to "Reveal an ancient celestial prophecy for this hour.",
+                        "Staff Status" to "Report staff hardware telemetry, tick rate, and Wi-Fi link status."
+                    )
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    val chips = listOf("Anomaly Scan", "Interpret Runes", "Prophecy", "Staff Status")
-                    chips.forEach { chip ->
+                    chips.forEach { (label, promptText) ->
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(DeepVoid)
-                                .border(1.dp, CardBorder, RoundedCornerShape(6.dp))
+                                .background(if (isImageAttached) CardSurface else DeepVoid)
+                                .border(1.dp, if (isImageAttached) EmeraldGreen else CardBorder, RoundedCornerShape(6.dp))
                                 .clickable {
-                                    promptInput = chip
-                                    viewModel.queryGemma(chip, selectedBitmap)
+                                    promptInput = promptText
+                                    viewModel.queryGemma(promptText, selectedBitmap)
                                 }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .padding(horizontal = 8.dp, vertical = 5.dp)
                         ) {
-                            Text(text = chip, color = AetherCyan, fontSize = 10.sp)
+                            Text(
+                                text = label,
+                                color = if (isImageAttached) EmeraldGreen else AetherCyan,
+                                fontSize = 10.sp,
+                                fontWeight = if (isImageAttached) FontWeight.Bold else FontWeight.Normal
+                            )
                         }
                     }
                 }
 
-                // Action Bar: Camera + Voice + Query Button
+                // Action Bar: Camera Snap + Gallery Picker + Voice STT + Query Button
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Attach Vision Button
+                    // 1. Direct Camera Snapshot Button
+                    IconButton(
+                        onClick = { triggerCameraCapture() },
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(DeepVoid)
+                            .border(1.dp, if (selectedBitmap != null) EmeraldGreen else CardBorder, RoundedCornerShape(10.dp))
+                    ) {
+                        Icon(
+                            Icons.Default.PhotoCamera,
+                            contentDescription = "Take Photo with Camera",
+                            tint = if (selectedBitmap != null) EmeraldGreen else AetherCyan
+                        )
+                    }
+
+                    // 2. Pick Image from Gallery Button
                     IconButton(
                         onClick = { imagePickerLauncher.launch("image/*") },
                         modifier = Modifier
@@ -644,13 +758,13 @@ fun OracleTerminalScreen(
                             .border(1.dp, if (selectedBitmap != null) EmeraldGreen else CardBorder, RoundedCornerShape(10.dp))
                     ) {
                         Icon(
-                            Icons.Default.PhotoCamera,
-                            contentDescription = "Attach Vision Image",
+                            Icons.Default.Image,
+                            contentDescription = "Pick Image from Gallery",
                             tint = if (selectedBitmap != null) EmeraldGreen else AetherCyan
                         )
                     }
 
-                    // Voice STT Speech Recognition Button
+                    // 3. Voice STT Speech Recognition Button
                     IconButton(
                         onClick = { startListening() },
                         modifier = Modifier
@@ -665,13 +779,18 @@ fun OracleTerminalScreen(
                         )
                     }
 
-                    // Query / Stop Button
+                    // 4. Query / Stop Button
                     Button(
                         onClick = {
                             if (isGenerating) {
                                 viewModel.cancelGeneration()
                             } else {
-                                val prompt = promptInput.ifBlank { "What prophecies do the celestial stars reveal?" }
+                                val prompt = promptInput.ifBlank {
+                                    if (selectedBitmap != null) {
+                                        if (currentLanguage == StaffLanguage.RUSSIAN) "Подробно опиши, что изображено на этой фотографии."
+                                        else "Describe in detail what is in this image."
+                                    } else "What prophecies do the celestial stars reveal?"
+                                }
                                 viewModel.queryGemma(prompt, selectedBitmap)
                             }
                         },
