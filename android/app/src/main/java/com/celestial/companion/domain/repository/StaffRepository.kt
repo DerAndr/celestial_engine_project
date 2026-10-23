@@ -290,6 +290,7 @@ class StaffRepository(
         // Synthesize and stream speech audio to staff speaker in background
         activeAudioJob?.cancel()
         activeAudioJob = scope.launch {
+            try {
                 // Check if this is an arcane spell incantation
                 val isSpell = text.contains("[SPELL:", ignoreCase = true)
 
