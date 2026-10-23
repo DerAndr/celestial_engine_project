@@ -70,9 +70,9 @@ fun OracleTerminalScreen(
     val liveStreamingText by viewModel.liveStreamingText.collectAsState()
     val gemmaResult by viewModel.gemmaResult.collectAsState()
     val selectedModelVariant by viewModel.selectedModelVariant.collectAsState()
+    val selectedBitmap by viewModel.selectedImage.collectAsState()
 
     var promptInput by remember { mutableStateOf("") }
-    var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var thinkingModeEnabled by remember { mutableStateOf(true) }
     var showThinkingCard by remember { mutableStateOf(true) }
     var showHistoryDialog by remember { mutableStateOf(false) }
@@ -146,7 +146,7 @@ fun OracleTerminalScreen(
             try {
                 val decoded = decodeSampledBitmap(context, uri, maxDimension = 800)
                 if (decoded != null) {
-                    selectedBitmap = decoded
+                    viewModel.setSelectedImage(decoded)
                 } else {
                     Toast.makeText(context, "Failed to decode image safely", Toast.LENGTH_SHORT).show()
                 }
@@ -576,7 +576,7 @@ fun OracleTerminalScreen(
                                 )
                             }
                         }
-                        IconButton(onClick = { selectedBitmap = null }) {
+                        IconButton(onClick = { viewModel.setSelectedImage(null) }) {
                             Icon(Icons.Default.Close, contentDescription = "Remove Image", tint = Color.Red)
                         }
                     }

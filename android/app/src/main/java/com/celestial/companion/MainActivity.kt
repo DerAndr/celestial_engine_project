@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -46,7 +47,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppScaffold(viewModel: DashboardViewModel) {
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
+    var currentRoute by rememberSaveable { mutableStateOf(Screen.Dashboard.route) }
+    val currentScreen = Screen.bottomNavScreens.firstOrNull { it.route == currentRoute } ?: Screen.Dashboard
 
     Scaffold(
         bottomBar = {
@@ -58,7 +60,7 @@ fun MainAppScaffold(viewModel: DashboardViewModel) {
                     val selected = currentScreen == screen
                     NavigationBarItem(
                         selected = selected,
-                        onClick = { currentScreen = screen },
+                        onClick = { currentRoute = screen.route },
                         icon = {
                             Icon(
                                 screen.icon,

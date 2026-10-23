@@ -73,6 +73,13 @@ class DashboardViewModel(
     private val _activeImage = MutableStateFlow<Bitmap?>(null)
     val activeImage: StateFlow<Bitmap?> = _activeImage.asStateFlow()
 
+    private val _selectedImage = MutableStateFlow<Bitmap?>(null)
+    val selectedImage: StateFlow<Bitmap?> = _selectedImage.asStateFlow()
+
+    fun setSelectedImage(bitmap: Bitmap?) {
+        _selectedImage.value = bitmap
+    }
+
     private val _chatHistory = MutableStateFlow<List<OracleChatMessage>>(emptyList())
     val chatHistory: StateFlow<List<OracleChatMessage>> = _chatHistory.asStateFlow()
 
