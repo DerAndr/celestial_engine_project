@@ -3,12 +3,15 @@ package com.celestial.companion.ui.screens.soundboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Stop
@@ -62,6 +65,66 @@ fun SoundboardScreen(
                 Icon(Icons.Default.Stop, contentDescription = null, tint = Color(0xFFFF5252), modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("Mute", color = Color(0xFFFF5252), fontSize = 12.sp)
+            }
+        }
+
+        // Sound Combos / Смешные наборы звуков
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "SPELL COMBOS (ЦЕПОЧКИ ЗВУКОВ)",
+                    color = RunicGold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    text = "750ms spacing",
+                    color = TextMuted,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val soundCombos = listOf(
+                    Triple("🦆 Квантовая Утка", listOf(2, 9, 6), "Сканер • Паника • Взрыв"),
+                    Triple("🤖 Паника Дроида", listOf(7, 8, 9), "Свист • Болтовня • Крик"),
+                    Triple("⚡ Плазменный Шторм", listOf(3, 0, 6), "Лазер • Варп • Бабах"),
+                    Triple("🌀 Гравитационный Чих", listOf(4, 2, 6), "Трактор • Пришельцы • Взрыв"),
+                    Triple("🌌 Астральный Портал", listOf(5, 0, 7), "Портал • Варп • Радость")
+                )
+
+                soundCombos.forEach { (name, sounds, desc) ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(DeepVoid)
+                            .border(1.dp, RunicGold, RoundedCornerShape(8.dp))
+                            .clickable { viewModel.playSoundSequence(sounds) }
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = RunicGold, modifier = Modifier.size(12.dp))
+                                Text(text = name, color = RunicGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text(text = desc, color = TextMuted, fontSize = 9.sp)
+                        }
+                    }
+                }
             }
         }
 

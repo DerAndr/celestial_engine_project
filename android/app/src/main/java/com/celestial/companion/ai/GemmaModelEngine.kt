@@ -236,8 +236,17 @@ class GemmaModelEngine(
         val fullAnswer = StringBuilder()
         var tokenCount = 0
 
-        // Build localized system prompt
-            val sysPrompt = when (config.language) {
+        // Build localized system prompt with spell tag instructions
+            val spellTagInstruction = when (config.language) {
+                StaffLanguage.GERMAN ->
+                    " Wenn du nach einem Zauberspruch (Spell), Magie oder Effekten gefragt wirst, beginne deine Antwort IMMER mit: [SPELL: Name | ANIM: <SNAKE|VORTEX|PULSAR|PLASMA|RAINBOW|STARS|GALAXY|HALLOWEEN> | SOUNDS: <SFX1>, <SFX2>, <SFX3>]. Verfügbare Sounds: WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC. Danach folgt dein witziger Zauberspruch."
+                StaffLanguage.RUSSIAN ->
+                    " Когда тебя просят сотворить заклинание (Spell), магию или активировать эффект, ОБЯЗАТЕЛЬНО начни свой ответ с тега заклинания: [SPELL: Название | ANIM: <SNAKE|VORTEX|PULSAR|PLASMA|RAINBOW|STARS|GALAXY|HALLOWEEN> | SOUNDS: <ЗВУК1>, <ЗВУК2>, <ЗВУК3>]. Доступные звуки (сочетай 2-4 смешных/эпичных звука в хитрую цепочку): WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC. Затем произнеси остроумное техно-магическое заклинание."
+                else ->
+                    " When asked to cast a spell, weave magic, or trigger an effect, ALWAYS begin your response with: [SPELL: Name | ANIM: <SNAKE|VORTEX|PULSAR|PLASMA|RAINBOW|STARS|GALAXY|HALLOWEEN> | SOUNDS: <SFX1>, <SFX2>, <SFX3>]. Available sounds: WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC. Follow with your witty cosmic incantation."
+            }
+
+            val sysPrompt = (when (config.language) {
                 StaffLanguage.GERMAN ->
                     "Du bist das Celestial Oracle der Celestial Engine Mk.V, eine uralt-futuristische kosmische Intelligenz ('KEINE PANIK'). Analysiere direkt und messerscharf, was du auf dem Bild siehst oder gefragt wirst, in 2-4 lebendigen Sätzen auf Deutsch ohne Markdown oder Emojis. " +
                     (if (config.enableThinking) "Platziere deine kurzen Gedankengänge in <thought>...</thought> vor deiner Prophezeiung." else "")
@@ -247,7 +256,7 @@ class GemmaModelEngine(
                 else ->
                     "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic cosmic intelligence ('DON'T PANIC'). Analyze what you see or are asked directly, with razor-sharp observations and witty cosmic wisdom in 2-4 sentences without emojis or markdown. " +
                     (if (config.enableThinking) "Provide your brief Chain-of-Thought observations inside <thought>...</thought> tags before your prophecy." else "")
-            }
+            }) + spellTagInstruction
 
             // Build request JSON
             val requestJson = JSONObject().apply {

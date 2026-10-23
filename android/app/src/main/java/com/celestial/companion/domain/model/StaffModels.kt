@@ -114,3 +114,51 @@ enum class StaffLanguage(
         fun fromId(id: Int): StaffLanguage = entries.find { it.id == id } ?: ENGLISH
     }
 }
+
+data class SpellDefinition(
+    val name: String,
+    val animation: LedAnimation,
+    val sounds: List<Int>, // SFX IDs 0..9 (Warp, Pulsar, Alien, Laser, Tractor, Portal, Supernova, DroidHappy, DroidChatter, DroidPanic)
+    val prompt: String,
+    val description: String = ""
+) {
+    companion object {
+        val PRESET_SPELLS = listOf(
+            SpellDefinition(
+                name = "Квантовая Утка",
+                animation = LedAnimation.SNAKE,
+                sounds = listOf(2, 9, 6), // Alien -> Droid Panic -> Supernova
+                prompt = "Сотвори заклинание Квантовой Резиновой Утки со смешными звуками!",
+                description = "Змейка • Сканер • Паника • Бабах"
+            ),
+            SpellDefinition(
+                name = "Плазменный Шторм",
+                animation = LedAnimation.PLASMA,
+                sounds = listOf(3, 0, 6), // Laser -> Warp -> Supernova
+                prompt = "Сотвори заклинание Яростного Плазменного Шторма с лазерами и гиперпрыжком!",
+                description = "Плазма • Лазер • Варп • Взрыв"
+            ),
+            SpellDefinition(
+                name = "Паника Дроида",
+                animation = LedAnimation.VORTEX,
+                sounds = listOf(7, 8, 9), // Happy -> Chatter -> Panic
+                prompt = "Сотвори заклинание Паники Астромеха с криками и пищанием дроида!",
+                description = "Вихрь • Свист • Болтовня • Крик"
+            ),
+            SpellDefinition(
+                name = "Гравитационный Чих",
+                animation = LedAnimation.PULSAR,
+                sounds = listOf(4, 2, 6), // Tractor -> Alien -> Supernova
+                prompt = "Сотвори заклинание Гравитационного Чиха со звуками пришельцев и варпа!",
+                description = "Пульсар • Трактор • Пришельцы • Бабах"
+            ),
+            SpellDefinition(
+                name = "Астральный Портал",
+                animation = LedAnimation.GALAXY,
+                sounds = listOf(5, 0, 7), // Portal -> Warp -> Happy
+                prompt = "Сотвори заклинание Открытия Астрального Портала со звуками космоса!",
+                description = "Галактика • Портал • Варп • Радость"
+            )
+        )
+    }
+}

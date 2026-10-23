@@ -80,6 +80,39 @@ class DashboardViewModel(
         _selectedImage.value = bitmap
     }
 
+    // Active Spell & Arcane Incantation System
+    private val _activeSpell = MutableStateFlow<SpellDefinition?>(null)
+    val activeSpell: StateFlow<SpellDefinition?> = _activeSpell.asStateFlow()
+
+    private var soundSequenceJob: Job? = null
+
+    fun clearActiveSpell() {
+        _activeSpell.value = null
+        soundSequenceJob?.cancel()
+        setLedAnimation(LedAnimation.RAINBOW)
+    }
+
+    fun castSpell(spell: SpellDefinition) {
+        _activeSpell.value = spell
+        setLedAnimation(spell.animation)
+        viewModelScope.launch {
+            repository.broadcastAiResponse("[SPELL] ${spell.name}")
+        }
+        playSoundSequence(spell.sounds)
+        queryGemma(spell.prompt)
+    }
+
+    fun playSoundSequence(sounds: List<Int>) {
+        soundSequenceJob?.cancel()
+        soundSequenceJob = viewModelScope.launch {
+            for (sfxId in sounds) {
+                if (!isActive) break
+                repository.executeCommand(StaffCommand.PlaySfx(sfxId))
+                delay(750L)
+            }
+        }
+    }
+
     private val _chatHistory = MutableStateFlow<List<OracleChatMessage>>(emptyList())
     val chatHistory: StateFlow<List<OracleChatMessage>> = _chatHistory.asStateFlow()
 
@@ -145,6 +178,7 @@ class DashboardViewModel(
     fun cancelGeneration() {
         activeGenerationJob?.cancel()
         liveTimerJob?.cancel()
+        soundSequenceJob?.cancel()
         repository.abortCurrentQuery()
         _isGenerating.value = false
         _processingPhase.value = AiProcessingPhase.CANCELLED
@@ -230,6 +264,9 @@ class DashboardViewModel(
         }
 
         activeGenerationJob?.cancel()
+        var spellExecuted = false
+        val spellTagRegex = Regex("""\[SPELL:\s*([^|\]]+)\s*\|\s*ANIM:\s*([^|\]]+)\s*\|\s*SOUNDS:\s*([^|\]]+)\]""", RegexOption.IGNORE_CASE)
+
         activeGenerationJob = viewModelScope.launch {
             try {
                 engine.streamInference(prompt, image, audioBytes).collect { chunk ->
@@ -248,6 +285,36 @@ class DashboardViewModel(
                         is GemmaStreamChunk.OutputToken -> {
                             _liveStreamingText.value += chunk.token
                             _liveTokenCount.value += 1
+
+                            // Check and parse live spell tags from LLM
+                            if (!spellExecuted) {
+                                val currentText = _liveStreamingText.value
+                                val spellMatch = spellTagRegex.find(currentText)
+                                if (spellMatch != null) {
+                                    spellExecuted = true
+                                    val spellName = spellMatch.groupValues[1].trim()
+                                    val animStr = spellMatch.groupValues[2].trim()
+                                    val soundsStr = spellMatch.groupValues[3].trim()
+
+                                    val ledAnim = parseLedAnimation(animStr)
+                                    val soundIds = parseSoundSequence(soundsStr)
+
+                                    val spellDef = SpellDefinition(
+                                        name = spellName,
+                                        animation = ledAnim,
+                                        sounds = soundIds,
+                                        prompt = prompt,
+                                        description = "Arcane Conjuration"
+                                    )
+                                    _activeSpell.value = spellDef
+                                    setLedAnimation(ledAnim)
+                                    viewModelScope.launch {
+                                        repository.broadcastAiResponse("[SPELL] $spellName")
+                                    }
+                                    playSoundSequence(soundIds)
+                                    Log.i(TAG, "Cast spell dynamically: '$spellName' with anim=$ledAnim and sounds=$soundIds")
+                                }
+                            }
 
                             // Update active chat message live
                             val currentText = _liveStreamingText.value
@@ -444,5 +511,45 @@ class DashboardViewModel(
         super.onCleared()
         toneGenerator?.release()
         toneGenerator = null
+    }
+
+    private fun parseLedAnimation(animStr: String): LedAnimation {
+        val upper = animStr.uppercase()
+        return when {
+            upper.contains("SNAKE") -> LedAnimation.SNAKE
+            upper.contains("VORTEX") -> LedAnimation.VORTEX
+            upper.contains("PULSAR") || upper.contains("SHOCK") -> LedAnimation.PULSAR
+            upper.contains("PLASMA") || upper.contains("FIRE") -> LedAnimation.PLASMA
+            upper.contains("RAINBOW") -> LedAnimation.RAINBOW
+            upper.contains("STARS") -> LedAnimation.STARS
+            upper.contains("GALAXY") -> LedAnimation.GALAXY
+            upper.contains("HALLOWEEN") || upper.contains("SPOOK") -> LedAnimation.HALLOWEEN
+            upper.contains("ORRERY") -> LedAnimation.CLOCK_ORRERY
+            else -> LedAnimation.SNAKE
+        }
+    }
+
+    private fun parseSoundSequence(soundsStr: String): List<Int> {
+        val tokens = soundsStr.split(",", ";", " ", "\n").map { it.trim().uppercase() }.filter { it.isNotEmpty() }
+        val sfxList = mutableListOf<Int>()
+        for (t in tokens) {
+            val sfxId = when {
+                t.contains("WARP") || t.contains("HYPER") -> 0
+                t.contains("PULSAR") || t.contains("PING") -> 1
+                t.contains("ALIEN") || t.contains("SCAN") -> 2
+                t.contains("LASER") || t.contains("BLASTER") || t.contains("PEW") -> 3
+                t.contains("TRACTOR") || t.contains("HUM") || t.contains("BEAM") -> 4
+                t.contains("PORTAL") || t.contains("STARGATE") -> 5
+                t.contains("SUPERNOVA") || t.contains("NOVA") || t.contains("BOOM") -> 6
+                t.contains("HAPPY") || t.contains("CHIRP") || t.contains("WHISTLE") -> 7
+                t.contains("CHATTER") || t.contains("BANTER") -> 8
+                t.contains("PANIC") || t.contains("SCREAM") || t.contains("ALARM") -> 9
+                else -> null
+            }
+            if (sfxId != null && !sfxList.contains(sfxId)) {
+                sfxList.add(sfxId)
+            }
+        }
+        return if (sfxList.isEmpty()) listOf(2, 9, 6) else sfxList
     }
 }

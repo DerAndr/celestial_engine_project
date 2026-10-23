@@ -77,8 +77,21 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
   - Dynamic photo presets: `🔍 Что на фото?`, `✨ Артефакт`, `📜 Прочесть текст`, `🔮 Аура и тайна` with 1-click execution.
   - Model selector pills: `G4-31B`, `G4-26B`, `G3-27B`, `G2.5-FL`.
 
-### Task 5: AI Spells & Dynamic Arcane LED Incantations
+### Task 5: AI Spells & Dynamic Arcane LED Incantations & Sound Combos
 - [x] Initial specification and brainstorming documented in [ai_spells_and_dynamic_lighting.md](architecture/ai_spells_and_dynamic_lighting.md).
+- [x] **LLM Prompt Arcane Tag Injection (`GemmaModelEngine.kt`)**:
+  - System prompts (RU/EN/DE) instruct Gemma / Gemini to prepend:
+    `[SPELL: Name | ANIM: Animation | SOUNDS: Sfx1, Sfx2, ...] <Incantation text>`
+  - Generates clever, hilarious sound chains (e.g. Alien ➔ Droid Panic ➔ Supernova) paired with techno-magical incantations.
+- [x] **Real-time Stream Dispatch & Execution (`DashboardViewModel.kt`)**:
+  - Regex interceptor catches `[SPELL: ...]` in earliest token stream chunk.
+  - Dynamically triggers 43 WS2812B LEDs, broadcasts spell title to SH1106 OLED over UDP, and plays paced sound chains with 750 ms delays.
+- [x] **Arcane Grimoire UI & Presets (`OracleTerminalScreen.kt`)**:
+  - Active Spell card with glowing border, LED badge, Sound sequence badge, "Replay Sounds", "Re-Cast", and "Dismiss".
+  - Scrollable Grimoire with presets: *Квантовая Утка*, *Плазменный Шторм*, *Паника Дроида*, *Гравитационный Чих*, *Астральный Портал*.
+  - "🎲 AI Conjure" button generating unpredictable, hilarious new spells.
+- [x] **Soundboard Combos (`SoundboardScreen.kt`)**:
+  - Quick-trigger sound chain buttons directly on the soundboard.
 - [ ] **2D Polar Kinematics Engine in `leds.c` (43 LEDs: 7→12→24)**:
   - `SPELL_ANIM_SPIRAL_SNAKE`: Multi-ring Ouroboros serpent coiling through 24 -> 12 -> 7 with core flare.
   - `SPELL_ANIM_RADIAL_WAVE`: Concentric ripples & shockwaves propagating outward (or imploding inward).
@@ -86,11 +99,6 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
   - `SPELL_ANIM_ARCHIMEDES_SPIRAL`: Hypnotic rotating spoke with radial phase lag across concentric rings.
   - `SPELL_ANIM_SACRED_POLYGON`: Stroboscopic geometric runes (Triquetra, Hexagram / Merkaba) rotating at harmonic ratios.
   - Phonetic VU Coupling: Real-time amplitude modulation from speaker DMA (words glow, plosives shockwave).
-- [ ] **LLM Prompt Arcane Tag Injection (`GemmaModelEngine.kt`)**:
-  - System prompt instructs LLM to prepend structured spell tag to voice incantations:
-    `[SPELL: Name | ANIM:Type | DIR:Dir | LEN:n | SPEED:ms | HEAD:#Hex | BODY:#Hex | TAIL:#Hex | VU:Mode] Text...`
-- [ ] **Fast Dispatch Protocol**:
-  - Android parser extracts tag from first stream chunk and dispatches `NET_MSG_SPELL_CAST` instantly so Pico lights up during speech generation.
 
 ---
 

@@ -22,6 +22,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -45,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.celestial.companion.ai.AiProcessingPhase
 import com.celestial.companion.ai.GemmaVariant
+import com.celestial.companion.domain.model.SfxItem
+import com.celestial.companion.domain.model.SpellDefinition
 import com.celestial.companion.domain.model.StaffLanguage
 import com.celestial.companion.domain.repository.ConnectionMode
 import com.celestial.companion.ui.screens.dashboard.DashboardViewModel
@@ -76,6 +79,7 @@ fun OracleTerminalScreen(
     val gemmaResult by viewModel.gemmaResult.collectAsState()
     val selectedModelVariant by viewModel.selectedModelVariant.collectAsState()
     val selectedBitmap by viewModel.selectedImage.collectAsState()
+    val activeSpell by viewModel.activeSpell.collectAsState()
 
     var promptInput by remember { mutableStateOf("") }
     var thinkingModeEnabled by remember { mutableStateOf(true) }
@@ -579,6 +583,252 @@ fun OracleTerminalScreen(
                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                                 fontFamily = FontFamily.Monospace
                             )
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- ARCANE SPELLBOOK & ACTIVE SPELL SYSTEM ---
+        activeSpell?.let { spell ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = DeepVoid),
+                border = BorderStroke(1.5.dp, RunicGold)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = RunicGold,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "ACTIVE SPELL: ${spell.name.uppercase()}",
+                                color = RunicGold,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                        IconButton(
+                            onClick = { viewModel.clearActiveSpell() },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Dismiss Spell",
+                                tint = TextMuted,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    // Spell details: LED Anim & Sound combo chain
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // LED badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CardSurface)
+                                .border(1.dp, AetherCyan, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "LED: ${spell.animation.name}",
+                                color = AetherCyan,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+
+                        // Sounds badge
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(CardSurface)
+                                .border(1.dp, CardBorder, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            val soundNames = spell.sounds.map { id ->
+                                SfxItem.ALL_SFX.getOrNull(id)?.name?.split(" ")?.firstOrNull() ?: "#$id"
+                            }.joinToString(" ➔ ")
+                            Text(
+                                text = "SFX: $soundNames",
+                                color = EmeraldGreen,
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    // Replay Audio Sequence & Re-Cast Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { viewModel.playSoundSequence(spell.sounds) },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = SpaceBlack),
+                            border = BorderStroke(1.dp, EmeraldGreen),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.VolumeUp, contentDescription = null, tint = EmeraldGreen, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Replay Sounds", color = EmeraldGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = { viewModel.castSpell(spell) },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = SpaceBlack),
+                            border = BorderStroke(1.dp, RunicGold),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = RunicGold, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Re-Cast Spell", color = RunicGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Grimoire presets and AI conjurer
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            border = BorderStroke(1.dp, CardBorder)
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🔮 ARCANE GRIMOIRE & SPELL COMBOS",
+                        color = AetherCyan,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+
+                    // Random AI Spell Conjurer Button
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(DeepVoid)
+                            .border(1.dp, RunicGold, RoundedCornerShape(6.dp))
+                            .clickable {
+                                val aiPrompt = when (currentLanguage) {
+                                    StaffLanguage.RUSSIAN -> "Сотвори совершенно безумное, смешное космическое заклинание! Придумай новое оригинальное имя, выбери крутую анимацию посоха и собери хитрый смешной набор звуков из доступных (WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC), и опиши его комический эффект."
+                                    StaffLanguage.GERMAN -> "Erschaffe einen völlig verrückten, lustigen kosmischen Zauberspruch! Erfinde einen originellen Namen, wähle eine coole LED-Animation und kombiniere lustige Soundeffekte (WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC)."
+                                    else -> "Conjure a wild, hilarious cosmic arcane spell! Invent an original spell name, select an LED animation, and assemble a funny chain of sound effects (WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC), and describe its comical effect."
+                                }
+                                promptInput = aiPrompt
+                                viewModel.queryGemma(aiPrompt)
+                            }
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = RunicGold, modifier = Modifier.size(12.dp))
+                            Text(
+                                text = "🎲 AI Conjure",
+                                color = RunicGold,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Text(
+                    text = "Запусти заклинание: светодиоды 43 WS2812B + цепочка забавных звуков динамика MAX98357A:",
+                    color = TextMuted,
+                    fontSize = 10.sp
+                )
+
+                // Scrollable row of preset spells
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SpellDefinition.PRESET_SPELLS.forEach { spell ->
+                        val isCurrent = activeSpell?.name == spell.name
+                        Card(
+                            modifier = Modifier
+                                .width(160.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable {
+                                    promptInput = spell.prompt
+                                    viewModel.castSpell(spell)
+                                },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isCurrent) DeepVoid else SpaceBlack
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (isCurrent) RunicGold else CardBorder
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = spell.name,
+                                    color = if (isCurrent) RunicGold else TextPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = spell.description,
+                                    color = TextMuted,
+                                    fontSize = 9.sp,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = "✨ ${spell.animation.name}",
+                                    color = AetherCyan,
+                                    fontSize = 9.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                     }
                 }
