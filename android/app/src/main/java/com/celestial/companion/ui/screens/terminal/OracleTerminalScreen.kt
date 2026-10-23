@@ -1376,7 +1376,14 @@ fun OracleTerminalScreen(
                     // Speak button
                     Button(
                         onClick = {
-                            ttsEngine?.speak(currentText, TextToSpeech.QUEUE_FLUSH, null, "GemmaTts")
+                            val isSpell = currentText.contains("[SPELL:", ignoreCase = true)
+                            val cleanSpeech = currentText.replace(Regex("""\[SPELL:[^\]]*\]\s*"""), "").trim()
+                            if (isSpell) {
+                                ttsEngine?.language = Locale.US
+                            } else {
+                                ttsEngine?.language = if (cleanSpeech.any { it in '\u0400'..'\u04FF' }) Locale("ru", "RU") else currentLanguage.locale
+                            }
+                            ttsEngine?.speak(cleanSpeech, TextToSpeech.QUEUE_FLUSH, null, "GemmaTts")
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = DeepVoid),
                         border = BorderStroke(1.dp, AetherCyan),

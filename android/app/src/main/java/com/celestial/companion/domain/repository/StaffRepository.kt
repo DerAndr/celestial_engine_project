@@ -290,20 +290,22 @@ class StaffRepository(
         // Synthesize and stream speech audio to staff speaker in background
         activeAudioJob?.cancel()
         activeAudioJob = scope.launch {
-            try {
+                // Check if this is an arcane spell incantation
+                val isSpell = text.contains("[SPELL:", ignoreCase = true)
+
                 // Strip technical [SPELL: ...] tag so TTS only speaks the incantation / conversational reply
                 val speechText = text.replace(Regex("""\[SPELL:[^\]]*\]\s*"""), "").trim()
                 if (speechText.isBlank()) return@launch
 
-                // Determine locale: check language in telemetry or detect Cyrillic characters in text
+                // CRITICAL: Spells MUST ALWAYS use the ENGLISH audio generator (Locale.US)
                 val lang = _telemetry.value.language
-                val locale = if (speechText.any { it in '\u0400'..'\u04FF' }) {
-                    java.util.Locale("ru", "RU")
-                } else if (lang != StaffLanguage.AUTO) {
-                    lang.locale
-                } else {
-                    java.util.Locale.US
+                val locale = when {
+                    isSpell -> java.util.Locale.US
+                    speechText.any { it in '\u0400'..'\u04FF' } -> java.util.Locale("ru", "RU")
+                    lang != StaffLanguage.AUTO -> lang.locale
+                    else -> java.util.Locale.US
                 }
+                Log.i(TAG, "Synthesizing audio: isSpell=$isSpell, locale=$locale, text='${speechText.take(40)}...'")
                 val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(speechText, locale)
                 if (pcm != null && pcm.isNotEmpty()) {
                     streamAudioToStaff(pcm, targetIp, System.currentTimeMillis())
