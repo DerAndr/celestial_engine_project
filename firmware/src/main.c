@@ -2317,8 +2317,28 @@ int main(void) {
             }
         }
 
+        // Check for remote CANCEL from Companion App
+        if ((current_state == STATE_PROCESSING || current_state == STATE_SPEAKING) && net_client_check_and_clear_cancel()) {
+            LOG_INFO("NET", ">>> Remote CANCEL received from Companion App! Returning to IDLE <<<");
+            audio_stop_all();
+            current_state = STATE_IDLE;
+            offline_oracle_mode = false;
+            need_display_update = true;
+            broadcast_telemetry();
+        }
+
         // 4. Encoder switch handling
-        if (encoder_switch_clicked() && current_state == STATE_IDLE) {
+        if (encoder_switch_clicked()) {
+            if (current_state == STATE_PROCESSING || current_state == STATE_SPEAKING) {
+                LOG_INFO("INTERRUPT", ">>> EMERGENCY STOP triggered via Encoder Switch! Aborting... <<<");
+                net_client_cancel();
+                audio_stop_all();
+                current_state = STATE_IDLE;
+                offline_oracle_mode = false;
+                audio_play_tone(180.0f, 60);
+                need_display_update = true;
+                broadcast_telemetry();
+            } else if (current_state == STATE_IDLE) {
             if (easter_egg_active) {
                 easter_egg_active = false;
                 audio_play_tone(440.0f, 40);
@@ -2497,6 +2517,7 @@ int main(void) {
             }
             broadcast_telemetry();
             need_display_update = true;
+            }
         }
 
         // 5. Periodic 1 Hz heartbeat

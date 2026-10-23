@@ -63,9 +63,10 @@ static uint32_t last_pi5_heartbeat_rx_ms = 0;
 static uint32_t last_phone_heartbeat_rx_ms = 0;
 static uint32_t last_catalog_req_ms = 0;
 
-static net_host_type_t active_host_type = HOST_TYPE_NONE;
-static net_host_type_t preferred_host = HOST_TYPE_NONE;
-static char active_host_name[16] = "STANDBY";
+static net_host_type_t active_host_type = HOST_TYPE_PHONE;
+static net_host_type_t preferred_host = HOST_TYPE_PHONE;
+static volatile bool net_cancel_flag = false;
+static char active_host_name[16] = "PHONE BRAIN";
 
 static const net_catalog_resp_t DEFAULT_PI5_CATALOG = {
     .host_type = HOST_TYPE_PI5,
@@ -319,6 +320,15 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
     }
 
     uint32_t now = to_ms_since_boot(get_absolute_time());
+
+    if (hdr.msg_type == NET_MSG_CANCEL) {
+        printf("[NET] Incoming NET_MSG_CANCEL from %s:%d. Aborting transaction!\n",
+               ip4addr_ntoa(addr), (int)port);
+        net_client_cancel();
+        net_cancel_flag = true;
+        pbuf_free(p);
+        return;
+    }
 
     if (hdr.msg_type == NET_MSG_CATALOG_RESP) {
         if (hdr.payload_len >= 17) {
@@ -579,9 +589,9 @@ void net_client_init(void) {
     active_server_port = get_current_server_port();
     ipaddr_aton(get_current_server_ip_str(), &server_ip_addr);
     ipaddr_aton(BRAIN_SERVER_IP, &pi5_server_ip_addr);
-    memcpy(&active_catalog, &DEFAULT_PI5_CATALOG, sizeof(active_catalog));
-    active_host_type = HOST_TYPE_NONE;
-    strncpy(active_host_name, "STANDBY", sizeof(active_host_name));
+    memcpy(&active_catalog, &DEFAULT_PHONE_CATALOG, sizeof(active_catalog));
+    active_host_type = HOST_TYPE_PHONE;
+    strncpy(active_host_name, DEFAULT_PHONE_CATALOG.host_name, sizeof(active_host_name));
     request_counter = get_rand_32(); /* Reboot must not reuse a still-running worker's ID. */
 
 #if HAVE_WIFI_CREDENTIALS
@@ -648,6 +658,15 @@ void net_client_update(void) {
         }
         struct netif *nif = &cyw43_state.netif[CYW43_ITF_STA];
         ip4addr_ntoa_r(netif_ip4_addr(nif), current_ip_str, sizeof(current_ip_str));
+
+        // When locked to PHONE host and on a mobile hotspot without an explicit companion yet,
+        // dynamically resolve server IP to DHCP default gateway (phone AP IP)
+        if (preferred_host == HOST_TYPE_PHONE && !has_paired_companion) {
+            const ip4_addr_t *gw = netif_ip4_gw(nif);
+            if (gw != NULL && gw->addr != 0) {
+                ip_addr_copy_from_ip4(server_ip_addr, *gw);
+            }
+        }
 
         // Periodic heartbeat ping to verify Brain Server is alive (every 1.0 s)
         if (now - last_heartbeat_tx_ms >= 1000) {
@@ -903,6 +922,13 @@ void net_client_cancel(void) {
     audio_stop_all();
     resp_is_receiving = false;
     resp_is_ready = false;
+    net_cancel_flag = true;
+}
+
+bool net_client_check_and_clear_cancel(void) {
+    bool cancelled = net_cancel_flag;
+    net_cancel_flag = false;
+    return cancelled;
 }
 
 bool net_client_is_receiving_response(void) {

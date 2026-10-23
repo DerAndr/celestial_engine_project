@@ -72,6 +72,27 @@ class StaffRepository(
     var passkey: String = "apophis"
 
     private val incomingAudioStream = ByteArrayOutputStream()
+    private var activeAudioJob: Job? = null
+
+    fun abortCurrentQuery() {
+        Log.i(TAG, "abortCurrentQuery: aborting TTS, canceling audio stream, sending CANCEL packet")
+        ttsSynthesizer?.stop()
+        activeAudioJob?.cancel()
+        activeAudioJob = null
+        incomingAudioStream.reset()
+        scope.launch {
+            val cancelPacket = CelestialPacket(
+                msgType = NetMessageType.CANCEL,
+                seqNum = 0,
+                payloadLen = 0,
+                requestId = 0L,
+                payload = ByteArray(0)
+            )
+            transport.sendPacket(activeStaffIp, ProtocolConstants.DEFAULT_PORT, cancelPacket)
+            transport.sendPacket("255.255.255.255", ProtocolConstants.DEFAULT_PORT, cancelPacket)
+        }
+        _telemetry.value = _telemetry.value.copy(state = StaffState.IDLE)
+    }
 
     fun computeAuthToken(): Int {
         var hash = 0x811c9dc5.toInt()
@@ -183,7 +204,7 @@ class StaffRepository(
         val chunkSize = 480 // 480 bytes = 240 samples @ 16kHz = 15ms of audio (<= NET_MAX_PAYLOAD_SIZE 512)
         var seq = 0
         var offset = 0
-        while (offset < pcmBytes.size) {
+        while (kotlinx.coroutines.currentCoroutineContext().isActive && offset < pcmBytes.size) {
             val length = minOf(chunkSize, pcmBytes.size - offset)
             val chunk = pcmBytes.copyOfRange(offset, offset + length)
             val chunkPacket = CelestialPacket(
@@ -197,6 +218,18 @@ class StaffRepository(
             offset += length
             seq++
             delay(15) // Matches 15ms playback rate of 240 samples at 16kHz
+        }
+
+        if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
+            val cancelPacket = CelestialPacket(
+                msgType = NetMessageType.CANCEL,
+                seqNum = seq,
+                payloadLen = 0,
+                requestId = reqId,
+                payload = ByteArray(0)
+            )
+            transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, cancelPacket)
+            return
         }
 
         val endPacket = CelestialPacket(
@@ -227,7 +260,8 @@ class StaffRepository(
         Log.i(TAG, "broadcastAiResponse: sent ${textBytes.size} bytes of text to $targetIp and broadcast")
 
         // Synthesize and stream speech audio to staff speaker in background
-        scope.launch {
+        activeAudioJob?.cancel()
+        activeAudioJob = scope.launch {
             try {
                 // Determine locale: check language in telemetry or detect Cyrillic characters in text
                 val lang = _telemetry.value.language
@@ -364,6 +398,14 @@ class StaffRepository(
                 _telemetry.value = _telemetry.value.copy(
                     lastAiResponseText = text
                 )
+            }
+            NetMessageType.CANCEL -> {
+                Log.i(TAG, "Incoming CANCEL from staff ${packet.senderIp}")
+                ttsSynthesizer?.stop()
+                activeAudioJob?.cancel()
+                activeAudioJob = null
+                incomingAudioStream.reset()
+                _telemetry.value = _telemetry.value.copy(state = StaffState.IDLE)
             }
             NetMessageType.APP_TELEMETRY -> {
                 parseTelemetryPayload(packet.payload)

@@ -1,53 +1,93 @@
-# Tasks — Reliable Voice Exchange, Then Pi 5
+# Tasks — Final Setup: Phone + Pico 2 W Core, Hotspot First, & AI Spells
 
-Updated 2026-10-11 after new commits and user observations. The staff operates stably overall; voice queries, AI response generation, and synthesized speech playback are fully implemented on PC/Cloud.
+Updated 2026-10-23. The project baseline locks the primary operating topology to **Pico 2 W (Staff) + Android Companion Phone (Mobile Brain)**, with an optional connection profile to **Raspberry Pi 5** when needed.
 
-## Current State
+---
 
-- **Fourth LED ring discarded by user** due to ongoing hardware instability. Working ring chain: 7→12→24, 43 LEDs total, 18% power limit. Jumper repair is preserved history, not current build.
-- Voice recording and live Wi-Fi upload up to 60 s; language and model preset selected directly on Pico. The server executes STT → LLM → TTS and streams audio back. Locally in Pico RAM, only the first 2 s (64 KB) are retained.
-- User base version is 1.0.15; prepared version 1.0.16 resolves response overflow, delayed responses, and fullscreen text display. See [036](experiments/036-response-review-and-fullscreen-text.md), [review](reviews/2026-10-11-streaming-review.md).
+## 1. Architectural Baseline: Primary Pair & Fallback Node
 
-## Priorities
+```
+┌─────────────────────────────────┐        Wi-Fi (UDP 5005)       ┌─────────────────────────────────┐
+│        CELESTIAL STAFF          │◄─────────────────────────────►│    ANDROID COMPANION PHONE      │
+│  - Pico 2 W (RP2350)            │   (Direct Mobile Hotspot AP)  │  - Wi-Fi Hotspot Host (AP)      │
+│  - 43 WS2812B LEDs (7→12→24)   │                               │  - Mobile Brain Server          │
+│  - SH1106 OLED (128x64)         │                               │  - Gemma / OpenRouter LLM Core  │
+│  - INMP441 Mic + MAX98357A Amp  │                               │  - Local / Cloud TTS Engine     │
+│  - Physical QUERY & PEC11R Enc  │                               │  - Live HUD & Remote Control    │
+└─────────────────────────────────┘                               └─────────────────────────────────┘
+                 ▲                                                                 ▲
+                 │                     Optional Secondary Link                     │
+                 └─────────────────────────────────────────────────────────────────┘
+                                                  │
+                                                  ▼
+                                  ┌─────────────────────────────────┐
+                                  │      RASPBERRY PI 5 (OPTIONAL)  │
+                                  │  - Wearable SBC Backpack Node   │
+                                  │  - 100% Offline Ollama/Whisper  │
+                                  │  - NVMe Standalone Storage      │
+                                  └─────────────────────────────────┘
+```
 
-1. **Verify new pair Pico 1.0.17 + v2 server on PC/Cloud.** Full lengthy response, completion of final word, fullscreen text line across SH1106 OLED, subsequent QUERY handling, and purging stale responses.
-2. **Universal "Brain" and Mobile Hotspot (Zero-App).** Complete independence from wearable Pi 5 and external Android apps:
-   - Smartphone operates strictly as a standard Wi-Fi Hotspot (no APK, Termux, or background daemon services required).
-   - Server `ai_brain_server.py` runs on PC, cloud (Docker / VPS), or laptop.
-   - Dual network profile support (Home Wi-Fi + Mobile Hotspot) with automated failover.
-3. **Onboard Staff Resilience (Standalone Offline Oracle).** In the absence of network connectivity or server reachability, holding QUERY triggers local audio sensing, concentric LED vortex animation, and delivers a retro-futuristic prophecy accompanied by local flash-stored audio cues (English default, Deutsch, Russian). The staff never bricks when disconnected.
-4. **Astronomical Chronometer and Sci-Fi Demo Suite.** [038](experiments/038-celestial-chronometer-clock.md), [039](experiments/039-multi-clock-r2d2-astromech.md):
-   - **`DIAL CHRONOS`**: 12-hour directional dial with golden hand and comet indicator.
-   - **`AETHER HOURGLASS`**: Orientation-independent fluid accumulator (1..12H in gold, 0..24 LED minutes in cyan, 0..6 LED seconds in amethyst).
-   - **`CHROMA PRISMATIC`**: Complete spectral time encoding independent of orientation: middle ring illuminates current hour hue (12 spectral tints), outer ring shifts color every 10 minutes across 6 decades, inner ring illuminates spectral gemstones every 10 seconds.
-   - **`CELESTIAL ORRERY`**: Kinetic planetary orrery with orbits and revolving celestial bodies.
-   - **Intuitive Navigation**: 1-click style switching with live preview on LED rings, dedicated `SET TIME` option, exit via QUERY button.
-   - **Interactive Sci-Fi Player `[11] COSMIC FX`**: 10 sound effects including whistles, chirps, staccato chatter, and panicked screams of droid R2-D2. Oracle languages are clean real dialects (EN default, AUTO, DE, RU).
-5. **Robustify queries under unstable Wi-Fi.** Uplink is currently best-effort: add acknowledgment/recovery for incoming audio chunks, out-of-order handling, and packet loss metrics. Validate actual Wi-Fi drop/reconnect and physical device cancellation.
-6. **Local Settings / UI.** Persistent storage for language, model, volume, effect; consistent reset/cancellation and full-line readability.
-7. **Parallel Pi 5 Track (Optional autonomous wearable node).** Pimoroni PIM699 (NVMe Base) migration to Lexar NM790 1 TB. Does not block staff utilization or field testing.
-8. **Power and Mechanics.** Staff power isolated from Pi 5 battery pack; casing/mounting following sustained voice exchange milestone. No new purchase lists without a proven blocker.
+- **Default Setup**: **Phone + Pico 2 W**. On boot, Pico connects to Phone's AP, phone hosts UDP 5005, and acts as the brain.
+- **Secondary / Optional Setup**: **Raspberry Pi 5 Wearable Node**. Accessible via OLED menu `[HOST] -> PI 5 BRAIN` or auto-mesh when on home network.
 
-## Before Next Hardware Milestone
+---
 
-- [ ] Verify full response without truncation or repeats on 1.0.17 + v2 server.
-- [ ] Verify Standalone Offline Oracle on physical staff with server powered down.
-- [ ] Verify automated fallback switching to smartphone hotspot (`WIFI_FALLBACK_SSID`).
-- [ ] Verify cloud / remote deployment of `ai_brain_server.py` (via Docker / VPS).
-- [x] Complete clean install of Bookworm Lite 64-bit on MicroSD and isolate NVMe read-only root cause per [037](experiments/037-rpi5-nvme-stand-alone-migration.md).
-- [x] Install **Pimoroni PIM699 (NVMe Base)** adapter, confirm 3.3V/4A power stability with write stress test (393 MB/s with fsync, 0 errors) per [037](experiments/037-rpi5-nvme-stand-alone-migration.md).
-- [x] Deploy and verify `ai_brain_server.py` server on autonomous Raspberry Pi 5 in local network (`celestial-brain.service` active on `192.168.178.51:5005`, OpenRouter DeepSeek V3 + Edge-TTS 7.3.1 verified).
-- [ ] Flash Pico 2 W with built firmware `celestial_firmware.uf2` (pointing to `192.168.178.51`) and verify voice query cycle on physical staff.
+## 2. Priority Action Items
 
-## Known Issues / Active Bugs (To Debug Next Session)
+### Task 1: Phone + Pico Default Mode & Firmware/App Alignment
+- [ ] **Firmware (`net_client.c`)**:
+  - Change default `preferred_host` from `HOST_TYPE_NONE` to `HOST_TYPE_PHONE`.
+  - Default to `DEFAULT_PHONE_CATALOG` on startup without waiting for Pi 5 discovery timeout.
+  - Set default server IP to Phone Hotspot gateway (`192.168.43.1` or dynamically resolved gateway from lwIP `netif_default->gw`).
+- [ ] **Android App (`StaffRepository.kt` & `MainActivity.kt`)**:
+  - Lock default `ConnectionMode` to `PHONE_BRAIN_SERVER`.
+  - Automatically acquire `MulticastLock` and bind UDP port 5005 on application launch.
+  - Run foreground service `StaffBrainService` to prevent OS sleep/throttling when phone screen is locked.
+- [ ] **Preserve Raspberry Pi 5 Switchability**:
+  - Keep menu item `[HOST]` on OLED with choices: `PHONE BRAIN (Default)`, `PI 5 BRAIN`, and `AUTO MESH`.
+  - Keep Companion App dashboard toggle to hand off brain execution to Pi 5.
 
-- **BUG-VOICE-01: Voice query cycle between Pico and Phone Companion App not fully operational end-to-end**:
-  - *Symptom observed by user*: When QUERY button is held, Pico plays chirp and displays LISTENING; on release Pico transitions to PROCESSING. However, the end-to-end cycle (Phone receiving full audio stream, Gemma/Gemini transcribing/answering, streaming speech TTS back to MAX98357A speaker, and displaying text on OLED) did not complete successfully as expected.
-  - *Status*: Open for next debugging session.
-  - *Next Investigation Steps*:
-    1. Check real-time logcat on phone during query (`adb logcat -s StaffRepository:V GemmaModelEngine:V DashboardViewModel:V`).
-    2. Check if Pico sends audio chunks to the phone's IP or if packets are dropped/rejected due to port/firewall or length.
-    3. Check whether phone TTS synthesis completes and whether `streamAudioToStaff` transmits chunks back to Pico.
-    4. Verify Pico `response_gate` state machine when receiving `RESP_START` / `RESP_CHUNK` from phone.
+### Task 2: Mobile Hotspot First Network Flow (Zero External Wi-Fi)
+- [ ] **Firmware (`wifi_credentials.h` & `net_client.c`)**:
+  - Primary network profile (`WIFI_SSID` / `WIFI_PASSWORD`): Phone Hotspot credentials.
+  - Fallback profile (`WIFI_FALLBACK_SSID` / `WIFI_FALLBACK_PASSWORD`): Home network (Fritz!Box).
+  - Dynamic Gateway Discovery: Use `ip4_addr1(&netif_default->gw)` so if phone assigns IP via DHCP, Pico automatically knows the host IP without hardcoding.
+- [ ] **Android App Hotspot Helper**:
+  - Add Hotspot status banner on Dashboard showing: `Hotspot: Active (192.168.43.1) -> Staff Linked`.
 
-Rewriting LED lighting code **for four rings is removed from active planning**, as the fourth ring has been permanently removed. Cosmetic improvements to the three rings remain in the backlog and do not block the Pi track.
+### Task 3: Universal Emergency Stop / Abort Button (Pico + Android)
+- [ ] **Android Companion App**:
+  - Add prominent **[STOP / ABORT]** button on Dashboard when state is `LISTENING`, `PROCESSING`, or `SPEAKING`.
+  - On press:
+    1. Cancel LLM generation coroutine (`activeGenerationJob?.cancel()`).
+    2. Abort TTS audio synthesis (`StaffTtsSynthesizer.stop()`).
+    3. Send UDP `NET_MSG_CANCEL` (0x08) to Pico.
+    4. Reset app state immediately to `IDLE`.
+- [ ] **Pico Physical Staff Interrupt**:
+  - During `STATE_PROCESSING` or `STATE_SPEAKING`:
+    - Clicking the rotary encoder button (PEC11R SW) or pressing QUERY immediately triggers `net_client_cancel()`.
+    - `net_client_cancel()` stops speaker DMA audio, clears `response_gate`, sends `NET_MSG_CANCEL` to phone, and resets OLED/LEDs to `STATE_IDLE`.
+
+### Task 4: AI Spells & Dynamic Arcane LED Incantations
+- [x] Initial specification and brainstorming documented in [ai_spells_and_dynamic_lighting.md](architecture/ai_spells_and_dynamic_lighting.md).
+- [ ] **2D Polar Kinematics Engine in `leds.c` (43 LEDs: 7→12→24)**:
+  - `SPELL_ANIM_SPIRAL_SNAKE`: Multi-ring Ouroboros serpent coiling through 24 -> 12 -> 7 with core flare.
+  - `SPELL_ANIM_RADIAL_WAVE`: Concentric ripples & shockwaves propagating outward (or imploding inward).
+  - `SPELL_ANIM_COLLIDING_WAVES`: Counter-rotating wave crests colliding at 0°/180° with white constructive flash.
+  - `SPELL_ANIM_ARCHIMEDES_SPIRAL`: Hypnotic rotating spoke with radial phase lag across concentric rings.
+  - `SPELL_ANIM_SACRED_POLYGON`: Stroboscopic geometric runes (Triquetra, Hexagram / Merkaba) rotating at harmonic ratios.
+  - Phonetic VU Coupling: Real-time amplitude modulation from speaker DMA (words glow, plosives shockwave).
+- [ ] **LLM Prompt Arcane Tag Injection (`GemmaModelEngine.kt`)**:
+  - System prompt instructs LLM to prepend structured spell tag to voice incantations:
+    `[SPELL: Name | ANIM:Type | DIR:Dir | LEN:n | SPEED:ms | HEAD:#Hex | BODY:#Hex | TAIL:#Hex | VU:Mode] Text...`
+- [ ] **Fast Dispatch Protocol**:
+  - Android parser extracts tag from first stream chunk and dispatches `NET_MSG_SPELL_CAST` instantly so Pico lights up during speech generation.
+
+---
+
+## 3. Active Debugging: BUG-VOICE-01 (End-to-End Voice Cycle)
+- Verify phone captures audio from Pico over Hotspot UDP 5005.
+- Verify OpenRouter / Gemini streams tokens into `DashboardViewModel`.
+- Verify Android TTS generates 16 kHz PCM and `streamAudioToStaff` transmits chunks back.
+- Verify Pico speaker plays the speech response clearly.

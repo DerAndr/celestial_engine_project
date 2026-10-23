@@ -188,6 +188,14 @@ class StaffTtsSynthesizer(private val context: Context) {
         return outBytes
     }
 
+    fun stop() {
+        try {
+            tts?.stop()
+        } catch (e: Exception) {
+            Log.w(TAG, "TTS stop error: ${e.message}")
+        }
+    }
+
     fun shutdown() {
         try {
             tts?.stop()

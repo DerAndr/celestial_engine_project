@@ -124,6 +124,41 @@ fun DashboardScreen(
             }
         }
 
+        // Emergency Stop / Abort Button (Displayed whenever staff is listening, processing, or speaking)
+        val isGenerating by viewModel.isGenerating.collectAsState()
+        if (telemetry.state != StaffState.IDLE || isGenerating) {
+            Button(
+                onClick = { viewModel.cancelGeneration() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFD32F2F),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(14.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = "Stop",
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "СТОП / ПРЕРВАТЬ (${telemetry.state.displayName.uppercase()})",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+        }
+
         // 1.5 Connection Architecture Card (Simplified Pure Pictogram Scheme)
         val connectionMode by viewModel.connectionMode.collectAsState()
         Card(

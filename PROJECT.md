@@ -29,11 +29,11 @@ Mission Control: `tools/start_monitor.sh` multi-pane tmux HUD combining `btop`, 
 There are two physically separate subsystems:
 
 1. **STAFF** — Raspberry Pi Pico 2 W embedded controller handling controls, display, LEDs, microphone, speaker and Wi-Fi. Features complete **Standalone Offline Oracle** autonomy when no host is connected.
-2. **AI BRAIN (Universal Host-Agnostic & Cloud Architecture)** — handles neural processing, orchestration and speech return:
-   - **Mode 1 (Field Zero-App Hotspot + Cloud Brain):** Smartphone or 4G router acts strictly as a standard Wi-Fi Hotspot (tethering) without any apps. The brain server (`tools/ai_brain_server.py`) runs in the Cloud (VPS, Docker, Cloud Run, or Home Server tunnel) via OpenRouter / OpenAI / Groq + Edge-TTS. No phone app needed!
-   - **Mode 2 (Home / Studio Dev PC):** Brain server runs locally on the developer's PC, Mac, or laptop over local Wi-Fi.
-   - **Mode 3 (Standalone Offline Oracle):** Zero external host. The staff operates completely self-contained with onboard microphone sensing, concentric LED vortex, local voice phrases from flash (EN, DE, RU), cosmic sound effects, and OLED retrofuturistic prophecies.
-   - **Mode 4 (Wearable SBC — Optional Pi 5):** Optional standalone backpack/belt node on Geekworm X1209 UPS + Pimoroni PIM699 + Lexar NM790.
+2. **AI BRAIN (Universal Host-Agnostic Architecture)** — handles neural processing, orchestration and speech return:
+   - **Mode 1 (Primary / Default: Android Companion Hotspot & Mobile Brain):** Smartphone acts as Wi-Fi Hotspot and runs the Android Companion App. The phone serves as the UDP 5005 Brain Host directly, running Gemma/OpenRouter LLM and TTS without requiring external Wi-Fi or a laptop.
+   - **Mode 2 (Wearable SBC — Optional Pi 5 Node):** Standalone wearable node on Geekworm X1209 UPS + Pimoroni PIM699 + Lexar NM790 running offline Whisper + Ollama/Llama + Piper TTS. Switchable via OLED `[HOST]` menu.
+   - **Mode 3 (Home / Studio Dev PC):** Brain server runs locally on PC (`tools/ai_brain_server.py`) over local Wi-Fi.
+   - **Mode 4 (Standalone Offline Oracle):** Zero external host. The staff operates completely self-contained with onboard microphone sensing, concentric LED vortex, local voice phrases from flash (EN, DE, RU), cosmic sound effects, and OLED retrofuturistic prophecies.
    - See [Universal Brain Architecture Specification](docs/architecture/ai_dual_brain_architecture.md).
 
 Communication is wireless over Wi-Fi (UDP protocol v2 on port 5005). Do not introduce a physical data cable between the host and the staff. The staff firmware is completely agnostic to whether Cloud, PC, phone hotspot, or Pi 5 is answering.

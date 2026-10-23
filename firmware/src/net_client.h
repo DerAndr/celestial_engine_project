@@ -51,6 +51,7 @@ bool net_client_send_query_start(uint8_t lang_code, uint8_t model_preset);
 bool net_client_send_audio_chunk(const int16_t *samples, size_t sample_count);
 bool net_client_send_query_end(void);
 void net_client_cancel(void);
+bool net_client_check_and_clear_cancel(void);
 
 // Response state from Brain Server
 bool net_client_is_receiving_response(void);

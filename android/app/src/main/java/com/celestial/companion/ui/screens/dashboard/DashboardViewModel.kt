@@ -121,9 +121,9 @@ class DashboardViewModel(
     }
 
     fun cancelGeneration() {
-        if (!_isGenerating.value) return
         activeGenerationJob?.cancel()
         liveTimerJob?.cancel()
+        repository.abortCurrentQuery()
         _isGenerating.value = false
         _processingPhase.value = AiProcessingPhase.CANCELLED
         val interruptedText = _liveStreamingText.value.ifBlank { "Generation stopped by user." } + " [STOPPED]"
