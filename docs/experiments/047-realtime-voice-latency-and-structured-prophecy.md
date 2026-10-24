@@ -32,8 +32,18 @@ Reduce voice query turnaround latency closer to real time (< 800ms) across the e
 5. **Request ID Correlation & Unsolicited Text Acceptance (`net_client.c`)**:
    - Tracked `activeQueryRequestId` throughout query lifecycle.
    - Allowed `NET_MSG_RESP_TEXT` from paired phone or server regardless of gate state.
+6. **Gemma 4 Restored with Two-Stage Voice Pipeline (`GemmaModelEngine.kt`)**:
+   - Restored **Gemma 4 (31B)** (`google/gemma-4-31b-it`) as primary default model with Chain-of-Thought thinking (`<thought>...</thought>`).
+   - Replaced canned stub responses with rich ancient-futuristic lore and creative spell-casting logic.
+   - Implemented two-stage pipeline for voice queries: Stage 1 acoustically transcribes voice input via ultra-fast OpenRouter call (~250ms), Stage 2 feeds verbatim transcription into Gemma 4 for deep reasoning and response streaming.
+   - Realistic token throughput estimation based on word segmentation rather than SSE packet counting.
+7. **Android 15 Hotspot UDP Transmission Fix (`StaffUdpTransport.kt`)**:
+   - Declared `ACCESS_LOCAL_NETWORK` and `CHANGE_NETWORK_STATE` in manifest.
+   - Created cached unbound `DatagramSocket(null)` bound directly to tethering `Network` (Network 240 / `ap_br_wlan2`), eliminating kernel routing table `EPERM (Operation not permitted)` errors.
 
 ## Verification
 - Firmware built and flashed to Pico 2 W via UF2.
-- Companion App built via GitHub Actions (`40141216014`) and installed on Pixel 9 Pro XL via ADB.
-- Live `APP_TELEMETRY` packets arriving every 1s over UDP 5005.
+- Companion App built via GitHub Actions (`40143546259`) and installed on Pixel 9 Pro XL via ADB.
+- Live `APP_TELEMETRY` packets arriving every 1s over UDP 5005 without drops.
+- `Query G4-31B` button active in UI with CoT enabled.
+- Bidirectional UDP communications verified between Phone Brain and Pico 2 W.
