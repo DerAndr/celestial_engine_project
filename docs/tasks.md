@@ -114,8 +114,73 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 
 ---
 
-## 3. Active Debugging: BUG-VOICE-01 (End-to-End Voice Cycle)
-- Verify phone captures audio from Pico over Hotspot UDP 5005.
-- Verify OpenRouter / Gemini streams tokens into `DashboardViewModel`.
-- Verify Android TTS generates 16 kHz PCM and `streamAudioToStaff` transmits chunks back.
-- Verify Pico speaker plays the speech response clearly.
+---
+
+## 3. Active Debugging: BUG-VOICE-01 (End-to-End Voice Cycle) — ✅ RESOLVED (Exp 046/047)
+- [x] **Verify phone captures audio from Pico over Hotspot UDP 5005**:
+  - Staff INMP441 mic captures 16 kHz PCM mono, packages into `NET_MSG_AUDIO_STREAM`, and streams to phone `10.111.174.174:5005`.
+- [x] **Verify OpenRouter / Gemma streams tokens into `DashboardViewModel`**:
+  - Two-stage acoustic pipeline: fast acoustic transcription (~250ms) + Gemma model generation with Chain-of-Thought (`<thought>...</thought>`).
+- [x] **Verify Android TTS generates 16 kHz PCM and `streamAudioToStaff` transmits chunks back**:
+  - Pre-warmed `StaffTtsSynthesizer` with 1.15x speed factor.
+  - Deep audio pre-buffer burst (25 chunks at 1ms delay) wakes Pico DAC within 7ms and eliminates buffer starvation.
+  - Android 15 hotspot socket routing via `ACCESS_LOCAL_NETWORK` and bound `DatagramSocket(null)`.
+- [x] **Verify Pico speaker plays the speech response clearly**:
+  - MAX98357A speaker playback verified cleanly on Pico 2 W without stutter or drops.
+
+---
+
+## 4. Full Independent Refactoring Plan: Eliminating Cruft & Fragility
+> **Objective**: Remove accumulated technical debt, ad-hoc hacks, and legacy files from past experiments that cause unexpected bugs. Re-architect the codebase into clean, modular, testable components.
+
+### Phase 1: Workspace Sanitation & Housekeeping (Immediate)
+- [ ] **Purge Root Clutter**:
+  - Remove stale build directories: `temp_apk*`, `build_apk`, `android_artifact`, `android_bin`.
+  - Archive/move temporary test screenshots (`screen_*.png`, `app_screen_*.png`) to `docs/assets/archive/` or delete obsolete captures.
+  - Clean up root `.gitignore` to prevent generated artifacts and test images from dirtying the working tree.
+- [ ] **Configuration & Script Hygiene**:
+  - Standardize all script paths (`tools/`, `scripts/`) to avoid hardcoded absolute paths or obsolete IP addresses.
+
+### Phase 2: Android Companion App Architecture Decoupling
+*Target: Break down monolithic files (`StaffRepository.kt` ~600+ lines, `GemmaModelEngine.kt` ~680 lines, `DashboardViewModel.kt` ~800+ lines) into clean, decoupled layers.*
+
+- [ ] **Binary Protocol Codec Layer (`network/protocol/`)**:
+  - Extract packet serialization and deserialization out of `StaffRepository.kt` into dedicated, pure Kotlin codecs:
+    - `StaffPacketCodec.kt` (Encode/Decode `APP_TELEMETRY`, `AUDIO_STREAM`, `RESP_START`, `RESP_TEXT`, `RESP_AUDIO_CHUNK`, `RESP_END`, `CONTROL_MSG`).
+    - Add comprehensive unit tests (`StaffPacketCodecTest.kt`) to guarantee byte-level parity with Pico C structs (`net_protocol.h`).
+- [ ] **Network Transport Layer (`network/transport/`)**:
+  - Isolate raw Android 15 socket binding, hotspot network discovery (`ap_br_wlan2`), and coroutine packet loops into `StaffUdpTransport.kt`.
+  - Remove all business logic, audio pacing, and state mutation from the transport layer.
+- [ ] **AI & Speech Subsystem Modularization (`ai/`)**:
+  - Split `GemmaModelEngine.kt` into focused services:
+    - `AcousticTranscriptionService.kt`: Handles fast audio-to-text transcription (~250ms helper).
+    - `GemmaModelService.kt`: Handles LLM prompt construction, model endpoint streaming (OpenRouter / Edge), and SSE token reading.
+    - `GemmaVariantRegistry.kt`: Centralized enum and configurations for `gemma-4-E2B`, `gemma-4-31b`, etc.
+    - `CelestialProphecyParser.kt`: (Already extracted) dedicated unit testing for tag stripping and spell extraction.
+- [ ] **Domain UseCases & State Reducers (`domain/usecase/`)**:
+  - Extract business flows out of `DashboardViewModel.kt` and `StaffRepository.kt`:
+    - `ProcessStaffVoiceQueryUseCase`: Coordinates Mic Audio -> Transcription -> LLM Stream -> Spell Dispatch -> TTS Synthesis -> Audio Stream back to staff.
+    - `SyncStaffTelemetryUseCase`: Manages heartbeat ticks, digital twin parity, and signal quality.
+    - `EmergencyAbortUseCase`: Clean instant cancellation across AI coroutines, TTS synthesis, and Pico audio playback.
+
+### Phase 3: Pico 2 W Firmware Modularization & Cleanup (`firmware/src/`)
+*Target: Streamline `net_client.c` (~800 lines) and eliminate accumulated patches and legacy workarounds.*
+
+- [ ] **Modular Packet Dispatcher (`net_dispatcher.c`)**:
+  - Replace sprawling `switch(msg_type)` and nested `if` statements with a clean, lookup-table-based message dispatch table.
+  - Enforce strict message boundary checks and clean error reporting.
+- [ ] **Network State Machine Decoupling (`net_client.c`)**:
+  - Separate connection lifecycle (Wi-Fi join, DHCP, IP resolution, Heartbeat) from query streaming and audio reception.
+  - Remove deprecated port overwriting, temporary debug logs, and hardcoded legacy fallback branches.
+- [ ] **Audio DMA & Buffer Separation (`audio_subsystem.c`)**:
+  - Decouple MAX98357A I2S DMA ring buffer management from network chunk reception.
+  - Implement clean FIFO buffer abstraction with explicit underflow/overflow recovery hooks.
+- [ ] **Strict Compiler Cleanliness**:
+  - Enable `-Wall -Wextra` in CMake and resolve all compiler warnings.
+
+### Phase 4: Integration Test Suite & Protocol Regression Prevention
+- [ ] **Automated Protocol Packet Round-Trip Tests**:
+  - Python test runner (`tests/test_protocol_v2_parity.py`) verifying binary layout parity across C (`net_protocol.h`), Kotlin (`StaffPacketCodec.kt`), and Python (`tools/brain_transport.py`).
+- [ ] **Mock Voice Loop End-to-End Test**:
+  - CLI test tool simulating a complete staff query without physical hardware to catch regressions in CI.
+
