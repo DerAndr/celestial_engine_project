@@ -524,6 +524,13 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 set_current_time_epoch(server_epoch, 0);
             }
         }
+    } else if (hdr.msg_type == NET_MSG_RESP_TEXT && hdr.payload_len > 0) {
+        uint8_t raw_text[512];
+        uint16_t copy_len = (hdr.payload_len < sizeof(raw_text)) ? hdr.payload_len : (uint16_t)(sizeof(raw_text) - 1);
+        pbuf_copy_partial(p, raw_text, copy_len, sizeof hdr);
+        sanitize_oled_text(resp_text_buffer, raw_text, copy_len, sizeof(resp_text_buffer));
+        response_progress_ms = now;
+        acknowledge_response(&hdr, addr, port);
     } else if (response_gate_matches(&response_gate, hdr.request_id)) {
         bool ack = false;
         switch (hdr.msg_type) {

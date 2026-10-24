@@ -86,8 +86,8 @@ fun OracleTerminalScreen(
     val activeSpell by viewModel.activeSpell.collectAsState()
 
     var promptInput by remember { mutableStateOf("") }
-    var thinkingModeEnabled by remember { mutableStateOf(true) }
-    var showThinkingCard by remember { mutableStateOf(true) }
+    var thinkingModeEnabled by remember { mutableStateOf(false) }
+    var showThinkingCard by remember { mutableStateOf(false) }
     var showHistoryDialog by remember { mutableStateOf(false) }
 
     // Blinking cursor for live token streaming

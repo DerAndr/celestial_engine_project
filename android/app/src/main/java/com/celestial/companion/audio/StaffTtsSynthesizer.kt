@@ -6,6 +6,7 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
@@ -25,7 +26,21 @@ class StaffTtsSynthesizer(private val context: Context) {
             if (status == TextToSpeech.SUCCESS) {
                 isInitialized = true
                 initDeferred.complete(true)
-                Log.i(TAG, "TextToSpeech initialized successfully")
+                try {
+                    tts?.setSpeechRate(1.15f)
+                    tts?.setPitch(0.98f)
+                } catch (_: Exception) {}
+                Log.i(TAG, "TextToSpeech initialized successfully (rate=1.15x)")
+                // Pre-warm background synthesis pipeline to eliminate cold-start delay
+                kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val warmupFile = File(context.cacheDir, "tts_warmup.wav")
+                        tts?.synthesizeToFile("Ready", null, warmupFile, "warmup")
+                        kotlinx.coroutines.delay(250)
+                        if (warmupFile.exists()) warmupFile.delete()
+                        Log.d(TAG, "TTS pipeline pre-warmed successfully")
+                    } catch (_: Exception) {}
+                }
             } else {
                 Log.w(TAG, "TextToSpeech initialization failed with status $status")
                 initDeferred.complete(false)
@@ -43,8 +58,10 @@ class StaffTtsSynthesizer(private val context: Context) {
 
         try {
             engine.language = locale
+            engine.setSpeechRate(1.15f)
+            engine.setPitch(0.98f)
         } catch (e: Exception) {
-            Log.w(TAG, "Could not set TTS locale: ${e.message}")
+            Log.w(TAG, "Could not set TTS locale or rate: ${e.message}")
         }
 
         val cleanText = text

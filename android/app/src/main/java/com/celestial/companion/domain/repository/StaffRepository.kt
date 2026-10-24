@@ -28,7 +28,8 @@ enum class ConnectionMode(val title: String, val subtitle: String) {
 data class IncomingStaffVoiceQuery(
     val audioBytes: ByteArray,
     val senderIp: String,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val requestId: Long = 0L
 )
 
 class StaffRepository(
@@ -254,7 +255,13 @@ class StaffRepository(
         transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, packet)
     }
 
-    suspend fun streamAudioToStaff(pcmBytes: ByteArray, targetIp: String = activeStaffIp, reqId: Long = System.currentTimeMillis()) {
+    private var activeQueryRequestId: Long = 0L
+
+    suspend fun streamAudioToStaff(
+        pcmBytes: ByteArray,
+        targetIp: String = activeStaffIp,
+        reqId: Long = activeQueryRequestId.takeIf { it != 0L } ?: System.currentTimeMillis()
+    ) {
         val sampleCount = pcmBytes.size / 2
         log("SPEAKER", "🔊 Streaming audio to staff speaker ($sampleCount samples @ 16kHz to $targetIp)...", LogLevel.INFO)
         val startPayload = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(sampleCount).array()
@@ -266,7 +273,7 @@ class StaffRepository(
             payload = startPayload
         )
         transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, startPacket)
-        delay(25)
+        delay(2) // Minimized wakeup delay (2ms instead of 25ms)
 
         val chunkSize = 480 // 480 bytes = 240 samples @ 16kHz = 15ms of audio (<= NET_MAX_PAYLOAD_SIZE 512)
         var seq = 0
@@ -284,7 +291,13 @@ class StaffRepository(
             transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, chunkPacket)
             offset += length
             seq++
-            delay(15) // Matches 15ms playback rate of 240 samples at 16kHz
+            // Deep pre-buffer burst: send first 25 chunks (6,000 samples = ~0.375s) at 1ms delay.
+            // This safely primes Pico's 32,768-sample buffer in ~25ms, immune to Wi-Fi jitter!
+            if (seq < 25) {
+                delay(1)
+            } else {
+                delay(14) // Matches 15ms playback rate of 240 samples at 16kHz
+            }
         }
 
         if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
@@ -312,9 +325,12 @@ class StaffRepository(
         log("SPEAKER", "✅ Audio playback stream complete ($seq chunks sent)", LogLevel.SUCCESS)
     }
 
-    suspend fun broadcastOledText(text: String, targetIp: String = activeStaffIp) {
+    suspend fun broadcastOledText(
+        text: String,
+        targetIp: String = activeStaffIp,
+        reqId: Long = activeQueryRequestId.takeIf { it != 0L } ?: System.currentTimeMillis()
+    ) {
         val textBytes = text.toByteArray(Charsets.UTF_8)
-        val reqId = System.currentTimeMillis()
         val textPacket = CelestialPacket(
             msgType = NetMessageType.RESP_TEXT,
             seqNum = 1,
@@ -330,12 +346,18 @@ class StaffRepository(
         log("STAFF", "OLED Text dispatched: '${text.take(35)}...'", LogLevel.INFO)
     }
 
-    suspend fun broadcastAiResponse(text: String, targetIp: String = activeStaffIp) {
+    suspend fun broadcastAiResponse(
+        text: String,
+        targetIp: String = activeStaffIp,
+        skipVisualEffects: Boolean = false,
+        customReqId: Long? = null
+    ) {
         val prophecy = CelestialProphecyParser.parse(text)
+        val reqId = customReqId ?: activeQueryRequestId.takeIf { it != 0L } ?: System.currentTimeMillis()
         log("AI-BRAIN", "Parsed prophecy (spell=${prophecy.isSpell}, anim=${prophecy.animation?.name ?: "NONE"}, sounds=${prophecy.soundEffects.size}, speechLen=${prophecy.speechText.length})", LogLevel.SUCCESS)
 
-        // 1. If spell, activate LED ring animation and trigger sound effects on staff
-        if (prophecy.isSpell) {
+        // 1. If spell and not already triggered live during token streaming, activate LED & SFX
+        if (!skipVisualEffects && prophecy.isSpell) {
             prophecy.animation?.let { anim ->
                 executeCommand(StaffCommand.SetLedAnimation(anim))
                 log("SPELL", "✨ Staff LED animation activated: ${anim.title}", LogLevel.SUCCESS)
@@ -349,7 +371,7 @@ class StaffRepository(
 
         // 2. Dispatch clean display marquee text to Staff OLED (NO thoughts or raw markup)
         val cleanOled = prophecy.displayText.ifBlank { prophecy.speechText.take(50) }
-        broadcastOledText(cleanOled, targetIp)
+        broadcastOledText(cleanOled, targetIp, reqId)
 
         // 3. Synthesize and stream clean speech audio to staff speaker in background
         activeAudioJob?.cancel()
@@ -370,7 +392,7 @@ class StaffRepository(
                 log("TTS", "Synthesizing voice audio: locale=$locale, text='${speechText.take(35)}...'", LogLevel.INFO)
                 val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(speechText, locale)
                 if (pcm != null && pcm.isNotEmpty()) {
-                    streamAudioToStaff(pcm, targetIp, System.currentTimeMillis())
+                    streamAudioToStaff(pcm, targetIp, reqId)
                 } else {
                     Log.w(TAG, "TTS synthesis returned null/empty PCM, speech audio not streamed")
                     log("TTS", "TTS synthesis returned empty PCM", LogLevel.WARN)
@@ -445,8 +467,9 @@ class StaffRepository(
                 }
             }
             NetMessageType.QUERY_START -> {
-                Log.i(TAG, "Incoming QUERY_START from ${packet.senderIp}")
-                log("VOICE", "🎤 QUERY_START received from ${packet.senderIp}", LogLevel.INFO)
+                activeQueryRequestId = packet.requestId
+                Log.i(TAG, "Incoming QUERY_START from ${packet.senderIp} (reqId=${packet.requestId})")
+                log("VOICE", "🎤 QUERY_START received from ${packet.senderIp} (reqId=${packet.requestId})", LogLevel.INFO)
                 incomingAudioStream.reset()
                 _telemetry.value = _telemetry.value.copy(
                     state = StaffState.LISTENING,
@@ -463,20 +486,21 @@ class StaffRepository(
                 }
             }
             NetMessageType.QUERY_END -> {
-                Log.i(TAG, "Incoming QUERY_END from ${packet.senderIp}. Audio size: ${incomingAudioStream.size()} bytes.")
+                Log.i(TAG, "Incoming QUERY_END from ${packet.senderIp} (reqId=$activeQueryRequestId). Audio size: ${incomingAudioStream.size()} bytes.")
                 _telemetry.value = _telemetry.value.copy(
                     state = StaffState.PROCESSING
                 )
                 val audioData = incomingAudioStream.toByteArray()
                 incomingAudioStream.reset()
                 val durationSec = String.format(java.util.Locale.US, "%.2f", audioData.size / 32000f)
-                log("VOICE", "🎙️ QUERY_END from ${packet.senderIp} (${audioData.size} B / ${durationSec}s PCM). Submitting to Brain...", LogLevel.SUCCESS)
+                log("VOICE", "🎙️ QUERY_END from ${packet.senderIp} (${audioData.size} B / ${durationSec}s PCM, reqId=$activeQueryRequestId). Submitting to Brain...", LogLevel.SUCCESS)
 
                 if (_phoneBrainActive.value) {
-                    val emitted = _staffVoiceQueries.tryEmit(IncomingStaffVoiceQuery(audioData, activeStaffIp))
+                    val emitted = _staffVoiceQueries.tryEmit(IncomingStaffVoiceQuery(audioData, activeStaffIp, requestId = activeQueryRequestId))
                     if (!emitted || _staffVoiceQueries.subscriptionCount.value == 0) {
                         scope.launch {
                             val fullAnswer = StringBuilder()
+                            var liveSpellTriggered = false
                             gemmaEngine?.streamInference("Analyze voice inquiry from staff", audioBytes = audioData)?.collect { chunk ->
                                 when (chunk) {
                                     is com.celestial.companion.ai.GemmaStreamChunk.PhaseChanged -> {
@@ -488,9 +512,28 @@ class StaffRepository(
                                     }
                                     is com.celestial.companion.ai.GemmaStreamChunk.OutputToken -> {
                                         fullAnswer.append(chunk.token)
+                                        val candidate = fullAnswer.toString()
                                         _telemetry.value = _telemetry.value.copy(
-                                            lastAiResponseText = fullAnswer.toString()
+                                            lastAiResponseText = candidate
                                         )
+
+                                        // Real-time spell dispatch: trigger animation and SFX the instant spell tag is parsed!
+                                        if (!liveSpellTriggered) {
+                                            val parsed = CelestialProphecyParser.parse(candidate)
+                                            if (parsed.isSpell) {
+                                                liveSpellTriggered = true
+                                                parsed.animation?.let { anim ->
+                                                    executeCommand(StaffCommand.SetLedAnimation(anim))
+                                                    log("SPELL", "✨ Staff LED animation activated: ${anim.title}", LogLevel.SUCCESS)
+                                                }
+                                                if (parsed.soundEffects.isNotEmpty()) {
+                                                    val firstSfx = parsed.soundEffects.first()
+                                                    executeCommand(StaffCommand.PlaySfx(firstSfx))
+                                                    log("SPELL", "🔊 Staff SFX triggered: ID #$firstSfx", LogLevel.INFO)
+                                                }
+                                                broadcastOledText(parsed.displayText.ifBlank { "[SPELL] ${parsed.spellName}" }, activeStaffIp)
+                                            }
+                                        }
                                     }
                                     is com.celestial.companion.ai.GemmaStreamChunk.Complete -> {
                                         _telemetry.value = _telemetry.value.copy(

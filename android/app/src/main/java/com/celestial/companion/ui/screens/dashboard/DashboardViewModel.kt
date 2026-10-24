@@ -48,7 +48,7 @@ class DashboardViewModel(
     private val _currentLanguage = MutableStateFlow(StaffLanguage.ENGLISH)
     val currentLanguage: StateFlow<StaffLanguage> = _currentLanguage.asStateFlow()
 
-    private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMMA_4_31B)
+    private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMINI_FLASH)
     val selectedModelVariant: StateFlow<GemmaVariant> = _selectedModelVariant.asStateFlow()
 
     // Real-Time Processing Monitoring State
@@ -108,7 +108,7 @@ class DashboardViewModel(
             for (sfxId in sounds) {
                 if (!isActive) break
                 repository.executeCommand(StaffCommand.PlaySfx(sfxId))
-                delay(750L)
+                delay(400L) // Snappy 400ms combo delay instead of sluggish 750ms
             }
         }
     }
@@ -272,7 +272,7 @@ class DashboardViewModel(
 
         activeGenerationJob?.cancel()
         var spellExecuted = false
-        val spellTagRegex = Regex("""\[SPELL:\s*([^|\]]+)\s*\|\s*ANIM:\s*([^|\]]+)\s*\|\s*SOUNDS:\s*([^|\]]+)\]""", RegexOption.IGNORE_CASE)
+        var lastOledDispatchedLen = 0
 
         activeGenerationJob = viewModelScope.launch {
             try {
@@ -296,8 +296,8 @@ class DashboardViewModel(
                             _liveTokenCount.value += 1
 
                             // Check and parse live spell tags from LLM
+                            val currentText = _liveStreamingText.value
                             if (!spellExecuted) {
-                                val currentText = _liveStreamingText.value
                                 val parsed = CelestialProphecyParser.parse(currentText)
                                 if (parsed.isSpell) {
                                     spellExecuted = true
@@ -315,16 +315,22 @@ class DashboardViewModel(
                                     _activeSpell.value = spellDef
                                     setLedAnimation(ledAnim)
                                     viewModelScope.launch {
-                                        repository.broadcastOledText(parsed.displayText.ifBlank { "[SPELL] $spellName" })
+                                        repository.broadcastOledText(parsed.displayText.ifBlank { "[SPELL] $spellName" }, targetStaffIp ?: repository.getTargetStaffIp())
                                     }
                                     playSoundSequence(soundIds)
                                     Log.i(TAG, "Cast spell dynamically: '$spellName' with anim=$ledAnim and sounds=$soundIds")
                                     repository.log("SPELL", "✨ Cast spell dynamically: '$spellName' (anim=${ledAnim.name})", com.celestial.companion.domain.model.LogLevel.SUCCESS)
+                                } else if (broadcastOnComplete && currentText.length >= 12 && (currentText.length - lastOledDispatchedLen >= 20 || currentText.endsWith(".") || currentText.endsWith("!"))) {
+                                    // Conversational live stream to staff OLED marquee
+                                    lastOledDispatchedLen = currentText.length
+                                    val cleanSnippet = parsed.speechText.ifBlank { currentText }.take(48)
+                                    viewModelScope.launch {
+                                        repository.broadcastOledText(cleanSnippet, targetStaffIp ?: repository.getTargetStaffIp())
+                                    }
                                 }
                             }
 
                             // Update active chat message live
-                            val currentText = _liveStreamingText.value
                             val currentThoughts = _liveThoughtTrace.value
                             _chatHistory.value = _chatHistory.value.map { msg ->
                                 if (msg.id == assistantMsgId) {
@@ -370,7 +376,8 @@ class DashboardViewModel(
                             if (broadcastOnComplete) {
                                 repository.broadcastAiResponse(
                                     chunk.result.outputText,
-                                    targetStaffIp ?: repository.getTargetStaffIp()
+                                    targetStaffIp ?: repository.getTargetStaffIp(),
+                                    skipVisualEffects = spellExecuted
                                 )
                             }
                         }

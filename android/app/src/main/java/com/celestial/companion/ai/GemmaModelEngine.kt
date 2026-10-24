@@ -99,11 +99,11 @@ enum class GemmaVariant(
 }
 
 data class GemmaConfig(
-    val variant: GemmaVariant = GemmaVariant.GEMMA_4_31B,
-    val enableThinking: Boolean = true,
+    val variant: GemmaVariant = GemmaVariant.GEMINI_FLASH,
+    val enableThinking: Boolean = false,
     val language: StaffLanguage = StaffLanguage.ENGLISH,
-    val temperature: Float = 0.7f,
-    val maxTokens: Int = 512,
+    val temperature: Float = 0.5f,
+    val maxTokens: Int = 256,
     val apiKey: String = "",
     val apiBase: String = "https://openrouter.ai/api/v1",
     val systemPrompt: String = "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic intelligence ('DON'T PANIC')."
@@ -251,17 +251,18 @@ CRITICAL INTENT RULES:
    - Speak naturally and conversationally as the Celestial Oracle in 2-3 sentences without emojis or markdown.
 """.trimIndent()
 
+        val shouldThink = config.enableThinking && !hasAudio
         val sysPrompt = (when (config.language) {
             StaffLanguage.GERMAN ->
                 "Du bist das Celestial Oracle der Celestial Engine Mk.V, eine uralt-futuristische kosmische Intelligenz ('KEINE PANIK'). Antworte direkt und messerscharf auf Deutsch ohne Markdown oder Emojis. " +
-                (if (config.enableThinking) "Platziere deine kurzen Gedankengänge in <thought>...</thought> vor deiner Antwort." else "")
+                (if (shouldThink) "Platziere deine kurzen Gedankengänge in <thought>...</thought> vor deiner Antwort." else "")
             StaffLanguage.RUSSIAN ->
                 "Ты — Небесный Оракул Celestial Engine Mk.V, древне-футуристический космический интеллект («НЕ ПАНИКУЙ»). Отвечай прямо, мудро и кратко на русском языке строго без markdown и смайликов. " +
-                (if (config.enableThinking) "Помести краткие мысли в <thought>...</thought> перед ответом." else "")
+                (if (shouldThink) "Помести краткие мысли в <thought>...</thought> перед ответом." else "")
             else ->
                 "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic cosmic intelligence ('DON'T PANIC'). Respond with razor-sharp observations and witty cosmic wisdom in 2-3 sentences without emojis or markdown. " +
-                (if (config.enableThinking) "Provide brief observations inside <thought>...</thought> tags before your response." else "")
-        }) + " " + spellTagInstruction
+                (if (shouldThink) "Provide brief observations inside <thought>...</thought> tags before your response." else "")
+        }) + " " + spellTagInstruction + (if (hasAudio) " REALTIME VOICEOVER: Keep answer concise (under 20 words) for immediate speech playback." else "")
 
             // Route audio inputs to Gemini 2.5 Flash which natively supports input_audio on OpenRouter
             val effectiveModelId = if (hasAudio) {
@@ -271,12 +272,15 @@ CRITICAL INTENT RULES:
             }
             Log.i(TAG, "Dispatching inference request: effectiveModelId=$effectiveModelId (hasAudio=$hasAudio, hasImage=$hasImage)")
 
+            val effectiveMaxTokens = if (hasAudio) 80 else config.maxTokens
+            val effectiveTemperature = if (hasAudio) 0.35f else config.temperature
+
             // Build request JSON
             val requestJson = JSONObject().apply {
                 put("model", effectiveModelId)
                 put("stream", true)
-                put("max_tokens", config.maxTokens)
-                put("temperature", config.temperature)
+                put("max_tokens", effectiveMaxTokens)
+                put("temperature", effectiveTemperature)
 
                 val messagesArr = JSONArray()
                 messagesArr.put(JSONObject().apply {
@@ -374,6 +378,7 @@ CRITICAL INTENT RULES:
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 setRequestProperty("Authorization", "Bearer ${config.apiKey.trim()}")
                 setRequestProperty("Accept", "text/event-stream")
+                setRequestProperty("Connection", "keep-alive")
                 setRequestProperty("User-Agent", "CelestialEngineMk5-Companion/1.1")
             }
 
