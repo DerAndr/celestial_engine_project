@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.util.Base64
 import android.util.Log
+import com.celestial.companion.domain.model.CelestialProphecyParser
 import com.celestial.companion.domain.model.StaffLanguage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -499,10 +500,14 @@ CRITICAL INTENT RULES:
             val totalDurationMs = (System.currentTimeMillis() - t0).coerceAtLeast(1)
             val tokPerSec = (tokenCount.toFloat() / (totalDurationMs / 1000f)).coerceAtLeast(0.1f)
 
+            val prophecy = CelestialProphecyParser.parse(fullAnswer.toString(), fullThoughtTrace.toString())
+            val cleanOutput = if (prophecy.speechText.isNotBlank()) prophecy.speechText else fullAnswer.toString().trim()
+            val cleanThought = prophecy.thought.ifBlank { fullThoughtTrace.toString().trim() }
+
             val finalResult = GemmaResult(
                 prompt = prompt,
-                thoughtTrace = fullThoughtTrace.toString().trim(),
-                outputText = fullAnswer.toString().trim(),
+                thoughtTrace = cleanThought,
+                outputText = cleanOutput,
                 latencyMs = totalDurationMs,
                 tokensPerSec = tokPerSec,
                 modalityUsed = modality,

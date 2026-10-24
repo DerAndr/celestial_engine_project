@@ -41,11 +41,13 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.celestial.companion.ai.AiProcessingPhase
 import com.celestial.companion.ai.GemmaVariant
+import com.celestial.companion.domain.model.CelestialProphecyParser
 import com.celestial.companion.domain.model.SfxItem
 import com.celestial.companion.domain.model.SpellDefinition
 import com.celestial.companion.domain.model.StaffLanguage
@@ -1352,13 +1354,75 @@ fun OracleTerminalScreen(
                     else -> "The Celestial Oracle is listening.\nType a query above, attach an image for multimodal vision inspection, or speak through the staff microphone."
                 }
 
-                // Live Streaming Output with Blinking Cursor
+                val prophecy = remember(currentText) { CelestialProphecyParser.parse(currentText) }
+
+                // 1. Optional Thought Trace (Reasoning)
+                val thoughtToShow = prophecy.thought.ifBlank { liveThoughtTrace }
+                if (thoughtToShow.isNotBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = CardBorder.copy(alpha = 0.25f),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("💭", fontSize = 11.sp)
+                            Text(
+                                text = thoughtToShow,
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                fontStyle = FontStyle.Italic,
+                                fontFamily = FontFamily.Monospace,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+
+                // 2. Spell Metadata Badge (if arcane spell detected)
+                if (prophecy.isSpell) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = DeepVoid,
+                        border = BorderStroke(1.dp, RunicGold.copy(alpha = 0.6f)),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("✨", fontSize = 12.sp)
+                            Text(
+                                text = "SPELL: ${prophecy.spellName.ifBlank { "ARCANE" }}",
+                                color = RunicGold,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            prophecy.animation?.let { anim ->
+                                Text(
+                                    text = "| ANIM: ${anim.name}",
+                                    color = AetherCyan,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 3. Live Streaming Output with Blinking Cursor
+                val textToDisplay = if (prophecy.speechText.isNotBlank()) prophecy.speechText else currentText
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Bottom
                 ) {
                     Text(
-                        text = currentText,
+                        text = textToDisplay,
                         color = TextPrimary,
                         fontSize = 14.sp,
                         lineHeight = 22.sp,
@@ -1385,9 +1449,8 @@ fun OracleTerminalScreen(
                     // Speak button
                     Button(
                         onClick = {
-                            val isSpell = currentText.contains("[SPELL:", ignoreCase = true)
-                            val cleanSpeech = currentText.replace(Regex("""\[SPELL:[^\]]*\]\s*"""), "").trim()
-                            if (isSpell) {
+                            val cleanSpeech = prophecy.speechText.ifBlank { currentText }
+                            if (prophecy.isSpell) {
                                 ttsEngine?.language = Locale.US
                             } else {
                                 ttsEngine?.language = if (cleanSpeech.any { it in '\u0400'..'\u04FF' }) Locale("ru", "RU") else currentLanguage.locale
@@ -1423,7 +1486,8 @@ fun OracleTerminalScreen(
                     // Copy button
                     IconButton(
                         onClick = {
-                            clipboardManager.setText(AnnotatedString(currentText))
+                            val textToCopy = prophecy.speechText.ifBlank { currentText }
+                            clipboardManager.setText(AnnotatedString(textToCopy))
                             Toast.makeText(context, "Copied prophecy to clipboard", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier

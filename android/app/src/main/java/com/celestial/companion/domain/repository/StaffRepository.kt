@@ -331,29 +331,42 @@ class StaffRepository(
     }
 
     suspend fun broadcastAiResponse(text: String, targetIp: String = activeStaffIp) {
-        log("AI-BRAIN", "Broadcasting response to $targetIp (${text.length} chars)", LogLevel.SUCCESS)
-        broadcastOledText(text, targetIp)
+        val prophecy = CelestialProphecyParser.parse(text)
+        log("AI-BRAIN", "Parsed prophecy (spell=${prophecy.isSpell}, anim=${prophecy.animation?.name ?: "NONE"}, sounds=${prophecy.soundEffects.size}, speechLen=${prophecy.speechText.length})", LogLevel.SUCCESS)
 
-        // Synthesize and stream speech audio to staff speaker in background
+        // 1. If spell, activate LED ring animation and trigger sound effects on staff
+        if (prophecy.isSpell) {
+            prophecy.animation?.let { anim ->
+                executeCommand(StaffCommand.SetLedAnimation(anim))
+                log("SPELL", "✨ Staff LED animation activated: ${anim.title}", LogLevel.SUCCESS)
+            }
+            if (prophecy.soundEffects.isNotEmpty()) {
+                val firstSfx = prophecy.soundEffects.first()
+                executeCommand(StaffCommand.PlaySfx(firstSfx))
+                log("SPELL", "🔊 Staff SFX triggered: ID #$firstSfx", LogLevel.INFO)
+            }
+        }
+
+        // 2. Dispatch clean display marquee text to Staff OLED (NO thoughts or raw markup)
+        val cleanOled = prophecy.displayText.ifBlank { prophecy.speechText.take(50) }
+        broadcastOledText(cleanOled, targetIp)
+
+        // 3. Synthesize and stream clean speech audio to staff speaker in background
         activeAudioJob?.cancel()
         activeAudioJob = scope.launch {
             try {
-                // Check if this is an arcane spell incantation
-                val isSpell = text.contains("[SPELL:", ignoreCase = true)
-
-                // Strip technical [SPELL: ...] tag so TTS only speaks the incantation / conversational reply
-                val speechText = text.replace(Regex("""\[SPELL:[^\]]*\]\s*"""), "").trim()
+                val speechText = prophecy.speechText
                 if (speechText.isBlank()) return@launch
 
                 // CRITICAL: Spells MUST ALWAYS use the ENGLISH audio generator (Locale.US)
                 val lang = _telemetry.value.language
                 val locale = when {
-                    isSpell -> java.util.Locale.US
+                    prophecy.isSpell -> java.util.Locale.US
                     speechText.any { it in '\u0400'..'\u04FF' } -> java.util.Locale("ru", "RU")
                     lang != StaffLanguage.AUTO -> lang.locale
                     else -> java.util.Locale.US
                 }
-                Log.i(TAG, "Synthesizing audio: isSpell=$isSpell, locale=$locale, text='${speechText.take(40)}...'")
+                Log.i(TAG, "Synthesizing audio: isSpell=${prophecy.isSpell}, locale=$locale, text='${speechText.take(40)}...'")
                 log("TTS", "Synthesizing voice audio: locale=$locale, text='${speechText.take(35)}...'", LogLevel.INFO)
                 val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(speechText, locale)
                 if (pcm != null && pcm.isNotEmpty()) {

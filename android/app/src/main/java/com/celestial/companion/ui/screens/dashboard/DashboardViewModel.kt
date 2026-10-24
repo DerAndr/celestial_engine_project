@@ -298,15 +298,12 @@ class DashboardViewModel(
                             // Check and parse live spell tags from LLM
                             if (!spellExecuted) {
                                 val currentText = _liveStreamingText.value
-                                val spellMatch = spellTagRegex.find(currentText)
-                                if (spellMatch != null) {
+                                val parsed = CelestialProphecyParser.parse(currentText)
+                                if (parsed.isSpell) {
                                     spellExecuted = true
-                                    val spellName = spellMatch.groupValues[1].trim()
-                                    val animStr = spellMatch.groupValues[2].trim()
-                                    val soundsStr = spellMatch.groupValues[3].trim()
-
-                                    val ledAnim = parseLedAnimation(animStr)
-                                    val soundIds = parseSoundSequence(soundsStr)
+                                    val spellName = parsed.spellName.ifBlank { "Arcane Spell" }
+                                    val ledAnim = parsed.animation ?: LedAnimation.PLASMA
+                                    val soundIds = parsed.soundEffects.ifEmpty { listOf(3, 0, 6) }
 
                                     val spellDef = SpellDefinition(
                                         name = spellName,
@@ -318,11 +315,11 @@ class DashboardViewModel(
                                     _activeSpell.value = spellDef
                                     setLedAnimation(ledAnim)
                                     viewModelScope.launch {
-                                        repository.broadcastOledText("[SPELL] $spellName")
+                                        repository.broadcastOledText(parsed.displayText.ifBlank { "[SPELL] $spellName" })
                                     }
                                     playSoundSequence(soundIds)
                                     Log.i(TAG, "Cast spell dynamically: '$spellName' with anim=$ledAnim and sounds=$soundIds")
-                                    repository.log("SPELL", "✨ Cast spell dynamically: '$spellName' (anim=$animStr)", com.celestial.companion.domain.model.LogLevel.SUCCESS)
+                                    repository.log("SPELL", "✨ Cast spell dynamically: '$spellName' (anim=${ledAnim.name})", com.celestial.companion.domain.model.LogLevel.SUCCESS)
                                 }
                             }
 
@@ -341,19 +338,28 @@ class DashboardViewModel(
                         }
                         is GemmaStreamChunk.Complete -> {
                             liveTimerJob?.cancel()
-                            _gemmaResult.value = chunk.result
-                            _liveStreamingText.value = chunk.result.outputText
+                            val prophecy = CelestialProphecyParser.parse(chunk.result.outputText, chunk.result.thoughtTrace)
+                            val cleanOutput = prophecy.speechText.ifBlank { chunk.result.outputText }
+                            val cleanThought = prophecy.thought.ifBlank { chunk.result.thoughtTrace }
+
+                            val updatedResult = chunk.result.copy(
+                                outputText = cleanOutput,
+                                thoughtTrace = cleanThought
+                            )
+                            _gemmaResult.value = updatedResult
+                            _liveStreamingText.value = cleanOutput
+                            _liveThoughtTrace.value = cleanThought
                             _processingPhase.value = AiProcessingPhase.COMPLETED
                             _isGenerating.value = false
                             _liveElapsedMs.value = chunk.result.latencyMs
                             _liveTokensPerSec.value = chunk.result.tokensPerSec
-                            repository.log("AI-ORACLE", "Generation complete in ${chunk.result.latencyMs}ms (${chunk.result.tokensPerSec} tok/s, ${chunk.result.outputText.length} chars)", com.celestial.companion.domain.model.LogLevel.SUCCESS)
+                            repository.log("AI-ORACLE", "Generation complete in ${chunk.result.latencyMs}ms (${chunk.result.tokensPerSec} tok/s, ${cleanOutput.length} chars)", com.celestial.companion.domain.model.LogLevel.SUCCESS)
 
                             _chatHistory.value = _chatHistory.value.map { msg ->
                                 if (msg.id == assistantMsgId) {
                                     msg.copy(
-                                        text = chunk.result.outputText,
-                                        thoughtTrace = chunk.result.thoughtTrace,
+                                        text = cleanOutput,
+                                        thoughtTrace = cleanThought,
                                         latencyMs = chunk.result.latencyMs,
                                         tokensPerSec = chunk.result.tokensPerSec,
                                         isStreaming = false
@@ -526,42 +532,10 @@ class DashboardViewModel(
     }
 
     private fun parseLedAnimation(animStr: String): LedAnimation {
-        val upper = animStr.uppercase()
-        return when {
-            upper.contains("SNAKE") -> LedAnimation.SNAKE
-            upper.contains("VORTEX") -> LedAnimation.VORTEX
-            upper.contains("PULSAR") || upper.contains("SHOCK") -> LedAnimation.PULSAR
-            upper.contains("PLASMA") || upper.contains("FIRE") -> LedAnimation.PLASMA
-            upper.contains("RAINBOW") -> LedAnimation.RAINBOW
-            upper.contains("STARS") -> LedAnimation.STARS
-            upper.contains("GALAXY") -> LedAnimation.GALAXY
-            upper.contains("HALLOWEEN") || upper.contains("SPOOK") -> LedAnimation.HALLOWEEN
-            upper.contains("ORRERY") -> LedAnimation.CLOCK_ORRERY
-            else -> LedAnimation.SNAKE
-        }
+        return CelestialProphecyParser.parseLedAnimation(animStr)
     }
 
     private fun parseSoundSequence(soundsStr: String): List<Int> {
-        val tokens = soundsStr.split(",", ";", " ", "\n").map { it.trim().uppercase() }.filter { it.isNotEmpty() }
-        val sfxList = mutableListOf<Int>()
-        for (t in tokens) {
-            val sfxId = when {
-                t.contains("WARP") || t.contains("HYPER") -> 0
-                t.contains("PULSAR") || t.contains("PING") -> 1
-                t.contains("ALIEN") || t.contains("SCAN") -> 2
-                t.contains("LASER") || t.contains("BLASTER") || t.contains("PEW") -> 3
-                t.contains("TRACTOR") || t.contains("HUM") || t.contains("BEAM") -> 4
-                t.contains("PORTAL") || t.contains("STARGATE") -> 5
-                t.contains("SUPERNOVA") || t.contains("NOVA") || t.contains("BOOM") -> 6
-                t.contains("HAPPY") || t.contains("CHIRP") || t.contains("WHISTLE") -> 7
-                t.contains("CHATTER") || t.contains("BANTER") -> 8
-                t.contains("PANIC") || t.contains("SCREAM") || t.contains("ALARM") -> 9
-                else -> null
-            }
-            if (sfxId != null && !sfxList.contains(sfxId)) {
-                sfxList.add(sfxId)
-            }
-        }
-        return if (sfxList.isEmpty()) listOf(2, 9, 6) else sfxList
+        return CelestialProphecyParser.parseSoundSequence(soundsStr)
     }
 }
