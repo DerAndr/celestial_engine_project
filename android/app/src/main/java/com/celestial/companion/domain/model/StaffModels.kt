@@ -1,14 +1,22 @@
 package com.celestial.companion.domain.model
 
-enum class StaffState(val displayName: String) {
-    IDLE("IDLE"),
-    LISTENING("LISTENING"),
-    PROCESSING("PROCESSING"),
-    SPEAKING("SPEAKING");
+enum class StaffState(val id: Int, val displayName: String) {
+    BOOT(0, "BOOT"),
+    CONNECTING(1, "CONNECTING"),
+    IDLE(2, "IDLE"),
+    LISTENING(3, "LISTENING"),
+    UPLOADING(4, "UPLOADING"),
+    PROCESSING(5, "PROCESSING"),
+    SPEAKING(6, "SPEAKING"),
+    OFFLINE(7, "OFFLINE"),
+    ERROR(8, "ERROR");
 
     companion object {
+        fun fromId(id: Int): StaffState {
+            return entries.find { it.id == id } ?: IDLE
+        }
         fun fromOrdinalSafe(idx: Int): StaffState {
-            return entries.getOrElse(idx) { IDLE }
+            return fromId(idx)
         }
     }
 }
