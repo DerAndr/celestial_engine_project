@@ -53,7 +53,7 @@ static inline uint32_t compute_auth_token(const char *key) {
 }
 
 static ip_addr_t companion_ip_addr;
-static u16_t companion_port = 0;
+static u16_t companion_port = CELESTIAL_NET_DEFAULT_PORT;
 static bool has_paired_companion = false;
 static remote_cmd_t pending_remote_cmd = {0};
 
@@ -279,13 +279,13 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
             uint32_t expected = compute_auth_token(CELESTIAL_AUTH_SECRET);
             if (strlen(CELESTIAL_AUTH_SECRET) == 0 || token == expected) {
                 companion_ip_addr = *addr;
-                companion_port = port;
+                companion_port = CELESTIAL_NET_DEFAULT_PORT;
                 has_paired_companion = true;
                 pending_remote_cmd.cmd_code = payload[4];
                 pending_remote_cmd.param = payload[5];
                 pending_remote_cmd.has_command = true;
-                printf("[SECURITY] Accepted authorized command '%c' (param %d) from %s:%d\n",
-                       payload[4], payload[5], ip4addr_ntoa(addr), (int)port);
+                printf("[SECURITY] Accepted authorized command '%c' (param %d) from %s:%d (target port %d)\n",
+                       payload[4], payload[5], ip4addr_ntoa(addr), (int)port, (int)companion_port);
             } else {
                 printf("[SECURITY] Rejected unauthorized command from %s:%d (auth token 0x%08X != expected 0x%08X)\n",
                        ip4addr_ntoa(addr), (int)port, (unsigned int)token, (unsigned int)expected);
@@ -304,7 +304,7 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
             uint32_t expected = compute_auth_token(CELESTIAL_AUTH_SECRET);
             if (strlen(CELESTIAL_AUTH_SECRET) == 0 || token == expected) {
                 companion_ip_addr = *addr;
-                companion_port = port;
+                companion_port = CELESTIAL_NET_DEFAULT_PORT;
                 has_paired_companion = true;
                 pending_remote_cmd.cmd_code = 'X';
                 pending_remote_cmd.val32 = (uint32_t)payload[4] | ((uint32_t)payload[5] << 8) |
@@ -366,17 +366,17 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                     last_server_heartbeat_rx_ms = now;
                     active_host_type = HOST_TYPE_PI5;
                     server_ip_addr = *addr;
-                    active_server_port = port;
+                    active_server_port = pi5_server_port;
                     memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
                     strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
-                    printf("[NET] Active Host: PI 5 (%s, %d models)\n", ip4addr_ntoa(addr), m_count);
+                    printf("[NET] Active Host: PI 5 (%s:%d, %d models)\n", ip4addr_ntoa(addr), (int)active_server_port, m_count);
                 } else {
                     printf("[NET] Cached Pi 5 Catalog (%d models), Phone remains preferred active host\n", m_count);
                 }
             } else if (h_type == HOST_TYPE_PHONE) {
                 last_phone_heartbeat_rx_ms = now;
                 companion_ip_addr = *addr;
-                companion_port = port;
+                companion_port = CELESTIAL_NET_DEFAULT_PORT;
                 has_paired_companion = true;
                 memcpy(&phone_catalog_cache, &cat, sizeof(cat));
                 has_phone_catalog = true;
@@ -385,11 +385,12 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 preferred_host = HOST_TYPE_PHONE;
                 active_host_type = HOST_TYPE_PHONE;
                 server_ip_addr = *addr;
-                active_server_port = port;
+                active_server_port = CELESTIAL_NET_DEFAULT_PORT;
                 last_server_heartbeat_rx_ms = now;
                 memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
                 strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
-                printf("[NET] Pushed Catalog Activated: ANDROID PHONE (%s, %d models)\n", ip4addr_ntoa(addr), m_count);
+                printf("[NET] Pushed Catalog Activated: ANDROID PHONE (%s:%d, %d models)\n",
+                       ip4addr_ntoa(addr), (int)active_server_port, m_count);
             }
         }
         pbuf_free(p);
@@ -430,13 +431,13 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
         (!ip_addr_cmp(addr, &pi5_server_ip_addr) || port != pi5_server_port)) {
         last_phone_heartbeat_rx_ms = now;
         companion_ip_addr = *addr;
-        companion_port = port ? port : CELESTIAL_NET_DEFAULT_PORT;
+        companion_port = CELESTIAL_NET_DEFAULT_PORT;
         has_paired_companion = true;
 
         if (preferred_host == HOST_TYPE_PHONE || (preferred_host == HOST_TYPE_NONE && (now - last_pi5_heartbeat_rx_ms > 4000))) {
             active_host_type = HOST_TYPE_PHONE;
             server_ip_addr = companion_ip_addr;
-            active_server_port = companion_port;
+            active_server_port = CELESTIAL_NET_DEFAULT_PORT;
             last_server_heartbeat_rx_ms = now;
             if (has_phone_catalog) {
                 memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
@@ -481,7 +482,7 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
         sanitize_oled_text(resp_text_buffer, raw_text, copy_len, sizeof(resp_text_buffer));
 
         companion_ip_addr = *addr;
-        companion_port = port;
+        companion_port = CELESTIAL_NET_DEFAULT_PORT;
         has_paired_companion = true;
         unsolicited_text_ready = true;
 
@@ -494,7 +495,7 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
     // Direct Unsolicited Audio Stream from Companion App or Brain Host
     if (hdr.msg_type == NET_MSG_RESP_START && hdr.payload_len == sizeof(uint32_t)) {
         companion_ip_addr = *addr;
-        companion_port = port;
+        companion_port = CELESTIAL_NET_DEFAULT_PORT;
         has_paired_companion = true;
         response_gate_begin(&response_gate, hdr.request_id);
         printf("[NET] Opened unsolicited audio stream gate for Req %lu from %s:%d\n",
@@ -699,7 +700,7 @@ void net_client_update(void) {
                 if (has_phone_catalog && (now - last_phone_heartbeat_rx_ms < 15000)) {
                     active_host_type = HOST_TYPE_PHONE;
                     server_ip_addr = companion_ip_addr;
-                    active_server_port = companion_port;
+                    active_server_port = CELESTIAL_NET_DEFAULT_PORT;
                     last_server_heartbeat_rx_ms = last_phone_heartbeat_rx_ms;
                     memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
                     strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
@@ -818,10 +819,12 @@ static bool send_udp_packet(uint8_t msg_type, const void *payload, size_t payloa
         memcpy((uint8_t *)p->payload + sizeof(net_packet_header_t), payload, payload_len);
     }
 
-    err_t err = udp_sendto(udp_client_pcb, p, &server_ip_addr, active_server_port);
+    uint16_t target_port = (active_host_type == HOST_TYPE_PI5) ? pi5_server_port : CELESTIAL_NET_DEFAULT_PORT;
+    active_server_port = target_port;
+    err_t err = udp_sendto(udp_client_pcb, p, &server_ip_addr, target_port);
     if (err != ERR_OK) {
         printf("[NET] udp_sendto(type=0x%02X, len=%u, to=%s:%d) FAILED err=%d\n",
-               msg_type, (unsigned)payload_len, ip4addr_ntoa(&server_ip_addr), (int)active_server_port, (int)err);
+               msg_type, (unsigned)payload_len, ip4addr_ntoa(&server_ip_addr), (int)target_port, (int)err);
     }
     pbuf_free(p);
 
@@ -866,7 +869,7 @@ bool net_client_ping_server(void) {
             hdr->seq_num = tx_seq_counter++;
             hdr->payload_len = 0;
             hdr->request_id = 0;
-            udp_sendto(udp_client_pcb, p, &companion_ip_addr, companion_port ? companion_port : CELESTIAL_NET_DEFAULT_PORT);
+            udp_sendto(udp_client_pcb, p, &companion_ip_addr, CELESTIAL_NET_DEFAULT_PORT);
             pbuf_free(p);
         }
         cyw43_arch_lwip_end();
@@ -1021,7 +1024,7 @@ void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint
         hdr->request_id = 0;
         memcpy((uint8_t *)p->payload + sizeof(*hdr), payload, sizeof(payload));
         if (has_paired_companion) {
-            udp_sendto(udp_client_pcb, p, &companion_ip_addr, companion_port);
+            udp_sendto(udp_client_pcb, p, &companion_ip_addr, CELESTIAL_NET_DEFAULT_PORT);
         } else {
             ip_addr_t bcast;
             ip_addr_set_ip4_u32(&bcast, IPADDR_BROADCAST);
@@ -1055,7 +1058,7 @@ bool net_client_request_catalog(void) {
 
         // 2. If phone companion is known, send query to phone
         if (has_paired_companion) {
-            udp_sendto(udp_client_pcb, p, &companion_ip_addr, companion_port);
+            udp_sendto(udp_client_pcb, p, &companion_ip_addr, CELESTIAL_NET_DEFAULT_PORT);
         }
 
         // 3. If in fallback hotspot profile, query fallback gateway
@@ -1118,14 +1121,14 @@ void net_client_set_preferred_host(net_host_type_t pref) {
         active_host_type = HOST_TYPE_PHONE;
         if (has_paired_companion) {
             server_ip_addr = companion_ip_addr;
-            active_server_port = companion_port ? companion_port : BRAIN_SERVER_PORT;
+            active_server_port = CELESTIAL_NET_DEFAULT_PORT;
         } else if (active_ap_profile == 1 && strlen(BRAIN_FALLBACK_SERVER_IP) > 0) {
             ipaddr_aton(BRAIN_FALLBACK_SERVER_IP, &server_ip_addr);
             active_server_port = BRAIN_FALLBACK_SERVER_PORT;
         } else {
             // Default hotspot gateway IP when phone tethering is active
             ipaddr_aton("192.168.43.1", &server_ip_addr);
-            active_server_port = BRAIN_SERVER_PORT;
+            active_server_port = CELESTIAL_NET_DEFAULT_PORT;
         }
         if (has_phone_catalog) {
             memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));

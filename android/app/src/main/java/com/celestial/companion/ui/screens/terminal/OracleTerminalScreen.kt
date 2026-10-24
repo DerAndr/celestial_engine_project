@@ -50,6 +50,7 @@ import com.celestial.companion.domain.model.SfxItem
 import com.celestial.companion.domain.model.SpellDefinition
 import com.celestial.companion.domain.model.StaffLanguage
 import com.celestial.companion.domain.repository.ConnectionMode
+import com.celestial.companion.ui.components.LiveLogConsole
 import com.celestial.companion.ui.screens.dashboard.DashboardViewModel
 import com.celestial.companion.ui.screens.dashboard.OracleChatMessage
 import com.celestial.companion.ui.theme.*
@@ -63,6 +64,7 @@ fun OracleTerminalScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val telemetry by viewModel.telemetry.collectAsState()
+    val liveLogs by viewModel.liveLogs.collectAsState()
     val connectionMode by viewModel.connectionMode.collectAsState()
     val currentLanguage by viewModel.currentLanguage.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
@@ -477,6 +479,13 @@ fun OracleTerminalScreen(
                 }
             }
         }
+
+        // Live Diagnostics & Staff Telemetry Console
+        LiveLogConsole(
+            logs = liveLogs,
+            onClearLogs = { viewModel.clearLogs() },
+            initialExpanded = false
+        )
 
         // 3. Multimodal Model Header
         Card(

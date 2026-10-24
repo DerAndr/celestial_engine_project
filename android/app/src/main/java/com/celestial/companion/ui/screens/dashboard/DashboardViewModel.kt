@@ -129,6 +129,12 @@ class DashboardViewModel(
     private val _liveStreamingText = MutableStateFlow("")
     val liveStreamingText: StateFlow<String> = _liveStreamingText.asStateFlow()
 
+    val liveLogs: StateFlow<List<com.celestial.companion.domain.model.LiveLogMessage>> = repository.liveLogs
+
+    fun clearLogs() {
+        repository.clearLogs()
+    }
+
     private var activeGenerationJob: Job? = null
     private var liveTimerJob: Job? = null
 
@@ -136,6 +142,7 @@ class DashboardViewModel(
         // Collect incoming voice queries from the physical staff over UDP
         viewModelScope.launch {
             repository.staffVoiceQueries.collect { query ->
+                repository.log("VOICE", "Voice query received by ViewModel (${query.audioBytes.size} B), initiating Oracle query...", com.celestial.companion.domain.model.LogLevel.INFO)
                 queryGemma(
                     prompt = "",
                     audioBytes = query.audioBytes,
@@ -269,6 +276,7 @@ class DashboardViewModel(
 
         activeGenerationJob = viewModelScope.launch {
             try {
+                repository.log("AI-ORACLE", "Starting inference (modality=$modality, audio=${audioBytes?.size ?: 0} B)...", com.celestial.companion.domain.model.LogLevel.INFO)
                 engine.streamInference(prompt, image, audioBytes).collect { chunk ->
                     when (chunk) {
                         is GemmaStreamChunk.PhaseChanged -> {
@@ -276,6 +284,7 @@ class DashboardViewModel(
                             if (chunk.phase == AiProcessingPhase.ERROR) {
                                 liveTimerJob?.cancel()
                                 _isGenerating.value = false
+                                repository.log("AI-ORACLE", "Inference entered ERROR phase", com.celestial.companion.domain.model.LogLevel.ERROR)
                             }
                         }
                         is GemmaStreamChunk.ThoughtToken -> {
@@ -313,6 +322,7 @@ class DashboardViewModel(
                                     }
                                     playSoundSequence(soundIds)
                                     Log.i(TAG, "Cast spell dynamically: '$spellName' with anim=$ledAnim and sounds=$soundIds")
+                                    repository.log("SPELL", "✨ Cast spell dynamically: '$spellName' (anim=$animStr)", com.celestial.companion.domain.model.LogLevel.SUCCESS)
                                 }
                             }
 
@@ -337,6 +347,7 @@ class DashboardViewModel(
                             _isGenerating.value = false
                             _liveElapsedMs.value = chunk.result.latencyMs
                             _liveTokensPerSec.value = chunk.result.tokensPerSec
+                            repository.log("AI-ORACLE", "Generation complete in ${chunk.result.latencyMs}ms (${chunk.result.tokensPerSec} tok/s, ${chunk.result.outputText.length} chars)", com.celestial.companion.domain.model.LogLevel.SUCCESS)
 
                             _chatHistory.value = _chatHistory.value.map { msg ->
                                 if (msg.id == assistantMsgId) {
@@ -362,6 +373,7 @@ class DashboardViewModel(
             } catch (e: Throwable) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Inference anomaly: ${e.message}", e)
+                repository.log("AI-ORACLE", "Inference anomaly: ${e.message}", com.celestial.companion.domain.model.LogLevel.ERROR)
                 liveTimerJob?.cancel()
                 _isGenerating.value = false
                 _processingPhase.value = AiProcessingPhase.ERROR

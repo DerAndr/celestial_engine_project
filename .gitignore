@@ -36,3 +36,7 @@ android/local.properties
 android_bin/
 *.apk
 *.aab
+temp_apk*/
+*.png
+*.jpg
+scratch/

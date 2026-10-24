@@ -29,6 +29,7 @@ import com.celestial.companion.domain.model.StaffState
 import com.celestial.companion.ui.screens.cosmos.CosmosZoomView
 import com.celestial.companion.ui.screens.leds.ConcentricLedRingsView
 import com.celestial.companion.ui.components.StaffOledScreenView
+import com.celestial.companion.ui.components.LiveLogConsole
 import com.celestial.companion.ui.theme.*
 
 @Composable
@@ -37,6 +38,7 @@ fun DashboardScreen(
     modifier: Modifier = Modifier
 ) {
     val telemetry by viewModel.telemetry.collectAsState()
+    val liveLogs by viewModel.liveLogs.collectAsState()
     val currentLanguage by viewModel.currentLanguage.collectAsState()
     var showIpDialog by remember { mutableStateOf(false) }
 
@@ -158,6 +160,13 @@ fun DashboardScreen(
                 }
             }
         }
+
+        // Live Staff Telemetry & Traffic Console
+        LiveLogConsole(
+            logs = liveLogs,
+            onClearLogs = { viewModel.clearLogs() },
+            initialExpanded = true
+        )
 
         // 1.5 Connection Architecture Card (Simplified Pure Pictogram Scheme)
         val connectionMode by viewModel.connectionMode.collectAsState()

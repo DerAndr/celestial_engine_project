@@ -39,6 +39,32 @@ class StaffRepository(
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val ttsSynthesizer = context?.let { com.celestial.companion.audio.StaffTtsSynthesizer(it) }
 
+    private val timeFormatter = java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.getDefault())
+    private val _liveLogs = MutableStateFlow<List<LiveLogMessage>>(emptyList())
+    val liveLogs: StateFlow<List<LiveLogMessage>> = _liveLogs.asStateFlow()
+
+    fun log(tag: String, message: String, level: LogLevel = LogLevel.INFO) {
+        when (level) {
+            LogLevel.DEBUG -> Log.d(tag, message)
+            LogLevel.INFO -> Log.i(tag, message)
+            LogLevel.WARN -> Log.w(tag, message)
+            LogLevel.ERROR -> Log.e(tag, message)
+            LogLevel.SUCCESS -> Log.i(tag, message)
+        }
+        val entry = LiveLogMessage(
+            timestamp = timeFormatter.format(java.util.Date()),
+            tag = tag,
+            message = message,
+            level = level
+        )
+        val current = _liveLogs.value
+        _liveLogs.value = (if (current.size >= 250) current.drop(current.size - 249) else current) + entry
+    }
+
+    fun clearLogs() {
+        _liveLogs.value = emptyList()
+    }
+
     private val _telemetry = MutableStateFlow(StaffTelemetry())
     val telemetry: StateFlow<StaffTelemetry> = _telemetry.asStateFlow()
 
@@ -48,6 +74,7 @@ class StaffRepository(
     fun setConnectionMode(mode: ConnectionMode) {
         _connectionMode.value = mode
         Log.i(TAG, "Connection mode switched to: ${mode.name}")
+        log("MODE", "Connection mode switched to: ${mode.name}", LogLevel.INFO)
         when (mode) {
             ConnectionMode.PHONE_BRAIN_SERVER -> {
                 _phoneBrainActive.value = true
@@ -76,6 +103,7 @@ class StaffRepository(
 
     fun abortCurrentQuery() {
         Log.i(TAG, "abortCurrentQuery: aborting TTS, canceling audio stream, sending CANCEL packet")
+        log("VOICE", "Aborting voice query, canceling audio stream", LogLevel.WARN)
         ttsSynthesizer?.stop()
         activeAudioJob?.cancel()
         activeAudioJob = null
@@ -104,6 +132,11 @@ class StaffRepository(
     }
 
     init {
+        if (transport is com.celestial.companion.network.StaffUdpTransport) {
+            transport.onLog = { tag, msg, lvl -> log(tag, msg, lvl) }
+        }
+        log("SYSTEM", "Celestial Staff Repository initialized (target=$activeStaffIp)", LogLevel.INFO)
+
         transport.start()
         scope.launch {
             transport.incomingPackets.collect { packet ->
@@ -119,6 +152,7 @@ class StaffRepository(
                 val now = System.currentTimeMillis()
                 if (current.isOnline && (now - current.lastSeenTimestamp > 3500)) {
                     _telemetry.value = current.copy(isOnline = false)
+                    log("STAFF", "Staff link timed out (> 3.5s without heartbeat) -> OFFLINE", LogLevel.WARN)
                 }
             }
         }
@@ -149,7 +183,15 @@ class StaffRepository(
     }
 
     fun setTargetStaffIp(ip: String) {
-        activeStaffIp = ip
+        if (ip.isBlank() || ip == "0.0.0.0" || ip == "127.0.0.1") return
+        if (activeStaffIp != ip) {
+            log("STAFF", "Target staff IP updated: $activeStaffIp -> $ip", LogLevel.INFO)
+            activeStaffIp = ip
+            try {
+                context?.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putString("staff_ip", ip)?.apply()
+            } catch (_: Exception) {}
+        }
     }
 
     fun getTargetStaffIp(): String = activeStaffIp
@@ -214,6 +256,7 @@ class StaffRepository(
 
     suspend fun streamAudioToStaff(pcmBytes: ByteArray, targetIp: String = activeStaffIp, reqId: Long = System.currentTimeMillis()) {
         val sampleCount = pcmBytes.size / 2
+        log("SPEAKER", "🔊 Streaming audio to staff speaker ($sampleCount samples @ 16kHz to $targetIp)...", LogLevel.INFO)
         val startPayload = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(sampleCount).array()
         val startPacket = CelestialPacket(
             msgType = NetMessageType.RESP_START,
@@ -253,6 +296,7 @@ class StaffRepository(
                 payload = ByteArray(0)
             )
             transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, cancelPacket)
+            log("SPEAKER", "Audio playback stream interrupted/cancelled", LogLevel.WARN)
             return
         }
 
@@ -265,6 +309,7 @@ class StaffRepository(
         )
         transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, endPacket)
         Log.i(TAG, "streamAudioToStaff: finished streaming $sampleCount samples ($seq chunks) to $targetIp")
+        log("SPEAKER", "✅ Audio playback stream complete ($seq chunks sent)", LogLevel.SUCCESS)
     }
 
     suspend fun broadcastOledText(text: String, targetIp: String = activeStaffIp) {
@@ -282,9 +327,11 @@ class StaffRepository(
         // Also send to subnet broadcast so if staff IP differed it still arrives
         transport.sendPacket("255.255.255.255", ProtocolConstants.DEFAULT_PORT, textPacket)
         Log.i(TAG, "broadcastOledText: sent ${textBytes.size} bytes of text to $targetIp and broadcast")
+        log("STAFF", "OLED Text dispatched: '${text.take(35)}...'", LogLevel.INFO)
     }
 
     suspend fun broadcastAiResponse(text: String, targetIp: String = activeStaffIp) {
+        log("AI-BRAIN", "Broadcasting response to $targetIp (${text.length} chars)", LogLevel.SUCCESS)
         broadcastOledText(text, targetIp)
 
         // Synthesize and stream speech audio to staff speaker in background
@@ -307,14 +354,17 @@ class StaffRepository(
                     else -> java.util.Locale.US
                 }
                 Log.i(TAG, "Synthesizing audio: isSpell=$isSpell, locale=$locale, text='${speechText.take(40)}...'")
+                log("TTS", "Synthesizing voice audio: locale=$locale, text='${speechText.take(35)}...'", LogLevel.INFO)
                 val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(speechText, locale)
                 if (pcm != null && pcm.isNotEmpty()) {
                     streamAudioToStaff(pcm, targetIp, System.currentTimeMillis())
                 } else {
                     Log.w(TAG, "TTS synthesis returned null/empty PCM, speech audio not streamed")
+                    log("TTS", "TTS synthesis returned empty PCM", LogLevel.WARN)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error synthesizing or streaming speech to staff: ${e.message}", e)
+                log("TTS", "Error synthesizing speech: ${e.message}", LogLevel.ERROR)
             }
         }
     }
@@ -335,7 +385,9 @@ class StaffRepository(
         if (isSelf) {
             return
         }
-        activeStaffIp = packet.senderIp
+        if (activeStaffIp != packet.senderIp) {
+            setTargetStaffIp(packet.senderIp)
+        }
         when (packet.msgType) {
             NetMessageType.HEARTBEAT -> {
                 _telemetry.value = _telemetry.value.copy(
@@ -362,6 +414,7 @@ class StaffRepository(
                 }
             }
             NetMessageType.CATALOG_REQ -> {
+                log("STAFF", "Catalog requested by staff at ${packet.senderIp}", LogLevel.INFO)
                 if (_phoneBrainActive.value) {
                     val target = if (packet.senderIp.isNotEmpty() && packet.senderIp != "0.0.0.0") packet.senderIp else activeStaffIp
                     scope.launch {
@@ -380,6 +433,7 @@ class StaffRepository(
             }
             NetMessageType.QUERY_START -> {
                 Log.i(TAG, "Incoming QUERY_START from ${packet.senderIp}")
+                log("VOICE", "🎤 QUERY_START received from ${packet.senderIp}", LogLevel.INFO)
                 incomingAudioStream.reset()
                 _telemetry.value = _telemetry.value.copy(
                     state = StaffState.LISTENING,
@@ -389,6 +443,10 @@ class StaffRepository(
             NetMessageType.AUDIO_CHUNK -> {
                 if (packet.payload.isNotEmpty()) {
                     incomingAudioStream.write(packet.payload)
+                    val count = incomingAudioStream.size() / 480
+                    if (count > 0 && count % 20 == 0) {
+                        log("VOICE", "🎙️ Streaming audio... ${incomingAudioStream.size()} B ($count chunks)", LogLevel.DEBUG)
+                    }
                 }
             }
             NetMessageType.QUERY_END -> {
@@ -398,6 +456,8 @@ class StaffRepository(
                 )
                 val audioData = incomingAudioStream.toByteArray()
                 incomingAudioStream.reset()
+                val durationSec = String.format(java.util.Locale.US, "%.2f", audioData.size / 32000f)
+                log("VOICE", "🎙️ QUERY_END from ${packet.senderIp} (${audioData.size} B / ${durationSec}s PCM). Submitting to Brain...", LogLevel.SUCCESS)
 
                 if (_phoneBrainActive.value) {
                     val emitted = _staffVoiceQueries.tryEmit(IncomingStaffVoiceQuery(audioData, activeStaffIp))
@@ -439,12 +499,14 @@ class StaffRepository(
             }
             NetMessageType.RESP_TEXT -> {
                 val text = String(packet.payload, Charsets.UTF_8)
+                log("STAFF", "OLED Response text: '$text'", LogLevel.INFO)
                 _telemetry.value = _telemetry.value.copy(
                     lastAiResponseText = text
                 )
             }
             NetMessageType.CANCEL -> {
                 Log.i(TAG, "Incoming CANCEL from staff ${packet.senderIp}")
+                log("STAFF", "🛑 Query canceled by staff ${packet.senderIp}", LogLevel.WARN)
                 ttsSynthesizer?.stop()
                 activeAudioJob?.cancel()
                 activeAudioJob = null

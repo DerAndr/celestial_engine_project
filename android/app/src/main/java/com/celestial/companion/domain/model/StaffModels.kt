@@ -162,3 +162,20 @@ data class SpellDefinition(
         )
     }
 }
+
+enum class LogLevel(val label: String) {
+    DEBUG("DEBUG"),
+    INFO("INFO"),
+    WARN("WARN"),
+    ERROR("ERROR"),
+    SUCCESS("SUCCESS")
+}
+
+data class LiveLogMessage(
+    val id: Long = System.nanoTime(),
+    val timestamp: String,
+    val tag: String,
+    val message: String,
+    val level: LogLevel = LogLevel.INFO
+)
+
