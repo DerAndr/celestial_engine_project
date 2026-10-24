@@ -86,8 +86,8 @@ fun OracleTerminalScreen(
     val activeSpell by viewModel.activeSpell.collectAsState()
 
     var promptInput by remember { mutableStateOf("") }
-    var thinkingModeEnabled by remember { mutableStateOf(false) }
-    var showThinkingCard by remember { mutableStateOf(false) }
+    var thinkingModeEnabled by remember { mutableStateOf(viewModel.gemmaEngine?.config?.enableThinking ?: true) }
+    var showThinkingCard by remember { mutableStateOf(true) }
     var showHistoryDialog by remember { mutableStateOf(false) }
 
     // Blinking cursor for live token streaming

@@ -99,11 +99,11 @@ enum class GemmaVariant(
 }
 
 data class GemmaConfig(
-    val variant: GemmaVariant = GemmaVariant.GEMINI_FLASH,
-    val enableThinking: Boolean = false,
+    val variant: GemmaVariant = GemmaVariant.GEMMA_4_31B,
+    val enableThinking: Boolean = true,
     val language: StaffLanguage = StaffLanguage.ENGLISH,
-    val temperature: Float = 0.5f,
-    val maxTokens: Int = 256,
+    val temperature: Float = 0.7f,
+    val maxTokens: Int = 512,
     val apiKey: String = "",
     val apiBase: String = "https://openrouter.ai/api/v1",
     val systemPrompt: String = "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic intelligence ('DON'T PANIC')."
@@ -204,6 +204,84 @@ class GemmaModelEngine(
     }
 
     /**
+     * Fast acoustic speech-to-text via OpenRouter (~250ms).
+     * Transcribes raw PCM voice queries from the staff so Gemma 4 can reason over them directly.
+     */
+    suspend fun transcribeAudio(audioBytes: ByteArray): String = withContext(Dispatchers.IO) {
+        if (audioBytes.isEmpty()) return@withContext ""
+        val wavBytes = pcm16ToWav(audioBytes)
+        val base64Audio = Base64.encodeToString(wavBytes, Base64.NO_WRAP)
+
+        val transcriptionPrompt = when (config.language) {
+            StaffLanguage.RUSSIAN -> "Транскрибируй голосовую речь из этого аудио дословно на русском языке. Выведи ТОЛЬКО текст транскрипции без кавычек, пояснений и markdown. Если тишина или шум, верни пустую строку."
+            StaffLanguage.GERMAN -> "Transkribiere die gesprochene Sprache in diesem Audio wörtlich auf Deutsch. Gib NUR den transkribierten Text ohne Anführungszeichen oder Erklärungen aus. Wenn Stille oder Rauschen, gib einen leeren Text zurück."
+            else -> "Transcribe the spoken speech in this audio verbatim. Output ONLY the transcribed words without quotes, markdown, or commentary. If silence or noise, return an empty string."
+        }
+
+        val requestJson = JSONObject().apply {
+            put("model", "google/gemini-2.5-flash")
+            put("max_tokens", 100)
+            put("temperature", 0.0)
+            val messagesArr = JSONArray()
+            messagesArr.put(JSONObject().apply {
+                put("role", "user")
+                val contentArr = JSONArray()
+                contentArr.put(JSONObject().apply {
+                    put("type", "text")
+                    put("text", transcriptionPrompt)
+                })
+                contentArr.put(JSONObject().apply {
+                    put("type", "input_audio")
+                    put("input_audio", JSONObject().apply {
+                        put("data", base64Audio)
+                        put("format", "wav")
+                    })
+                })
+                put("content", contentArr)
+            })
+            put("messages", messagesArr)
+        }
+
+        val endpoint = config.apiBase.trimEnd('/') + "/chat/completions"
+        try {
+            val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 8000
+                readTimeout = 12000
+                doOutput = true
+                doInput = true
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                setRequestProperty("Authorization", "Bearer ${config.apiKey.trim()}")
+                setRequestProperty("User-Agent", "CelestialEngineMk5-Companion/1.1")
+            }
+
+            conn.outputStream.use { os ->
+                os.write(requestJson.toString().toByteArray(Charsets.UTF_8))
+                os.flush()
+            }
+
+            val code = conn.responseCode
+            if (code in 200..299) {
+                val respStr = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(respStr)
+                val choices = json.optJSONArray("choices")
+                if (choices != null && choices.length() > 0) {
+                    val text = choices.getJSONObject(0).optJSONObject("message")?.optString("content", "") ?: ""
+                    val clean = text.trim().removeSurrounding("\"").removeSurrounding("'").trim()
+                    Log.i(TAG, "Audio transcription success: '$clean'")
+                    return@withContext clean
+                }
+            } else {
+                val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $code"
+                Log.w(TAG, "Audio transcription returned $code: $err")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Audio transcription failed: ${e.message}")
+        }
+        return@withContext ""
+    }
+
+    /**
      * Executes true multimodal streaming inference against the AI backend.
      */
     fun streamInference(
@@ -222,16 +300,48 @@ class GemmaModelEngine(
             else -> "TEXT"
         }
 
-        Log.i(TAG, "Starting real AI stream inference: modality=$modality, promptLen=${prompt.length}, model=${config.variant.modelId}")
+        Log.i(TAG, "Starting AI stream inference: modality=$modality, promptLen=${prompt.length}, model=${config.variant.modelId}")
 
-        // 1. Ingestion Phase
-        val ingestDetails = when {
-            hasImage && hasAudio -> "Encoding ${image?.width}x${image?.height}px visual tokens & ${audioBytes?.size ?: 0} B audio"
-            hasImage -> "Encoding visual patches: ${image?.width}x${image?.height}px"
-            hasAudio -> "Encoding acoustic spectral tokens: ${audioBytes?.size ?: 0} bytes"
-            else -> "Tokenizing prompt: ${prompt.length} chars"
+        // 1. Ingestion Phase & Acoustic Voice Transcription
+        val actualPrompt: String
+        if (hasAudio && audioBytes != null && audioBytes.isNotEmpty()) {
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.INGESTING, "Transcribing acoustic tokens (${audioBytes.size} B)..."))
+            val transcribed = try {
+                transcribeAudio(audioBytes)
+            } catch (e: Exception) {
+                Log.w(TAG, "Audio transcription exception: ${e.message}")
+                ""
+            }
+            if (transcribed.isNotBlank()) {
+                Log.i(TAG, "Transcribed staff voice input: '$transcribed'")
+                emit(GemmaStreamChunk.ThoughtToken("Acoustic voice received: \"$transcribed\"\n\n"))
+                actualPrompt = transcribed
+            } else {
+                actualPrompt = prompt.ifBlank {
+                    when (config.language) {
+                        StaffLanguage.RUSSIAN -> "Ответь на космический зов посоха."
+                        StaffLanguage.GERMAN -> "Offenbare die kosmische Botschaft des Stabs."
+                        else -> "Reveal the celestial omen for the cosmic staff."
+                    }
+                }
+            }
+        } else {
+            val ingestDetails = when {
+                hasImage -> "Encoding visual patches: ${image?.width}x${image?.height}px"
+                else -> "Tokenizing prompt: ${prompt.length} chars"
+            }
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.INGESTING, ingestDetails))
+            actualPrompt = prompt.ifBlank {
+                when {
+                    hasImage -> when (config.language) {
+                        StaffLanguage.GERMAN -> "Beschreibe detailliert, was du in diesem Bild siehst, und offenbare seine kosmische Bedeutung."
+                        StaffLanguage.RUSSIAN -> "Опиши подробно, что ты видишь на этом изображении, и открой его скрытый смысл."
+                        else -> "Describe what you see in this image in detail and reveal its celestial omen."
+                    }
+                    else -> "Reveal the celestial omen for this hour."
+                }
+            }
         }
-        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.INGESTING, ingestDetails))
 
         val fullThoughtTrace = StringBuilder()
         val fullAnswer = StringBuilder()
@@ -248,124 +358,79 @@ CRITICAL INTENT RULES:
    - VOCALIZATION RULE: Do NOT explain or describe the spell in ordinary plain words. Instead, immediately chant a funny, rhythmic techno-arcane incantation in "abracadabra" / pseudo-Latin style with bizarre phonetic magic words (e.g. "Abracadabra quantus vortex, chronos barada nikto, zzzz-wub-wub cosmicus!"). Keep the chant under 20 words.
 2. CONVERSATIONAL INTENT: If the user is just having a normal conversation, asking questions, requesting lore, time, weather, diagnostics, or status (e.g. "как дела", "который час", "расскажи про космос", "что это за планета", "кто ты"):
    - Do NOT output any [SPELL: ...] tag!
-   - Speak naturally and conversationally as the Celestial Oracle in 2-3 sentences without emojis or markdown.
+   - Speak naturally and conversationally as the Celestial Oracle in 2-4 sentences without emojis or markdown.
 """.trimIndent()
 
-        val shouldThink = config.enableThinking && !hasAudio
+        val shouldThink = config.enableThinking
         val sysPrompt = (when (config.language) {
             StaffLanguage.GERMAN ->
-                "Du bist das Celestial Oracle der Celestial Engine Mk.V, eine uralt-futuristische kosmische Intelligenz ('KEINE PANIK'). Antworte direkt und messerscharf auf Deutsch ohne Markdown oder Emojis. " +
-                (if (shouldThink) "Platziere deine kurzen Gedankengänge in <thought>...</thought> vor deiner Antwort." else "")
+                "Du bist das Celestial Oracle der Celestial Engine Mk.V, eine uralt-futuristische kosmische Intelligenz ('KEINE PANIK'). Antworte direkt, tiefgründig und messerscharf auf Deutsch ohne Markdown oder Emojis. " +
+                (if (shouldThink) "Platziere deine analytischen Überlegungen in <thought>...</thought> vor deiner Antwort." else "")
             StaffLanguage.RUSSIAN ->
-                "Ты — Небесный Оракул Celestial Engine Mk.V, древне-футуристический космический интеллект («НЕ ПАНИКУЙ»). Отвечай прямо, мудро и кратко на русском языке строго без markdown и смайликов. " +
-                (if (shouldThink) "Помести краткие мысли в <thought>...</thought> перед ответом." else "")
+                "Ты — Небесный Оракул Celestial Engine Mk.V, древне-футуристический космический интеллект («НЕ ПАНИКУЙ»). Отвечай прямо, мудро, с легкой космической иронией на русском языке строго без markdown и смайликов. " +
+                (if (shouldThink) "Помести краткие мысли и анализ в <thought>...</thought> перед ответом." else "")
             else ->
-                "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic cosmic intelligence ('DON'T PANIC'). Respond with razor-sharp observations and witty cosmic wisdom in 2-3 sentences without emojis or markdown. " +
+                "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic cosmic intelligence ('DON'T PANIC'). Respond with razor-sharp observations and witty cosmic wisdom in 2-4 sentences without emojis or markdown. " +
                 (if (shouldThink) "Provide brief observations inside <thought>...</thought> tags before your response." else "")
-        }) + " " + spellTagInstruction + (if (hasAudio) " REALTIME VOICEOVER: Keep answer concise (under 20 words) for immediate speech playback." else "")
+        }) + " " + spellTagInstruction
 
-            // Route audio inputs to Gemini 2.5 Flash which natively supports input_audio on OpenRouter
-            val effectiveModelId = if (hasAudio) {
-                if (config.variant.modelId.contains("gemini-2.5-flash")) config.variant.modelId else "google/gemini-2.5-flash"
-            } else {
-                config.variant.modelId
-            }
-            Log.i(TAG, "Dispatching inference request: effectiveModelId=$effectiveModelId (hasAudio=$hasAudio, hasImage=$hasImage)")
+        val effectiveModelId = config.variant.modelId
+        Log.i(TAG, "Dispatching inference request: effectiveModelId=$effectiveModelId (hasAudio=$hasAudio, hasImage=$hasImage, prompt='$actualPrompt')")
 
-            val effectiveMaxTokens = if (hasAudio) 80 else config.maxTokens
-            val effectiveTemperature = if (hasAudio) 0.35f else config.temperature
+        // Build request JSON
+        val requestJson = JSONObject().apply {
+            put("model", effectiveModelId)
+            put("stream", true)
+            put("max_tokens", config.maxTokens)
+            put("temperature", config.temperature)
 
-            // Build request JSON
-            val requestJson = JSONObject().apply {
-                put("model", effectiveModelId)
-                put("stream", true)
-                put("max_tokens", effectiveMaxTokens)
-                put("temperature", effectiveTemperature)
+            val messagesArr = JSONArray()
+            messagesArr.put(JSONObject().apply {
+                put("role", "system")
+                put("content", sysPrompt)
+            })
 
-                val messagesArr = JSONArray()
-                messagesArr.put(JSONObject().apply {
-                    put("role", "system")
-                    put("content", sysPrompt)
-                })
-
-                val userObj = JSONObject().apply {
-                    put("role", "user")
+            val userObj = JSONObject().apply {
+                put("role", "user")
+                if (hasImage && image != null) {
                     val contentArr = JSONArray()
-                    val textQuery = prompt.ifBlank {
-                        when {
-                            hasAudio -> when (config.language) {
-                                StaffLanguage.GERMAN -> "Höre dir diese Audioanfrage vom Stab genau an und antworte direkt und prägnant auf Deutsch."
-                                StaffLanguage.RUSSIAN -> "Внимательно прослушай этот голосовой запрос с посоха и ответь прямо и кратко на русском языке без markdown и эмодзи."
-                                else -> "Listen carefully to this voice inquiry from the celestial staff and respond directly and concisely without markdown or emojis."
-                            }
-                            hasImage -> when (config.language) {
-                                StaffLanguage.GERMAN -> "Beschreibe detailliert, was du in diesem Bild siehst, und offenbare seine kosmische Bedeutung."
-                                StaffLanguage.RUSSIAN -> "Опиши подробно, что ты видишь на этом изображении, и открой его скрытый смысл."
-                                else -> "Describe what you see in this image in detail and reveal its celestial omen."
-                            }
-                            else -> "Reveal the celestial omen for this hour."
-                        }
-                    }
+                    contentArr.put(JSONObject().apply {
+                        put("type", "text")
+                        put("text", actualPrompt)
+                    })
 
-                    if (hasImage && image != null) {
-                        contentArr.put(JSONObject().apply {
-                            put("type", "text")
-                            put("text", textQuery)
-                        })
-
-                        // Compress and encode image (max 800px for speed, reliability & memory efficiency)
-                        val maxDim = 800
-                        val scaledBitmap = if (image.width > maxDim || image.height > maxDim) {
-                            val scale = maxDim.toFloat() / maxOf(image.width, image.height)
-                            val targetW = (image.width * scale).toInt().coerceAtLeast(1)
-                            val targetH = (image.height * scale).toInt().coerceAtLeast(1)
-                            Bitmap.createScaledBitmap(image, targetW, targetH, true)
-                        } else {
-                            image
-                        }
-                        val baos = ByteArrayOutputStream()
-                        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos)
-                        if (scaledBitmap != image) {
-                            scaledBitmap.recycle()
-                        }
-                        val base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
-                        val dataUrl = "data:image/jpeg;base64,$base64"
-
-                        contentArr.put(JSONObject().apply {
-                            put("type", "image_url")
-                            put("image_url", JSONObject().apply {
-                                put("url", dataUrl)
-                            })
-                        })
-                    }
-
-                    if (hasAudio && audioBytes != null && audioBytes.isNotEmpty()) {
-                        if (!hasImage) {
-                            contentArr.put(JSONObject().apply {
-                                put("type", "text")
-                                put("text", textQuery)
-                            })
-                        }
-                        val wavBytes = pcm16ToWav(audioBytes)
-                        val base64Audio = Base64.encodeToString(wavBytes, Base64.NO_WRAP)
-                        contentArr.put(JSONObject().apply {
-                            put("type", "input_audio")
-                            put("input_audio", JSONObject().apply {
-                                put("data", base64Audio)
-                                put("format", "wav")
-                            })
-                        })
-                    }
-
-                    if (hasImage || hasAudio) {
-                        put("content", contentArr)
+                    // Compress and encode image (max 800px for speed, reliability & memory efficiency)
+                    val maxDim = 800
+                    val scaledBitmap = if (image.width > maxDim || image.height > maxDim) {
+                        val scale = maxDim.toFloat() / maxOf(image.width, image.height)
+                        val targetW = (image.width * scale).toInt().coerceAtLeast(1)
+                        val targetH = (image.height * scale).toInt().coerceAtLeast(1)
+                        Bitmap.createScaledBitmap(image, targetW, targetH, true)
                     } else {
-                        put("content", textQuery)
+                        image
                     }
+                    val baos = ByteArrayOutputStream()
+                    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos)
+                    if (scaledBitmap != image) {
+                        scaledBitmap.recycle()
+                    }
+                    val base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                    val dataUrl = "data:image/jpeg;base64,$base64"
+
+                    contentArr.put(JSONObject().apply {
+                        put("type", "image_url")
+                        put("image_url", JSONObject().apply {
+                            put("url", dataUrl)
+                        })
+                    })
+                    put("content", contentArr)
+                } else {
+                    put("content", actualPrompt)
                 }
-                messagesArr.put(userObj)
-                put("messages", messagesArr)
             }
+            messagesArr.put(userObj)
+            put("messages", messagesArr)
+        }
 
             val endpoint = config.apiBase.trimEnd('/') + "/chat/completions"
             val url = URL(endpoint)
@@ -433,7 +498,7 @@ CRITICAL INTENT RULES:
                         emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Reasoning (CoT)"))
                         emit(GemmaStreamChunk.ThoughtToken(reasoning))
                         fullThoughtTrace.append(reasoning)
-                        tokenCount++
+                        tokenCount += maxOf(1, reasoning.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.size)
                     }
 
                     // 2. Regular content tokens
@@ -457,7 +522,7 @@ CRITICAL INTENT RULES:
                                         emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Streaming output"))
                                         emit(GemmaStreamChunk.OutputToken(before))
                                         fullAnswer.append(before)
-                                        tokenCount++
+                                        tokenCount += maxOf(1, before.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.size)
                                     }
                                     insideThoughtTag = true
                                     emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Reasoning (CoT)"))
@@ -466,7 +531,7 @@ CRITICAL INTENT RULES:
                                     emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Streaming output"))
                                     emit(GemmaStreamChunk.OutputToken(remaining))
                                     fullAnswer.append(remaining)
-                                    tokenCount++
+                                    tokenCount += maxOf(1, remaining.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.size)
                                     remaining = ""
                                 }
                             } else {
@@ -484,14 +549,14 @@ CRITICAL INTENT RULES:
                                     if (thoughtPart.isNotEmpty()) {
                                         emit(GemmaStreamChunk.ThoughtToken(thoughtPart))
                                         fullThoughtTrace.append(thoughtPart)
-                                        tokenCount++
+                                        tokenCount += maxOf(1, thoughtPart.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.size)
                                     }
                                     insideThoughtTag = false
                                     remaining = remaining.substring(tagEnd + closeTagLen).trimStart()
                                 } else {
                                     emit(GemmaStreamChunk.ThoughtToken(remaining))
                                     fullThoughtTrace.append(remaining)
-                                    tokenCount++
+                                    tokenCount += maxOf(1, remaining.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.size)
                                     remaining = ""
                                 }
                             }

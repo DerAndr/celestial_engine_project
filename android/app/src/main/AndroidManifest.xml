@@ -4,8 +4,10 @@
     <!-- Network permissions for local Wi-Fi UDP & Hotspot communication -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
 
     <!-- Multimodal AI permissions (Gemma 4 Vision & Voice) -->
     <uses-permission android:name="android.permission.CAMERA" />

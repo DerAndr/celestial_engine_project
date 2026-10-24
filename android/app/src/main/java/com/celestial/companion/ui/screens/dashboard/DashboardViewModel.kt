@@ -48,7 +48,7 @@ class DashboardViewModel(
     private val _currentLanguage = MutableStateFlow(StaffLanguage.ENGLISH)
     val currentLanguage: StateFlow<StaffLanguage> = _currentLanguage.asStateFlow()
 
-    private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMINI_FLASH)
+    private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMMA_4_31B)
     val selectedModelVariant: StateFlow<GemmaVariant> = _selectedModelVariant.asStateFlow()
 
     // Real-Time Processing Monitoring State
@@ -238,9 +238,11 @@ class DashboardViewModel(
         _activeImage.value = image
 
         // Append to chat history
+        val userMsgId = java.util.UUID.randomUUID().toString()
         val userMsg = OracleChatMessage(
+            id = userMsgId,
             isUser = true,
-            text = prompt.ifBlank { if (hasAudio) "🎤 [VOICE INQUIRY FROM STAFF (${audioBytes?.size ?: 0} B)]" else "..." },
+            text = prompt.ifBlank { if (hasAudio) "🎤 [Processing staff voice...]" else "..." },
             image = image,
             modalityUsed = modality
         )
@@ -290,6 +292,14 @@ class DashboardViewModel(
                         is GemmaStreamChunk.ThoughtToken -> {
                             _liveThoughtTrace.value += chunk.token
                             _liveTokenCount.value += 1
+                            if (chunk.token.startsWith("Acoustic voice received: \"")) {
+                                val transcribedText = chunk.token.removePrefix("Acoustic voice received: \"").substringBefore("\"")
+                                if (transcribedText.isNotBlank()) {
+                                    _chatHistory.value = _chatHistory.value.map { msg ->
+                                        if (msg.id == userMsgId) msg.copy(text = "🎤 \"$transcribedText\"") else msg
+                                    }
+                                }
+                            }
                         }
                         is GemmaStreamChunk.OutputToken -> {
                             _liveStreamingText.value += chunk.token

@@ -102,11 +102,21 @@ class StaffUdpTransport(
         }
     }
 
-    private fun bindSocketToMatchingNetwork(socket: DatagramSocket, target: InetAddress): Boolean {
-        val cm = context?.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager ?: return false
-        try {
-            val targetBytes = target.address
-            if (targetBytes.size != 4) return false
+    @Volatile
+    private var cachedUnicastSocket: DatagramSocket? = null
+    @Volatile
+    private var cachedUnicastNetHandle: Long? = null
+    @Volatile
+    private var cachedUnicastLocalIp: String? = null
+
+    @Synchronized
+    private fun getOrCreateUnicastSocket(targetAddr: InetAddress): DatagramSocket {
+        val matchedLocal = findMatchingLocalAddress(targetAddr)
+        val cm = context?.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        
+        var matchedNetwork: android.net.Network? = null
+        if (cm != null && targetAddr.address.size == 4) {
+            val targetBytes = targetAddr.address
             for (network in cm.allNetworks) {
                 val lp = cm.getLinkProperties(network) ?: continue
                 for (la in lp.linkAddresses) {
@@ -117,17 +127,54 @@ class StaffUdpTransport(
                             addrBytes[1] == targetBytes[1] &&
                             addrBytes[2] == targetBytes[2]
                         ) {
-                            network.bindSocket(socket)
-                            Log.d(TAG, "Bound DatagramSocket to network $network (${lp.interfaceName}) for $target")
-                            return true
+                            matchedNetwork = network
+                            break
                         }
                     }
                 }
+                if (matchedNetwork != null) break
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "bindSocketToMatchingNetwork failed for $target: ${e.message}")
         }
-        return false
+
+        val netHandle = matchedNetwork?.networkHandle ?: -1L
+        val localStr = matchedLocal?.hostAddress ?: ""
+
+        val existing = cachedUnicastSocket
+        if (existing != null && !existing.isClosed && cachedUnicastNetHandle == netHandle && cachedUnicastLocalIp == localStr) {
+            return existing
+        }
+
+        try {
+            existing?.close()
+        } catch (_: Exception) {}
+
+        val newSocket: DatagramSocket
+        if (matchedNetwork != null) {
+            val s = DatagramSocket(null)
+            try {
+                matchedNetwork.bindSocket(s)
+                Log.i(TAG, "Bound DatagramSocket to network $matchedNetwork for $targetAddr")
+            } catch (e: Exception) {
+                Log.w(TAG, "network.bindSocket failed: ${e.message}")
+            }
+            if (matchedLocal != null) {
+                s.bind(InetSocketAddress(matchedLocal, 0))
+            } else {
+                s.bind(InetSocketAddress(0))
+            }
+            newSocket = s
+        } else if (matchedLocal != null) {
+            newSocket = DatagramSocket(InetSocketAddress(matchedLocal, 0))
+        } else {
+            newSocket = socket ?: DatagramSocket()
+        }
+
+        newSocket.soTimeout = 2000
+        newSocket.broadcast = true
+        cachedUnicastSocket = newSocket
+        cachedUnicastNetHandle = netHandle
+        cachedUnicastLocalIp = localStr
+        return newSocket
     }
 
     override suspend fun sendPacket(targetIp: String, targetPort: Int, packet: CelestialPacket) {
@@ -180,32 +227,15 @@ class StaffUdpTransport(
                     }
                 } else {
                     // Unicast:
-                    var sentDirect = false
-                    val matchedLocal = findMatchingLocalAddress(targetAddr)
-                    if (matchedLocal != null) {
-                        // Bind directly to the local interface address (routes directly via tethering/ap_br_wlan2 without EPERM)
+                    try {
+                        val unicastSocket = getOrCreateUnicastSocket(targetAddr)
+                        unicastSocket.send(datagram)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Cached unicast send failed, retrying with fallback: ${e.message}")
                         try {
-                            DatagramSocket(InetSocketAddress(matchedLocal, 0)).use { boundSocket ->
-                                boundSocket.send(datagram)
-                                sentDirect = true
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Local-bound send from $matchedLocal to $targetIp failed: ${e.message}")
-                        }
-                    }
-                    if (!sentDirect) {
-                        try {
-                            DatagramSocket().use { tempSocket ->
-                                if (bindSocketToMatchingNetwork(tempSocket, targetAddr)) {
-                                    tempSocket.send(datagram)
-                                    sentDirect = true
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Direct network-bound send to $targetIp failed: ${e.message}")
-                        }
-                    }
-                    if (!sentDirect) {
+                            cachedUnicastSocket?.close()
+                        } catch (_: Exception) {}
+                        cachedUnicastSocket = null
                         val s = socket ?: DatagramSocket().apply { broadcast = true }
                         s.send(datagram)
                     }
@@ -279,6 +309,10 @@ class StaffUdpTransport(
             socket?.close()
         } catch (_: Exception) {}
         socket = null
+        try {
+            cachedUnicastSocket?.close()
+        } catch (_: Exception) {}
+        cachedUnicastSocket = null
         scope.cancel()
     }
 }
