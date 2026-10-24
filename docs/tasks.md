@@ -35,6 +35,18 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 
 ## 2. Priority Action Items
 
+### 🚨 URGENT TASK (Next Session): Default Model Migration to `gemma-4-E2B`
+> **User Directive (2026-10-25):** "gemma-4-E2B — давай работать вот с этой моделью по умолчанию. Потому что она точно удобнее и проще и быстрее скорее всего. Это будет новая срочная задача."
+- [ ] **Android Companion App (`GemmaModelEngine.kt`)**:
+  - Set default variant to `gemma-4-E2B` (`G4-MM` / `google/gemma-4-e2b-it` or on-device runtime).
+  - Benchmark TTFT and token streaming cadence against G4-31B.
+- [ ] **Dashboard & UI (`DashboardViewModel.kt`, `OracleTerminalScreen.kt`)**:
+  - Update default selector and action button to `Query G4-E2B`.
+  - Verify spell tag parsing (`[SPELL: ...]`) and two-stage acoustic query pipeline with G4-E2B.
+- [ ] **Staff Integration & Latency Benchmark**:
+  - Measure round-trip time from staff GP9 button release to speaker playback.
+  - Document results in [`docs/experiments/048-gemma-4-e2b-default-migration.md`](experiments/048-gemma-4-e2b-default-migration.md).
+
 ### Task 1: Phone + Pico Default Mode & Firmware/App Alignment
 - [x] **Firmware (`net_client.c`)**:
   - Direct Phone Hotspot AP IP link (`10.111.174.64` ↔ `10.111.174.174`).
