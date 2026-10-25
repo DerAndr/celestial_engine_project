@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import com.celestial.companion.domain.model.SpellDefinition
@@ -161,6 +162,8 @@ fun DashboardScreen(
                     )
                 }
             }
+        }
+
         // Quick-Cast Grimoire Bar (One-tap spells directly from dashboard)
         val customSpells by viewModel.customSpells.collectAsState()
         val allSpells = customSpells + SpellDefinition.PRESET_SPELLS

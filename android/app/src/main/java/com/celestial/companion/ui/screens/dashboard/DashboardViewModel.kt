@@ -140,7 +140,7 @@ class DashboardViewModel(
     }
 
     private fun persistCustomSpells(spells: List<SpellDefinition>) {
-        val ctx = repository.context ?: gemmaEngine?.context ?: return
+        val ctx = repository.context ?: return
         try {
             val prefs = ctx.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
             val arr = org.json.JSONArray()
@@ -152,7 +152,7 @@ class DashboardViewModel(
     }
 
     fun loadCustomSpells() {
-        val ctx = repository.context ?: gemmaEngine?.context ?: return
+        val ctx = repository.context ?: return
         try {
             val prefs = ctx.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
             val raw = prefs.getString("custom_spells", null) ?: return
