@@ -786,7 +786,7 @@ fun OracleTerminalScreen(
                 }
 
                 Text(
-                    text = "Запусти заклинание: светодиоды 43 WS2812B + цепочка забавных звуков динамика MAX98357A:",
+                    text = "Trigger arcane spell: 43 WS2812B rings + MAX98357A acoustic sequence:",
                     color = TextMuted,
                     fontSize = 10.sp
                 )
@@ -937,16 +937,16 @@ fun OracleTerminalScreen(
                 val chips: List<Pair<String, String>> = if (isImageAttached) {
                     when (currentLanguage) {
                         StaffLanguage.RUSSIAN -> listOf(
-                            "🔍 Что на фото?" to "Подробно опиши, что изображено на этой фотографии, и в чём её особенности.",
-                            "✨ Артефакт" to "Проанализируй видимые на фото объекты, материалы, руны или приборы и их назначение.",
-                            "📜 Прочесть текст" to "Найди, прочитай и переведи весь видимый текст, надписи или символы на этом фото.",
-                            "🔮 Аура и тайна" to "Определи мистическую ауру, потоки космической энергии и тайный смысл этой сцены."
+                            "🔍 Describe Photo" to "Подробно опиши, что изображено на этой фотографии, и в чём её особенности.",
+                            "✨ Scan Artifact" to "Проанализируй видимые на фото объекты, материалы, руны или приборы и их назначение.",
+                            "📜 Read Text" to "Найди, прочитай и переведи весь видимый текст, надписи или символы на этом фото.",
+                            "🔮 Celestial Aura" to "Определи мистическую ауру, потоки космической энергии и тайный смысл этой сцены."
                         )
                         StaffLanguage.GERMAN -> listOf(
-                            "🔍 Was ist auf dem Foto?" to "Beschreibe ausführlich, was auf diesem Foto zu sehen ist und erkläre die Details.",
-                            "✨ Artefakt-Scan" to "Analysiere die sichtbaren Objekte, Materialien, Runen oder Geräte auf diesem Foto.",
-                            "📜 Text lesen" to "Finde und lies alle sichtbaren Texte, Beschriftungen oder Runen auf diesem Bild.",
-                            "🔮 Mystische Aura" to "Interpretiere die mystische Aura, Energieflüsse und himmlischen Geheimnisse dieses Bildes."
+                            "🔍 Describe Photo" to "Beschreibe ausführlich, was auf diesem Foto zu sehen ist und erkläre die Details.",
+                            "✨ Scan Artifact" to "Analysiere die sichtbaren Objekte, Materialien, Runen oder Geräte auf diesem Foto.",
+                            "📜 Read Text" to "Finde und lies alle sichtbaren Texte, Beschriftungen oder Runen auf diesem Bild.",
+                            "🔮 Celestial Aura" to "Interpretiere die mystische Aura, Energieflüsse und himmlischen Geheimnisse dieses Bildes."
                         )
                         else -> listOf(
                             "🔍 Describe Photo" to "Describe in detail what you see in this photo and explain its key details.",
@@ -958,16 +958,16 @@ fun OracleTerminalScreen(
                 } else {
                     when (currentLanguage) {
                         StaffLanguage.RUSSIAN -> listOf(
-                            "🔮 Предсказание" to "Открой расчет вероятностей и предскажи будущее на ближайшее время.",
-                            "😸 Анекдот" to "Расскажи смешной короткий анекдот про кошек.",
-                            "⚡ Аномалии" to "Просканируй сенсоры на физические аномалии и пространственные флуктуации.",
-                            "✨ Статус" to "Доложи статус телеметрии посоха, тактовую частоту и связь по Wi-Fi."
+                            "🔮 Prophecy" to "Открой расчет вероятностей и предскажи будущее на ближайшее время.",
+                            "😸 Cat Joke" to "Расскажи смешной короткий анекдот про кошек.",
+                            "⚡ Anomaly Scan" to "Просканируй сенсоры на физические аномалии и пространственные флуктуации.",
+                            "✨ Staff Status" to "Доложи статус телеметрии посоха, тактовую частоту и связь по Wi-Fi."
                         )
                         StaffLanguage.GERMAN -> listOf(
-                            "🔮 Prophezeiung" to "Offenbare eine präzise Wahrscheinlichkeitsberechnung für die nahe Zukunft.",
-                            "😸 Katzenwitz" to "Erzähle einen lustigen, kurzen Witz über Katzen.",
-                            "⚡ Anomalien" to "Scanne himmlische Frequenzen nach Raumanomalien und Fluktuationen.",
-                            "✨ Stab-Status" to "Berichte über Hardware-Telemetrie, Tickrate und Wi-Fi-Verbindungsstatus."
+                            "🔮 Prophecy" to "Offenbare eine präzise Wahrscheinlichkeitsberechnung für die nahe Zukunft.",
+                            "😸 Cat Joke" to "Erzähle einen lustigen, kurzen Witz über Katzen.",
+                            "⚡ Anomaly Scan" to "Scanne himmlische Frequenzen nach Raumanomalien und Fluktuationen.",
+                            "✨ Staff Status" to "Berichte über Hardware-Telemetrie, Tickrate und Wi-Fi-Verbindungsstatus."
                         )
                         else -> listOf(
                             "🔮 Prophecy" to "Reveal a precise probability prediction for the near future.",

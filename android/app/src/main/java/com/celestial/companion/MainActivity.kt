@@ -17,6 +17,7 @@ import com.celestial.companion.ui.navigation.Screen
 import com.celestial.companion.ui.screens.chronos.ChronosScreen
 import com.celestial.companion.ui.screens.dashboard.DashboardScreen
 import com.celestial.companion.ui.screens.dashboard.DashboardViewModel
+import com.celestial.companion.ui.screens.grimoire.GrimoireScreen
 import com.celestial.companion.ui.screens.leds.LedScreen
 import com.celestial.companion.ui.screens.soundboard.SoundboardScreen
 import com.celestial.companion.ui.screens.terminal.OracleTerminalScreen
@@ -91,7 +92,9 @@ fun MainAppScaffold(viewModel: DashboardViewModel) {
                         label = {
                             Text(
                                 screen.title,
-                                color = if (selected) AetherCyan else Color(0xFF78909C)
+                                color = if (selected) AetherCyan else Color(0xFF78909C),
+                                fontSize = 9.sp,
+                                maxLines = 1
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
@@ -110,9 +113,10 @@ fun MainAppScaffold(viewModel: DashboardViewModel) {
         ) {
             when (currentScreen) {
                 Screen.Dashboard -> DashboardScreen(viewModel = viewModel)
-                Screen.Chronos -> ChronosScreen(viewModel = viewModel)
                 Screen.Leds -> LedScreen(viewModel = viewModel)
+                Screen.Grimoire -> GrimoireScreen(viewModel = viewModel)
                 Screen.Soundboard -> SoundboardScreen(viewModel = viewModel)
+                Screen.Chronos -> ChronosScreen(viewModel = viewModel)
                 Screen.Terminal -> OracleTerminalScreen(viewModel = viewModel)
             }
         }

@@ -10,24 +10,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.celestial.companion.domain.model.LedAnimation
 import com.celestial.companion.ui.screens.dashboard.DashboardViewModel
-import com.celestial.companion.ui.screens.spells.SpellCrafterScreen
 import com.celestial.companion.ui.theme.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 
 @Composable
 fun LedScreen(
@@ -35,85 +30,14 @@ fun LedScreen(
     modifier: Modifier = Modifier
 ) {
     val telemetry by viewModel.telemetry.collectAsState()
-    var selectedTab by remember { mutableStateOf(0) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(SpaceBlack)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Top Tab Selector (Spell Crafter vs 43-LED Modes)
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = DeepVoid,
-            contentColor = AetherCyan,
-            indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = if (selectedTab == 0) RunicGold else AetherCyan
-                )
-            }
-        ) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                text = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            tint = if (selectedTab == 0) RunicGold else TextMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            "КРАФТЕР ЗАКЛИНАНИЙ",
-                            fontWeight = FontWeight.Bold,
-                            color = if (selectedTab == 0) RunicGold else TextMuted,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
-            )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                text = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = null,
-                            tint = if (selectedTab == 1) AetherCyan else TextMuted,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            "43-LED РЕЖИМЫ",
-                            fontWeight = FontWeight.Bold,
-                            color = if (selectedTab == 1) AetherCyan else TextMuted,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                }
-            )
-        }
-
-        if (selectedTab == 0) {
-            SpellCrafterScreen(viewModel = viewModel, modifier = Modifier.weight(1f))
-        } else {
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
         // 1. Concentric Rings Real-Time Visualizer Hero Card
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -214,14 +138,14 @@ fun LedScreen(
 
         // 2. Preset Selection Header
         Text(
-            text = "ANIMATION PRESETS (18 MODES)",
+            text = "ANIMATION PRESETS (${LedAnimation.entries.size} MODES)",
             color = AetherCyan,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace
         )
 
-        // 3. Scrollable List of 18 Presets
+        // 3. Scrollable List of Presets
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
@@ -300,8 +224,6 @@ fun LedScreen(
             }
         }
     }
-}
-}
 }
 
 @Composable

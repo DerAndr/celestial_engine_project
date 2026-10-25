@@ -155,7 +155,7 @@ fun DashboardScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "СТОП / ПРЕРВАТЬ (${telemetry.state.displayName.uppercase()})",
+                        text = "ABORT / INTERRUPT (${telemetry.state.displayName.uppercase()})",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
@@ -188,7 +188,7 @@ fun DashboardScreen(
                     ) {
                         Icon(Icons.Default.Bolt, contentDescription = null, tint = RunicGold, modifier = Modifier.size(16.dp))
                         Text(
-                            text = "ГРИМУАР (БЫСТРЫЙ КАСТ)",
+                            text = "ARCANE GRIMOIRE (QUICK CAST)",
                             color = RunicGold,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -196,7 +196,7 @@ fun DashboardScreen(
                         )
                     }
                     Text(
-                        text = "Конструктор во вкладке Spells →",
+                        text = "Open Grimoire & Forge →",
                         color = AetherCyan,
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace

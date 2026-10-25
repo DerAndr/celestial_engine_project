@@ -1910,7 +1910,7 @@ int main(void) {
             anim_to_run = LED_ANIM_VORTEX;
         } else if (current_state == STATE_PROCESSING) {
             anim_to_run = LED_ANIM_DATA_RECV;
-        } else if (current_state == STATE_SPEAKING) {
+        } else if (current_state == STATE_SPEAKING && current_mode_idx != MODE_LED_CORE) {
             anim_to_run = LED_ANIM_EXPAND_SPEECH;
         } else if (current_mode_idx == MODE_COSMOS && !led_edit_mode) {
             anim_to_run = (cosmos_zoom_level == COSMOS_ZOOM_GALAXY) ? LED_ANIM_GALAXY :
@@ -1967,6 +1967,9 @@ int main(void) {
                 case 'L': // Set LED animation
                     if (rem_cmd.param < LED_ANIM_COUNT) {
                         active_anim_idx = rem_cmd.param;
+                        current_mode_idx = MODE_LED_CORE;
+                        active_confirmed_mode = MODE_LED_CORE;
+                        led_edit_mode = false;
                         need_display_update = true;
                     }
                     break;

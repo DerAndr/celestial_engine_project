@@ -76,7 +76,7 @@ fun SoundboardScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "SPELL COMBOS (ЦЕПОЧКИ ЗВУКОВ)",
+                    text = "SPELL SOUND COMBOS",
                     color = RunicGold,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,

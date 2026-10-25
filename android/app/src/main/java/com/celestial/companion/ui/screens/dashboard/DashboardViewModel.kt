@@ -106,8 +106,9 @@ class DashboardViewModel(
      */
     fun executeFastPathSpell(spell: SpellDefinition, targetStaffIp: String? = null) {
         _activeSpell.value = spell
-        setLedAnimation(spell.animation)
         viewModelScope.launch {
+            repository.executeCommand(StaffCommand.SetMode(StaffMode.LED_CORE))
+            repository.executeCommand(StaffCommand.SetLedAnimation(spell.animation))
             val oledMsg = spell.oledText.ifBlank { "[SPELL] ${spell.name}" }
             repository.broadcastOledText(oledMsg, targetStaffIp ?: repository.getTargetStaffIp())
         }
@@ -116,12 +117,19 @@ class DashboardViewModel(
         repository.log("SPELL", "⚡ FAST-PATH CAST: '${spell.name}' (anim=${spell.animation.name}) in <20ms", LogLevel.SUCCESS)
     }
 
-    fun castSpell(spell: SpellDefinition, speakIncantation: Boolean = false) {
+    fun castSpell(spell: SpellDefinition, speakIncantation: Boolean = true) {
         executeFastPathSpell(spell)
         if (speakIncantation && spell.chantText.isNotBlank()) {
-            queryGemma(spell.prompt.ifBlank { "Cast ${spell.name}!" })
+            viewModelScope.launch {
+                val targetIp = repository.getTargetStaffIp()
+                repository.broadcastAiResponse(
+                    text = spell.chantText,
+                    targetIp = targetIp,
+                    skipVisualEffects = true
+                )
+            }
         } else if (spell.prompt.isNotBlank()) {
-            queryGemma(spell.prompt)
+            queryGemma(spell.prompt, broadcastOnComplete = speakIncantation)
         }
     }
 
@@ -585,6 +593,7 @@ class DashboardViewModel(
 
     fun setLedAnimation(anim: LedAnimation) {
         viewModelScope.launch {
+            repository.executeCommand(StaffCommand.SetMode(StaffMode.LED_CORE))
             repository.executeCommand(StaffCommand.SetLedAnimation(anim))
         }
     }
