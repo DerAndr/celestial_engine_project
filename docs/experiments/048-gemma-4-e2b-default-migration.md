@@ -17,11 +17,16 @@ During live end-to-end testing in Experiment 047:
    - Update `GemmaVariant` definitions so that `GEMMA_4_E2B` (or `E2B_MULTIMODAL`) is the primary default variant.
    - Configure model endpoint: `google/gemma-4-e2b-it` (or verified OpenRouter ID / on-device edge runtime) with fallback to `google/gemma-3-27b-it` / `google/gemini-2.5-flash`.
    - Update `GemmaConfig(variant = GemmaVariant.GEMMA_4_E2B)`.
-2. **Dashboard & UI (`DashboardViewModel.kt` & `OracleTerminalScreen.kt`)**:
+2. **Concise & Punchy Voice Responses (Краткие ответы)**:
+   - User directive: "ответы должны быть короткими".
+   - System prompts (RU/EN/DE): Strictly constrain verbal output to **1–2 short, punchy sentences (maximum 15–25 words)**.
+   - Elimination of long monologues keeps staff speaking time under 3 seconds and fits neatly on the SH1106 OLED marquee.
+   - Cap `max_tokens` to ~120–150 tokens.
+3. **Dashboard & UI (`DashboardViewModel.kt` & `OracleTerminalScreen.kt`)**:
    - Set `_selectedModelVariant` initial state to `GemmaVariant.GEMMA_4_E2B`.
    - Update UI pill labels and button text to `Query G4-E2B` / `Gemma 4 (E2B)`.
    - Retain thinking trace parsing and rich techno-magical spell formatting (`[SPELL: ...]`).
-3. **Firmware & Network Model Alignment (`net_client.c`, `net_protocol.h`)**:
+4. **Firmware & Network Model Alignment (`net_client.c`, `net_protocol.h`)**:
    - Ensure `AI_MODEL_GEMMA4_E2B` (`G4-MM` index 0 / 4) is default in phone mode.
-4. **Verification Criteria**:
-   - Voice press on staff GP9 (QUERY) -> 16 kHz PCM to Phone Brain -> Transcription -> `gemma-4-E2B` generation -> Structured prophecy / spell execution -> TTS burst to MAX98357A speaker with minimal latency.
+5. **Verification Criteria**:
+   - Voice press on staff GP9 (QUERY) -> 16 kHz PCM to Phone Brain -> Transcription -> `gemma-4-E2B` generation (concise 1-2 sentence response) -> Structured prophecy / spell execution -> TTS burst to MAX98357A speaker with minimal latency (<1-2s total).

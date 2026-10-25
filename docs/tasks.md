@@ -35,11 +35,19 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 
 ## 2. Priority Action Items
 
-### 🚨 URGENT TASK (Next Session): Default Model Migration to `gemma-4-E2B`
-> **User Directive (2026-10-25):** "gemma-4-E2B — давай работать вот с этой моделью по умолчанию. Потому что она точно удобнее и проще и быстрее скорее всего. Это будет новая срочная задача."
+### 🚨 URGENT TASK (Next Session): Default Model Migration to `gemma-4-E2B` & Concise Responses
+> **User Directives (2026-10-25):**
+> 1. *"gemma-4-E2B — давай работать вот с этой моделью по умолчанию. Потому что она точно удобнее и проще и быстрее скорее всего. Это будет новая срочная задача."*
+> 2. *"так же добавь задачу что ответы должны быть короткими"*
+
 - [ ] **Android Companion App (`GemmaModelEngine.kt`)**:
   - Set default variant to `gemma-4-E2B` (`G4-MM` / `google/gemma-4-e2b-it` or on-device runtime).
   - Benchmark TTFT and token streaming cadence against G4-31B.
+- [ ] **Concise & Punchy Voice Responses (Краткие ответы)**:
+  - System Prompt tuning (RU/EN/DE): Strictly constrain verbal responses to **1–2 short, punchy sentences (max 15–25 words)**.
+  - Tone: witty, razor-sharp cosmic oracle without long-winded monologues, corporate filler, markdown, or emojis.
+  - Cap `max_tokens` to ~120–150 tokens so generation finishes almost instantly and TTS audio playback lasts < 3 seconds on the staff speaker.
+  - Fast OLED marquee scrolling: compact text displays crisply on the SH1106 128x64 screen without overwhelming the user.
 - [ ] **Dashboard & UI (`DashboardViewModel.kt`, `OracleTerminalScreen.kt`)**:
   - Update default selector and action button to `Query G4-E2B`.
   - Verify spell tag parsing (`[SPELL: ...]`) and two-stage acoustic query pipeline with G4-E2B.
