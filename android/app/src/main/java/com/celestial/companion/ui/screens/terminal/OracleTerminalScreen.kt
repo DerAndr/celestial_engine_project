@@ -956,12 +956,26 @@ fun OracleTerminalScreen(
                         )
                     }
                 } else {
-                    listOf(
-                        "Anomaly Scan" to "Scan celestial frequencies for reality anomalies and spatial fluctuations.",
-                        "Interpret Runes" to "Interpret current glowing rune state on the staff core and outer rings.",
-                        "Prophecy" to "Reveal an ancient celestial prophecy for this hour.",
-                        "Staff Status" to "Report staff hardware telemetry, tick rate, and Wi-Fi link status."
-                    )
+                    when (currentLanguage) {
+                        StaffLanguage.RUSSIAN -> listOf(
+                            "🔮 Предсказание" to "Открой расчет вероятностей и предскажи будущее на ближайшее время.",
+                            "😸 Анекдот" to "Расскажи смешной короткий анекдот про кошек.",
+                            "⚡ Аномалии" to "Просканируй сенсоры на физические аномалии и пространственные флуктуации.",
+                            "✨ Статус" to "Доложи статус телеметрии посоха, тактовую частоту и связь по Wi-Fi."
+                        )
+                        StaffLanguage.GERMAN -> listOf(
+                            "🔮 Prophezeiung" to "Offenbare eine präzise Wahrscheinlichkeitsberechnung für die nahe Zukunft.",
+                            "😸 Katzenwitz" to "Erzähle einen lustigen, kurzen Witz über Katzen.",
+                            "⚡ Anomalien" to "Scanne himmlische Frequenzen nach Raumanomalien und Fluktuationen.",
+                            "✨ Stab-Status" to "Berichte über Hardware-Telemetrie, Tickrate und Wi-Fi-Verbindungsstatus."
+                        )
+                        else -> listOf(
+                            "🔮 Prophecy" to "Reveal a precise probability prediction for the near future.",
+                            "😸 Cat Joke" to "Tell a funny, concise joke about cats.",
+                            "⚡ Anomaly Scan" to "Scan celestial frequencies for reality anomalies and spatial fluctuations.",
+                            "✨ Staff Status" to "Report staff hardware telemetry, tick rate, and Wi-Fi link status."
+                        )
+                    }
                 }
 
                 Row(
