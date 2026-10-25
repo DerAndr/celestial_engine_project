@@ -5,10 +5,11 @@ Build a working interactive AI staff quickly from the hardware already purchased
 
 The coding agent must guide the user physically, one testable prototype at a time, and maintain the repository as an engineering notebook.
 
-## Current implementation — 2026-10-14 Standalone NVMe Boot & Offline AI Core
+## Current implementation — 2026-10-26 Standalone Grimoire, Spell Forge, Restored Runes & TTS Fixes
 
 Active physical staff: **7→12→24 = 43 LEDs**, GP15 / PIO0 SM1 / DMA, 300 µs reset, 18% brightness cap, SH1106 OLED, INMP441 Mic, MAX98357A Amp.
-Firmware baseline: **1.0.18-LOCAL-AI**, `firmware/build/celestial_firmware.uf2`. Pico 2 W / RP2350, official SDK 2.3.1. Features 5 selectable AI models: DeepSeek, Ministral, Grok, Llama 70B, and **PI 5 LOCAL** (100% offline).
+Firmware baseline: **1.0.18-LOCAL-AI**, `firmware/build/celestial_firmware.uf2`. Pico 2 W / RP2350, official SDK 2.3.1.
+Companion Mobile Brain: Android app (Kotlin / Jetpack Compose) with Foreground Service (`StaffBrainService`), standalone **Arcane Grimoire** (Tab 0: Library, Tab 1: Spell Forge), restored **Runes** continuous 43-LED ambient controller (21 animations), zero-latency fast-path casting (<20ms hardware dispatch), Latin incantation vocalization via Google TTS, and 100% English UI localization.
 
 Wearable SBC Node: **Raspberry Pi 5 (16 GB RAM)** on **Pimoroni PIM699 Base** with **Lexar NM790 1 TB NVMe SSD** running in **PCIe Gen 3** mode (688 MB/s sustained write, 0x0 throttling, MicroSD completely removed, pure NVMe boot).
 AI Brain Service: Active systemd daemon `celestial-brain.service` listening on UDP port 5005. Features both **100% Autonomous Offline AI** (`whisper.cpp` + Ollama `llama3.2:1b`/`gemma2:2b` + `piper` C++ ONNX) and **Hybrid Cloud Core** (OpenRouter + Edge-TTS) with seamless automatic failover.
