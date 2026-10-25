@@ -78,7 +78,7 @@ class StaffBrainService : Service() {
         serviceScope.launch {
             app.staffRepository.telemetry.collect { tel ->
                 val statusText = if (tel.isOnline) {
-                    "Staff ONLINE (#${tel.tickCount}) | Mode: ${tel.activeMode.displayName} | Vol: ${tel.volumePercent}%"
+                    "Staff ONLINE (#${tel.tickNumber}) | Mode: ${tel.mode.displayName} | Vol: ${tel.volumePercent}%"
                 } else {
                     "Staff OFFLINE — Waiting for connection..."
                 }
