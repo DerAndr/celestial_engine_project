@@ -46,10 +46,25 @@
 ### 6. Full English UI Localization
 - All Russian labels in navigation, chips, buttons, headers, and quick prompts were converted to English.
 
+### 7. Optional Per-Spell Incantation Vocalization & Silent Casting
+- **Per-Spell Preference**: Added `voiceEnabled: Boolean = true` to `SpellDefinition` with JSON persistence in `SharedPreferences`.
+- **Dynamic Badge Toggle**: Added interactive `[ 🔊 CHANT: ON ]` / `[ 🔇 CHANT: OFF ]` badge to each spell card in `GrimoireLibraryTab`. Clicking the badge persists the vocalization preference for that spell.
+- **Dual Direct Cast Buttons**: Each spell card features side-by-side action buttons:
+  - `[ 🔇 ⚡ SILENT ]`: Runs `castSpell(spell, speakIncantation = false)` — triggers the full visual/SFX vibe (LED runes animation, 1-4 step cosmic SFX combo, OLED marquee text) without any spoken voice, perfect for stealth, quiet environments, or pure visual atmosphere.
+  - `[ 🔊 ⚡ CHANT CAST ]`: Runs `castSpell(spell, speakIncantation = true)` — triggers the full visual/SFX combo followed by synthesized Latin vocal liturgical chant streamed directly to the staff speaker.
+- **Global Dashboard Toggle**: Added `[ 🔊 CHANT ON ]` / `[ 🔇 SILENT ]` quick toggle chip to the "ARCANE GRIMOIRE" header on the companion dashboard for effortless 1-tap vibe adjustments.
+- **Spell Forge Integration**: The visual constructor saves the configured vocalization preference into custom spells and provides reactive test casting.
+
 ## Verification & Results
 1. **Pico 2 W Firmware**: Built with Ninja, flashed via UF2 (`flash_pico.py`), online on Wi-Fi at `10.169.248.64:5005`.
-2. **Android APK**: Compiled and installed via ADB on Pixel 9 Pro XL.
+2. **Android APK**: Compiled and installed via ADB on Pixel 9 Pro XL (`app-debug.apk`).
 3. **UI Verification**:
    - `Runes` screen displays full 43-LED concentric rings with live Rainbow Wave and 21 modes.
    - `Grimoire` screen displays Library and Spell Forge tabs with live animations and controls.
+   - Each spell card features `[ 🔊 CHANT: ON ]` / `[ 🔇 CHANT: OFF ]` toggle badge and dual `[ 🔇 ⚡ SILENT ]` / `[ 🔊 ⚡ CHANT CAST ]` buttons.
+   - Dashboard features global `[ 🔊 CHANT ON ]` / `[ 🔇 SILENT ]` chip.
    - All navigation items and buttons in 100% English.
+4. **Cast Verification (Logcat & Hardware)**:
+   - `SILENT` cast: Dispatched Solar Plasma LED runes + 3-step SFX sequence (`[3, 6, 1]`) + OLED marquee with zero TTS synthesized audio.
+   - `CHANT CAST`: Dispatched Solar Plasma LED runes + SFX + OLED marquee + synthesized 70 chunks of 16 kHz PCM streaming to staff speaker at `10.169.248.64:5005`.
+
