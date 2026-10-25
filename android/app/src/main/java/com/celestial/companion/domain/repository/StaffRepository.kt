@@ -410,12 +410,10 @@ class StaffRepository(
                 val speechText = prophecy.speechText
                 if (speechText.isBlank()) return@launch
 
-                // CRITICAL: Spells MUST ALWAYS use the ENGLISH audio generator (Locale.US)
-                val lang = _telemetry.value.language
+                // CRITICAL: Determine TTS voice locale strictly based on the text content to avoid Russian voice reading English or vice versa
                 val locale = when {
-                    prophecy.isSpell -> java.util.Locale.US
                     speechText.any { it in '\u0400'..'\u04FF' } -> java.util.Locale("ru", "RU")
-                    lang != StaffLanguage.AUTO -> lang.locale
+                    speechText.any { it in 'ä'..'ü' || it in 'Ä'..'Ü' || it == 'ß' } -> java.util.Locale.GERMAN
                     else -> java.util.Locale.US
                 }
                 Log.i(TAG, "Synthesizing audio: isSpell=${prophecy.isSpell}, locale=$locale, text='${speechText.take(40)}...'")

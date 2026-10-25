@@ -57,7 +57,11 @@ class StaffTtsSynthesizer(private val context: Context) {
         val engine = tts ?: return@withContext null
 
         try {
-            engine.language = locale
+            val res = engine.setLanguage(locale)
+            if (res == TextToSpeech.LANG_MISSING_DATA || res == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.w(TAG, "Locale $locale not fully supported (res=$res), falling back to base language: ${locale.language}")
+                engine.setLanguage(Locale(locale.language))
+            }
             engine.setSpeechRate(1.15f)
             engine.setPitch(0.98f)
         } catch (e: Exception) {
