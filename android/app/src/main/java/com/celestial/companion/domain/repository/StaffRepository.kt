@@ -285,6 +285,7 @@ class StaffRepository(
     }
 
     private var activeQueryRequestId: Long = 0L
+    private var lastCompletedQueryRequestId: Long = 0L
 
     suspend fun streamAudioToStaff(
         pcmBytes: ByteArray,
@@ -496,6 +497,10 @@ class StaffRepository(
                 }
             }
             NetMessageType.QUERY_START -> {
+                if (packet.requestId != 0L && packet.requestId == activeQueryRequestId && _telemetry.value.state == StaffState.LISTENING) {
+                    Log.d(TAG, "Dropping duplicate QUERY_START (reqId=${packet.requestId})")
+                    return
+                }
                 activeQueryRequestId = packet.requestId
                 Log.i(TAG, "Incoming QUERY_START from ${packet.senderIp} (reqId=${packet.requestId})")
                 log("VOICE", "🎤 QUERY_START received from ${packet.senderIp} (reqId=${packet.requestId})", LogLevel.INFO)
@@ -515,17 +520,28 @@ class StaffRepository(
                 }
             }
             NetMessageType.QUERY_END -> {
-                Log.i(TAG, "Incoming QUERY_END from ${packet.senderIp} (reqId=$activeQueryRequestId). Audio size: ${incomingAudioStream.size()} bytes.")
+                val effectiveReqId = if (packet.requestId != 0L) packet.requestId else activeQueryRequestId
+                if (effectiveReqId != 0L && effectiveReqId == lastCompletedQueryRequestId) {
+                    Log.d(TAG, "Dropping duplicate QUERY_END (reqId=$effectiveReqId)")
+                    return
+                }
+                val audioData = incomingAudioStream.toByteArray()
+                incomingAudioStream.reset()
+                if (audioData.size < 1600) { // Under 50 ms of 16 kHz 16-bit mono PCM (1 sec = 32000 B)
+                    Log.d(TAG, "Dropping empty/too-short QUERY_END (${audioData.size} bytes, reqId=$effectiveReqId)")
+                    return
+                }
+                lastCompletedQueryRequestId = effectiveReqId
+
+                Log.i(TAG, "Incoming QUERY_END from ${packet.senderIp} (reqId=$effectiveReqId). Audio size: ${audioData.size} bytes.")
                 _telemetry.value = _telemetry.value.copy(
                     state = StaffState.PROCESSING
                 )
-                val audioData = incomingAudioStream.toByteArray()
-                incomingAudioStream.reset()
                 val durationSec = String.format(java.util.Locale.US, "%.2f", audioData.size / 32000f)
-                log("VOICE", "🎙️ QUERY_END from ${packet.senderIp} (${audioData.size} B / ${durationSec}s PCM, reqId=$activeQueryRequestId). Submitting to Brain...", LogLevel.SUCCESS)
+                log("VOICE", "🎙️ QUERY_END from ${packet.senderIp} (${audioData.size} B / ${durationSec}s PCM, reqId=$effectiveReqId). Submitting to Brain...", LogLevel.SUCCESS)
 
                 if (_phoneBrainActive.value) {
-                    val emitted = _staffVoiceQueries.tryEmit(IncomingStaffVoiceQuery(audioData, activeStaffIp, requestId = activeQueryRequestId))
+                    val emitted = _staffVoiceQueries.tryEmit(IncomingStaffVoiceQuery(audioData, activeStaffIp, requestId = effectiveReqId))
                     if (!emitted || _staffVoiceQueries.subscriptionCount.value == 0) {
                         scope.launch {
                             val fullAnswer = StringBuilder()

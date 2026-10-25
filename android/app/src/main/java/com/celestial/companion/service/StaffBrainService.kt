@@ -73,10 +73,21 @@ class StaffBrainService : Service() {
         } catch (_: Exception) {}
     }
 
+    private var lastNotificationUpdateMs = 0L
+    private var lastReportedOnlineState: Boolean? = null
+
     private fun observeStaffTelemetry() {
         val app = application as? CelestialApp ?: return
         serviceScope.launch {
             app.staffRepository.telemetry.collect { tel ->
+                val now = System.currentTimeMillis()
+                val onlineChanged = lastReportedOnlineState != tel.isOnline
+                if (!onlineChanged && (now - lastNotificationUpdateMs < 3000L)) {
+                    return@collect
+                }
+                lastNotificationUpdateMs = now
+                lastReportedOnlineState = tel.isOnline
+
                 val statusText = if (tel.isOnline) {
                     "Staff ONLINE (#${tel.tickNumber}) | Mode: ${tel.mode.displayName} | Vol: ${tel.volumePercent}%"
                 } else {

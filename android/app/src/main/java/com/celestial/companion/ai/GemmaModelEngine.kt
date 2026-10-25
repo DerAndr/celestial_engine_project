@@ -47,8 +47,8 @@ enum class GemmaVariant(
         "Google Gemma 4 E2B edge-optimized fast reasoning core",
         isMultimodal = true,
         hasThinkingMode = true,
-        modelId = "google/gemma-4-e2b-it",
-        fallbackModelId = "google/gemma-4-26b-a4b-it"
+        modelId = "google/gemma-4-26b-a4b-it",
+        fallbackModelId = "google/gemma-4-31b-it"
     ),
     GEMMA_4_31B(
         1,
@@ -219,14 +219,11 @@ class GemmaModelEngine(
      */
     suspend fun transcribeAudio(audioBytes: ByteArray): String = withContext(Dispatchers.IO) {
         if (audioBytes.isEmpty()) return@withContext ""
-        val wavBytes = pcm16ToWav(audioBytes)
+        val normalizedBytes = normalizePcm16(audioBytes)
+        val wavBytes = pcm16ToWav(normalizedBytes)
         val base64Audio = Base64.encodeToString(wavBytes, Base64.NO_WRAP)
 
-        val transcriptionPrompt = when (config.language) {
-            StaffLanguage.RUSSIAN -> "Транскрибируй голосовую речь из этого аудио дословно на русском языке. Выведи ТОЛЬКО текст транскрипции без кавычек, пояснений и markdown. Если тишина или шум, верни пустую строку."
-            StaffLanguage.GERMAN -> "Transkribiere die gesprochene Sprache in diesem Audio wörtlich auf Deutsch. Gib NUR den transkribierten Text ohne Anführungszeichen oder Erklärungen aus. Wenn Stille oder Rauschen, gib einen leeren Text zurück."
-            else -> "Transcribe the spoken speech in this audio verbatim. Output ONLY the transcribed words without quotes, markdown, or commentary. If silence or noise, return an empty string."
-        }
+        val transcriptionPrompt = "Transcribe the spoken speech in this audio verbatim. The speaker may speak in Russian, English, or German (e.g. 'кастани fireball', 'анекдот про кошек', 'шарахни молнией', 'cast lightning', etc.). Output ONLY the transcribed words in their spoken language without quotes, markdown, or commentary. If silence or noise, return an empty string."
 
         val requestJson = JSONObject().apply {
             put("model", "google/gemini-2.5-flash")
@@ -327,11 +324,12 @@ class GemmaModelEngine(
                 emit(GemmaStreamChunk.ThoughtToken("Acoustic voice received: \"$transcribed\"\n\n"))
                 actualPrompt = transcribed
             } else {
+                Log.w(TAG, "Audio transcription returned empty text! Using helpful spoken prompt.")
                 actualPrompt = prompt.ifBlank {
                     when (config.language) {
-                        StaffLanguage.RUSSIAN -> "Ответь на космический зов посоха."
-                        StaffLanguage.GERMAN -> "Offenbare die kosmische Botschaft des Stabs."
-                        else -> "Reveal the celestial omen for the cosmic staff."
+                        StaffLanguage.RUSSIAN -> "Голос в микрофоне не распознан или слишком тихий. Скажи пользователю кратко в 1 предложение: 'Голос растворился в космической тишине. Повтори команду ближе к микрофону посоха!'"
+                        StaffLanguage.GERMAN -> "Die Stimme im Mikrofon war zu leise oder unklar. Sage dem Benutzer kurz in 1 Satz: 'Deine Stimme verhallte in der kosmischen Stille. Sprich lauter in das Stab-Mikrofon!'"
+                        else -> "The acoustic voice input was too quiet or unintelligible. Tell the user concisely in 1 sentence: 'The cosmic whisper was too faint. Speak your command louder into the staff microphone!'"
                     }
                 }
             }
@@ -636,6 +634,39 @@ CRITICAL INTENT RULES:
             emit(GemmaStreamChunk.Complete(errResult))
         }
         .flowOn(Dispatchers.IO)
+
+    /**
+     * Dynamically normalizes 16-bit PCM voice recordings from INMP441 MEMS microphone.
+     * Amplifies quiet acoustic speech (peaks ~600-1200) to standard ~22000 digital peak
+     * so cloud multimodal STT models transcribe quiet speech reliably without clipping.
+     */
+    private fun normalizePcm16(pcmData: ByteArray): ByteArray {
+        if (pcmData.isEmpty()) return pcmData
+        var peak = 0
+        for (i in 0 until pcmData.size step 2) {
+            if (i + 1 < pcmData.size) {
+                val sample = (pcmData[i].toInt() and 0xFF) or (pcmData[i + 1].toInt() shl 8)
+                val s16 = sample.toShort().toInt()
+                val abs = kotlin.math.abs(s16)
+                if (abs > peak) peak = abs
+            }
+        }
+        if (peak < 120) return pcmData // Ambient silence, do not amplify noise floor
+        val gain = (22000f / peak).coerceIn(1.0f, 24.0f)
+        if (gain <= 1.05f) return pcmData
+        val normalized = ByteArray(pcmData.size)
+        for (i in 0 until pcmData.size step 2) {
+            if (i + 1 < pcmData.size) {
+                val sample = (pcmData[i].toInt() and 0xFF) or (pcmData[i + 1].toInt() shl 8)
+                val s16 = sample.toShort().toInt()
+                val boosted = (s16 * gain).toInt().coerceIn(-32768, 32767).toShort()
+                normalized[i] = (boosted.toInt() and 0xFF).toByte()
+                normalized[i + 1] = ((boosted.toInt() shr 8) and 0xFF).toByte()
+            }
+        }
+        Log.i(TAG, "PCM audio normalized: original peak=$peak, gain=${String.format(java.util.Locale.US, "%.1fx", gain)}, new peak=${(peak * gain).toInt()}")
+        return normalized
+    }
 
     /**
      * Converts raw 16 kHz 16-bit mono signed PCM audio bytes into a valid RIFF WAV container.

@@ -145,6 +145,10 @@ class DashboardViewModel(
         // Collect incoming voice queries from the physical staff over UDP
         viewModelScope.launch {
             repository.staffVoiceQueries.collect { query ->
+                if (query.audioBytes.size < 1600) {
+                    Log.d(TAG, "DashboardViewModel: ignoring empty/too-short audio query (${query.audioBytes.size} bytes)")
+                    return@collect
+                }
                 repository.log("VOICE", "Voice query received by ViewModel (${query.audioBytes.size} B), initiating Oracle query...", com.celestial.companion.domain.model.LogLevel.INFO)
                 queryGemma(
                     prompt = "",
