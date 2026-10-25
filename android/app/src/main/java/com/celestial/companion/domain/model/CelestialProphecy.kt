@@ -192,6 +192,9 @@ object CelestialProphecyParser {
     fun parseLedAnimation(animStr: String): LedAnimation {
         val upper = animStr.uppercase()
         return when {
+            upper.contains("OUROBOROS") || upper.contains("SPIRAL_SNAKE") -> LedAnimation.SPIRAL_SNAKE
+            upper.contains("RADIAL") || upper.contains("RIPPLE") -> LedAnimation.RADIAL_WAVE
+            upper.contains("COLLID") || upper.contains("INTERFER") -> LedAnimation.COLLIDING_WAVES
             upper.contains("SNAKE") -> LedAnimation.SNAKE
             upper.contains("VORTEX") -> LedAnimation.VORTEX
             upper.contains("PULSAR") || upper.contains("SHOCK") -> LedAnimation.PULSAR

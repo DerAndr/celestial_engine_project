@@ -167,6 +167,27 @@ data class SpellDefinition(
                 sounds = listOf(5, 0, 7), // Portal -> Warp -> Happy
                 prompt = "Cast the Astral Rift arcane spell! Begin with [SPELL: Astral Rift | ANIM: GALAXY | SOUNDS: PORTAL, WARP, R2_HAPPY] and chant a mystical cosmic portal incantation!",
                 description = "Galaxy • Portal • Warp • Chirp"
+            ),
+            SpellDefinition(
+                name = "Ouroboros Serpent",
+                animation = LedAnimation.SPIRAL_SNAKE,
+                sounds = listOf(0, 1, 6), // Warp -> Pulsar -> Supernova
+                prompt = "Cast the Ouroboros Serpent arcane spell! Begin with [SPELL: Ouroboros Serpent | ANIM: SPIRAL_SNAKE | SOUNDS: WARP, PULSAR, SUPERNOVA] and chant the ancient dragon coil formula!",
+                description = "2D Ouroboros • Warp • Pulsar • Nova"
+            ),
+            SpellDefinition(
+                name = "Aetheric Shockwave",
+                animation = LedAnimation.RADIAL_WAVE,
+                sounds = listOf(1, 4, 6), // Pulsar -> Tractor -> Supernova
+                prompt = "Cast the Aetheric Shockwave arcane spell! Begin with [SPELL: Aetheric Shockwave | ANIM: RADIAL_WAVE | SOUNDS: PULSAR, TRACTOR, SUPERNOVA] and release the concentric ripple!",
+                description = "Concentric Ripple • Pulsar • Tractor • Nova"
+            ),
+            SpellDefinition(
+                name = "Quantum Collision",
+                animation = LedAnimation.COLLIDING_WAVES,
+                sounds = listOf(3, 2, 0), // Laser -> Alien -> Warp
+                prompt = "Cast the Quantum Collision arcane spell! Begin with [SPELL: Quantum Collision | ANIM: COLLIDING_WAVES | SOUNDS: LASER, ALIEN, WARP] and weave the counter-rotating waves!",
+                description = "Colliding Waves • Laser • Alien • Warp"
             )
         )
     }
