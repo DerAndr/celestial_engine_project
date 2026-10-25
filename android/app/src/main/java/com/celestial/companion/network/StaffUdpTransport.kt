@@ -145,7 +145,9 @@ class StaffUdpTransport(
         }
 
         try {
-            existing?.close()
+            if (existing != socket) {
+                existing?.close()
+            }
         } catch (_: Exception) {}
 
         val newSocket: DatagramSocket
@@ -166,7 +168,7 @@ class StaffUdpTransport(
         } else if (matchedLocal != null) {
             newSocket = DatagramSocket(InetSocketAddress(matchedLocal, 0))
         } else {
-            newSocket = socket ?: DatagramSocket()
+            newSocket = DatagramSocket()
         }
 
         newSocket.soTimeout = 2000
@@ -222,8 +224,15 @@ class StaffUdpTransport(
                         Log.w(TAG, "Multi-interface broadcast traversal: ${e.message}")
                     }
                     if (!sentAny) {
-                        val s = socket ?: DatagramSocket().apply { broadcast = true }
-                        s.send(datagram)
+                        val curSock = socket
+                        if (curSock != null && !curSock.isClosed) {
+                            curSock.send(datagram)
+                        } else {
+                            DatagramSocket().use { fallback ->
+                                fallback.broadcast = true
+                                fallback.send(datagram)
+                            }
+                        }
                     }
                 } else {
                     // Unicast:
@@ -232,12 +241,19 @@ class StaffUdpTransport(
                         unicastSocket.send(datagram)
                     } catch (e: Exception) {
                         Log.w(TAG, "Cached unicast send failed, retrying with fallback: ${e.message}")
-                        try {
-                            cachedUnicastSocket?.close()
-                        } catch (_: Exception) {}
+                        if (cachedUnicastSocket != socket) {
+                            try { cachedUnicastSocket?.close() } catch (_: Exception) {}
+                        }
                         cachedUnicastSocket = null
-                        val s = socket ?: DatagramSocket().apply { broadcast = true }
-                        s.send(datagram)
+                        val curSock = socket
+                        if (curSock != null && !curSock.isClosed) {
+                            curSock.send(datagram)
+                        } else {
+                            DatagramSocket().use { fallback ->
+                                fallback.broadcast = true
+                                fallback.send(datagram)
+                            }
+                        }
                     }
                 }
                 if (packet.msgType != NetMessageType.HEARTBEAT) {
