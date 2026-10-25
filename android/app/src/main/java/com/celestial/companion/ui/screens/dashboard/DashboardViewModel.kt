@@ -92,6 +92,38 @@ class DashboardViewModel(
     private val _customSpells = MutableStateFlow<List<SpellDefinition>>(emptyList())
     val customSpells: StateFlow<List<SpellDefinition>> = _customSpells.asStateFlow()
 
+    // Per-spell voice chant preferences (spellName -> boolean)
+    private val _spellVoicePreferences = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val spellVoicePreferences: StateFlow<Map<String, Boolean>> = _spellVoicePreferences.asStateFlow()
+
+    // Global Dashboard Quick-Cast voice chant toggle
+    private val _dashboardVoiceEnabled = MutableStateFlow(true)
+    val dashboardVoiceEnabled: StateFlow<Boolean> = _dashboardVoiceEnabled.asStateFlow()
+
+    init {
+        loadCustomSpells()
+        loadVoicePreferences()
+    }
+
+    fun toggleDashboardVoice() {
+        _dashboardVoiceEnabled.value = !_dashboardVoiceEnabled.value
+    }
+
+    fun isSpellVoiceEnabled(spell: SpellDefinition): Boolean {
+        return _spellVoicePreferences.value[spell.name] ?: spell.voiceEnabled
+    }
+
+    fun setSpellVoiceEnabled(spellName: String, enabled: Boolean) {
+        val updated = _spellVoicePreferences.value + (spellName to enabled)
+        _spellVoicePreferences.value = updated
+        persistVoicePreferences(updated)
+    }
+
+    fun toggleSpellVoice(spell: SpellDefinition) {
+        val current = isSpellVoiceEnabled(spell)
+        setSpellVoiceEnabled(spell.name, !current)
+    }
+
     private var soundSequenceJob: Job? = null
 
     fun clearActiveSpell() {
@@ -117,9 +149,10 @@ class DashboardViewModel(
         repository.log("SPELL", "⚡ FAST-PATH CAST: '${spell.name}' (anim=${spell.animation.name}) in <20ms", LogLevel.SUCCESS)
     }
 
-    fun castSpell(spell: SpellDefinition, speakIncantation: Boolean = true) {
+    fun castSpell(spell: SpellDefinition, speakIncantation: Boolean? = null) {
+        val shouldSpeak = speakIncantation ?: isSpellVoiceEnabled(spell)
         executeFastPathSpell(spell)
-        if (speakIncantation && spell.chantText.isNotBlank()) {
+        if (shouldSpeak && spell.chantText.isNotBlank()) {
             viewModelScope.launch {
                 val targetIp = repository.getTargetStaffIp()
                 repository.broadcastAiResponse(
@@ -129,8 +162,8 @@ class DashboardViewModel(
                     customOledText = spell.oledText.ifBlank { "[SPELL] ${spell.name}" }
                 )
             }
-        } else if (spell.prompt.isNotBlank()) {
-            queryGemma(spell.prompt, broadcastOnComplete = speakIncantation)
+        } else if (shouldSpeak && spell.prompt.isNotBlank()) {
+            queryGemma(spell.prompt, broadcastOnComplete = true)
         }
     }
 
@@ -174,6 +207,37 @@ class DashboardViewModel(
             Log.i(TAG, "Loaded ${list.size} custom spells from Grimoire")
         } catch (e: Exception) {
             Log.w(TAG, "Failed loading custom spells: ${e.message}")
+        }
+    }
+
+    private fun persistVoicePreferences(prefsMap: Map<String, Boolean>) {
+        val ctx = repository.context ?: return
+        try {
+            val prefs = ctx.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
+            val json = org.json.JSONObject()
+            prefsMap.forEach { (k, v) -> json.put(k, v) }
+            prefs.edit().putString("spell_voice_prefs", json.toString()).apply()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed persisting voice prefs: ${e.message}")
+        }
+    }
+
+    fun loadVoicePreferences() {
+        val ctx = repository.context ?: return
+        try {
+            val prefs = ctx.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
+            val raw = prefs.getString("spell_voice_prefs", null) ?: return
+            val json = org.json.JSONObject(raw)
+            val map = mutableMapOf<String, Boolean>()
+            val keys = json.keys()
+            while (keys.hasNext()) {
+                val k = keys.next()
+                map[k] = json.optBoolean(k, true)
+            }
+            _spellVoicePreferences.value = map
+            Log.i(TAG, "Loaded ${map.size} spell voice preferences")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed loading voice prefs: ${e.message}")
         }
     }
 

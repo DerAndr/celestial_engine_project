@@ -132,7 +132,8 @@ data class SpellDefinition(
     val description: String = "",
     val chantText: String = "",
     val oledText: String = "",
-    val isCustom: Boolean = false
+    val isCustom: Boolean = false,
+    val voiceEnabled: Boolean = true
 ) {
     fun toJson(): org.json.JSONObject {
         val json = org.json.JSONObject()
@@ -146,6 +147,7 @@ data class SpellDefinition(
         json.put("chantText", chantText)
         json.put("oledText", oledText)
         json.put("isCustom", isCustom)
+        json.put("voiceEnabled", voiceEnabled)
         return json
     }
 
@@ -168,7 +170,8 @@ data class SpellDefinition(
                 description = json.optString("description", ""),
                 chantText = json.optString("chantText", ""),
                 oledText = json.optString("oledText", ""),
-                isCustom = json.optBoolean("isCustom", true)
+                isCustom = json.optBoolean("isCustom", true),
+                voiceEnabled = json.optBoolean("voiceEnabled", true)
             )
         }
 

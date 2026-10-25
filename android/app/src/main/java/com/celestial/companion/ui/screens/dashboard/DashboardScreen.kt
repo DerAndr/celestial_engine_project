@@ -166,6 +166,8 @@ fun DashboardScreen(
 
         // Quick-Cast Grimoire Bar (One-tap spells directly from dashboard)
         val customSpells by viewModel.customSpells.collectAsState()
+        val dashboardVoiceEnabled by viewModel.dashboardVoiceEnabled.collectAsState()
+        val voicePrefs by viewModel.spellVoicePreferences.collectAsState()
         val allSpells = customSpells + SpellDefinition.PRESET_SPELLS
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -188,15 +190,41 @@ fun DashboardScreen(
                     ) {
                         Icon(Icons.Default.Bolt, contentDescription = null, tint = RunicGold, modifier = Modifier.size(16.dp))
                         Text(
-                            text = "ARCANE GRIMOIRE (QUICK CAST)",
+                            text = "ARCANE GRIMOIRE",
                             color = RunicGold,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         )
+
+                        // Quick Chant Vocalization Toggle on Dashboard
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (dashboardVoiceEnabled) Color(0x2200E5FF) else DeepVoid)
+                                .border(1.dp, if (dashboardVoiceEnabled) AetherCyan else CardBorder, RoundedCornerShape(6.dp))
+                                .clickable { viewModel.toggleDashboardVoice() }
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Icon(
+                                    imageVector = if (dashboardVoiceEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                                    contentDescription = null,
+                                    tint = if (dashboardVoiceEnabled) AetherCyan else TextMuted,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                                Text(
+                                    text = if (dashboardVoiceEnabled) "CHANT ON" else "SILENT",
+                                    color = if (dashboardVoiceEnabled) AetherCyan else TextMuted,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
                     }
                     Text(
-                        text = "Open Grimoire & Forge →",
+                        text = "Forge →",
                         color = AetherCyan,
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace
@@ -210,12 +238,13 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     allSpells.forEach { spell ->
+                        val isVocal = dashboardVoiceEnabled && (voicePrefs[spell.name] ?: spell.voiceEnabled)
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(DeepVoid)
                                 .border(1.dp, if (spell.isCustom) NebulaPurple else CardBorder, RoundedCornerShape(8.dp))
-                                .clickable { viewModel.castSpell(spell, speakIncantation = true) }
+                                .clickable { viewModel.castSpell(spell, speakIncantation = isVocal) }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Row(

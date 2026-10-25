@@ -157,6 +157,7 @@ private fun GrimoireLibraryTab(
 ) {
     val customSpells by viewModel.customSpells.collectAsState()
     val activeSpell by viewModel.activeSpell.collectAsState()
+    val voicePrefs by viewModel.spellVoicePreferences.collectAsState()
     val allSpells = customSpells + SpellDefinition.PRESET_SPELLS
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("ALL") }
@@ -376,10 +377,13 @@ private fun GrimoireLibraryTab(
                         }
                     }
 
-                    // Metadata Badges (Animation & SFX)
+                    val isVoiceOn = voicePrefs[spell.name] ?: spell.voiceEnabled
+
+                    // Metadata Badges (Animation, SFX, and Voice Toggle)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
@@ -404,11 +408,37 @@ private fun GrimoireLibraryTab(
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
-                                text = "🔊 ${spell.sounds.size} SFX Combo",
+                                text = "🔊 ${spell.sounds.size} SFX",
                                 color = TextSecondary,
                                 fontSize = 10.sp,
                                 fontFamily = FontFamily.Monospace
                             )
+                        }
+
+                        // Per-Spell Voice Chant Toggle Badge
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (isVoiceOn) Color(0x2200E5FF) else DeepVoid)
+                                .border(1.dp, if (isVoiceOn) AetherCyan else CardBorder, RoundedCornerShape(6.dp))
+                                .clickable { viewModel.toggleSpellVoice(spell) }
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(
+                                    imageVector = if (isVoiceOn) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                                    contentDescription = null,
+                                    tint = if (isVoiceOn) AetherCyan else TextMuted,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = if (isVoiceOn) "CHANT: ON" else "CHANT: OFF",
+                                    color = if (isVoiceOn) AetherCyan else TextMuted,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                     }
 
@@ -427,16 +457,42 @@ private fun GrimoireLibraryTab(
                         )
                     }
 
-                    // Quick Cast Action Button
-                    Button(
-                        onClick = { viewModel.castSpell(spell, speakIncantation = true) },
+                    // Dual Quick Cast Actions: Silent (Runes+SFX) vs Vocal (Chant Liturgy)
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RunicGold, contentColor = SpaceBlack)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Bolt, contentDescription = null, tint = SpaceBlack, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("QUICK CAST ON STAFF", fontWeight = FontWeight.Bold, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        // Silent Cast Button (Stealth / Pure Visual & SFX vibe)
+                        OutlinedButton(
+                            onClick = { viewModel.castSpell(spell, speakIncantation = false) },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, if (!isVoiceOn) AetherCyan else CardBorder),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = if (!isVoiceOn) Color(0x2200E5FF) else DeepVoid,
+                                contentColor = if (!isVoiceOn) AetherCyan else TextSecondary
+                            )
+                        ) {
+                            Icon(Icons.Default.VolumeOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("⚡ SILENT", fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        }
+
+                        // Vocal Chant Cast Button (Full Machine-God Liturgy vibe)
+                        Button(
+                            onClick = { viewModel.castSpell(spell, speakIncantation = true) },
+                            modifier = Modifier.weight(1.2f),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isVoiceOn) RunicGold else CardSurface,
+                                contentColor = if (isVoiceOn) SpaceBlack else TextPrimary
+                            ),
+                            border = if (!isVoiceOn) BorderStroke(1.dp, RunicGold) else null
+                        ) {
+                            Icon(Icons.Default.VolumeUp, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("⚡ CHANT CAST", fontWeight = FontWeight.Bold, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        }
                     }
                 }
             }
@@ -853,10 +909,11 @@ private fun SpellForgeTab(
                             description = "${selectedAnim.title} • ${soundSlots.size} SFX",
                             chantText = chantText,
                             oledText = oledText.ifBlank { "[SPELL] $spellName" },
-                            isCustom = true
+                            isCustom = true,
+                            voiceEnabled = speakIncantation
                         )
                         viewModel.castSpell(finalSpell, speakIncantation = speakIncantation)
-                        successBanner = "✨ Cast «$spellName» directly to staff!"
+                        successBanner = if (speakIncantation) "✨ Cast «$spellName» (Vocal Chant) directly to staff!" else "⚡ Cast «$spellName» (Silent Runes) directly to staff!"
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -864,9 +921,14 @@ private fun SpellForgeTab(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = RunicGold, contentColor = SpaceBlack)
                 ) {
-                    Icon(Icons.Default.Bolt, contentDescription = null, tint = SpaceBlack, modifier = Modifier.size(20.dp))
+                    Icon(if (speakIncantation) Icons.Default.VolumeUp else Icons.Default.Bolt, contentDescription = null, tint = SpaceBlack, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("⚡ TEST CAST ON STAFF", fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                    Text(
+                        if (speakIncantation) "⚡🔊 TEST CHANT CAST" else "⚡ TEST SILENT CAST",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
                 }
 
                 // Save to Grimoire Button
@@ -880,9 +942,11 @@ private fun SpellForgeTab(
                             description = "${selectedAnim.title} • ${soundSlots.size} SFX",
                             chantText = chantText,
                             oledText = oledText.ifBlank { "[SPELL] $spellName" },
-                            isCustom = true
+                            isCustom = true,
+                            voiceEnabled = speakIncantation
                         )
                         viewModel.saveCustomSpell(finalSpell)
+                        viewModel.setSpellVoiceEnabled(finalSpell.name, speakIncantation)
                         successBanner = "💾 «$spellName» inscribed into Grimoire!"
                         onSpellSaved()
                     },
