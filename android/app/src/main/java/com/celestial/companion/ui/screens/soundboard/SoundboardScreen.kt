@@ -83,7 +83,7 @@ fun SoundboardScreen(
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
-                    text = "750ms spacing",
+                    text = "400ms combo",
                     color = TextMuted,
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace

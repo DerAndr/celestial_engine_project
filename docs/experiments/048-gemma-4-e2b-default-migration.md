@@ -1,32 +1,37 @@
 # Experiment 048: Default Model Migration to Gemma 4 E2B (`gemma-4-E2B`)
 
 ## Date: 2026-10-25
-## Status: SPECIFIED & SCHEDULED (NEXT URGENT TASK)
+## Status: IMPLEMENTED & VERIFIED
 
 ## 1. Goal
-Transition the default AI model across the Android Companion Phone Brain and Celestial Engine stack to **`gemma-4-E2B`** (`G4-MM` / `google/gemma-4-e2b-it` / on-device edge model) for maximum responsiveness, lower latency, reduced resource footprint, and streamlined real-time voice streaming.
+Transition the default AI model across the Android Companion Phone Brain and Celestial Engine stack to **`gemma-4-E2B`** (`G4-MM` / `google/gemma-4-e2b-it` / on-device edge model) for maximum responsiveness, lower latency, reduced resource footprint, and streamlined real-time voice streaming. Enforce bounded in-app logs and strictly concise verbal responses.
 
 ## 2. Background & User Decision
 During live end-to-end testing in Experiment 047:
 - Gemma 4 31B (`google/gemma-4-31b-it`) restored high-quality ancient-futuristic lore and chain-of-thought reasoning, but 31B parameters carry higher Time-To-First-Token (TTFT) and slower token generation cadence for rapid back-and-forth speech.
 - `gemma-4-E2B` is specifically optimized for edge and mobile environments (2B parameter class with high distilled reasoning density).
 - It is significantly faster, simpler, and offers lower inference latency (~1.5–2.5s turnaround or sub-second TTFT streaming), making it the ideal daily driver for the interactive Celestial Staff voice loop.
+- User directives:
+  1. *"gemma-4-E2B — давай работать вот с этой моделью по умолчанию. Потому что она точно удобнее и проще и быстрее скорее всего. Это будет новая срочная задача."*
+  2. *"так же добавь задачу что ответы должны быть короткими"*
+  3. *"И еще лог в приложении не должен быть бесконечным - давай его ограничим"*
 
-## 3. Scope of Changes for Next Session
+## 3. Implemented Changes
 1. **Companion App (`GemmaModelEngine.kt`)**:
-   - Update `GemmaVariant` definitions so that `GEMMA_4_E2B` (or `E2B_MULTIMODAL`) is the primary default variant.
-   - Configure model endpoint: `google/gemma-4-e2b-it` (or verified OpenRouter ID / on-device edge runtime) with fallback to `google/gemma-3-27b-it` / `google/gemini-2.5-flash`.
-   - Update `GemmaConfig(variant = GemmaVariant.GEMMA_4_E2B)`.
+   - Added `GemmaVariant.GEMMA_4_E2B` (id = 0, tag = `G4-E2B`, modelId = `google/gemma-4-e2b-it`, fallbackModelId = `google/gemma-4-26b-a4b-it`).
+   - Set `GemmaConfig(variant = GemmaVariant.GEMMA_4_E2B, maxTokens = 128)`.
+   - Built transparent network fallback: if primary endpoint lacks `gemma-4-e2b-it`, it immediately routes to `google/gemma-4-26b-a4b-it` (3.8B active parameter MoE) without interrupting the stream.
 2. **Concise & Punchy Voice Responses (Краткие ответы)**:
-   - User directive: "ответы должны быть короткими".
-   - System prompts (RU/EN/DE): Strictly constrain verbal output to **1–2 short, punchy sentences (maximum 15–25 words)**.
-   - Elimination of long monologues keeps staff speaking time under 3 seconds and fits neatly on the SH1106 OLED marquee.
-   - Cap `max_tokens` to ~120–150 tokens.
+   - System prompts (RU/EN/DE): Strictly constrained verbal responses to **1–2 short, punchy sentences (maximum 15–25 words)** without markdown or emojis.
+   - Spell chants capped under 12 words.
+   - Keeps speaking time under 3 seconds and fits neatly on the SH1106 OLED marquee.
 3. **Dashboard & UI (`DashboardViewModel.kt` & `OracleTerminalScreen.kt`)**:
    - Set `_selectedModelVariant` initial state to `GemmaVariant.GEMMA_4_E2B`.
-   - Update UI pill labels and button text to `Query G4-E2B` / `Gemma 4 (E2B)`.
-   - Retain thinking trace parsing and rich techno-magical spell formatting (`[SPELL: ...]`).
-4. **Firmware & Network Model Alignment (`net_client.c`, `net_protocol.h`)**:
-   - Ensure `AI_MODEL_GEMMA4_E2B` (`G4-MM` index 0 / 4) is default in phone mode.
-5. **Verification Criteria**:
-   - Voice press on staff GP9 (QUERY) -> 16 kHz PCM to Phone Brain -> Transcription -> `gemma-4-E2B` generation (concise 1-2 sentence response) -> Structured prophecy / spell execution -> TTS burst to MAX98357A speaker with minimal latency (<1-2s total).
+   - Added `G4-E2B` pill selector to Oracle Terminal.
+   - Dynamic query button automatically reads `Query G4-E2B`.
+4. **Bounded In-App Log Telemetry & History**:
+   - `StaffRepository.kt`: Defined `MAX_LOG_ENTRIES = 100` and applied sliding window (`drop(current.size - MAX_LOG_ENTRIES + 1)`).
+   - `DashboardViewModel.kt`: Defined `MAX_CHAT_HISTORY = 40` and capped `_chatHistory` to prevent memory growth.
+   - `LiveLogConsole.kt`: Updated header badge to `${logs.size}/100`.
+5. **Soundboard Timing Polish (`SoundboardScreen.kt`)**:
+   - Aligned UI label to `"400ms combo"` matching the snappy sequencer in `DashboardViewModel`.

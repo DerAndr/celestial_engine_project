@@ -40,17 +40,21 @@ class StaffRepository(
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val ttsSynthesizer = context?.let { com.celestial.companion.audio.StaffTtsSynthesizer(it) }
 
+    companion object {
+        const val MAX_LOG_ENTRIES = 100
+    }
+
     private val timeFormatter = java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.getDefault())
     private val _liveLogs = MutableStateFlow<List<LiveLogMessage>>(emptyList())
     val liveLogs: StateFlow<List<LiveLogMessage>> = _liveLogs.asStateFlow()
 
     fun log(tag: String, message: String, level: LogLevel = LogLevel.INFO) {
         when (level) {
-            LogLevel.DEBUG -> Log.d(tag, message)
-            LogLevel.INFO -> Log.i(tag, message)
-            LogLevel.WARN -> Log.w(tag, message)
-            LogLevel.ERROR -> Log.e(tag, message)
-            LogLevel.SUCCESS -> Log.i(tag, message)
+            LogLevel.DEBUG -> Log.d(TAG, "[$tag] $message")
+            LogLevel.INFO -> Log.i(TAG, "[$tag] $message")
+            LogLevel.WARN -> Log.w(TAG, "[$tag] $message")
+            LogLevel.ERROR -> Log.e(TAG, "[$tag] $message")
+            LogLevel.SUCCESS -> Log.i(TAG, "[$tag] $message")
         }
         val entry = LiveLogMessage(
             timestamp = timeFormatter.format(java.util.Date()),
@@ -59,7 +63,12 @@ class StaffRepository(
             level = level
         )
         val current = _liveLogs.value
-        _liveLogs.value = (if (current.size >= 250) current.drop(current.size - 249) else current) + entry
+        val trimmed = if (current.size >= MAX_LOG_ENTRIES) {
+            current.drop(current.size - MAX_LOG_ENTRIES + 1)
+        } else {
+            current
+        }
+        _liveLogs.value = trimmed + entry
     }
 
     fun clearLogs() {

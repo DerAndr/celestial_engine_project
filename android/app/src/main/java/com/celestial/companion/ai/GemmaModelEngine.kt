@@ -40,8 +40,18 @@ enum class GemmaVariant(
     val modelId: String = "google/gemma-4-31b-it",
     val fallbackModelId: String = "google/gemini-2.5-flash"
 ) {
-    GEMMA_4_31B(
+    GEMMA_4_E2B(
         0,
+        "Gemma 4 (E2B) Edge",
+        "G4-E2B",
+        "Google Gemma 4 E2B edge-optimized fast reasoning core",
+        isMultimodal = true,
+        hasThinkingMode = true,
+        modelId = "google/gemma-4-e2b-it",
+        fallbackModelId = "google/gemma-4-26b-a4b-it"
+    ),
+    GEMMA_4_31B(
+        1,
         "Gemma 4 (31B) Multimodal",
         "G4-31B",
         "Google Gemma 4 31B instruction-tuned multimodal vision & reasoning core",
@@ -51,7 +61,7 @@ enum class GemmaVariant(
         fallbackModelId = "google/gemini-2.5-flash"
     ),
     GEMMA_4_26B(
-        1,
+        2,
         "Gemma 4 Think (26B A4B)",
         "G4-26B",
         "Google Gemma 4 26B Mixture-of-Experts with native CoT reasoning",
@@ -61,7 +71,7 @@ enum class GemmaVariant(
         fallbackModelId = "google/gemini-2.5-flash"
     ),
     GEMMA_3_27B(
-        2,
+        3,
         "Gemma 3 27B Vision",
         "G3-27B",
         "Google Gemma 3 27B multimodal instruction tuned model",
@@ -71,7 +81,7 @@ enum class GemmaVariant(
         fallbackModelId = "google/gemini-2.5-flash"
     ),
     GEMINI_FLASH(
-        3,
+        4,
         "Gemini 2.5 Flash",
         "G2.5-FL",
         "Ultra-fast high-concurrency Gemini multimodal vision core",
@@ -81,7 +91,7 @@ enum class GemmaVariant(
         fallbackModelId = "google/gemma-3-27b-it"
     ),
     PI5_OFFLOAD(
-        4,
+        5,
         "Pi 5 Local Core",
         "PI5",
         "Offload to Wearable Raspberry Pi 5 NVMe server over local Wi-Fi",
@@ -92,18 +102,18 @@ enum class GemmaVariant(
     );
 
     companion object {
-        val E2B_MULTIMODAL = GEMMA_4_31B
+        val E2B_MULTIMODAL = GEMMA_4_E2B
         val E4B_THINKING = GEMMA_4_26B
         val FLASH_NANO = GEMMA_3_27B
     }
 }
 
 data class GemmaConfig(
-    val variant: GemmaVariant = GemmaVariant.GEMMA_4_31B,
+    val variant: GemmaVariant = GemmaVariant.GEMMA_4_E2B,
     val enableThinking: Boolean = true,
     val language: StaffLanguage = StaffLanguage.ENGLISH,
     val temperature: Float = 0.7f,
-    val maxTokens: Int = 512,
+    val maxTokens: Int = 128,
     val apiKey: String = "",
     val apiBase: String = "https://openrouter.ai/api/v1",
     val systemPrompt: String = "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic intelligence ('DON'T PANIC')."
@@ -355,22 +365,22 @@ CRITICAL INTENT RULES:
    - You MUST give the spell an epic or funny ENGLISH name (e.g., Quantum Quack, Plasma Storm, Droid Hysteria, Gravitational Sneeze, Astral Rift, Singularity Burp).
    - You MUST start your response with the tag: [SPELL: <English Name> | ANIM: <SNAKE|VORTEX|PULSAR|PLASMA|RAINBOW|STARS|GALAXY|HALLOWEEN> | SOUNDS: <SFX1>, <SFX2>, <SFX3>]
    - Available sounds to combine (pick 2-4 funny or bizarre sounds): WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC.
-   - VOCALIZATION RULE: Do NOT explain or describe the spell in ordinary plain words. Instead, immediately chant a funny, rhythmic techno-arcane incantation in "abracadabra" / pseudo-Latin style with bizarre phonetic magic words (e.g. "Abracadabra quantus vortex, chronos barada nikto, zzzz-wub-wub cosmicus!"). Keep the chant under 20 words.
+   - VOCALIZATION RULE: Do NOT explain or describe the spell in ordinary plain words. Instead, immediately chant a funny, rhythmic techno-arcane incantation in "abracadabra" / pseudo-Latin style with bizarre phonetic magic words (e.g. "Abracadabra quantus vortex, chronos barada nikto, zzzz-wub-wub cosmicus!"). Keep the chant ultra-short under 12 words.
 2. CONVERSATIONAL INTENT: If the user is just having a normal conversation, asking questions, requesting lore, time, weather, diagnostics, or status (e.g. "как дела", "который час", "расскажи про космос", "что это за планета", "кто ты"):
    - Do NOT output any [SPELL: ...] tag!
-   - Speak naturally and conversationally as the Celestial Oracle in 2-4 sentences without emojis or markdown.
+   - Speak naturally and conversationally as the Celestial Oracle strictly in 1-2 short, punchy sentences (maximum 15-25 words) without emojis or markdown. Never give long-winded monologues!
 """.trimIndent()
 
         val shouldThink = config.enableThinking
         val sysPrompt = (when (config.language) {
             StaffLanguage.GERMAN ->
-                "Du bist das Celestial Oracle der Celestial Engine Mk.V, eine uralt-futuristische kosmische Intelligenz ('KEINE PANIK'). Antworte direkt, tiefgründig und messerscharf auf Deutsch ohne Markdown oder Emojis. " +
+                "Du bist das Celestial Oracle der Celestial Engine Mk.V, eine uralt-futuristische kosmische Intelligenz ('KEINE PANIK'). Antworte messerscharf und prägnant. STRENGE REGEL: Antworte in 1–2 kurzen, treffenden Sätzen (maximal 15–25 Wörter) ohne Markdown oder Emojis. Keine langen Monologe! " +
                 (if (shouldThink) "Platziere deine analytischen Überlegungen in <thought>...</thought> vor deiner Antwort." else "")
             StaffLanguage.RUSSIAN ->
-                "Ты — Небесный Оракул Celestial Engine Mk.V, древне-футуристический космический интеллект («НЕ ПАНИКУЙ»). Отвечай прямо, мудро, с легкой космической иронией на русском языке строго без markdown и смайликов. " +
+                "Ты — Небесный Оракул Celestial Engine Mk.V, древне-футуристический космический интеллект («НЕ ПАНИКУЙ»). Отвечай прямо, мудро, с легкой космической иронией. СТРОГОЕ ПРАВИЛО: Ответ должен состоять из 1–2 коротких, ёмких предложений (максимум 15–25 слов) строго без markdown и смайликов. Никаких пространных монологов! " +
                 (if (shouldThink) "Помести краткие мысли и анализ в <thought>...</thought> перед ответом." else "")
             else ->
-                "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic cosmic intelligence ('DON'T PANIC'). Respond with razor-sharp observations and witty cosmic wisdom in 2-4 sentences without emojis or markdown. " +
+                "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic cosmic intelligence ('DON'T PANIC'). STRIKE RULE: Respond in 1-2 short, razor-sharp sentences (maximum 15-25 words) without emojis or markdown. Never give long-winded monologues! " +
                 (if (shouldThink) "Provide brief observations inside <thought>...</thought> tags before your response." else "")
         }) + " " + spellTagInstruction
 
@@ -433,30 +443,45 @@ CRITICAL INTENT RULES:
         }
 
             val endpoint = config.apiBase.trimEnd('/') + "/chat/completions"
-            val url = URL(endpoint)
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = 30000
-                readTimeout = 60000
-                doOutput = true
-                doInput = true
-                setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                setRequestProperty("Authorization", "Bearer ${config.apiKey.trim()}")
-                setRequestProperty("Accept", "text/event-stream")
-                setRequestProperty("Connection", "keep-alive")
-                setRequestProperty("User-Agent", "CelestialEngineMk5-Companion/1.1")
-            }
+            var activeModelId = effectiveModelId
 
-            try {
-                conn.outputStream.use { os ->
+            fun createAndSend(modelId: String): HttpURLConnection {
+                requestJson.put("model", modelId)
+                val c = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 30000
+                    readTimeout = 60000
+                    doOutput = true
+                    doInput = true
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    setRequestProperty("Authorization", "Bearer ${config.apiKey.trim()}")
+                    setRequestProperty("Accept", "text/event-stream")
+                    setRequestProperty("Connection", "keep-alive")
+                    setRequestProperty("User-Agent", "CelestialEngineMk5-Companion/1.1")
+                }
+                c.outputStream.use { os ->
                     os.write(requestJson.toString().toByteArray(Charsets.UTF_8))
                     os.flush()
                 }
+                return c
+            }
 
-                val responseCode = conn.responseCode
+            var conn = createAndSend(activeModelId)
+            var responseCode = conn.responseCode
+
+            if (responseCode !in 200..299 && activeModelId != config.variant.fallbackModelId) {
+                val rawErr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                Log.w(TAG, "Primary model $activeModelId returned HTTP $responseCode ($rawErr). Falling back to ${config.variant.fallbackModelId}...")
+                conn.disconnect()
+                activeModelId = config.variant.fallbackModelId
+                conn = createAndSend(activeModelId)
+                responseCode = conn.responseCode
+            }
+
+            try {
                 if (responseCode !in 200..299) {
                     val rawErr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
-                    Log.e(TAG, "OpenRouter returned HTTP $responseCode for ${config.variant.modelId}: $rawErr")
+                    Log.e(TAG, "OpenRouter returned HTTP $responseCode for $activeModelId: $rawErr")
                     val parsedMsg = try {
                         val json = JSONObject(rawErr)
                         json.optJSONObject("error")?.optString("message") ?: rawErr

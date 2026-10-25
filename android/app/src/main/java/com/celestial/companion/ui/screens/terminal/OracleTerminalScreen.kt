@@ -564,9 +564,10 @@ fun OracleTerminalScreen(
                 // Interactive Model Selector Pills
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     listOf(
+                        GemmaVariant.GEMMA_4_E2B,
                         GemmaVariant.GEMMA_4_31B,
                         GemmaVariant.GEMMA_4_26B,
                         GemmaVariant.GEMMA_3_27B,

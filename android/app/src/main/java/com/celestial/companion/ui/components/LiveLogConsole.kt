@@ -120,7 +120,7 @@ fun LiveLogConsole(
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "${logs.size}",
+                            text = "${logs.size}/100",
                             color = AetherCyan,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,

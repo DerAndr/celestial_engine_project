@@ -38,7 +38,10 @@ class DashboardViewModel(
     val gemmaEngine: GemmaModelEngine? = repository.gemmaEngine
 ) : ViewModel() {
 
-    private val TAG = "DashboardViewModel"
+    companion object {
+        private const val TAG = "DashboardViewModel"
+        const val MAX_CHAT_HISTORY = 40
+    }
 
     val telemetry: StateFlow<StaffTelemetry> = repository.telemetry
     val phoneBrainActive: StateFlow<Boolean> = repository.phoneBrainActive
@@ -48,7 +51,7 @@ class DashboardViewModel(
     private val _currentLanguage = MutableStateFlow(StaffLanguage.ENGLISH)
     val currentLanguage: StateFlow<StaffLanguage> = _currentLanguage.asStateFlow()
 
-    private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMMA_4_31B)
+    private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMMA_4_E2B)
     val selectedModelVariant: StateFlow<GemmaVariant> = _selectedModelVariant.asStateFlow()
 
     // Real-Time Processing Monitoring State
@@ -254,7 +257,12 @@ class DashboardViewModel(
             isStreaming = true,
             modalityUsed = modality
         )
-        _chatHistory.value = _chatHistory.value + userMsg + placeholderAssistantMsg
+        val updatedHistory = _chatHistory.value + userMsg + placeholderAssistantMsg
+        _chatHistory.value = if (updatedHistory.size > MAX_CHAT_HISTORY) {
+            updatedHistory.takeLast(MAX_CHAT_HISTORY)
+        } else {
+            updatedHistory
+        }
 
         val t0 = System.currentTimeMillis()
 
