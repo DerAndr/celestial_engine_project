@@ -237,5 +237,38 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
   - **Sound Effects**: Harp glissandos, magical girl transformation chimes, cosmic bell arpeggios, celestial wand sparkles.
   - **OLED Text**: `🌙 Moon Healing Escalation!`, glittering crescent moon & star ASCII runes.
 
+---
+
+## 6. GitHub Repository Polish & Interactive GitHub Pages Simulator (Public Showcase)
+
+> **User Request (2026-10-26):**
+> *"так же добавь к задачам в конце оформить гитхаб + сделать в тему этого репозитория гитхаб пейджес чтобы люди могли посмотреть на имитацию того что в итоге собрано."*
+
+### 6.1. GitHub Repository Polish & Presentation Showcase
+- [ ] **Hero README & Presentation Overhaul**:
+  - Add techno-arcane hero banner art, badges (RP2350 Pico 2 W, Android 15, CI build status, Python test pass).
+  - High-res photo/video gallery of the physical staff: 43 WS2812B LEDs in action, SH1106 OLED prophecies, Google Pixel 9 Pro XL Companion App.
+  - Clean architectural overview diagram (Staff Pico 2 W ↔ Wi-Fi Hotspot UDP 5005 ↔ Android Companion Brain ↔ Optional Pi 5).
+  - Comprehensive Bill of Materials (BOM) with pinout wiring diagrams and assembly guide.
+  - One-click GitHub Releases with pre-built UF2 firmware binaries (`celestial_firmware.uf2`) and Android Companion APKs (`app-debug.apk`).
+
+### 6.2. Interactive GitHub Pages Simulator (Web Digital Twin of Celestial Engine Mk.V)
+- [ ] **Themed Web Application hosted on GitHub Pages (`gh-pages` / `docs/`)**:
+  - **Aesthetics & Theme**: 100% immersive celestial cyberpunk design system (`DeepVoid #0B0E14`, `AetherCyan #00E5FF`, `RunicGold #FFD700`, `NebulaPurple #7C4DFF`, sleek glassmorphism, glowing neons).
+  - **Interactive 43-LED Staff Head Simulation**:
+    - Canvas / WebGL rendering of the exact physical concentric topology (Center: 1, Inner: 6, Middle: 12, Outer: 24 LEDs).
+    - Realistic optical bloom, persistence of vision, and full support for all 21 lighting animations (Solar Plasma, Galaxy Vortex, Radial Shockwave, Pulsar, Rainbow Wave, eBay auction strobe, Pokéball pulse).
+  - **Virtual SH1106 OLED Display Emulator (128×64)**:
+    - Retro monochrome pixel-perfect display rendering live menus, status telemetry, and animated text marquees.
+  - **Web Audio API Chiptune & Sound Engine**:
+    - Synthesizes 8-bit retro gaming chiptunes (Super Mario, Tetris, Hedwig's Theme, Pokémon Battle & Center, Sailor Moon) directly in the browser using square/triangle oscillators.
+    - Plays all 8 cosmic sound effects (SFX 0..7) and combo sequences.
+  - **Interactive Physical Controls**:
+    - Clickable momentary QUERY button with hold-to-speak simulation.
+    - Interactive Bourns PEC11R rotary encoder with rotation wheel and center-press switch to browse menus.
+  - **Virtual Companion App & Spell Forge Sandbox**:
+    - Embedded interactive companion phone UI allowing visitors to test the Grimoire, create custom spells in the Spell Forge, toggle `[ ⚡ SILENT ]` vs `[ ⚡ CHANT CAST ]`, and hear browser Web Speech API vocal chants.
+
+
 
 
