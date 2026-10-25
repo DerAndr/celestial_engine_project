@@ -1794,8 +1794,8 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
     }
 #endif
 
-    bool music_active = audio_is_chiptune_playing() || audio_is_cosmic_sfx_playing();
     int current_mode = selected_anim_idx;
+    bool music_active = audio_is_chiptune_playing() && (current_mode == LED_ANIM_RAINBOW);
     if (easter_egg_active) {
         // Hyperspeed 67 easter egg rainbow vortex!
         uint16_t fast_hue = (anim_tick * 16) % 360;
@@ -1804,7 +1804,7 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
             hsv_to_rgb(led_hue, 255, 255, &pixels_r[i], &pixels_g[i], &pixels_b[i]);
         }
     } else if (music_active) {
-        // Active chiptune and cosmic SFX synchronization across all 4 rings!
+        // Active chiptune synchronization across all 4 rings in default mode!
         render_chiptune_sync(anim_tick);
     } else {
         switch (current_mode) {

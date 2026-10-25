@@ -380,7 +380,8 @@ class StaffRepository(
         text: String,
         targetIp: String = activeStaffIp,
         skipVisualEffects: Boolean = false,
-        customReqId: Long? = null
+        customReqId: Long? = null,
+        customOledText: String? = null
     ) {
         val prophecy = CelestialProphecyParser.parse(text)
         val reqId = customReqId ?: activeQueryRequestId.takeIf { it != 0L } ?: System.currentTimeMillis()
@@ -400,8 +401,10 @@ class StaffRepository(
         }
 
         // 2. Dispatch clean display marquee text to Staff OLED (NO thoughts or raw markup)
-        val cleanOled = prophecy.displayText.ifBlank { prophecy.speechText.take(50) }
-        broadcastOledText(cleanOled, targetIp, reqId)
+        if (!skipVisualEffects || customOledText != null) {
+            val cleanOled = customOledText ?: prophecy.displayText.ifBlank { prophecy.speechText.take(50) }
+            broadcastOledText(cleanOled, targetIp, reqId)
+        }
 
         // 3. Synthesize and stream clean speech audio to staff speaker in background
         activeAudioJob?.cancel()

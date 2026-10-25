@@ -125,7 +125,8 @@ class DashboardViewModel(
                 repository.broadcastAiResponse(
                     text = spell.chantText,
                     targetIp = targetIp,
-                    skipVisualEffects = true
+                    skipVisualEffects = true,
+                    customOledText = spell.oledText.ifBlank { "[SPELL] ${spell.name}" }
                 )
             }
         } else if (spell.prompt.isNotBlank()) {

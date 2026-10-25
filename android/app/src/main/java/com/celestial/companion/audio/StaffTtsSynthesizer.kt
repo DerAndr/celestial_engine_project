@@ -49,9 +49,9 @@ class StaffTtsSynthesizer(private val context: Context) {
     }
 
     suspend fun synthesizeTo16kMonoPcm(text: String, locale: Locale = Locale.getDefault()): ByteArray? = withContext(Dispatchers.IO) {
-        val ready = withTimeoutOrNull(3000) { initDeferred.await() } ?: false
+        val ready = withTimeoutOrNull(7000) { initDeferred.await() } ?: false
         if (!ready || !isInitialized) {
-            Log.w(TAG, "TTS not ready for synthesis")
+            Log.w(TAG, "TTS not ready for synthesis (ready=$ready, isInitialized=$isInitialized)")
             return@withContext null
         }
         val engine = tts ?: return@withContext null
@@ -74,30 +74,40 @@ class StaffTtsSynthesizer(private val context: Context) {
             .trim()
         if (cleanText.isEmpty()) return@withContext null
 
-        val outputFile = File(context.cacheDir, "staff_tts_${System.currentTimeMillis()}.wav")
-        val utteranceId = "staff_tts_${System.currentTimeMillis()}"
+        val curMs = System.currentTimeMillis()
+        val outputFile = File(context.cacheDir, "staff_tts_$curMs.wav")
+        val utteranceId = "staff_tts_$curMs"
         val doneDeferred = CompletableDeferred<Boolean>()
 
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(id: String?) {}
+            override fun onStart(id: String?) {
+                Log.d(TAG, "TTS Utterance onStart: id=$id")
+            }
             override fun onDone(id: String?) {
+                Log.d(TAG, "TTS Utterance onDone: id=$id")
                 if (id == utteranceId) doneDeferred.complete(true)
             }
+            @Deprecated("Deprecated in Java")
             override fun onError(id: String?) {
+                Log.w(TAG, "TTS Utterance onError: id=$id")
+                if (id == utteranceId) doneDeferred.complete(false)
+            }
+            override fun onError(id: String?, errorCode: Int) {
+                Log.w(TAG, "TTS Utterance onError with code: id=$id, errorCode=$errorCode")
                 if (id == utteranceId) doneDeferred.complete(false)
             }
         })
 
         val synthRes = engine.synthesizeToFile(cleanText, null, outputFile, utteranceId)
         if (synthRes != TextToSpeech.SUCCESS) {
-            Log.w(TAG, "synthesizeToFile returned error: $synthRes")
+            Log.w(TAG, "synthesizeToFile returned error code: $synthRes")
             outputFile.delete()
             return@withContext null
         }
 
-        val completed = withTimeoutOrNull(6000) { doneDeferred.await() } ?: false
+        val completed = withTimeoutOrNull(7000) { doneDeferred.await() } ?: false
         if (!completed || !outputFile.exists() || outputFile.length() < 44) {
-            Log.w(TAG, "TTS synthesis timed out or output file invalid")
+            Log.w(TAG, "TTS synthesis timed out or output file invalid (completed=$completed, exists=${outputFile.exists()}, len=${outputFile.length()})")
             outputFile.delete()
             return@withContext null
         }
