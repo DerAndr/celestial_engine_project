@@ -198,3 +198,36 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 - [ ] **Mock Voice Loop End-to-End Test**:
   - CLI test tool simulating a complete staff query without physical hardware to catch regressions in CI.
 
+---
+
+## 5. Backlog & Future Themed Packs (Planned / Not for Current Session)
+
+> **User Request (2026-10-26):**
+> *"Таска на будущее - не делать сейчас - сделай как одну из визуализаций на посохе - в духе eBay для светодиодов и смешных звуков. Так же сделай темы в духе гарри поттера и pokenom И сейлор мун!"*
+
+- [ ] **1. eBay Chaos Auction Mode (Visuals + Hilarious SFX)**:
+  - **LED Animation**: 4-color bouncy eBay strobe palette (Red, Blue, Yellow, Green) racing around the 3 concentric rings in accelerating bid steps, culminating in an energetic rainbow auction flash.
+  - **Sound Effects**: Cash register "cha-ching!", rapid-fire auctioneer gavel strikes, outbid buzzer, comical cartoon "SOLD!" fanfare.
+  - **OLED Text**: Retro 80s marketplace marquee: `$$$ WINNING BID! $$$`, `BID ACCEPTED`, `OUTBID!`.
+  
+- [ ] **2. Harry Potter Arcane Pack**:
+  - **Hogwarts House Runes**: Preset 43-LED color themes for Gryffindor (scarlet & gold), Slytherin (emerald & silver), Ravenclaw (sapphire & bronze), Hufflepuff (amber & obsidian).
+  - **Signature Spells**:
+    - *Lumos Maxima*: Concentric core flare from center LED outwards to a steady radiant warm white lantern.
+    - *Expecto Patronum*: Silvery-white shimmering ethereal vortex with high-pitch chime glissando.
+    - *Avada Kedavra*: Intense emerald lightning flash across outer ring with ominous deep drone.
+    - *Expelliarmus*: Bright crimson shockwave ripple imploding inward.
+  - **Incantations & Soundscape**: Wand swooshes, mystical choral harmonics, Latin incantations spoken with dramatic cadence.
+
+- [ ] **3. Pokémon Arcane Pack**:
+  - **Pokéball Concentric Topology**: Top half of 24-LED outer ring shines crimson red, bottom half shines pure white, middle ring dark separator, center LED pulses glowing white like the capture button.
+  - **Capture Sequence Animation**: Center LED pulses 3 times (`click... click... click...`) then the entire ring blooms with yellow stars and capture fanfare.
+  - **Sound Effects**: 8-bit battle chiptunes, "Pikachu!" acoustic sample, Pokéball capture click/ding, Victory jingle, Level-up chime.
+  - **OLED Text**: Retro GameBoy 8-bit pixel font: `A wild AI appeared!`, `Pikachu used Thunderbolt!`, `Gotcha!`.
+
+- [ ] **4. Sailor Moon / Magical Girl Arcane Pack**:
+  - **Moon Prism Power Transformation Sequence**: Concentric sparkling waves of pastel pink, magenta, gold, and iridescent cyan swirling outward.
+  - **Sound Effects**: Harp glissandos, magical girl transformation chimes, cosmic bell arpeggios, celestial wand sparkles.
+  - **OLED Text**: `🌙 Moon Healing Escalation!`, glittering crescent moon & star ASCII runes.
+
+
