@@ -302,6 +302,7 @@ fun LedScreen(
     }
 }
 }
+}
 
 @Composable
 private fun TopologyChip(label: String, count: String) {
