@@ -385,7 +385,9 @@ class DashboardViewModel(
                                 if (transcribedText.isNotBlank()) {
                                     if (transcribedText.any { it in '\u0400'..'\u04FF' } && _currentLanguage.value != StaffLanguage.RUSSIAN) {
                                         _currentLanguage.value = StaffLanguage.RUSSIAN
-                                        gemmaEngine?.config = gemmaEngine?.config?.copy(language = StaffLanguage.RUSSIAN) ?: gemmaEngine?.config
+                                        gemmaEngine?.let { engine ->
+                                            engine.config = engine.config.copy(language = StaffLanguage.RUSSIAN)
+                                        }
                                     }
                                     _chatHistory.value = _chatHistory.value.map { msg ->
                                         if (msg.id == userMsgId) msg.copy(text = "🎤 \"$transcribedText\"") else msg
