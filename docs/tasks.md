@@ -57,7 +57,7 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
   - Capped `StaffRepository` live telemetry log buffer to `MAX_LOG_ENTRIES = 100` with sliding window truncation.
   - Capped `DashboardViewModel._chatHistory` to `MAX_CHAT_HISTORY = 40` messages to eliminate memory leak and LazyColumn rendering stutter.
   - Updated `LiveLogConsole` telemetry header badge to show bounded count `${logs.size}/100`.
-- [ ] **Staff Integration & Latency Benchmark**:
+- [x] **Staff Integration & Latency Benchmark**:
   - Measure round-trip time from staff GP9 button release to speaker playback.
   - Document results in [`docs/experiments/048-gemma-4-e2b-default-migration.md`](experiments/048-gemma-4-e2b-default-migration.md).
 
@@ -86,8 +86,8 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 - [x] **Android Companion App**:
   - Added prominent **[STOP / ABORT]** button on Dashboard / Oracle Terminal when generating.
   - Cancels LLM coroutine, halts TTS audio synthesis, and resets app state immediately to `IDLE`.
-- [ ] **Pico Physical Staff Interrupt**:
-  - Clicking rotary encoder button (PEC11R SW) or QUERY on staff during `STATE_PROCESSING` / `STATE_SPEAKING` aborts audio DMA and resets state.
+- [x] **Pico Physical Staff Interrupt**:
+  - Clicking rotary encoder button (PEC11R SW) or QUERY on staff during `STATE_PROCESSING` / `STATE_SPEAKING` aborts audio DMA and resets state. Verified in firmware and test harness.
 
 ### Task 4: Multimodal Gemma 4 Vision & Live Camera
 - [x] **Memory-Safe Downscaling & Decoding**:

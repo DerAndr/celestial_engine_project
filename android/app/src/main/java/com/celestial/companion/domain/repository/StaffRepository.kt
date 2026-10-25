@@ -186,6 +186,26 @@ class StaffRepository(
                     if (activeStaffIp.isNotEmpty() && activeStaffIp != "255.255.255.255") {
                         transport.sendPacket(activeStaffIp, ProtocolConstants.DEFAULT_PORT, ping)
                     }
+
+                    // Dynamically probe default DHCP candidate (.64) on active tethering/local subnets
+                    try {
+                        val ifaces = java.net.NetworkInterface.getNetworkInterfaces()?.toList() ?: emptyList()
+                        for (iface in ifaces) {
+                            if (!iface.isUp || iface.isLoopback) continue
+                            for (ia in iface.interfaceAddresses) {
+                                val addr = ia.address
+                                if (addr is java.net.Inet4Address && !addr.isLoopbackAddress) {
+                                    val parts = addr.hostAddress?.split(".")
+                                    if (parts != null && parts.size == 4) {
+                                        val candidate = "${parts[0]}.${parts[1]}.${parts[2]}.64"
+                                        if (candidate != activeStaffIp) {
+                                            transport.sendPacket(candidate, ProtocolConstants.DEFAULT_PORT, ping)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
                 }
                 delay(1500)
             }

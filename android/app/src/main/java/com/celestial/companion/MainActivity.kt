@@ -34,6 +34,20 @@ class MainActivity : ComponentActivity() {
         val app = application as CelestialApp
         val repository = app.staffRepository
 
+        val permissions = mutableListOf(
+            android.Manifest.permission.CAMERA,
+            android.Manifest.permission.RECORD_AUDIO
+        )
+        if (android.os.Build.VERSION.SDK_INT >= 35) {
+            permissions.add("android.permission.ACCESS_LOCAL_NETWORK")
+        }
+        val needed = permissions.filter {
+            checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (needed.isNotEmpty()) {
+            requestPermissions(needed.toTypedArray(), 1001)
+        }
+
         setContent {
             val viewModel: DashboardViewModel = viewModel {
                 DashboardViewModel(repository, app.gemmaEngine)

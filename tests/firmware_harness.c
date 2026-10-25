@@ -40,8 +40,10 @@ uint8_t net_client_get_model_id(uint8_t idx) { return idx; }
 bool net_client_request_catalog(void) { return true; }
 bool net_client_poll_remote_command(remote_cmd_t *cmd) { if (cmd) cmd->has_command = false; return false; }
 void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style,
-                               uint8_t lang, uint8_t host_type, uint8_t pref_host) {
+                               uint8_t lang, uint8_t host_type, uint8_t pref_host,
+                               uint8_t ai_model, uint8_t mic_level, uint8_t cosmos_zoom, uint8_t is_audio_playing) {
     (void)mode; (void)state; (void)volume; (void)anim; (void)clock_style; (void)lang; (void)host_type; (void)pref_host;
+    (void)ai_model; (void)mic_level; (void)cosmos_zoom; (void)is_audio_playing;
 }
 bool net_client_has_paired_companion(void) { return false; }
 bool net_client_has_unsolicited_text(void) { return false; }
@@ -50,6 +52,7 @@ bool net_client_send_query_start(uint8_t l, uint8_t m) { (void)l; (void)m; retur
 bool net_client_send_audio_chunk(const int16_t *s, size_t c) { (void)s; (void)c; return true; }
 bool net_client_send_query_end(void) { return true; }
 void net_client_cancel(void) {}
+bool net_client_check_and_clear_cancel(void) { return false; }
 bool net_client_is_receiving_response(void) { return false; }
 bool net_client_has_response_ready(void) { return false; }
 void net_client_consume_response(void) {}
