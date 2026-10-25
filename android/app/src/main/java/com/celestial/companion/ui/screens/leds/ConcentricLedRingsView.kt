@@ -554,6 +554,145 @@ private fun computeLedColors(
             arr[o2] = rgb(0, 230, 118)
             arr[o3] = rgb(255, 0, 127)
         }
+
+        LedAnimation.SPIRAL_SNAKE -> { // 18. Ouroboros Snake
+            val ouroborosPath = intArrayOf(
+                19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+                7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+                1, 2, 3, 4, 5, 6,
+                0,
+                6, 5, 4, 3, 2, 1,
+                18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7
+            )
+            for (i in 0 until 43) arr[i] = rgb(2, 4, 14)
+            val pathLen = ouroborosPath.size
+            val snakeLen = 12
+            val headPos = (tick % pathLen).toInt()
+
+            for (seg in snakeLen - 1 downTo 0) {
+                val pIdx = (headPos - seg + pathLen) % pathLen
+                val ledIdx = ouroborosPath[pIdx]
+                if (seg == 0) {
+                    arr[ledIdx] = rgb(255, 245, 200)
+                    if (ledIdx == 0) {
+                        for (c in 1..6) arr[c] = rgb(240, 160, 40)
+                    }
+                } else {
+                    val fade = 1.0f - (seg.toFloat() / snakeLen.toFloat())
+                    val hue = ((tick * 5 + seg * 20) % 360).toFloat()
+                    arr[ledIdx] = Color.hsv(hue, 0.9f, (fade * brightnessFactor).coerceIn(0f, 1f))
+                }
+            }
+        }
+
+        LedAnimation.RADIAL_WAVE -> { // 19. Radial Shockwave
+            val t = tick * 0.15f
+            val ringR = floatArrayOf(0.0f, 1.0f, 2.0f, 3.2f)
+            for (i in 0 until 43) arr[i] = rgb(3, 6, 18)
+
+            for (layer in 0..3) {
+                val r = ringR[layer]
+                var waveVal = 0.0f
+                for (p in 0..1) {
+                    val waveFront = (t + p * 2.2f) % 4.4f
+                    val dist = abs(r - waveFront)
+                    if (dist < 0.75f) {
+                        val amp = 0.5f + 0.5f * cos(dist * PI.toFloat() / 0.75f)
+                        val damping = 1.0f / (1.0f + 0.35f * r)
+                        waveVal += amp * damping
+                    }
+                }
+                if (waveVal > 1.0f) waveVal = 1.0f
+
+                if (waveVal > 0.02f) {
+                    val wr = (waveVal * (if (layer == 0) 255f else 40f)).toInt()
+                    val wg = (waveVal * (if (layer <= 1) 240f else 160f)).toInt()
+                    val wb = (waveVal * 255f).toInt()
+                    val c = rgb(wr, wg, wb)
+                    when (layer) {
+                        0 -> arr[0] = c
+                        1 -> for (i in 1..6) arr[i] = c
+                        2 -> for (i in 7..18) arr[i] = c
+                        3 -> for (i in 19..42) arr[i] = c
+                    }
+                }
+            }
+        }
+
+        LedAnimation.COLLIDING_WAVES -> { // 20. Colliding Waves
+            val thetaCw = (tick * 5f) % 360f
+            val thetaCcw = (360f - thetaCw) % 360f
+
+            val distNode0 = min(thetaCw, 360f - thetaCw)
+            val distNode180 = abs(thetaCw - 180f)
+            val minCollisionDist = min(distNode0, distNode180)
+
+            var flashFactor = 0f
+            if (minCollisionDist < 18f) {
+                val f = 1f - (minCollisionDist / 18f)
+                flashFactor = f * f
+            }
+
+            for (i in 0 until 43) arr[i] = rgb(2, 4, 12)
+            if (flashFactor > 0.05f) {
+                arr[0] = rgb((255f * flashFactor).toInt(), (255f * flashFactor).toInt(), (255f * flashFactor).toInt())
+            }
+
+            // Ring 0 (1..6)
+            for (i in 1..6) {
+                val angle = (i - 1) * 60f
+                var dCw = abs(angle - thetaCw); if (dCw > 180f) dCw = 360f - dCw
+                var dCcw = abs(angle - thetaCcw); if (dCcw > 180f) dCcw = 360f - dCcw
+                val ampCw = if (dCw < 45f) (1f - dCw / 45f) else 0f
+                val ampCcw = if (dCcw < 45f) (1f - dCcw / 45f) else 0f
+                var r = (ampCcw * 255f).toInt()
+                var g = (ampCw * 200f).toInt()
+                var b = (ampCw * 255f + ampCcw * 120f).toInt()
+                if (flashFactor > 0f && (i == 1 || i == 4)) {
+                    val fl = (255f * flashFactor).toInt()
+                    r = min(255, r + fl); g = min(255, g + fl); b = min(255, b + fl)
+                }
+                arr[i] = rgb(r, g, b)
+            }
+
+            // Ring 1 (7..18)
+            for (i in 7..18) {
+                val angle = (i - 7) * 30f
+                var dCw = abs(angle - thetaCw); if (dCw > 180f) dCw = 360f - dCw
+                var dCcw = abs(angle - thetaCcw); if (dCcw > 180f) dCcw = 360f - dCcw
+                val ampCw = if (dCw < 40f) (1f - dCw / 40f) else 0f
+                val ampCcw = if (dCcw < 40f) (1f - dCcw / 40f) else 0f
+                var r = (ampCcw * 255f).toInt()
+                var g = (ampCw * 220f).toInt()
+                var b = (ampCw * 255f + ampCcw * 80f).toInt()
+                if (flashFactor > 0f && (i == 7 || i == 13)) {
+                    val fl = (255f * flashFactor).toInt()
+                    r = min(255, r + fl); g = min(255, g + fl); b = min(255, b + fl)
+                }
+                arr[i] = rgb(r, g, b)
+            }
+
+            // Ring 2 (19..42)
+            for (i in 19..42) {
+                val angle = (i - 19) * 15f
+                var dCw = abs(angle - thetaCw); if (dCw > 180f) dCw = 360f - dCw
+                var dCcw = abs(angle - thetaCcw); if (dCcw > 180f) dCcw = 360f - dCcw
+                val ampCw = if (dCw < 30f) (1f - dCw / 30f) else 0f
+                val ampCcw = if (dCcw < 30f) (1f - dCcw / 30f) else 0f
+                var r = (ampCcw * 255f).toInt()
+                var g = (ampCw * 210f).toInt()
+                var b = (ampCw * 255f + ampCcw * 100f).toInt()
+                if (flashFactor > 0f) {
+                    var nodeDist = min(abs(angle), abs(angle - 180f))
+                    if (nodeDist > 180f) nodeDist = 360f - nodeDist
+                    if (nodeDist < 20f) {
+                        val fl = (flashFactor * (1f - nodeDist / 20f) * 255f).toInt()
+                        r = min(255, r + fl); g = min(255, g + fl); b = min(255, b + fl)
+                    }
+                }
+                arr[i] = rgb(r, g, b)
+            }
+        }
     }
 
     return arr

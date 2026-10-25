@@ -38,6 +38,9 @@ class MainActivity : ComponentActivity() {
             android.Manifest.permission.CAMERA,
             android.Manifest.permission.RECORD_AUDIO
         )
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            permissions.add(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
         if (android.os.Build.VERSION.SDK_INT >= 35) {
             permissions.add("android.permission.ACCESS_LOCAL_NETWORK")
         }
@@ -47,6 +50,9 @@ class MainActivity : ComponentActivity() {
         if (needed.isNotEmpty()) {
             requestPermissions(needed.toTypedArray(), 1001)
         }
+
+        // Start Foreground Service to keep Brain and UDP active when screen is off/locked
+        com.celestial.companion.service.StaffBrainService.start(this)
 
         setContent {
             val viewModel: DashboardViewModel = viewModel {

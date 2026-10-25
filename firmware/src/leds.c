@@ -65,7 +65,10 @@ static const char *ANIM_NAMES[LED_ANIM_COUNT] = {
     "CELESTIAL CLOCK",
     "AETHER HOURGLASS",
     "CHROMA PRISMATIC",
-    "CELESTIAL ORRERY"
+    "CELESTIAL ORRERY",
+    "OUROBOROS SNAKE",
+    "RADIAL WAVE",
+    "COLLIDING WAVES"
 };
 
 static inline uint32_t rgb_to_grb(uint8_t r, uint8_t g, uint8_t b) {
@@ -1510,6 +1513,242 @@ static void render_orrery(uint32_t tick) {
     }
 }
 
+// 18. Ouroboros Snake (SPELL_ANIM_SPIRAL_SNAKE):
+// 2D continuous serpent spiraling through rings (24 -> 12 -> 6 -> 0 -> 24).
+// The mythical cosmic snake winds around the outer boundary (24 LEDs, 19..42),
+// transfers seamlessly at 0 degrees into the middle mantle (12 LEDs, 7..18),
+// coils down into the inner ring (6 LEDs, 1..6), strikes the center stone (0)
+// with a radiant gold-white nova flare, and erupts back outward to the perimeter!
+static void render_spiral_snake(uint32_t tick) {
+    static const uint8_t ouroboros_path[61] = {
+        // Outer ring CW (24)
+        19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+        // Middle ring CW (12)
+        7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+        // Inner ring CW (6)
+        1, 2, 3, 4, 5, 6,
+        // Center Core Gem (1)
+        0,
+        // Erupting back outward: Inner ring CCW (6)
+        6, 5, 4, 3, 2, 1,
+        // Middle ring CCW (12)
+        18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7
+    };
+    const int path_len = 61;
+    const int snake_len = 12;
+    int head_pos = (int)(tick % path_len);
+
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 1;
+        pixels_g[i] = 3;
+        pixels_b[i] = 10;
+    }
+
+    for (int seg = snake_len - 1; seg >= 0; seg--) {
+        int p_idx = (head_pos - seg + path_len) % path_len;
+        uint8_t led_idx = ouroboros_path[p_idx];
+        if (led_idx >= LED_RING_COUNT) continue;
+
+        if (seg == 0) {
+            pixels_r[led_idx] = 255;
+            pixels_g[led_idx] = 245;
+            pixels_b[led_idx] = 200;
+
+            if (led_idx == 0) {
+                for (int c = 1; c <= 6 && c < LED_RING_COUNT; c++) {
+                    pixels_r[c] = add_sat_u8(pixels_r[c], 180);
+                    pixels_g[c] = add_sat_u8(pixels_g[c], 120);
+                    pixels_b[c] = add_sat_u8(pixels_b[c], 20);
+                }
+            }
+        } else {
+            float fade = 1.0f - ((float)seg / (float)snake_len);
+            float seg_hue = (float)((tick * 5 + seg * 20) % 360);
+            uint8_t r_seg, g_seg, b_seg;
+            hsv_to_rgb((uint16_t)seg_hue, 240, (uint8_t)(255.0f * fade), &r_seg, &g_seg, &b_seg);
+
+            pixels_r[led_idx] = add_sat_u8(pixels_r[led_idx], r_seg);
+            pixels_g[led_idx] = add_sat_u8(pixels_g[led_idx], g_seg);
+            pixels_b[led_idx] = add_sat_u8(pixels_b[led_idx], b_seg);
+        }
+    }
+}
+
+// 19. Concentric Ripple / Shockwave (SPELL_ANIM_RADIAL_WAVE):
+// Circular wavefronts born in the center core crystal (LED 0, r=0.0)
+// propagating outward across Ring 0 (r=1.0), Ring 1 (r=2.0), and Ring 2 (r=3.2).
+// Implements continuous wave physics with inverse-distance damping (1/r)
+// and smooth cosine wavefront dispersion.
+static void render_radial_wave(uint32_t tick) {
+    float t = (float)tick * 0.15f;
+    const float ring_r[4] = { 0.0f, 1.0f, 2.0f, 3.2f };
+
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 2;
+        pixels_g[i] = 4;
+        pixels_b[i] = 12;
+    }
+
+    for (int layer = 0; layer < 4; layer++) {
+        float r = ring_r[layer];
+        float wave_val = 0.0f;
+
+        for (int p = 0; p < 2; p++) {
+            float wave_front = fmodf(t + (float)p * 2.2f, 4.4f);
+            float dist = fabsf(r - wave_front);
+            if (dist < 0.75f) {
+                float amp = 0.5f + 0.5f * cosf(dist * 3.14159f / 0.75f);
+                float damping = 1.0f / (1.0f + 0.35f * r);
+                wave_val += amp * damping;
+            }
+        }
+        if (wave_val > 1.0f) wave_val = 1.0f;
+
+        if (wave_val > 0.02f) {
+            uint8_t wr = (uint8_t)(wave_val * (layer == 0 ? 255.0f : 40.0f));
+            uint8_t wg = (uint8_t)(wave_val * (layer <= 1 ? 240.0f : 160.0f));
+            uint8_t wb = (uint8_t)(wave_val * 255.0f);
+
+            if (layer == 0) {
+                pixels_r[0] = add_sat_u8(pixels_r[0], wr);
+                pixels_g[0] = add_sat_u8(pixels_g[0], wg);
+                pixels_b[0] = add_sat_u8(pixels_b[0], wb);
+            } else if (layer == 1) {
+                for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+                    pixels_r[i] = add_sat_u8(pixels_r[i], wr);
+                    pixels_g[i] = add_sat_u8(pixels_g[i], wg);
+                    pixels_b[i] = add_sat_u8(pixels_b[i], wb);
+                }
+            } else if (layer == 2) {
+                for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+                    pixels_r[i] = add_sat_u8(pixels_r[i], wr);
+                    pixels_g[i] = add_sat_u8(pixels_g[i], wg);
+                    pixels_b[i] = add_sat_u8(pixels_b[i], wb);
+                }
+            } else if (layer == 3) {
+                for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+                    pixels_r[i] = add_sat_u8(pixels_r[i], wr);
+                    pixels_g[i] = add_sat_u8(pixels_g[i], wg);
+                    pixels_b[i] = add_sat_u8(pixels_b[i], wb);
+                }
+            }
+        }
+    }
+}
+
+// 20. Quantum Waveform Collision (SPELL_ANIM_COLLIDING_WAVES):
+// Two counter-propagating wave crests race around the rings in opposite directions:
+// Wave 1: Clockwise (Azure Cyan, theta = omega * t)
+// Wave 2: Counter-Clockwise (Neon Magenta / Crimson, theta = -omega * t)
+// They collide at polar angles theta = 0 deg and theta = 180 deg.
+// At collision nodes, constructive wave interference creates a blinding
+// pure white shockwave flash, which resonates into the central crystal gem!
+static void render_colliding_waves(uint32_t tick) {
+    float theta_cw = fmodf((float)tick * 5.0f, 360.0f);
+    float theta_ccw = fmodf(360.0f - theta_cw, 360.0f);
+
+    float dist_node0 = fminf(theta_cw, 360.0f - theta_cw);
+    float dist_node180 = fabsf(theta_cw - 180.0f);
+    float min_collision_dist = fminf(dist_node0, dist_node180);
+
+    float flash_factor = 0.0f;
+    if (min_collision_dist < 18.0f) {
+        flash_factor = 1.0f - (min_collision_dist / 18.0f);
+        flash_factor = flash_factor * flash_factor;
+    }
+
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 1;
+        pixels_g[i] = 2;
+        pixels_b[i] = 8;
+    }
+
+    if (flash_factor > 0.05f) {
+        pixels_r[0] = (uint8_t)(255.0f * flash_factor);
+        pixels_g[0] = (uint8_t)(255.0f * flash_factor);
+        pixels_b[0] = (uint8_t)(255.0f * flash_factor);
+    } else {
+        pixels_r[0] = 5; pixels_g[0] = 8; pixels_b[0] = 24;
+    }
+
+    // Ring 0 (1..6)
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 1) * 60.0f;
+        float d_cw = fabsf(angle - theta_cw); if (d_cw > 180.0f) d_cw = 360.0f - d_cw;
+        float d_ccw = fabsf(angle - theta_ccw); if (d_ccw > 180.0f) d_ccw = 360.0f - d_ccw;
+
+        float amp_cw = (d_cw < 45.0f) ? (1.0f - d_cw / 45.0f) : 0.0f;
+        float amp_ccw = (d_ccw < 45.0f) ? (1.0f - d_ccw / 45.0f) : 0.0f;
+
+        uint8_t r = (uint8_t)(amp_ccw * 255.0f);
+        uint8_t g = (uint8_t)(amp_cw * 200.0f);
+        uint8_t b = (uint8_t)(amp_cw * 255.0f + amp_ccw * 120.0f);
+
+        if (flash_factor > 0.0f && (i == 1 || i == 4)) {
+            r = add_sat_u8(r, (uint8_t)(255.0f * flash_factor));
+            g = add_sat_u8(g, (uint8_t)(255.0f * flash_factor));
+            b = add_sat_u8(b, (uint8_t)(255.0f * flash_factor));
+        }
+
+        pixels_r[i] = add_sat_u8(pixels_r[i], r);
+        pixels_g[i] = add_sat_u8(pixels_g[i], g);
+        pixels_b[i] = add_sat_u8(pixels_b[i], b);
+    }
+
+    // Ring 1 (7..18)
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float d_cw = fabsf(angle - theta_cw); if (d_cw > 180.0f) d_cw = 360.0f - d_cw;
+        float d_ccw = fabsf(angle - theta_ccw); if (d_ccw > 180.0f) d_ccw = 360.0f - d_ccw;
+
+        float amp_cw = (d_cw < 40.0f) ? (1.0f - d_cw / 40.0f) : 0.0f;
+        float amp_ccw = (d_ccw < 40.0f) ? (1.0f - d_ccw / 40.0f) : 0.0f;
+
+        uint8_t r = (uint8_t)(amp_ccw * 255.0f);
+        uint8_t g = (uint8_t)(amp_cw * 220.0f);
+        uint8_t b = (uint8_t)(amp_cw * 255.0f + amp_ccw * 80.0f);
+
+        if (flash_factor > 0.0f && (i == 7 || i == 13)) {
+            r = add_sat_u8(r, (uint8_t)(255.0f * flash_factor));
+            g = add_sat_u8(g, (uint8_t)(255.0f * flash_factor));
+            b = add_sat_u8(b, (uint8_t)(255.0f * flash_factor));
+        }
+
+        pixels_r[i] = add_sat_u8(pixels_r[i], r);
+        pixels_g[i] = add_sat_u8(pixels_g[i], g);
+        pixels_b[i] = add_sat_u8(pixels_b[i], b);
+    }
+
+    // Ring 2 (19..42)
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 19) * 15.0f;
+        float d_cw = fabsf(angle - theta_cw); if (d_cw > 180.0f) d_cw = 360.0f - d_cw;
+        float d_ccw = fabsf(angle - theta_ccw); if (d_ccw > 180.0f) d_ccw = 360.0f - d_ccw;
+
+        float amp_cw = (d_cw < 30.0f) ? (1.0f - d_cw / 30.0f) : 0.0f;
+        float amp_ccw = (d_ccw < 30.0f) ? (1.0f - d_ccw / 30.0f) : 0.0f;
+
+        uint8_t r = (uint8_t)(amp_ccw * 255.0f);
+        uint8_t g = (uint8_t)(amp_cw * 210.0f);
+        uint8_t b = (uint8_t)(amp_cw * 255.0f + amp_ccw * 100.0f);
+
+        if (flash_factor > 0.0f) {
+            float node_dist = fminf(fabsf(angle), fabsf(angle - 180.0f));
+            if (node_dist > 180.0f) node_dist = 360.0f - node_dist;
+            if (node_dist < 20.0f) {
+                float local_flash = flash_factor * (1.0f - node_dist / 20.0f);
+                r = add_sat_u8(r, (uint8_t)(255.0f * local_flash));
+                g = add_sat_u8(g, (uint8_t)(255.0f * local_flash));
+                b = add_sat_u8(b, (uint8_t)(255.0f * local_flash));
+            }
+        }
+
+        pixels_r[i] = add_sat_u8(pixels_r[i], r);
+        pixels_g[i] = add_sat_u8(pixels_g[i], g);
+        pixels_b[i] = add_sat_u8(pixels_b[i], b);
+    }
+}
+
 #if CELESTIAL_FOUR_RINGS && CELESTIAL_RING_EXPERIMENT
 // Diagnostic build only: pure RGB cycle on spare during RAINBOW
 static void render_spare_ring(uint32_t tick, int mode, uint8_t mic_level_pct, bool music_active) {
@@ -1622,6 +1861,15 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
                 break;
             case LED_ANIM_ORRERY:
                 render_orrery(anim_tick);
+                break;
+            case LED_ANIM_SPIRAL_SNAKE:
+                render_spiral_snake(anim_tick);
+                break;
+            case LED_ANIM_RADIAL_WAVE:
+                render_radial_wave(anim_tick);
+                break;
+            case LED_ANIM_COLLIDING_WAVES:
+                render_colliding_waves(anim_tick);
                 break;
             default:
                 render_rainbow_wave(anim_tick);

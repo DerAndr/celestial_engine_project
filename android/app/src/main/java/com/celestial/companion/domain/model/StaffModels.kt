@@ -72,7 +72,10 @@ enum class LedAnimation(val id: Int, val title: String, val subtitle: String) {
     CLOCK_DIAL(14, "Celestial Clock", "3-ring astronomical dial with comet hand"),
     CLOCK_HOURGLASS(15, "Aether Hourglass", "Concentric ring liquid accumulator"),
     CLOCK_PRISMATIC(16, "Chroma Prismatic", "Full spectral color-encoded clock"),
-    CLOCK_ORRERY(17, "Celestial Orrery", "Kinematic triple planetary orbital clock");
+    CLOCK_ORRERY(17, "Celestial Orrery", "Kinematic triple planetary orbital clock"),
+    SPIRAL_SNAKE(18, "Ouroboros Snake", "Concentric snake winding through rings 24->12->7"),
+    RADIAL_WAVE(19, "Radial Shockwave", "Concentric waves expanding from core to outer rim"),
+    COLLIDING_WAVES(20, "Colliding Waves", "Counter-rotating waves colliding at 0° and 180° with white flash");
 
     val displayName: String get() = title
 

@@ -26,6 +26,9 @@ typedef enum {
     LED_ANIM_HOURGLASS,      // 15. Aetheric Hourglass: orientation-independent concentric ring accumulator
     LED_ANIM_PRISMATIC,      // 16. Chroma Prismatic: full spectral color-encoded clock (orientation-free)
     LED_ANIM_ORRERY,         // 17. Celestial Orrery: kinematic concentric triple orbital clock
+    LED_ANIM_SPIRAL_SNAKE,   // 18. Ouroboros Snake: 2D serpent spiraling through rings 24->12->7 and erupting outward
+    LED_ANIM_RADIAL_WAVE,    // 19. Concentric Ripple / Shockwave propagating outward with inverse-square damping
+    LED_ANIM_COLLIDING_WAVES,// 20. Counter-propagating waves colliding at 0° and 180° with white interference flash
     LED_ANIM_COUNT
 } led_anim_mode_t;
 
