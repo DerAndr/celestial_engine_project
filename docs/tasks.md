@@ -202,16 +202,19 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 
 ## 5. Backlog & Future Themed Packs (Planned / Not for Current Session)
 
-> **User Request (2026-10-26):**
-> *"Таска на будущее - не делать сейчас - сделай как одну из визуализаций на посохе - в духе eBay для светодиодов и смешных звуков. Так же сделай темы в духе гарри поттера и pokenom И сейлор мун!"*
+> **User Requests (2026-10-26):**
+> 1. *"Таска на будущее - не делать сейчас - сделай как одну из визуализаций на посохе - в духе eBay для светодиодов и смешных звуков. Так же сделай темы в духе гарри поттера и pokenom И сейлор мун!"*
+> 2. *"про звуки - добавь 8-bit мелодии к тем темам мв задачи"*
 
-- [ ] **1. eBay Chaos Auction Mode (Visuals + Hilarious SFX)**:
+- [ ] **1. eBay Chaos Auction Mode (Visuals, 8-bit Bidding Chiptune & Hilarious SFX)**:
   - **LED Animation**: 4-color bouncy eBay strobe palette (Red, Blue, Yellow, Green) racing around the 3 concentric rings in accelerating bid steps, culminating in an energetic rainbow auction flash.
+  - **8-Bit Chiptune Track**: Retro arcade "Supermarket Sweep / Crazy Auction" fast-paced 8-bit square wave melody with escalating BPM as the bid counter ticks down to zero.
   - **Sound Effects**: Cash register "cha-ching!", rapid-fire auctioneer gavel strikes, outbid buzzer, comical cartoon "SOLD!" fanfare.
   - **OLED Text**: Retro 80s marketplace marquee: `$$$ WINNING BID! $$$`, `BID ACCEPTED`, `OUTBID!`.
   
-- [ ] **2. Harry Potter Arcane Pack**:
+- [ ] **2. Harry Potter Arcane Pack (House Runes & 8-bit Hedwig's Theme)**:
   - **Hogwarts House Runes**: Preset 43-LED color themes for Gryffindor (scarlet & gold), Slytherin (emerald & silver), Ravenclaw (sapphire & bronze), Hufflepuff (amber & obsidian).
+  - **8-Bit Chiptune Track**: Iconic **8-bit "Hedwig's Theme"** (`chime_note_t` frequency score in RP2350 audio subsystem: E4, G4, F#4, E4, B4, A4, F#4...) played on retro square wave synth with synchronized mystical LED ripples.
   - **Signature Spells**:
     - *Lumos Maxima*: Concentric core flare from center LED outwards to a steady radiant warm white lantern.
     - *Expecto Patronum*: Silvery-white shimmering ethereal vortex with high-pitch chime glissando.
@@ -219,15 +222,20 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
     - *Expelliarmus*: Bright crimson shockwave ripple imploding inward.
   - **Incantations & Soundscape**: Wand swooshes, mystical choral harmonics, Latin incantations spoken with dramatic cadence.
 
-- [ ] **3. Pokémon Arcane Pack**:
+- [ ] **3. Pokémon Arcane Pack (Pokéball Ring & 8-bit Battle / Center Chiptunes)**:
   - **Pokéball Concentric Topology**: Top half of 24-LED outer ring shines crimson red, bottom half shines pure white, middle ring dark separator, center LED pulses glowing white like the capture button.
+  - **8-Bit Chiptune Tracks**:
+    - *Track A: 8-bit Wild Pokémon Battle Theme* (energetic Game Boy chiptune arpeggios synchronized with rapid red/white LED flashes).
+    - *Track B: 8-bit Pokémon Center Healing Jingle* (sweet 6-note restorative melody with warm green healing ripple).
   - **Capture Sequence Animation**: Center LED pulses 3 times (`click... click... click...`) then the entire ring blooms with yellow stars and capture fanfare.
-  - **Sound Effects**: 8-bit battle chiptunes, "Pikachu!" acoustic sample, Pokéball capture click/ding, Victory jingle, Level-up chime.
+  - **Sound Effects**: "Pikachu!" acoustic sample, Pokéball capture click/ding, Victory fanfare, Level-up chime.
   - **OLED Text**: Retro GameBoy 8-bit pixel font: `A wild AI appeared!`, `Pikachu used Thunderbolt!`, `Gotcha!`.
 
-- [ ] **4. Sailor Moon / Magical Girl Arcane Pack**:
+- [ ] **4. Sailor Moon / Magical Girl Arcane Pack (Prism Power & 8-bit Moonlight Densetsu)**:
   - **Moon Prism Power Transformation Sequence**: Concentric sparkling waves of pastel pink, magenta, gold, and iridescent cyan swirling outward.
+  - **8-Bit Chiptune Track**: Iconic **8-bit "Moonlight Densetsu" (ムーンライト伝説)** opening melody transcribed for RP2350 audio engine, with starry stroboscopic pink/gold pulse sync.
   - **Sound Effects**: Harp glissandos, magical girl transformation chimes, cosmic bell arpeggios, celestial wand sparkles.
   - **OLED Text**: `🌙 Moon Healing Escalation!`, glittering crescent moon & star ASCII runes.
+
 
 
