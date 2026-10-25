@@ -11,9 +11,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     data object Dashboard : Screen("dashboard", "Dashboard", Icons.Default.Home)
     data object Chronos : Screen("chronos", "Chronos", Icons.Default.DateRange)
-    data object Leds : Screen("leds", "Runes", Icons.Default.Star)
+    data object Leds : Screen("leds", "Spells", Icons.Default.AutoAwesome)
     data object Soundboard : Screen("soundboard", "Audio", Icons.Default.PlayArrow)
-    data object Terminal : Screen("terminal", "Gemma 4", Icons.Default.AutoAwesome)
+    data object Terminal : Screen("terminal", "Gemma 4", Icons.Default.Star)
 
     companion object {
         val bottomNavScreens: List<Screen>

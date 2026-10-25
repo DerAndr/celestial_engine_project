@@ -22,7 +22,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
+import com.celestial.companion.domain.model.SpellDefinition
 import com.celestial.companion.domain.model.StaffLanguage
 import com.celestial.companion.domain.model.StaffMode
 import com.celestial.companion.domain.model.StaffState
@@ -157,6 +159,89 @@ fun DashboardScreen(
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
+                }
+            }
+        // Quick-Cast Grimoire Bar (One-tap spells directly from dashboard)
+        val customSpells by viewModel.customSpells.collectAsState()
+        val allSpells = customSpells + SpellDefinition.PRESET_SPELLS
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            border = BorderStroke(1.dp, CardBorder)
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, tint = RunicGold, modifier = Modifier.size(16.dp))
+                        Text(
+                            text = "ГРИМУАР (БЫСТРЫЙ КАСТ)",
+                            color = RunicGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Text(
+                        text = "Конструктор во вкладке Spells →",
+                        color = AetherCyan,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    allSpells.forEach { spell ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(DeepVoid)
+                                .border(1.dp, if (spell.isCustom) NebulaPurple else CardBorder, RoundedCornerShape(8.dp))
+                                .clickable { viewModel.castSpell(spell, speakIncantation = true) }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = when {
+                                        spell.name.contains("Fire", ignoreCase = true) -> "🔥"
+                                        spell.name.contains("Lightning", ignoreCase = true) -> "⚡"
+                                        spell.name.contains("Shield", ignoreCase = true) -> "🛡️"
+                                        spell.name.contains("Vortex", ignoreCase = true) -> "🌀"
+                                        spell.name.contains("Quack", ignoreCase = true) -> "🦆"
+                                        spell.name.contains("Frost", ignoreCase = true) -> "❄️"
+                                        spell.name.contains("Snake", ignoreCase = true) || spell.name.contains("Ouroboros", ignoreCase = true) -> "🐍"
+                                        else -> "✨"
+                                    },
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = spell.name,
+                                    color = if (spell.isCustom) NebulaPurple else TextPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

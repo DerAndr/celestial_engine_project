@@ -35,7 +35,7 @@ data class IncomingStaffVoiceQuery(
 class StaffRepository(
     private val transport: StaffTransport,
     val gemmaEngine: GemmaModelEngine? = null,
-    private val context: android.content.Context? = null
+    val context: android.content.Context? = null
 ) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val ttsSynthesizer = context?.let { com.celestial.companion.audio.StaffTtsSynthesizer(it) }

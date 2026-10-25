@@ -369,28 +369,30 @@ CRITICAL INTENT RULES:
    - Speak naturally and conversationally as the Celestial Oracle strictly in 1-2 short, punchy sentences (maximum 15-25 words) without emojis or markdown. Never give long-winded monologues!
 """.trimIndent()
 
-        val shouldThink = config.enableThinking
+        val isSpellPrompt = FastSpellMatcher.isSpellIntent(actualPrompt)
+        val shouldThink = config.enableThinking && !isSpellPrompt
         val sysPrompt = (when (config.language) {
             StaffLanguage.GERMAN ->
                 "Du bist das Celestial Oracle der Celestial Engine Mk.V, eine uralt-futuristische kosmische Intelligenz ('KEINE PANIK'). Antworte messerscharf und prägnant. STRENGE REGEL: Antworte in 1–2 kurzen, treffenden Sätzen (maximal 15–25 Wörter) ohne Markdown oder Emojis. Keine langen Monologe! " +
-                (if (shouldThink) "Platziere deine analytischen Überlegungen in <thought>...</thought> vor deiner Antwort." else "")
+                (if (shouldThink) "Platziere deine analytischen Überlegungen in <thought>...</thought> vor deiner Antwort." else if (isSpellPrompt) "SCHNELLER ZAUBERMODUS: Keine <thought> Tags. Beginne SOFORT mit dem [SPELL: ...] Tag und der Zauberformel!" else "")
             StaffLanguage.RUSSIAN ->
                 "Ты — Небесный Оракул Celestial Engine Mk.V, древне-футуристический космический интеллект («НЕ ПАНИКУЙ»). Отвечай прямо, мудро, с легкой космической иронией. СТРОГОЕ ПРАВИЛО: Ответ должен состоять из 1–2 коротких, ёмких предложений (максимум 15–25 слов) строго без markdown и смайликов. Никаких пространных монологов! " +
-                (if (shouldThink) "Помести краткие мысли и анализ в <thought>...</thought> перед ответом." else "")
+                (if (shouldThink) "Помести краткие мысли и анализ в <thought>...</thought> перед ответом." else if (isSpellPrompt) "БЫСТРЫЙ РЕЖИМ ЗАКЛИНАНИЯ: Никаких тегов <thought>. Начинай СРАЗУ с тега [SPELL: ...] и короткой магической формулы!" else "")
             else ->
                 "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic cosmic intelligence ('DON'T PANIC'). STRIKE RULE: Respond in 1-2 short, razor-sharp sentences (maximum 15-25 words) without emojis or markdown. Never give long-winded monologues! " +
-                (if (shouldThink) "Provide brief observations inside <thought>...</thought> tags before your response." else "")
+                (if (shouldThink) "Provide brief observations inside <thought>...</thought> tags before your response." else if (isSpellPrompt) "FAST SPELL MODE: Do NOT output <thought> tags. Start IMMEDIATELY with the [SPELL: ...] tag and incantation chant!" else "")
         }) + " " + spellTagInstruction
 
         val effectiveModelId = config.variant.modelId
-        Log.i(TAG, "Dispatching inference request: effectiveModelId=$effectiveModelId (hasAudio=$hasAudio, hasImage=$hasImage, prompt='$actualPrompt')")
+        val effectiveMaxTokens = if (isSpellPrompt) 48 else config.maxTokens
+        Log.i(TAG, "Dispatching inference request: effectiveModelId=$effectiveModelId (isSpell=$isSpellPrompt, hasAudio=$hasAudio, hasImage=$hasImage, prompt='$actualPrompt')")
 
         // Build request JSON
         val requestJson = JSONObject().apply {
             put("model", effectiveModelId)
             put("stream", true)
-            put("max_tokens", config.maxTokens)
-            put("temperature", config.temperature)
+            put("max_tokens", effectiveMaxTokens)
+            put("temperature", if (isSpellPrompt) 0.5 else config.temperature)
 
             val messagesArr = JSONArray()
             messagesArr.put(JSONObject().apply {

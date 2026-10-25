@@ -129,65 +129,139 @@ data class SpellDefinition(
     val animation: LedAnimation,
     val sounds: List<Int>, // SFX IDs 0..9 (Warp, Pulsar, Alien, Laser, Tractor, Portal, Supernova, DroidHappy, DroidChatter, DroidPanic)
     val prompt: String,
-    val description: String = ""
+    val description: String = "",
+    val chantText: String = "",
+    val oledText: String = "",
+    val isCustom: Boolean = false
 ) {
+    fun toJson(): org.json.JSONObject {
+        val json = org.json.JSONObject()
+        json.put("name", name)
+        json.put("animation", animation.name)
+        val sArr = org.json.JSONArray()
+        sounds.forEach { sArr.put(it) }
+        json.put("sounds", sArr)
+        json.put("prompt", prompt)
+        json.put("description", description)
+        json.put("chantText", chantText)
+        json.put("oledText", oledText)
+        json.put("isCustom", isCustom)
+        return json
+    }
+
     companion object {
+        fun fromJson(json: org.json.JSONObject): SpellDefinition {
+            val animStr = json.optString("animation", "PLASMA")
+            val anim = try { LedAnimation.valueOf(animStr) } catch (_: Exception) { LedAnimation.PLASMA }
+            val soundsList = mutableListOf<Int>()
+            val sArr = json.optJSONArray("sounds")
+            if (sArr != null) {
+                for (i in 0 until sArr.length()) {
+                    soundsList.add(sArr.optInt(i))
+                }
+            }
+            return SpellDefinition(
+                name = json.optString("name", "Custom Spell"),
+                animation = anim,
+                sounds = if (soundsList.isEmpty()) listOf(3, 6, 1) else soundsList,
+                prompt = json.optString("prompt", ""),
+                description = json.optString("description", ""),
+                chantText = json.optString("chantText", ""),
+                oledText = json.optString("oledText", ""),
+                isCustom = json.optBoolean("isCustom", true)
+            )
+        }
+
         val PRESET_SPELLS = listOf(
             SpellDefinition(
-                name = "Quantum Quack",
-                animation = LedAnimation.SNAKE,
-                sounds = listOf(2, 9, 6), // Alien -> Droid Panic -> Supernova
-                prompt = "Cast the Quantum Quack arcane spell! Begin with [SPELL: Quantum Quack | ANIM: SNAKE | SOUNDS: ALIEN, PANIC, SUPERNOVA] and chant a funny abracadabra pseudo-Latin formula!",
-                description = "Snake • Alien • Panic • Nova"
-            ),
-            SpellDefinition(
-                name = "Plasma Storm",
+                name = "Fireball",
                 animation = LedAnimation.PLASMA,
-                sounds = listOf(3, 0, 6), // Laser -> Warp -> Supernova
-                prompt = "Cast the Plasma Storm arcane spell! Begin with [SPELL: Plasma Storm | ANIM: PLASMA | SOUNDS: LASER, WARP, SUPERNOVA] and chant an epic abracadabra fire incantation!",
-                description = "Plasma • Laser • Warp • Nova"
+                sounds = listOf(3, 6, 1), // Laser -> Supernova -> Pulsar
+                prompt = "Cast the Fireball arcane spell! [SPELL: Fireball | ANIM: PLASMA | SOUNDS: LASER, SUPERNOVA, PULSAR] Ignis plasma infernum!",
+                description = "Plasma • Laser • Supernova • Pulsar",
+                chantText = "Ignis plasma infernum, ardet caelum!",
+                oledText = "🔥 FIREBALL!"
             ),
             SpellDefinition(
-                name = "Droid Hysteria",
+                name = "Chain Lightning",
+                animation = LedAnimation.RADIAL_WAVE,
+                sounds = listOf(0, 3, 1), // Warp -> Laser -> Pulsar
+                prompt = "Cast the Chain Lightning arcane spell! [SPELL: Chain Lightning | ANIM: RADIAL_WAVE | SOUNDS: WARP, LASER, PULSAR] Fulgur aetheris catena!",
+                description = "Radial Wave • Warp • Laser • Pulsar",
+                chantText = "Fulgur aetheris catena, tonitrus fractura!",
+                oledText = "⚡ LIGHTNING!"
+            ),
+            SpellDefinition(
+                name = "Aegis Shield",
+                animation = LedAnimation.COLLIDING_WAVES,
+                sounds = listOf(5, 4, 1), // Portal -> Tractor -> Pulsar
+                prompt = "Cast the Aegis Shield arcane spell! [SPELL: Aegis Shield | ANIM: COLLIDING_WAVES | SOUNDS: PORTAL, TRACTOR, PULSAR] Aegis sanctum praesidium!",
+                description = "Colliding Waves • Portal • Tractor • Pulsar",
+                chantText = "Aegis sanctum praesidium, nullus transitus!",
+                oledText = "🛡️ AEGIS SHIELD"
+            ),
+            SpellDefinition(
+                name = "Cosmic Vortex",
                 animation = LedAnimation.VORTEX,
-                sounds = listOf(7, 8, 9), // Happy -> Chatter -> Panic
-                prompt = "Cast the Droid Hysteria arcane spell! Begin with [SPELL: Droid Hysteria | ANIM: VORTEX | SOUNDS: R2_HAPPY, R2_CHATTER, R2_PANIC] and chant a hilarious astromech gibberish spell!",
-                description = "Vortex • Chirp • Chatter • Scream"
+                sounds = listOf(0, 4, 6), // Warp -> Tractor -> Supernova
+                prompt = "Cast the Cosmic Vortex arcane spell! [SPELL: Cosmic Vortex | ANIM: VORTEX | SOUNDS: WARP, TRACTOR, SUPERNOVA] Vortex chao gravitatis!",
+                description = "Vortex • Warp • Tractor • Supernova",
+                chantText = "Vortex chao gravitatis, atra foramen!",
+                oledText = "🌀 VORTEX!"
             ),
             SpellDefinition(
-                name = "Gravitational Sneeze",
-                animation = LedAnimation.PULSAR,
-                sounds = listOf(4, 2, 6), // Tractor -> Alien -> Supernova
-                prompt = "Cast the Gravitational Sneeze arcane spell! Begin with [SPELL: Gravitational Sneeze | ANIM: PULSAR | SOUNDS: TRACTOR, ALIEN, SUPERNOVA] and chant a chaotic pseudo-Latin incantation!",
-                description = "Pulsar • Tractor • Alien • Nova"
+                name = "Ouroboros Serpent",
+                animation = LedAnimation.SPIRAL_SNAKE,
+                sounds = listOf(2, 1, 0), // Alien -> Pulsar -> Warp
+                prompt = "Cast the Ouroboros Serpent arcane spell! [SPELL: Ouroboros Serpent | ANIM: SPIRAL_SNAKE | SOUNDS: ALIEN, PULSAR, WARP] Ouroboros serpens aeterna!",
+                description = "2D Ouroboros • Alien • Pulsar • Warp",
+                chantText = "Ouroboros serpens aeterna, volvitur orbis!",
+                oledText = "🐍 OUROBOROS"
+            ),
+            SpellDefinition(
+                name = "Quantum Quack",
+                animation = LedAnimation.RAINBOW,
+                sounds = listOf(8, 9, 7), // Chatter -> Panic -> Happy
+                prompt = "Cast the Quantum Quack arcane spell! [SPELL: Quantum Quack | ANIM: RAINBOW | SOUNDS: R2_CHATTER, R2_PANIC, R2_HAPPY] Quantus anas quackus maximus!",
+                description = "Rainbow • Chatter • Panic • Chirp",
+                chantText = "Quantus anas quackus maximus, zzzz-wub-wub!",
+                oledText = "🦆 QUACK!"
+            ),
+            SpellDefinition(
+                name = "Frost Nova",
+                animation = LedAnimation.STARS,
+                sounds = listOf(5, 2, 1), // Portal -> Alien -> Pulsar
+                prompt = "Cast the Frost Nova arcane spell! [SPELL: Frost Nova | ANIM: STARS | SOUNDS: PORTAL, ALIEN, PULSAR] Glacies nebula congelatio!",
+                description = "Stars • Portal • Alien • Pulsar",
+                chantText = "Glacies nebula congelatio, frigus absolutum!",
+                oledText = "❄️ FROST NOVA"
             ),
             SpellDefinition(
                 name = "Astral Rift",
                 animation = LedAnimation.GALAXY,
                 sounds = listOf(5, 0, 7), // Portal -> Warp -> Happy
-                prompt = "Cast the Astral Rift arcane spell! Begin with [SPELL: Astral Rift | ANIM: GALAXY | SOUNDS: PORTAL, WARP, R2_HAPPY] and chant a mystical cosmic portal incantation!",
-                description = "Galaxy • Portal • Warp • Chirp"
+                prompt = "Cast the Astral Rift arcane spell! [SPELL: Astral Rift | ANIM: GALAXY | SOUNDS: PORTAL, WARP, R2_HAPPY] Astrum galaxia universum!",
+                description = "Galaxy • Portal • Warp • Chirp",
+                chantText = "Astrum galaxia universum, stellae micantes!",
+                oledText = "🌌 GALAXY"
             ),
             SpellDefinition(
-                name = "Ouroboros Serpent",
-                animation = LedAnimation.SPIRAL_SNAKE,
-                sounds = listOf(0, 1, 6), // Warp -> Pulsar -> Supernova
-                prompt = "Cast the Ouroboros Serpent arcane spell! Begin with [SPELL: Ouroboros Serpent | ANIM: SPIRAL_SNAKE | SOUNDS: WARP, PULSAR, SUPERNOVA] and chant the ancient dragon coil formula!",
-                description = "2D Ouroboros • Warp • Pulsar • Nova"
+                name = "Jack-O'-Lantern",
+                animation = LedAnimation.HALLOWEEN,
+                sounds = listOf(2, 6), // Alien -> Supernova
+                prompt = "Cast the Jack-O'-Lantern arcane spell! [SPELL: Jack-O'-Lantern | ANIM: HALLOWEEN | SOUNDS: ALIEN, SUPERNOVA] Cucurbita umbra nocturna!",
+                description = "Halloween • Alien • Supernova",
+                chantText = "Cucurbita umbra nocturna, tenebrae surgunt!",
+                oledText = "🎃 HALLOWEEN"
             ),
             SpellDefinition(
-                name = "Aetheric Shockwave",
-                animation = LedAnimation.RADIAL_WAVE,
-                sounds = listOf(1, 4, 6), // Pulsar -> Tractor -> Supernova
-                prompt = "Cast the Aetheric Shockwave arcane spell! Begin with [SPELL: Aetheric Shockwave | ANIM: RADIAL_WAVE | SOUNDS: PULSAR, TRACTOR, SUPERNOVA] and release the concentric ripple!",
-                description = "Concentric Ripple • Pulsar • Tractor • Nova"
-            ),
-            SpellDefinition(
-                name = "Quantum Collision",
-                animation = LedAnimation.COLLIDING_WAVES,
-                sounds = listOf(3, 2, 0), // Laser -> Alien -> Warp
-                prompt = "Cast the Quantum Collision arcane spell! Begin with [SPELL: Quantum Collision | ANIM: COLLIDING_WAVES | SOUNDS: LASER, ALIEN, WARP] and weave the counter-rotating waves!",
-                description = "Colliding Waves • Laser • Alien • Warp"
+                name = "Droid Hysteria",
+                animation = LedAnimation.VORTEX,
+                sounds = listOf(7, 8, 9), // Happy -> Chatter -> Panic
+                prompt = "Cast the Droid Hysteria arcane spell! [SPELL: Droid Hysteria | ANIM: VORTEX | SOUNDS: R2_HAPPY, R2_CHATTER, R2_PANIC] Bip-boop astromech hysterium!",
+                description = "Vortex • Chirp • Chatter • Scream",
+                chantText = "Bip-boop bip-bop astromech hysterium, waaaah!",
+                oledText = "🤖 DROID"
             )
         )
     }

@@ -8,6 +8,7 @@ import com.celestial.companion.ai.GemmaModelEngine
 import com.celestial.companion.ai.GemmaResult
 import com.celestial.companion.ai.GemmaStreamChunk
 import com.celestial.companion.ai.GemmaVariant
+import com.celestial.companion.ai.FastSpellMatcher
 import com.celestial.companion.domain.model.*
 import com.celestial.companion.domain.repository.ConnectionMode
 import com.celestial.companion.domain.repository.StaffRepository
@@ -87,6 +88,10 @@ class DashboardViewModel(
     private val _activeSpell = MutableStateFlow<SpellDefinition?>(null)
     val activeSpell: StateFlow<SpellDefinition?> = _activeSpell.asStateFlow()
 
+    // Persistent Grimoire Custom Spells
+    private val _customSpells = MutableStateFlow<List<SpellDefinition>>(emptyList())
+    val customSpells: StateFlow<List<SpellDefinition>> = _customSpells.asStateFlow()
+
     private var soundSequenceJob: Job? = null
 
     fun clearActiveSpell() {
@@ -95,14 +100,72 @@ class DashboardViewModel(
         setLedAnimation(LedAnimation.RAINBOW)
     }
 
-    fun castSpell(spell: SpellDefinition) {
+    /**
+     * Instant Zero-Latency Hardware Spell Execution (< 20ms).
+     * Fires LED animation, OLED marquee, and sound combo sequence immediately.
+     */
+    fun executeFastPathSpell(spell: SpellDefinition, targetStaffIp: String? = null) {
         _activeSpell.value = spell
         setLedAnimation(spell.animation)
         viewModelScope.launch {
-            repository.broadcastOledText("[SPELL] ${spell.name}")
+            val oledMsg = spell.oledText.ifBlank { "[SPELL] ${spell.name}" }
+            repository.broadcastOledText(oledMsg, targetStaffIp ?: repository.getTargetStaffIp())
         }
         playSoundSequence(spell.sounds)
-        queryGemma(spell.prompt)
+        Log.i(TAG, "⚡ FAST-PATH CAST: '${spell.name}' with anim=${spell.animation.name} sounds=${spell.sounds}")
+        repository.log("SPELL", "⚡ FAST-PATH CAST: '${spell.name}' (anim=${spell.animation.name}) in <20ms", LogLevel.SUCCESS)
+    }
+
+    fun castSpell(spell: SpellDefinition, speakIncantation: Boolean = false) {
+        executeFastPathSpell(spell)
+        if (speakIncantation && spell.chantText.isNotBlank()) {
+            queryGemma(spell.prompt.ifBlank { "Cast ${spell.name}!" })
+        } else if (spell.prompt.isNotBlank()) {
+            queryGemma(spell.prompt)
+        }
+    }
+
+    fun saveCustomSpell(spell: SpellDefinition) {
+        val updated = _customSpells.value.filter { it.name.trim().lowercase() != spell.name.trim().lowercase() } + spell
+        _customSpells.value = updated
+        persistCustomSpells(updated)
+        repository.log("SPELL", "💾 Saved custom spell: '${spell.name}' to Grimoire", LogLevel.INFO)
+    }
+
+    fun deleteCustomSpell(spellName: String) {
+        val updated = _customSpells.value.filter { it.name.trim().lowercase() != spellName.trim().lowercase() }
+        _customSpells.value = updated
+        persistCustomSpells(updated)
+        repository.log("SPELL", "🗑️ Deleted custom spell: '$spellName' from Grimoire", LogLevel.INFO)
+    }
+
+    private fun persistCustomSpells(spells: List<SpellDefinition>) {
+        val ctx = repository.context ?: gemmaEngine?.context ?: return
+        try {
+            val prefs = ctx.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
+            val arr = org.json.JSONArray()
+            spells.forEach { arr.put(it.toJson()) }
+            prefs.edit().putString("custom_spells", arr.toString()).apply()
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed persisting custom spells: ${e.message}")
+        }
+    }
+
+    fun loadCustomSpells() {
+        val ctx = repository.context ?: gemmaEngine?.context ?: return
+        try {
+            val prefs = ctx.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
+            val raw = prefs.getString("custom_spells", null) ?: return
+            val arr = org.json.JSONArray(raw)
+            val list = mutableListOf<SpellDefinition>()
+            for (i in 0 until arr.length()) {
+                list.add(SpellDefinition.fromJson(arr.getJSONObject(i)))
+            }
+            _customSpells.value = list
+            Log.i(TAG, "Loaded ${list.size} custom spells from Grimoire")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed loading custom spells: ${e.message}")
+        }
     }
 
     fun playSoundSequence(sounds: List<Int>) {
@@ -142,6 +205,7 @@ class DashboardViewModel(
     private var liveTimerJob: Job? = null
 
     init {
+        loadCustomSpells()
         // Collect incoming voice queries from the physical staff over UDP
         viewModelScope.launch {
             repository.staffVoiceQueries.collect { query ->
@@ -288,6 +352,15 @@ class DashboardViewModel(
         var spellExecuted = false
         var lastOledDispatchedLen = 0
 
+        // FAST-PATH INSTANT SPELL DISPATCH (< 20ms) for typed text prompts
+        if (prompt.isNotBlank()) {
+            val fastSpell = FastSpellMatcher.match(prompt, _customSpells.value)
+            if (fastSpell != null) {
+                spellExecuted = true
+                executeFastPathSpell(fastSpell, targetStaffIp)
+            }
+        }
+
         activeGenerationJob = viewModelScope.launch {
             try {
                 repository.log("AI-ORACLE", "Starting inference (modality=$modality, audio=${audioBytes?.size ?: 0} B)...", com.celestial.companion.domain.model.LogLevel.INFO)
@@ -309,6 +382,14 @@ class DashboardViewModel(
                                 if (transcribedText.isNotBlank()) {
                                     _chatHistory.value = _chatHistory.value.map { msg ->
                                         if (msg.id == userMsgId) msg.copy(text = "🎤 \"$transcribedText\"") else msg
+                                    }
+                                    // FAST-PATH INSTANT SPELL DISPATCH (< 20ms) immediately on acoustic voice transcription!
+                                    if (!spellExecuted) {
+                                        val fastSpell = FastSpellMatcher.match(transcribedText, _customSpells.value)
+                                        if (fastSpell != null) {
+                                            spellExecuted = true
+                                            executeFastPathSpell(fastSpell, targetStaffIp)
+                                        }
                                     }
                                 }
                             }
