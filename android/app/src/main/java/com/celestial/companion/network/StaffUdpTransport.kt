@@ -151,7 +151,11 @@ class StaffUdpTransport(
         } catch (_: Exception) {}
 
         val newSocket: DatagramSocket
-        if (matchedNetwork != null) {
+        if (matchedLocal != null) {
+            // Binding directly to the local interface address routes directly via tethering/ap_br_wlan2
+            // without calling network.bindSocket (which triggers Android 15 EPERM on tethering networks)
+            newSocket = DatagramSocket(InetSocketAddress(matchedLocal, 0))
+        } else if (matchedNetwork != null) {
             val s = DatagramSocket(null)
             try {
                 matchedNetwork.bindSocket(s)
@@ -159,14 +163,8 @@ class StaffUdpTransport(
             } catch (e: Exception) {
                 Log.w(TAG, "network.bindSocket failed: ${e.message}")
             }
-            if (matchedLocal != null) {
-                s.bind(InetSocketAddress(matchedLocal, 0))
-            } else {
-                s.bind(InetSocketAddress(0))
-            }
+            s.bind(InetSocketAddress(0))
             newSocket = s
-        } else if (matchedLocal != null) {
-            newSocket = DatagramSocket(InetSocketAddress(matchedLocal, 0))
         } else {
             newSocket = DatagramSocket()
         }
@@ -245,13 +243,21 @@ class StaffUdpTransport(
                             try { cachedUnicastSocket?.close() } catch (_: Exception) {}
                         }
                         cachedUnicastSocket = null
-                        val curSock = socket
-                        if (curSock != null && !curSock.isClosed) {
-                            curSock.send(datagram)
+                        val retryLocal = findMatchingLocalAddress(targetAddr)
+                        if (retryLocal != null) {
+                            DatagramSocket(InetSocketAddress(retryLocal, 0)).use { localSock ->
+                                localSock.broadcast = true
+                                localSock.send(datagram)
+                            }
                         } else {
-                            DatagramSocket().use { fallback ->
-                                fallback.broadcast = true
-                                fallback.send(datagram)
+                            val curSock = socket
+                            if (curSock != null && !curSock.isClosed) {
+                                curSock.send(datagram)
+                            } else {
+                                DatagramSocket().use { fallback ->
+                                    fallback.broadcast = true
+                                    fallback.send(datagram)
+                                }
                             }
                         }
                     }
