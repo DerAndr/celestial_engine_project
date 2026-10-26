@@ -693,6 +693,75 @@ private fun computeLedColors(
                 arr[i] = rgb(r, g, b)
             }
         }
+
+        LedAnimation.ARCHIMEDES_SPIRAL -> { // 21. Archimedes Spiral
+            val rot = tick * 0.12f
+            for (i in 0 until 43) arr[i] = rgb(2, 6, 16)
+            arr[0] = rgb(0, 229, 255) // Bright core
+
+            // Ring 0 (1..6): 2 arms, radius lag = 0.5 rad
+            for (i in 1..6) {
+                val theta = (i - 1) * (2f * PI.toFloat() / 6f)
+                val diff = theta - rot - 0.5f
+                val arm = cos(2f * diff)
+                val pwr = ((arm + 1f) * 0.5f).let { it * it * it }
+                arr[i] = rgb((pwr * 0f).toInt(), (pwr * 229f).toInt(), (pwr * 255f).toInt())
+            }
+
+            // Ring 1 (7..18): 2 arms, radius lag = 1.0 rad
+            for (i in 7..18) {
+                val theta = (i - 7) * (2f * PI.toFloat() / 12f)
+                val diff = theta - rot - 1.0f
+                val arm = cos(2f * diff)
+                val pwr = ((arm + 1f) * 0.5f).let { it * it * it }
+                arr[i] = rgb((pwr * 120f).toInt(), (pwr * 180f).toInt(), (pwr * 255f).toInt())
+            }
+
+            // Ring 2 (19..42): 2 arms, radius lag = 1.8 rad
+            for (i in 19..42) {
+                val theta = (i - 19) * (2f * PI.toFloat() / 24f)
+                val diff = theta - rot - 1.8f
+                val arm = cos(2f * diff)
+                val pwr = ((arm + 1f) * 0.5f).let { it * it * it }
+                arr[i] = rgb((pwr * 255f).toInt(), (pwr * 215f).toInt(), (pwr * 0f).toInt())
+            }
+        }
+
+        LedAnimation.SACRED_POLYGON -> { // 22. Sacred Runes
+            val rot = tick * 0.08f
+            for (i in 0 until 43) arr[i] = rgb(3, 4, 12)
+
+            // Center: Pulsing solar rune
+            val coreBreathe = 0.6f + 0.4f * sin(tick * 0.2f)
+            arr[0] = rgb((255 * coreBreathe).toInt(), (215 * coreBreathe).toInt(), 0)
+
+            // Ring 0 (1..6): Triquetra / Equilateral Triangle (3 vertices, clockwise)
+            for (i in 1..6) {
+                val theta = (i - 1) * (2f * PI.toFloat() / 6f)
+                val diff = theta - rot
+                val vertex = cos(3f * diff)
+                val pwr = ((vertex + 1f) * 0.5f).let { it * it * it * it }
+                arr[i] = rgb((pwr * 0f).toInt(), (pwr * 230f).toInt(), (pwr * 118f).toInt())
+            }
+
+            // Ring 1 (7..18): Hexagram (6 vertices, counter-clockwise)
+            for (i in 7..18) {
+                val theta = (i - 7) * (2f * PI.toFloat() / 12f)
+                val diff = theta + rot * 0.8f
+                val vertex = cos(6f * diff)
+                val pwr = ((vertex + 1f) * 0.5f).let { it * it * it * it }
+                arr[i] = rgb((pwr * 0f).toInt(), (pwr * 229f).toInt(), (pwr * 255f).toInt())
+            }
+
+            // Ring 2 (19..42): Dodecagram (12 vertices, harmonic rotation)
+            for (i in 19..42) {
+                val theta = (i - 19) * (2f * PI.toFloat() / 24f)
+                val diff = theta - rot * 0.5f
+                val vertex = cos(12f * diff)
+                val pwr = ((vertex + 1f) * 0.5f).let { it * it * it * it }
+                arr[i] = rgb((pwr * 255f).toInt(), (pwr * 100f).toInt(), (pwr * 220f).toInt())
+            }
+        }
     }
 
     return arr
