@@ -77,6 +77,11 @@
 ---
 
 ## 4. Verification
-- Compiled Pico 2 W firmware with CMake: `celestial_firmware.uf2` generated successfully.
-- Flashed Pico 2 W via BOOTSEL `D:\`. Staff rebooted cleanly on `COM9`.
-- Verified Kotlin compilation in Android Companion App.
+- Compiled Pico 2 W firmware with CMake: `celestial_firmware.uf2` generated and flashed to Pico 2 W via BOOTSEL `D:\`. Staff booted cleanly on `COM9`.
+- Verified Kotlin compilation via GitHub Actions CI run `40417849817` (`app-debug.apk` built and packaged).
+- Cleanly reinstalled APK on Google Pixel 9 Pro XL (`49051FDAS001YK`) resolving previous signature mismatch (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`).
+- Screen capture verified:
+  - App launched successfully and displays live telemetry from staff `10.169.248.64` (State: IDLE, Vol: 14%, Tick #14001+).
+  - Audio Soundboard displays all 3 tabs: `[ 🎮 THEMES (13) ]`, `[ 🌌 SFX (14) ]`, `[ 🪄 COMBOS ]`.
+  - All 13 thematic packs (Doom, Tetris, Zelda, Star Wars, Ghostbusters, Morrowind, Spooky Skeletons, Daft Punk, eBay Chaos Auction, Harry Potter, Pokémon, Sailor Moon, Super Mario) rendered with full cards, "Play Theme & Runes" buttons, and quick-action SFX chips.
+  - Runes screen verified with 35 interactive LED presets and real-time concentric ring simulation.
