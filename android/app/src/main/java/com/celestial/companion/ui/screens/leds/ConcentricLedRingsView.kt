@@ -762,6 +762,181 @@ private fun computeLedColors(
                 arr[i] = rgb((pwr * 255f).toInt(), (pwr * 100f).toInt(), (pwr * 220f).toInt())
             }
         }
+
+        LedAnimation.DOOM -> { // 23. Doom Hellfire
+            val beatPhase = tick % 16
+            val shotgunFlash = if (beatPhase < 3) 1f - (beatPhase / 3f) else 0f
+            val bfgPulse = 0.5f + 0.5f * sin(tick * 0.35f)
+            val sf = (shotgunFlash * 255).toInt()
+
+            arr[0] = rgb(max(sf, 20), max(sf, (200 + 55 * bfgPulse).toInt()), max(sf, 40))
+            for (i in 1..6) {
+                val theta = (i - 1) * 60f
+                val rot = (tick * 12f) % 360f
+                var d = abs(theta - rot); if (d > 180f) d = 360f - d
+                val amp = if (d < 45f) cos(d * PI.toFloat() / 90f) else 0f
+                arr[i] = rgb(max(sf, (amp * 30).toInt()), max(sf, (amp * 240).toInt()), max(sf, (amp * 60).toInt()))
+            }
+            for (i in 7..18) {
+                val heat = 0.5f + 0.5f * sin((i - 7) * 0.523f - tick * 0.15f)
+                arr[i] = rgb(max(sf, (heat * 255).toInt()), max(sf, (heat * 70).toInt()), sf)
+            }
+            for (i in 19..42) {
+                if (shotgunFlash > 0.05f) {
+                    arr[i] = rgb(255, sf, sf)
+                } else {
+                    val fl = 0.5f + 0.5f * sin((i - 19) * 0.8f + tick * 0.25f)
+                    arr[i] = rgb((140 + 100 * fl).toInt(), 10, 5)
+                }
+            }
+        }
+
+        LedAnimation.TETRIS -> { // 24. Tetris Arcade
+            val cycle = tick % 120
+            if (cycle >= 105) {
+                val clearFlash = (abs(sin((cycle - 105) * PI.toFloat() / 7.5f)) * 255).toInt()
+                for (i in 19..42) arr[i] = rgb(clearFlash, clearFlash, clearFlash)
+                for (i in 0..18) arr[i] = Color.hsv(((tick * 10 + i * 15) % 360).toFloat(), 0.85f, 0.8f)
+            } else {
+                val pieceType = (tick / 120) % 5
+                val pColor = when (pieceType.toInt()) {
+                    1 -> rgb(250, 230, 0)
+                    2 -> rgb(190, 30, 240)
+                    3 -> rgb(255, 120, 0)
+                    4 -> rgb(0, 240, 40)
+                    else -> rgb(0, 240, 240)
+                }
+                for (i in 0 until 43) arr[i] = rgb(2, 4, 12)
+                arr[0] = pColor.copy(alpha = 0.6f)
+                val layer = if (cycle < 35) 0 else if (cycle < 70) 1 else 2
+                when (layer) {
+                    0 -> for (i in 1..6) if (i % 2 == 0) arr[i] = pColor
+                    1 -> for (i in 7..18) if ((i - 7) % 3 == 0) arr[i] = pColor
+                    2 -> for (i in 19..42) if ((i - 19) % 4 == 0) arr[i] = pColor
+                }
+            }
+        }
+
+        LedAnimation.ZELDA -> { // 25. Zelda Triforce
+            for (i in 0 until 43) arr[i] = rgb(1, 6, 4)
+            val corePulse = 0.6f + 0.4f * sin(tick * 0.2f)
+            arr[0] = rgb((10 * corePulse).toInt(), (240 * corePulse).toInt(), (110 * corePulse).toInt())
+            for (i in 1..6) {
+                val g = (140 + 90 * (0.5f + 0.5f * sin((i - 1) * 1.047f + tick * 0.15f))).toInt()
+                arr[i] = rgb(5, g, 40)
+            }
+            for (i in 7..18) arr[i] = rgb(80, 60, 5)
+            val rot = (tick * 4f) % 360f
+            for (i in 19..42) {
+                val angle = (i - 19) * 15f
+                var minD = 180f
+                for (v in 0..2) {
+                    val vAng = (rot + v * 120f) % 360f
+                    var d = abs(angle - vAng); if (d > 180f) d = 360f - d
+                    if (d < minD) minD = d
+                }
+                if (minD < 35f) {
+                    val amp = cos(minD * PI.toFloat() / 70f).let { it * it }
+                    arr[i] = rgb((amp * 255).toInt(), (amp * 215).toInt(), (amp * 15).toInt())
+                }
+            }
+        }
+
+        LedAnimation.STARWARS -> { // 26. Star Wars Duel
+            for (i in 0 until 43) arr[i] = rgb(1, 2, 8)
+            val rotS = (tick * 8f) % 360f
+            val rotJ = (360f - (tick * 8f) % 360f) % 360f
+            var dClash = abs(rotS - rotJ); if (dClash > 180f) dClash = 360f - dClash
+            val cf = if (dClash < 25f) ((1f - dClash / 25f) * 255).toInt() else 0
+
+            arr[0] = rgb(max(cf, 10), max(cf, 220), max(cf, 240))
+            for (i in 1..6) arr[i] = rgb(min(255, 10 + cf), min(255, 60 + cf), min(255, 140 + cf))
+            for (i in 7..18) arr[i] = rgb(min(255, 40 + cf), cf, min(255, 40 + cf))
+            for (i in 19..42) {
+                val angle = (i - 19) * 15f
+                var ds = abs(angle - rotS); if (ds > 180f) ds = 360f - ds
+                var dj = abs(angle - rotJ); if (dj > 180f) dj = 360f - dj
+                val as_ = if (ds < 35f) (1f - ds / 35f) else 0f
+                val aj_ = if (dj < 35f) (1f - dj / 35f) else 0f
+                arr[i] = rgb(min(255, (as_ * 255).toInt() + cf), cf, min(255, (aj_ * 255).toInt() + cf))
+            }
+        }
+
+        LedAnimation.GHOSTBUSTERS -> { // 27. Ghostbusters
+            for (i in 0 until 43) arr[i] = rgb(1, 4, 2)
+            val sp = 0.5f + 0.5f * sin(tick * 0.25f)
+            arr[0] = rgb((57 * sp).toInt(), (255 * sp).toInt(), (20 * sp).toInt())
+            for (i in 1..6) {
+                val w = sin((i - 1) * 1.047f + tick * 0.3f)
+                arr[i] = rgb((30 + 27 * w).toInt(), (200 + 55 * w).toInt(), 15)
+            }
+            val rotR = (tick * 9f) % 360f
+            val rotB = (360f - (tick * 9f) % 360f + 40f) % 360f
+            for (i in 7..18) {
+                val angle = (i - 7) * 30f
+                var dr = abs(angle - rotR); if (dr > 180f) dr = 360f - dr
+                var db = abs(angle - rotB); if (db > 180f) db = 360f - db
+                val ar = if (dr < 40f) (1f - dr / 40f) else 0f
+                val ab = if (db < 40f) (1f - db / 40f) else 0f
+                arr[i] = rgb((ar * 255).toInt(), (ar * ab * 255).toInt(), (ab * 255).toInt())
+            }
+            for (i in 19..42) {
+                val angle = (i - 19) * 15f
+                var dr = abs(angle - rotR); if (dr > 180f) dr = 360f - dr
+                var db = abs(angle - rotB); if (db > 180f) db = 360f - db
+                val ar = if (dr < 30f) (1f - dr / 30f) else 0f
+                val ab = if (db < 30f) (1f - db / 30f) else 0f
+                val spark = if (ar > 0.3f && ab > 0.3f) 255 else 0
+                arr[i] = rgb(min(255, (ar * 255).toInt() + spark), spark, min(255, (ab * 255).toInt() + spark))
+            }
+        }
+
+        LedAnimation.MORROWIND -> { // 28. Morrowind
+            val magma = 0.5f + 0.5f * sin(tick * 0.18f)
+            arr[0] = rgb((220 + 35 * magma).toInt(), (50 + 90 * magma).toInt(), 5)
+            for (i in 1..6) {
+                val w = 0.5f + 0.5f * sin((i - 1) * 1.047f + tick * 0.2f)
+                arr[i] = rgb((180 + 70 * w).toInt(), (40 + 40 * w).toInt(), 10)
+            }
+            for (i in 7..18) {
+                val t = 0.5f + 0.5f * sin((i - 7) * 0.523f - tick * 0.12f)
+                arr[i] = rgb((t * 160 + (1f - t) * 80).toInt(), (t * 60).toInt(), ((1f - t) * 160).toInt())
+            }
+            val aPhase = tick * 0.08f
+            for (i in 19..42) {
+                val angle = (i - 19) * 15f
+                val a = 0.5f + 0.5f * sin(angle * PI.toFloat() / 90f + aPhase)
+                arr[i] = rgb(((1f - a) * 124).toInt(), (a * 229).toInt(), 255)
+            }
+        }
+
+        LedAnimation.SPOOKY -> { // 29. Spooky Skeletons
+            for (i in 0 until 43) arr[i] = rgb(3, 1, 8)
+            val candle = 0.6f + 0.4f * sin(tick * 0.4f + sin(tick * 0.9f))
+            arr[0] = rgb((255 * candle).toInt(), (100 * candle).toInt(), 0)
+            val strobe = (tick / 2) % 4
+            val click = (tick % 4) == 0L
+            for (i in 1..6) {
+                if (i % 2 == (strobe % 2).toInt()) {
+                    arr[i] = rgb((240 * candle).toInt(), (80 * candle).toInt(), 0)
+                } else if (click) {
+                    arr[i] = rgb(240, 240, 240)
+                }
+            }
+            for (i in 7..18) {
+                arr[i] = if ((i - 7) % 3 == strobe.toInt()) rgb(250, 250, 250) else rgb(70, 5, 120)
+            }
+            for (i in 19..42) {
+                arr[i] = if ((i - 19) % 4 == strobe.toInt()) rgb(255, 255, 255)
+                else if ((i - 19) % 4 == ((strobe + 2) % 4).toInt()) rgb(220, 70, 0)
+                else rgb(10, 2, 20)
+            }
+        }
+
+        else -> { // Fallback
+            val hue = (tick * 2f) % 360f
+            for (i in 0 until 43) arr[i] = Color.hsv(hue, 0.8f, 0.7f)
+        }
     }
 
     return arr

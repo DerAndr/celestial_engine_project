@@ -1839,6 +1839,26 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
     oled_ready = sh1106_update();
 }
 
+static void sync_chiptune_thematic_leds(int track_idx) {
+    const char *name = audio_get_chiptune_name(track_idx);
+    if (!name) return;
+    if (strstr(name, "DOOM")) {
+        leds_set_anim_mode(LED_ANIM_DOOM);
+    } else if (strstr(name, "TETRIS")) {
+        leds_set_anim_mode(LED_ANIM_TETRIS);
+    } else if (strstr(name, "ZELDA")) {
+        leds_set_anim_mode(LED_ANIM_ZELDA);
+    } else if (strstr(name, "IMPERIAL")) {
+        leds_set_anim_mode(LED_ANIM_STARWARS);
+    } else if (strstr(name, "GHOSTBUSTERS")) {
+        leds_set_anim_mode(LED_ANIM_GHOSTBUSTERS);
+    } else if (strstr(name, "MORROWIND")) {
+        leds_set_anim_mode(LED_ANIM_MORROWIND);
+    } else if (strstr(name, "SPOOKY")) {
+        leds_set_anim_mode(LED_ANIM_SPOOKY);
+    }
+}
+
 static inline void broadcast_telemetry(void) {
     net_client_send_telemetry((uint8_t)current_mode_idx, (uint8_t)current_state,
                               audio_get_volume(), (uint8_t)live_rendered_anim,
@@ -2575,6 +2595,7 @@ int main(void) {
                 // Advance to next track!
                 active_track_idx = (active_track_idx + 1) % audio_get_chiptune_count();
                 audio_play_chiptune(active_track_idx);
+                sync_chiptune_thematic_leds(active_track_idx);
                 LOG_INFO("CHIPTUNE", "Switched to track: %s", audio_get_chiptune_name(active_track_idx));
             } else if (voice_mode) {
                 // Play selected voice phrase!
@@ -2589,6 +2610,7 @@ int main(void) {
             } else if (current_mode_idx == MODE_CHIPTUNE) {
                 chiptune_mode = true;
                 audio_play_chiptune(active_track_idx);
+                sync_chiptune_thematic_leds(active_track_idx);
                 LOG_INFO("CHIPTUNE", "Entering 8-bit Jukebox! Playing %s",
                          audio_get_chiptune_name(active_track_idx));
             } else if (current_mode_idx == MODE_COSMIC) {
@@ -2771,6 +2793,15 @@ int main(void) {
                 LOG_INFO("AUDIO", "Chiptune track [%s] triggered via serial",
                          audio_get_chiptune_name(active_track_idx));
                 audio_play_chiptune(active_track_idx);
+                sync_chiptune_thematic_leds(active_track_idx);
+                need_display_update = true;
+            } else if (cmd_c == 'D' || cmd_c == 'd') {
+                // Instant Doom Mode!
+                active_track_idx = 9; // DOOM E1M1 RIFF
+                chiptune_mode = true;
+                LOG_INFO("DOOM", ">>> DOOM MODE ACTIVATED VIA SERIAL! (E1M1 + HELLFIRE LEDS) <<<");
+                audio_play_chiptune(active_track_idx);
+                leds_set_anim_mode(LED_ANIM_DOOM);
                 need_display_update = true;
             } else if (cmd_c == 'C' || cmd_c == 'c') {
                 int sfx = -1;

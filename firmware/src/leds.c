@@ -73,7 +73,14 @@ static const char *ANIM_NAMES[LED_ANIM_COUNT] = {
     "RADIAL WAVE",
     "COLLIDING WAVES",
     "ARCHIMEDES SPIRAL",
-    "SACRED POLYGON"
+    "SACRED POLYGON",
+    "DOOM HELLFIRE",
+    "TETRIS ARCADE",
+    "ZELDA TRIFORCE",
+    "STAR WARS DUEL",
+    "GHOSTBUSTERS",
+    "MORROWIND ASH",
+    "SPOOKY SKELETONS"
 };
 
 static inline uint32_t rgb_to_grb(uint8_t r, uint8_t g, uint8_t b) {
@@ -1944,6 +1951,344 @@ static void render_sacred_polygon(uint32_t tick) {
     }
 }
 
+// 23. Doom Mode: Hellfire Crimson & BFG9000 Plasma Shockwaves
+static void render_doom(uint32_t tick) {
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 12; pixels_g[i] = 2; pixels_b[i] = 2;
+    }
+
+    uint32_t beat_phase = tick % 16;
+    float shotgun_flash = 0.0f;
+    if (beat_phase < 3) {
+        shotgun_flash = 1.0f - ((float)beat_phase / 3.0f);
+    }
+
+    float bfg_pulse = 0.5f + 0.5f * sinf((float)tick * 0.35f);
+    pixels_r[0] = (uint8_t)(shotgun_flash * 255.0f + (1.0f - shotgun_flash) * 20.0f);
+    pixels_g[0] = (uint8_t)(shotgun_flash * 255.0f + (1.0f - shotgun_flash) * (200.0f + 55.0f * bfg_pulse));
+    pixels_b[0] = (uint8_t)(shotgun_flash * 255.0f + (1.0f - shotgun_flash) * 40.0f);
+
+    float plasma_rot = fmodf((float)tick * 12.0f, 360.0f);
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 1) * 60.0f;
+        float d = fabsf(angle - plasma_rot); if (d > 180.0f) d = 360.0f - d;
+        float amp = (d < 45.0f) ? cosf(d * 3.14159f / 90.0f) : 0.0f;
+        uint8_t r = (uint8_t)(shotgun_flash * 255.0f + amp * 30.0f);
+        uint8_t g = (uint8_t)(shotgun_flash * 255.0f + amp * 240.0f);
+        uint8_t b = (uint8_t)(shotgun_flash * 255.0f + amp * 60.0f);
+        pixels_r[i] = add_sat_u8(pixels_r[i], r);
+        pixels_g[i] = add_sat_u8(pixels_g[i], g);
+        pixels_b[i] = add_sat_u8(pixels_b[i], b);
+    }
+
+    float magma_rot = fmodf(360.0f - (float)tick * 8.0f, 360.0f);
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float wave = sinf((angle + magma_rot) * 3.14159f / 60.0f);
+        float heat = 0.5f + 0.5f * wave;
+        uint8_t r = (uint8_t)(shotgun_flash * 255.0f + heat * 255.0f);
+        uint8_t g = (uint8_t)(shotgun_flash * 255.0f + heat * 70.0f);
+        uint8_t b = (uint8_t)(shotgun_flash * 255.0f);
+        pixels_r[i] = add_sat_u8(pixels_r[i], r);
+        pixels_g[i] = add_sat_u8(pixels_g[i], g);
+        pixels_b[i] = add_sat_u8(pixels_b[i], b);
+    }
+
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        if (shotgun_flash > 0.05f) {
+            uint8_t flash_val = (uint8_t)(shotgun_flash * 255.0f);
+            pixels_r[i] = 255;
+            pixels_g[i] = flash_val;
+            pixels_b[i] = flash_val;
+        } else {
+            float flame_w = sinf((float)(i - 19) * 0.8f + (float)tick * 0.25f);
+            uint8_t r = (uint8_t)(140.0f + 100.0f * (0.5f + 0.5f * flame_w));
+            pixels_r[i] = add_sat_u8(pixels_r[i], r);
+            pixels_g[i] = 10;
+            pixels_b[i] = 5;
+        }
+    }
+}
+
+// 24. Tetris Arcade: Concentric Falling Tetrominoes & 4-Line Clear
+static void render_tetris(uint32_t tick) {
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 2; pixels_g[i] = 4; pixels_b[i] = 12;
+    }
+
+    uint32_t cycle = tick % 120;
+    bool line_clear = (cycle >= 105);
+
+    if (line_clear) {
+        float clear_flash = sinf((float)(cycle - 105) * 3.14159f / 7.5f);
+        if (clear_flash < 0.0f) clear_flash = -clear_flash;
+        uint8_t cf = (uint8_t)(clear_flash * 255.0f);
+        for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+            pixels_r[i] = cf; pixels_g[i] = cf; pixels_b[i] = cf;
+        }
+        for (int i = 0; i <= 18 && i < LED_RING_COUNT; i++) {
+            uint16_t h = (tick * 10 + i * 15) % 360;
+            hsv_to_rgb(h, 220, 200, &pixels_r[i], &pixels_g[i], &pixels_b[i]);
+        }
+        return;
+    }
+
+    int layer = (cycle < 35) ? 0 : (cycle < 70) ? 1 : 2;
+    uint8_t piece_type = (tick / 120) % 5;
+    uint8_t pr = 0, pg = 240, pb = 240;
+    if (piece_type == 1) { pr = 250; pg = 230; pb = 0; }
+    else if (piece_type == 2) { pr = 190; pg = 30; pb = 240; }
+    else if (piece_type == 3) { pr = 255; pg = 120; pb = 0; }
+    else if (piece_type == 4) { pr = 0; pg = 240; pb = 40; }
+
+    pixels_r[0] = pr / 2; pixels_g[0] = pg / 2; pixels_b[0] = pb / 2;
+
+    int rot_offset = (tick / 4) % 6;
+    if (layer == 0) {
+        for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+            if ((i + rot_offset) % 6 < 3) {
+                pixels_r[i] = pr; pixels_g[i] = pg; pixels_b[i] = pb;
+            }
+        }
+    } else if (layer == 1) {
+        int m_rot = (rot_offset * 2) % 12;
+        for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+            if ((i - 7 + m_rot) % 12 < 4) {
+                pixels_r[i] = pr; pixels_g[i] = pg; pixels_b[i] = pb;
+            }
+        }
+    } else {
+        int o_rot = (rot_offset * 4) % 24;
+        for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+            if ((i - 19 + o_rot) % 24 < 6) {
+                pixels_r[i] = pr; pixels_g[i] = pg; pixels_b[i] = pb;
+            }
+        }
+    }
+}
+
+// 25. The Legend of Zelda: Golden Sacred Triforce & Courage Core
+static void render_zelda(uint32_t tick) {
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 1; pixels_g[i] = 6; pixels_b[i] = 4;
+    }
+
+    float core_pulse = 0.6f + 0.4f * sinf((float)tick * 0.2f);
+    pixels_r[0] = (uint8_t)(10.0f * core_pulse);
+    pixels_g[0] = (uint8_t)(240.0f * core_pulse);
+    pixels_b[0] = (uint8_t)(110.0f * core_pulse);
+
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        float wave = sinf((float)(i - 1) * 1.047f + (float)tick * 0.15f);
+        uint8_t g = (uint8_t)(140.0f + 90.0f * (0.5f + 0.5f * wave));
+        pixels_r[i] = 5;
+        pixels_g[i] = g;
+        pixels_b[i] = 40;
+    }
+
+    float aura_rot = fmodf((float)tick * 6.0f, 360.0f);
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float d = fabsf(angle - aura_rot); if (d > 180.0f) d = 360.0f - d;
+        float amp = (d < 45.0f) ? cosf(d * 3.14159f / 90.0f) : 0.0f;
+        pixels_r[i] = add_sat_u8(pixels_r[i], (uint8_t)(amp * 230.0f + 25.0f));
+        pixels_g[i] = add_sat_u8(pixels_g[i], (uint8_t)(amp * 180.0f + 20.0f));
+        pixels_b[i] = (uint8_t)(amp * 20.0f);
+    }
+
+    float triforce_rot = fmodf((float)tick * 4.0f, 360.0f);
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 19) * 15.0f;
+        float min_d = 180.0f;
+        for (int v = 0; v < 3; v++) {
+            float v_ang = fmodf(triforce_rot + (float)v * 120.0f, 360.0f);
+            float d = fabsf(angle - v_ang); if (d > 180.0f) d = 360.0f - d;
+            if (d < min_d) min_d = d;
+        }
+        if (min_d < 35.0f) {
+            float amp = cosf(min_d * 3.14159f / 70.0f);
+            amp = amp * amp;
+            pixels_r[i] = (uint8_t)(amp * 255.0f);
+            pixels_g[i] = (uint8_t)(amp * 215.0f);
+            pixels_b[i] = (uint8_t)(amp * 15.0f);
+        }
+    }
+}
+
+// 26. Star Wars: Lightsaber Duel Sith vs Jedi Plasma Clash
+static void render_starwars(uint32_t tick) {
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 1; pixels_g[i] = 2; pixels_b[i] = 8;
+    }
+
+    float rot_sith = fmodf((float)tick * 8.0f, 360.0f);
+    float rot_jedi = fmodf(360.0f - (float)tick * 8.0f, 360.0f);
+
+    float d_clash0 = fabsf(rot_sith - rot_jedi); if (d_clash0 > 180.0f) d_clash0 = 360.0f - d_clash0;
+    float clash_flash = 0.0f;
+    if (d_clash0 < 25.0f) {
+        clash_flash = 1.0f - (d_clash0 / 25.0f);
+        clash_flash = clash_flash * clash_flash;
+    }
+
+    uint8_t cf = (uint8_t)(clash_flash * 255.0f);
+    pixels_r[0] = cf ? cf : 10;
+    pixels_g[0] = cf ? cf : 220;
+    pixels_b[0] = cf ? cf : 240;
+
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        pixels_r[i] = add_sat_u8(10, cf);
+        pixels_g[i] = add_sat_u8(60, cf);
+        pixels_b[i] = add_sat_u8(140, cf);
+    }
+
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float d_s = fabsf(angle - rot_sith); if (d_s > 180.0f) d_s = 360.0f - d_s;
+        float d_j = fabsf(angle - rot_jedi); if (d_j > 180.0f) d_j = 360.0f - d_j;
+        float a_s = (d_s < 45.0f) ? (1.0f - d_s / 45.0f) : 0.0f;
+        float a_j = (d_j < 45.0f) ? (1.0f - d_j / 45.0f) : 0.0f;
+        pixels_r[i] = add_sat_u8((uint8_t)(a_s * 255.0f), cf);
+        pixels_g[i] = cf;
+        pixels_b[i] = add_sat_u8((uint8_t)(a_j * 255.0f), cf);
+    }
+
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 19) * 15.0f;
+        float d_s = fabsf(angle - rot_sith); if (d_s > 180.0f) d_s = 360.0f - d_s;
+        float d_j = fabsf(angle - rot_jedi); if (d_j > 180.0f) d_j = 360.0f - d_j;
+        float a_s = (d_s < 35.0f) ? (1.0f - d_s / 35.0f) : 0.0f;
+        float a_j = (d_j < 35.0f) ? (1.0f - d_j / 35.0f) : 0.0f;
+        uint8_t r = (uint8_t)(a_s * 255.0f);
+        uint8_t g = (uint8_t)(clash_flash * 255.0f);
+        uint8_t b = (uint8_t)(a_j * 255.0f);
+        if (clash_flash > 0.05f) {
+            r = add_sat_u8(r, cf);
+            b = add_sat_u8(b, cf);
+        }
+        pixels_r[i] = r; pixels_g[i] = g; pixels_b[i] = b;
+    }
+}
+
+// 27. Ghostbusters: Slimer Neon Ectoplasm & Crossing Proton Streams
+static void render_ghostbusters(uint32_t tick) {
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 1; pixels_g[i] = 4; pixels_b[i] = 2;
+    }
+
+    float slimer_pulse = 0.5f + 0.5f * sinf((float)tick * 0.25f);
+    pixels_r[0] = (uint8_t)(57.0f * slimer_pulse);
+    pixels_g[0] = (uint8_t)(255.0f * slimer_pulse);
+    pixels_b[0] = (uint8_t)(20.0f * slimer_pulse);
+
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        float wave = sinf((float)(i - 1) * 1.047f + (float)tick * 0.3f);
+        pixels_r[i] = (uint8_t)(30.0f + 27.0f * wave);
+        pixels_g[i] = (uint8_t)(200.0f + 55.0f * wave);
+        pixels_b[i] = 15;
+    }
+
+    float stream_red = fmodf((float)tick * 9.0f, 360.0f);
+    float stream_blue = fmodf(360.0f - (float)tick * 9.0f + 40.0f, 360.0f);
+
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float d_r = fabsf(angle - stream_red); if (d_r > 180.0f) d_r = 360.0f - d_r;
+        float d_b = fabsf(angle - stream_blue); if (d_b > 180.0f) d_b = 360.0f - d_b;
+        float a_r = (d_r < 40.0f) ? (1.0f - d_r / 40.0f) : 0.0f;
+        float a_b = (d_b < 40.0f) ? (1.0f - d_b / 40.0f) : 0.0f;
+        pixels_r[i] = (uint8_t)(a_r * 255.0f);
+        pixels_g[i] = (uint8_t)((a_r * a_b) * 255.0f);
+        pixels_b[i] = (uint8_t)(a_b * 255.0f);
+    }
+
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 19) * 15.0f;
+        float d_r = fabsf(angle - stream_red); if (d_r > 180.0f) d_r = 360.0f - d_r;
+        float d_b = fabsf(angle - stream_blue); if (d_b > 180.0f) d_b = 360.0f - d_b;
+        float a_r = (d_r < 30.0f) ? (1.0f - d_r / 30.0f) : 0.0f;
+        float a_b = (d_b < 30.0f) ? (1.0f - d_b / 30.0f) : 0.0f;
+        float spark = (a_r > 0.3f && a_b > 0.3f) ? 1.0f : 0.0f;
+        pixels_r[i] = (uint8_t)(a_r * 255.0f + spark * 255.0f);
+        pixels_g[i] = (uint8_t)(spark * 255.0f);
+        pixels_b[i] = (uint8_t)(a_b * 255.0f + spark * 255.0f);
+    }
+}
+
+// 28. Morrowind: Red Mountain Ash Storm & Vivec Turquoise Aurora
+static void render_morrowind(uint32_t tick) {
+    float magma = 0.5f + 0.5f * sinf((float)tick * 0.18f);
+    pixels_r[0] = (uint8_t)(220.0f + 35.0f * magma);
+    pixels_g[0] = (uint8_t)(50.0f + 90.0f * magma);
+    pixels_b[0] = 5;
+
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        float wave = sinf((float)(i - 1) * 1.047f + (float)tick * 0.2f);
+        pixels_r[i] = (uint8_t)(180.0f + 70.0f * (0.5f + 0.5f * wave));
+        pixels_g[i] = (uint8_t)(40.0f + 40.0f * wave);
+        pixels_b[i] = 10;
+    }
+
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float wave = sinf((float)(i - 7) * 0.523f - (float)tick * 0.12f);
+        float t = 0.5f + 0.5f * wave;
+        pixels_r[i] = (uint8_t)(t * 160.0f + (1.0f - t) * 80.0f);
+        pixels_g[i] = (uint8_t)(t * 60.0f);
+        pixels_b[i] = (uint8_t)((1.0f - t) * 160.0f);
+    }
+
+    float aurora_phase = (float)tick * 0.08f;
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 19) * 15.0f;
+        float wave = sinf(angle * 3.14159f / 90.0f + aurora_phase);
+        float a = 0.5f + 0.5f * wave;
+        pixels_r[i] = (uint8_t)((1.0f - a) * 124.0f);
+        pixels_g[i] = (uint8_t)(a * 229.0f);
+        pixels_b[i] = 255;
+    }
+}
+
+// 29. Spooky Scary Skeletons: Bone Dance Strobe & Jack-o'-Lantern Glow
+static void render_spooky(uint32_t tick) {
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 3; pixels_g[i] = 1; pixels_b[i] = 8;
+    }
+
+    float candle = 0.6f + 0.4f * sinf((float)tick * 0.4f + sinf((float)tick * 0.9f));
+    pixels_r[0] = (uint8_t)(255.0f * candle);
+    pixels_g[0] = (uint8_t)(100.0f * candle);
+    pixels_b[0] = 0;
+
+    uint32_t strobe_step = (tick / 2) % 4;
+    bool bone_click = (tick % 4) == 0;
+
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        if (i % 2 == (int)(strobe_step % 2)) {
+            pixels_r[i] = (uint8_t)(240.0f * candle);
+            pixels_g[i] = (uint8_t)(80.0f * candle);
+            pixels_b[i] = 0;
+        } else if (bone_click) {
+            pixels_r[i] = 240; pixels_g[i] = 240; pixels_b[i] = 240;
+        }
+    }
+
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        if ((i - 7) % 3 == (int)strobe_step) {
+            pixels_r[i] = 250; pixels_g[i] = 250; pixels_b[i] = 250;
+        } else {
+            pixels_r[i] = 70; pixels_g[i] = 5; pixels_b[i] = 120;
+        }
+    }
+
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        if ((i - 19) % 4 == (int)strobe_step) {
+            pixels_r[i] = 255; pixels_g[i] = 255; pixels_b[i] = 255;
+        } else if ((i - 19) % 4 == (int)((strobe_step + 2) % 4)) {
+            pixels_r[i] = 220; pixels_g[i] = 70; pixels_b[i] = 0;
+        }
+    }
+}
+
 #if CELESTIAL_FOUR_RINGS && CELESTIAL_RING_EXPERIMENT
 // Diagnostic build only: pure RGB cycle on spare during RAINBOW
 static void render_spare_ring(uint32_t tick, int mode, uint8_t mic_level_pct, bool music_active) {
@@ -2071,6 +2416,27 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
                 break;
             case LED_ANIM_SACRED_POLYGON:
                 render_sacred_polygon(anim_tick);
+                break;
+            case LED_ANIM_DOOM:
+                render_doom(anim_tick);
+                break;
+            case LED_ANIM_TETRIS:
+                render_tetris(anim_tick);
+                break;
+            case LED_ANIM_ZELDA:
+                render_zelda(anim_tick);
+                break;
+            case LED_ANIM_STARWARS:
+                render_starwars(anim_tick);
+                break;
+            case LED_ANIM_GHOSTBUSTERS:
+                render_ghostbusters(anim_tick);
+                break;
+            case LED_ANIM_MORROWIND:
+                render_morrowind(anim_tick);
+                break;
+            case LED_ANIM_SPOOKY:
+                render_spooky(anim_tick);
                 break;
             default:
                 render_rainbow_wave(anim_tick);

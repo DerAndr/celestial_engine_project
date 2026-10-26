@@ -31,6 +31,13 @@ typedef enum {
     LED_ANIM_COLLIDING_WAVES,// 20. Counter-propagating waves colliding at 0° and 180° with white interference flash
     LED_ANIM_ARCHIMEDES_SPIRAL, // 21. Hypnotic rotating Archimedean dual spiral arms with radial phase lag
     LED_ANIM_SACRED_POLYGON, // 22. Stroboscopic geometric runes (Triquetra, Hexagram, Dodecagram gear ratios)
+    LED_ANIM_DOOM,           // 23. Doom: Hellfire Crimson & BFG9000 plasma shockwaves
+    LED_ANIM_TETRIS,         // 24. Tetris Arcade: concentric tetromino block drop & 4-line clear
+    LED_ANIM_ZELDA,          // 25. The Legend of Zelda: Golden Sacred Triforce & Courage Core
+    LED_ANIM_STARWARS,       // 26. Star Wars: Lightsaber Duel Sith vs Jedi Plasma Clash
+    LED_ANIM_GHOSTBUSTERS,   // 27. Ghostbusters: Slimer Neon Ectoplasm & Crossing Proton Streams
+    LED_ANIM_MORROWIND,      // 28. Morrowind: Red Mountain Ash Storm & Vivec Turquoise Aurora
+    LED_ANIM_SPOOKY,         // 29. Spooky Scary Skeletons: Bone Dance Strobe & Jack-o'-Lantern Glow
     LED_ANIM_COUNT
 } led_anim_mode_t;
 

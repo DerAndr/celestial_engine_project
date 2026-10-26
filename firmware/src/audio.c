@@ -217,6 +217,54 @@ static const chime_note_t MEGAMAN_THEME[] = {
     { 349.23f, 180 }, { 293.66f, 350 }
 };
 
+// 7. Ghostbusters Theme (Ray Parker Jr. - Retro Slap Bass & Hook)
+static const chime_note_t GHOSTBUSTERS_THEME[] = {
+    // Intro Slap Bass Groove
+    { 246.94f, 130 }, { 246.94f, 130 }, { 293.66f, 130 }, { 246.94f, 130 },
+    { 329.63f, 170 }, { 293.66f, 170 }, { 246.94f, 130 }, { 246.94f, 130 },
+    { 293.66f, 130 }, { 246.94f, 130 }, { 220.00f, 220 }, { 0.0f, 90 },
+    // Repeat Groove
+    { 246.94f, 130 }, { 246.94f, 130 }, { 293.66f, 130 }, { 246.94f, 130 },
+    { 329.63f, 170 }, { 293.66f, 170 }, { 246.94f, 130 }, { 246.94f, 130 },
+    { 293.66f, 130 }, { 246.94f, 130 }, { 220.00f, 220 }, { 0.0f, 90 },
+    // Synth Brass Hook: "Who you gonna call?!"
+    { 369.99f, 150 }, { 440.00f, 150 }, { 493.88f, 300 }, { 0.0f, 90 },
+    { 493.88f, 160 }, { 440.00f, 160 }, { 369.99f, 320 }, { 0.0f, 100 },
+    // "Ghostbusters!" Fanfare
+    { 493.88f, 220 }, { 440.00f, 220 }, { 369.99f, 400 }, { 0.0f, 150 }
+};
+
+// 8. The Elder Scrolls III: Morrowind (Nerevar Rising / Call of Magic - Jeremy Soule)
+static const chime_note_t MORROWIND_THEME[] = {
+    // Majestic Theme: Phrase 1
+    { 293.66f, 350 }, { 329.63f, 200 }, { 349.23f, 350 }, { 392.00f, 200 },
+    { 440.00f, 520 }, { 0.0f, 80 },
+    { 392.00f, 260 }, { 349.23f, 260 }, { 329.63f, 450 }, { 0.0f, 80 },
+    // Phrase 2 (Dorian cadence)
+    { 293.66f, 260 }, { 329.63f, 260 }, { 349.23f, 350 }, { 293.66f, 260 },
+    { 261.63f, 500 }, { 0.0f, 100 },
+    { 293.66f, 650 }, { 0.0f, 120 },
+    // Climax & Grand Horns
+    { 440.00f, 320 }, { 466.16f, 200 }, { 523.25f, 420 }, { 466.16f, 200 },
+    { 440.00f, 420 }, { 392.00f, 200 }, { 349.23f, 420 }, { 329.63f, 260 },
+    { 293.66f, 750 }
+};
+
+// 9. Spooky Scary Skeletons (Andrew Gold - Fast Electro-Swing Xylophone)
+static const chime_note_t SPOOKY_SKELETONS_THEME[] = {
+    // Hook 1: "Spooky Scary Skeletons"
+    { 293.66f, 130 }, { 293.66f, 130 }, { 587.33f, 240 }, { 440.00f, 180 },
+    { 415.30f, 180 }, { 392.00f, 180 }, { 349.23f, 240 },
+    { 293.66f, 130 }, { 349.23f, 130 }, { 392.00f, 240 }, { 0.0f, 70 },
+    // Hook 2: "Send shivers down your spine"
+    { 261.63f, 130 }, { 261.63f, 130 }, { 523.25f, 240 }, { 392.00f, 180 },
+    { 369.99f, 180 }, { 349.23f, 180 }, { 311.13f, 240 },
+    { 261.63f, 130 }, { 311.13f, 130 }, { 349.23f, 240 }, { 0.0f, 70 },
+    // Xylophone Bone-Rattle Cadence
+    { 293.66f, 85 },  { 349.23f, 85 },  { 440.00f, 85 },  { 587.33f, 95 },
+    { 523.25f, 85 },  { 440.00f, 85 },  { 349.23f, 85 },  { 293.66f, 320 }
+};
+
 // 7. Bella Ciao (Italian Folk Classic)
 static const chime_note_t BELLA_CIAO[] = {
     { 329.63f, 150 }, { 440.00f, 150 }, { 493.88f, 150 }, { 523.25f, 240 }, { 440.00f, 240 },
@@ -410,7 +458,10 @@ static const chiptune_track_t CHIPTUNE_TRACKS[] = {
     { "DOOM E1M1 RIFF", DOOM_THEME, sizeof(DOOM_THEME) / sizeof(DOOM_THEME[0]) },
     { "ZELDA OVERWORLD", ZELDA_THEME, sizeof(ZELDA_THEME) / sizeof(ZELDA_THEME[0]) },
     { "IMPERIAL MARCH", IMPERIAL_THEME, sizeof(IMPERIAL_THEME) / sizeof(IMPERIAL_THEME[0]) },
-    { "MEGA MAN 2 WILY", MEGAMAN_THEME, sizeof(MEGAMAN_THEME) / sizeof(MEGAMAN_THEME[0]) }
+    { "MEGA MAN 2 WILY", MEGAMAN_THEME, sizeof(MEGAMAN_THEME) / sizeof(MEGAMAN_THEME[0]) },
+    { "GHOSTBUSTERS THEME", GHOSTBUSTERS_THEME, sizeof(GHOSTBUSTERS_THEME) / sizeof(GHOSTBUSTERS_THEME[0]) },
+    { "MORROWIND NEREVAR", MORROWIND_THEME, sizeof(MORROWIND_THEME) / sizeof(MORROWIND_THEME[0]) },
+    { "SPOOKY SKELETONS", SPOOKY_SKELETONS_THEME, sizeof(SPOOKY_SKELETONS_THEME) / sizeof(SPOOKY_SKELETONS_THEME[0]) }
 };
 
 #define CHIPTUNE_TRACK_COUNT ((int)(sizeof(CHIPTUNE_TRACKS) / sizeof(CHIPTUNE_TRACKS[0])))
