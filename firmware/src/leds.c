@@ -38,13 +38,16 @@ static int led_boot_test_phase = -1;
 #endif
 
 const led_color_t RAINBOW_COLORS[RAINBOW_COLOR_COUNT] = {
-    { 255,   0,   0, "RED" },     // 0. Red
-    { 255,  85,   0, "ORANGE" },  // 1. Orange
-    { 255, 210,   0, "YELLOW" },  // 2. Yellow
-    {   0, 255,   0, "GREEN" },   // 3. Green
-    {   0, 200, 255, "CYAN" },    // 4. Cyan
-    {   0,  30, 255, "BLUE" },    // 5. Blue
-    { 180,   0, 255, "VIOLET" }   // 6. Violet
+    {   0, 220, 255, "CYAN" },      // 0. Cosmic Cyan (Aether Core)
+    {   0,  60, 255, "AZURE" },     // 1. Deep Space Azure Blue
+    { 180,   0, 255, "VIOLET" },    // 2. Nebula Violet / Amethyst
+    { 255,  15, 140, "MAGENTA" },   // 3. Cosmic Magenta / Rose
+    { 255,   0,   0, "CRIMSON" },   // 4. Solar Flare Crimson
+    { 255,  85,   0, "AMBER" },     // 5. Sunburst Amber / Orange
+    { 255, 200,  15, "GOLD" },      // 6. Radiant Celestial Gold
+    {   0, 255,  60, "EMERALD" },   // 7. Matrix Emerald Green
+    { 255, 255, 255, "STARLIGHT" }, // 8. Pure Starlight White
+    {   0,   0,   0, "SPECTRUM" }   // 9. Dynamic Chromatic Breath (Smooth Rainbow)
 };
 
 static const char *ANIM_NAMES[LED_ANIM_COUNT] = {
@@ -68,7 +71,9 @@ static const char *ANIM_NAMES[LED_ANIM_COUNT] = {
     "CELESTIAL ORRERY",
     "OUROBOROS SNAKE",
     "RADIAL WAVE",
-    "COLLIDING WAVES"
+    "COLLIDING WAVES",
+    "ARCHIMEDES SPIRAL",
+    "SACRED POLYGON"
 };
 
 static inline uint32_t rgb_to_grb(uint8_t r, uint8_t g, uint8_t b) {
@@ -182,6 +187,14 @@ void leds_set_rainbow_index(int color_idx) {
     base_color_idx = color_idx % RAINBOW_COLOR_COUNT;
 }
 
+int leds_get_rainbow_index(void) {
+    return base_color_idx;
+}
+
+int leds_get_rainbow_count(void) {
+    return RAINBOW_COLOR_COUNT;
+}
+
 const char* leds_get_rainbow_name(int color_idx) {
     if (color_idx < 0) color_idx = 0;
     return RAINBOW_COLORS[color_idx % RAINBOW_COLOR_COUNT].name;
@@ -202,9 +215,17 @@ static void render_breathe(uint32_t tick) {
     float breath = (sinf(angle) + 1.0f) * 0.5f; // 0.0 to 1.0
     float intensity = 0.2f + 0.8f * breath;
 
-    uint8_t br = (uint8_t)(RAINBOW_COLORS[base_color_idx].r * intensity);
-    uint8_t bg = (uint8_t)(RAINBOW_COLORS[base_color_idx].g * intensity);
-    uint8_t bb = (uint8_t)(RAINBOW_COLORS[base_color_idx].b * intensity);
+    uint8_t br, bg, bb;
+    if (base_color_idx == 9) {
+        // Continuous spectral breathing: dynamic hue rotating over time
+        uint16_t h = (uint16_t)((tick * 2) % 360);
+        uint8_t v = (uint8_t)(255.0f * intensity);
+        hsv_to_rgb(h, 220, v, &br, &bg, &bb);
+    } else {
+        br = (uint8_t)(RAINBOW_COLORS[base_color_idx].r * intensity);
+        bg = (uint8_t)(RAINBOW_COLORS[base_color_idx].g * intensity);
+        bb = (uint8_t)(RAINBOW_COLORS[base_color_idx].b * intensity);
+    }
 
     for (int i = 0; i < LED_RING_COUNT; i++) {
         pixels_r[i] = br;
@@ -1749,6 +1770,180 @@ static void render_colliding_waves(uint32_t tick) {
     }
 }
 
+// 21. Hypnotic Rotating Archimedean Dual Spiral Arms (SPELL_ANIM_ARCHIMEDES_SPIRAL):
+// Continuous 2D polar Archimedean spiral arms: theta(r, t) = omega * t - k * r.
+// Dual arms spaced 180 degrees apart swirl from the center core outward across
+// Ring 0 (r=1.0, 6 LEDs), Ring 1 (r=2.0, 12 LEDs), and Ring 2 (r=3.2, 24 LEDs).
+// Electric azure-cyan inner arms transition into deep neon ultraviolet-magenta outer tips.
+static void render_archimedes_spiral(uint32_t tick) {
+    float omega_t = fmodf((float)tick * 4.5f, 360.0f);
+    const float k_lag = 45.0f; // degrees of phase lag per radial ring unit
+
+    // Deep void cosmic ether
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 1;
+        pixels_g[i] = 2;
+        pixels_b[i] = 8;
+    }
+
+    // Center Core (0): Warm pulsating golden singularity
+    float core_pulse = (sinf((float)tick * 0.15f) + 1.0f) * 0.5f;
+    pixels_r[0] = (uint8_t)(180 + 75 * core_pulse);
+    pixels_g[0] = (uint8_t)(140 + 60 * core_pulse);
+    pixels_b[0] = (uint8_t)(40 + 20 * core_pulse);
+
+    // Ring 0 (1..6): 6 LEDs, r = 1.0
+    float theta_arm0 = fmodf(omega_t - k_lag * 1.0f + 3600.0f, 360.0f);
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 1) * 60.0f;
+        float d1 = fabsf(angle - theta_arm0); if (d1 > 180.0f) d1 = 360.0f - d1;
+        float d2 = fabsf(angle - fmodf(theta_arm0 + 180.0f, 360.0f)); if (d2 > 180.0f) d2 = 360.0f - d2;
+        float min_d = fminf(d1, d2);
+        if (min_d < 45.0f) {
+            float amp = cosf(min_d * 3.14159f / (2.0f * 45.0f));
+            amp = amp * amp;
+            // Electric cyan
+            pixels_r[i] = add_sat_u8(pixels_r[i], (uint8_t)(amp * 30.0f));
+            pixels_g[i] = add_sat_u8(pixels_g[i], (uint8_t)(amp * 230.0f));
+            pixels_b[i] = add_sat_u8(pixels_b[i], (uint8_t)(amp * 255.0f));
+        }
+    }
+
+    // Ring 1 (7..18): 12 LEDs, r = 2.0
+    float theta_arm1 = fmodf(omega_t - k_lag * 2.0f + 3600.0f, 360.0f);
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float d1 = fabsf(angle - theta_arm1); if (d1 > 180.0f) d1 = 360.0f - d1;
+        float d2 = fabsf(angle - fmodf(theta_arm1 + 180.0f, 360.0f)); if (d2 > 180.0f) d2 = 360.0f - d2;
+        float min_d = fminf(d1, d2);
+        if (min_d < 35.0f) {
+            float amp = cosf(min_d * 3.14159f / (2.0f * 35.0f));
+            amp = amp * amp;
+            // Azure sapphire transitioning to violet
+            pixels_r[i] = add_sat_u8(pixels_r[i], (uint8_t)(amp * 90.0f));
+            pixels_g[i] = add_sat_u8(pixels_g[i], (uint8_t)(amp * 160.0f));
+            pixels_b[i] = add_sat_u8(pixels_b[i], (uint8_t)(amp * 255.0f));
+        }
+    }
+
+    // Ring 2 (19..42): 24 LEDs, r = 3.2
+    float theta_arm2 = fmodf(omega_t - k_lag * 3.2f + 3600.0f, 360.0f);
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 19) * 15.0f;
+        float d1 = fabsf(angle - theta_arm2); if (d1 > 180.0f) d1 = 360.0f - d1;
+        float d2 = fabsf(angle - fmodf(theta_arm2 + 180.0f, 360.0f)); if (d2 > 180.0f) d2 = 360.0f - d2;
+        float min_d = fminf(d1, d2);
+        if (min_d < 25.0f) {
+            float amp = cosf(min_d * 3.14159f / (2.0f * 25.0f));
+            amp = amp * amp;
+            // Neon magenta / violet spiral tips
+            pixels_r[i] = add_sat_u8(pixels_r[i], (uint8_t)(amp * 210.0f));
+            pixels_g[i] = add_sat_u8(pixels_g[i], (uint8_t)(amp * 40.0f));
+            pixels_b[i] = add_sat_u8(pixels_b[i], (uint8_t)(amp * 255.0f));
+        }
+    }
+}
+
+// 22. Stroboscopic Sacred Geometry / Arcane Runic Astrolabe (SPELL_ANIM_SACRED_POLYGON):
+// Harmonic gear-ratio rotating polygons across concentric rings:
+// - Ring 0 (6 LEDs, 1..6): Triquetra / Equilateral Triangle (3 vertices at 120 deg), rotating CW at omega = 3.6 deg/tick.
+// - Ring 1 (12 LEDs, 7..18): Hexagram / Star of David / Merkaba (6 vertices at 60 deg), rotating CCW at -omega/2 = -1.8 deg/tick.
+// - Ring 2 (24 LEDs, 19..42): Dodecagram Runic Seal (12 vertices at 30 deg), rotating CW at omega/4 = 0.9 deg/tick.
+// - Center Core (LED 0): Resonates into diamond gold-white when Ring 0 and Ring 1 vertices align!
+static void render_sacred_polygon(uint32_t tick) {
+    float rot_tri = fmodf((float)tick * 3.6f, 360.0f);
+    float rot_hex = fmodf(360.0f - (float)tick * 1.8f, 360.0f);
+    float rot_dod = fmodf((float)tick * 0.9f, 360.0f);
+
+    // Deep void background
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 1;
+        pixels_g[i] = 2;
+        pixels_b[i] = 6;
+    }
+
+    // Check alignment between Triangle vertex (120 deg symmetry) and Hexagram vertex (60 deg symmetry)
+    float align_diff = fmodf(fabsf(fmodf(rot_tri, 60.0f) - fmodf(rot_hex, 60.0f)), 60.0f);
+    if (align_diff > 30.0f) align_diff = 60.0f - align_diff;
+    float resonance = (align_diff < 8.0f) ? (1.0f - align_diff / 8.0f) : 0.0f;
+
+    // Center Core (0): Resonant diamond gold-white flash on alignment
+    if (resonance > 0.05f) {
+        float r_sq = resonance * resonance;
+        pixels_r[0] = (uint8_t)(255.0f * r_sq);
+        pixels_g[0] = (uint8_t)(240.0f * r_sq);
+        pixels_b[0] = (uint8_t)(160.0f * r_sq);
+    } else {
+        pixels_r[0] = 15; pixels_g[0] = 12; pixels_b[0] = 4;
+    }
+
+    // Ring 0 (1..6): 3 vertices of Triquetra (Runic Gold)
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 1) * 60.0f;
+        float min_d = 180.0f;
+        for (int v = 0; v < 3; v++) {
+            float v_ang = fmodf(rot_tri + (float)v * 120.0f, 360.0f);
+            float d = fabsf(angle - v_ang); if (d > 180.0f) d = 360.0f - d;
+            if (d < min_d) min_d = d;
+        }
+        if (min_d < 35.0f) {
+            float amp = cosf(min_d * 3.14159f / (2.0f * 35.0f));
+            amp = amp * amp;
+            // Runic Gold (#FFD700) + flash boost
+            uint8_t r = (uint8_t)(amp * (240.0f + resonance * 15.0f));
+            uint8_t g = (uint8_t)(amp * (190.0f + resonance * 50.0f));
+            uint8_t b = (uint8_t)(amp * (20.0f + resonance * 180.0f));
+            pixels_r[i] = add_sat_u8(pixels_r[i], r);
+            pixels_g[i] = add_sat_u8(pixels_g[i], g);
+            pixels_b[i] = add_sat_u8(pixels_b[i], b);
+        }
+    }
+
+    // Ring 1 (7..18): 6 vertices of Hexagram / Merkaba (Aether Cyan)
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float min_d = 180.0f;
+        for (int v = 0; v < 6; v++) {
+            float v_ang = fmodf(rot_hex + (float)v * 60.0f, 360.0f);
+            float d = fabsf(angle - v_ang); if (d > 180.0f) d = 360.0f - d;
+            if (d < min_d) min_d = d;
+        }
+        if (min_d < 22.0f) {
+            float amp = cosf(min_d * 3.14159f / (2.0f * 22.0f));
+            amp = amp * amp;
+            // Aether Cyan (#00E5FF)
+            uint8_t r = (uint8_t)(amp * (10.0f + resonance * 100.0f));
+            uint8_t g = (uint8_t)(amp * (210.0f + resonance * 45.0f));
+            uint8_t b = (uint8_t)(amp * 255.0f);
+            pixels_r[i] = add_sat_u8(pixels_r[i], r);
+            pixels_g[i] = add_sat_u8(pixels_g[i], g);
+            pixels_b[i] = add_sat_u8(pixels_b[i], b);
+        }
+    }
+
+    // Ring 2 (19..42): 12 vertices of Dodecagram (Amethyst Violet)
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 19) * 15.0f;
+        float min_d = 180.0f;
+        for (int v = 0; v < 12; v++) {
+            float v_ang = fmodf(rot_dod + (float)v * 30.0f, 360.0f);
+            float d = fabsf(angle - v_ang); if (d > 180.0f) d = 360.0f - d;
+            if (d < min_d) min_d = d;
+        }
+        if (min_d < 12.0f) {
+            float amp = cosf(min_d * 3.14159f / (2.0f * 12.0f));
+            amp = amp * amp;
+            // Amethyst Violet (#9C27B0)
+            uint8_t r = (uint8_t)(amp * 165.0f);
+            uint8_t g = (uint8_t)(amp * 40.0f);
+            uint8_t b = (uint8_t)(amp * 240.0f);
+            pixels_r[i] = add_sat_u8(pixels_r[i], r);
+            pixels_g[i] = add_sat_u8(pixels_g[i], g);
+            pixels_b[i] = add_sat_u8(pixels_b[i], b);
+        }
+    }
+}
+
 #if CELESTIAL_FOUR_RINGS && CELESTIAL_RING_EXPERIMENT
 // Diagnostic build only: pure RGB cycle on spare during RAINBOW
 static void render_spare_ring(uint32_t tick, int mode, uint8_t mic_level_pct, bool music_active) {
@@ -1870,6 +2065,12 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
                 break;
             case LED_ANIM_COLLIDING_WAVES:
                 render_colliding_waves(anim_tick);
+                break;
+            case LED_ANIM_ARCHIMEDES_SPIRAL:
+                render_archimedes_spiral(anim_tick);
+                break;
+            case LED_ANIM_SACRED_POLYGON:
+                render_sacred_polygon(anim_tick);
                 break;
             default:
                 render_rainbow_wave(anim_tick);

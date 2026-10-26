@@ -195,6 +195,8 @@ object CelestialProphecyParser {
             upper.contains("OUROBOROS") || upper.contains("SPIRAL_SNAKE") -> LedAnimation.SPIRAL_SNAKE
             upper.contains("RADIAL") || upper.contains("RIPPLE") -> LedAnimation.RADIAL_WAVE
             upper.contains("COLLID") || upper.contains("INTERFER") -> LedAnimation.COLLIDING_WAVES
+            upper.contains("ARCHIMEDES") || upper.contains("SPIRAL_ARM") -> LedAnimation.ARCHIMEDES_SPIRAL
+            upper.contains("SACRED") || upper.contains("POLYGON") || upper.contains("RUNE") || upper.contains("MERKABA") -> LedAnimation.SACRED_POLYGON
             upper.contains("SNAKE") -> LedAnimation.SNAKE
             upper.contains("VORTEX") -> LedAnimation.VORTEX
             upper.contains("PULSAR") || upper.contains("SHOCK") -> LedAnimation.PULSAR

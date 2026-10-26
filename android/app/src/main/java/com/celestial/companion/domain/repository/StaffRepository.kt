@@ -308,6 +308,9 @@ class StaffRepository(
         val chunkSize = 480 // 480 bytes = 240 samples @ 16kHz = 15ms of audio (<= NET_MAX_PAYLOAD_SIZE 512)
         var seq = 0
         var offset = 0
+        val prebufferChunks = 80 // 19,200 samples = 1.20s pre-buffer inside Pico's 65,536 RAM buffer
+        var steadyStartTime = 0L
+
         while (kotlinx.coroutines.currentCoroutineContext().isActive && offset < pcmBytes.size) {
             val length = minOf(chunkSize, pcmBytes.size - offset)
             val chunk = pcmBytes.copyOfRange(offset, offset + length)
@@ -321,12 +324,21 @@ class StaffRepository(
             transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, chunkPacket)
             offset += length
             seq++
-            // Deep pre-buffer burst: send first 25 chunks (6,000 samples = ~0.375s) at 1ms delay.
-            // This safely primes Pico's 32,768-sample buffer in ~25ms, immune to Wi-Fi jitter!
-            if (seq < 25) {
-                delay(1)
+
+            // Fast burst for first 80 chunks (1.20s of audio delivered in ~160ms)
+            if (seq < prebufferChunks) {
+                delay(2)
             } else {
-                delay(14) // Matches 15ms playback rate of 240 samples at 16kHz
+                if (steadyStartTime == 0L) {
+                    steadyStartTime = System.currentTimeMillis()
+                }
+                // Drift-free absolute scheduling: nominal 15ms per chunk
+                val steadyIndex = seq - prebufferChunks
+                val targetTimeMs = steadyStartTime + (steadyIndex * 15L)
+                val waitMs = targetTimeMs - System.currentTimeMillis()
+                if (waitMs > 0) {
+                    delay(waitMs)
+                }
             }
         }
 

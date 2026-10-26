@@ -66,13 +66,14 @@ static volatile size_t pcm16_sample_idx = 0;
 static volatile bool pcm16_active = false;
 
 // Streaming 16-bit PCM ring buffer state (for infinite-duration live server speech playback)
-#define AUDIO_STREAM_RING_SIZE   32768 // 32,768 samples (65.5 KB = 2.048 seconds)
+#define AUDIO_STREAM_RING_SIZE   65536 // 65,536 samples (131 KB = 4.096 seconds)
 #define AUDIO_STREAM_RING_MASK   (AUDIO_STREAM_RING_SIZE - 1)
 static int16_t audio_stream_ring[AUDIO_STREAM_RING_SIZE];
 static volatile uint32_t audio_stream_write_idx = 0;
 static volatile uint32_t audio_stream_read_idx = 0;
 static volatile bool audio_stream_active = false;
 static volatile bool audio_stream_eof = false;
+static absolute_time_t last_stream_packet_time;
 
 // Celestial chime sequence state (warm gentle octave 4 harmonics: C4, E4, G4, C5)
 typedef struct {
@@ -459,7 +460,7 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
     float gain = master_gain;
     float voice_gain = AUDIO_PCM16_PEAK / 128.0f;
     const float pcm16_gain = 5.0f; // Pre-amp gain boost (+14 dB) for natural microphone voice replay
-    const float stream_gain = 1.60f; // Server PCM playback gain without clipping (boosted for clear speech)
+    const float stream_gain = 0.85f; // Calibrated 1:1 dynamic range for clear speech without digital clipping
     uint32_t buffer_peak = 0;
 
     for (size_t i = 0; i < count; i++) {
@@ -533,6 +534,9 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
                 mixed_sample += (float)s * stream_gain;
             } else if (audio_stream_eof) {
                 audio_stream_active = false;
+            } else {
+                // Buffer momentarily dry before EOF: keep stream active and output silence.
+                // Never stop DAC or abort DMA mid-stream; next UDP packet resumes instantly.
             }
         }
 
@@ -549,11 +553,11 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
 }
 
 static void refill_completed_buffer(int channel, int peer, uint32_t *buf) {
-    // A late IRQ may arrive close to the next handoff. Allow at least 8 ms
-    // before starting synthesis; actual refill time must be measured below it.
+    // Only abort if channel is still transmitting (overrun) or if peer has fewer
+    // than 8 words (<0.5 ms) remaining. fill_audio_buffer takes ~0.2 ms on RP2350.
     if (dma_channel_is_busy(channel) ||
         (dma_channel_is_busy(peer) &&
-         dma_channel_hw_addr(peer)->transfer_count < AUDIO_BUFFER_WORDS / 2)) {
+         dma_channel_hw_addr(peer)->transfer_count < 8)) {
         late_refills++;
         return;
     }
@@ -651,6 +655,7 @@ void audio_init(void) {
     dma_channel_set_irq0_enabled(dma_chan_a, true);
     dma_channel_set_irq0_enabled(dma_chan_b, true);
     irq_set_exclusive_handler(DMA_IRQ_0, audio_dma_irq_handler);
+    irq_set_priority(DMA_IRQ_0, 0x40); // High priority so other IRQs do not delay audio refill
     irq_set_enabled(DMA_IRQ_0, true);
 
     // Stay stopped until the user starts playback. No stale buffer on boot.
@@ -811,12 +816,14 @@ void audio_stream_reset(void) {
     audio_stream_read_idx = 0;
     audio_stream_eof = false;
     audio_stream_active = false;
+    last_stream_packet_time = get_absolute_time();
     restore_interrupts(save);
 }
 
 bool audio_stream_push(const int16_t *samples, size_t count) {
     if (samples == NULL || count == 0) return false;
     uint32_t save = save_and_disable_interrupts();
+    last_stream_packet_time = get_absolute_time();
     if (master_volume_percent == 0 && !audio_stream_eof) {
         /* Muted packets still complete the transaction, without waking the DAC. */
         restore_interrupts(save);
@@ -829,8 +836,8 @@ bool audio_stream_push(const int16_t *samples, size_t count) {
     for (size_t i = 0; i < count; i++) {
         audio_stream_ring[audio_stream_write_idx++ & AUDIO_STREAM_RING_MASK] = samples[i];
     }
-    // Pre-buffer 0.10s (1600 samples) before kicking off DAC
-    if (!audio_stream_active && (audio_stream_write_idx - audio_stream_read_idx >= 1600)) {
+    // Pre-buffer 0.10s (1600 samples) or EOF before kicking off DAC
+    if (!audio_stream_active && ((audio_stream_write_idx - audio_stream_read_idx >= 1600) || audio_stream_eof)) {
         audio_stream_active = true;
         voice_active = false;
         active_voice_clip = NULL;
@@ -927,6 +934,14 @@ void audio_update(void) {
             } else {
                 chime_index = -1; // Finished
             }
+        }
+    }
+
+    // Stream inactivity watchdog: if stream is active but sender abandoned connection without EOF
+    if (audio_stream_active && !audio_stream_eof && (audio_stream_read_idx == audio_stream_write_idx)) {
+        if (absolute_time_diff_us(last_stream_packet_time, get_absolute_time()) > 1500000) {
+            audio_stream_active = false;
+            audio_stream_eof = true;
         }
     }
 

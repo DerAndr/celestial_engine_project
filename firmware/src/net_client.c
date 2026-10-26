@@ -284,11 +284,6 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 pending_remote_cmd.cmd_code = payload[4];
                 pending_remote_cmd.param = payload[5];
                 pending_remote_cmd.has_command = true;
-                printf("[SECURITY] Accepted authorized command '%c' (param %d) from %s:%d (target port %d)\n",
-                       payload[4], payload[5], ip4addr_ntoa(addr), (int)port, (int)companion_port);
-            } else {
-                printf("[SECURITY] Rejected unauthorized command from %s:%d (auth token 0x%08X != expected 0x%08X)\n",
-                       ip4addr_ntoa(addr), (int)port, (unsigned int)token, (unsigned int)expected);
             }
         }
         pbuf_free(p);
@@ -312,7 +307,6 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 pending_remote_cmd.val32_extra = (uint32_t)payload[8] | ((uint32_t)payload[9] << 8) |
                                                 ((uint32_t)payload[10] << 16) | ((uint32_t)payload[11] << 24);
                 pending_remote_cmd.has_command = true;
-                printf("[SECURITY] Accepted time sync from %s:%d\n", ip4addr_ntoa(addr), (int)port);
             }
         }
         pbuf_free(p);
@@ -322,8 +316,6 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
     uint32_t now = to_ms_since_boot(get_absolute_time());
 
     if (hdr.msg_type == NET_MSG_CANCEL) {
-        printf("[NET] Incoming NET_MSG_CANCEL from %s:%d. Aborting transaction!\n",
-               ip4addr_ntoa(addr), (int)port);
         net_client_cancel();
         net_cancel_flag = true;
         pbuf_free(p);
@@ -369,9 +361,6 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                     active_server_port = pi5_server_port;
                     memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
                     strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
-                    printf("[NET] Active Host: PI 5 (%s:%d, %d models)\n", ip4addr_ntoa(addr), (int)active_server_port, m_count);
-                } else {
-                    printf("[NET] Cached Pi 5 Catalog (%d models), Phone remains preferred active host\n", m_count);
                 }
             } else if (h_type == HOST_TYPE_PHONE) {
                 last_phone_heartbeat_rx_ms = now;
@@ -389,8 +378,6 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 last_server_heartbeat_rx_ms = now;
                 memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
                 strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
-                printf("[NET] Pushed Catalog Activated: ANDROID PHONE (%s:%d, %d models)\n",
-                       ip4addr_ntoa(addr), (int)active_server_port, m_count);
             }
         }
         pbuf_free(p);
@@ -411,7 +398,6 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                     memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
                     strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
                 }
-                printf("[NET] Restored Active Host to PI 5 (%s)\n", ip4addr_ntoa(&server_ip_addr));
             }
         }
         if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
@@ -486,7 +472,6 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
         has_paired_companion = true;
         unsolicited_text_ready = true;
 
-        printf("[NET] Received Broadcast Text from %s:%d: \"%s\"\n", ip4addr_ntoa(addr), (int)port, resp_text_buffer);
         acknowledge_response(&hdr, addr, port);
         pbuf_free(p);
         return;
@@ -498,8 +483,6 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
         companion_port = CELESTIAL_NET_DEFAULT_PORT;
         has_paired_companion = true;
         response_gate_begin(&response_gate, hdr.request_id);
-        printf("[NET] Opened unsolicited audio stream gate for Req %lu from %s:%d\n",
-               (unsigned long)hdr.request_id, ip4addr_ntoa(addr), (int)port);
     }
 
     bool is_from_server = (ip_addr_cmp(addr, &server_ip_addr) && port == active_server_port);
@@ -658,12 +641,18 @@ void net_client_update(void) {
         return;
     }
     last_status_check_ms = now;
+
     cyw43_arch_lwip_begin();
     bool stalled = resp_is_receiving && (now - last_resp_chunk_rx_ms > 10000);
+    int link_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+    if (link_status == CYW43_LINK_UP) {
+        struct netif *nif = &cyw43_state.netif[CYW43_ITF_STA];
+        ip4addr_ntoa_r(netif_ip4_addr(nif), current_ip_str, sizeof(current_ip_str));
+    }
     cyw43_arch_lwip_end();
+
     if (stalled) { net_client_cancel(); response_failed = true; }
 
-    int link_status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
     if (link_status == CYW43_LINK_UP) {
         ap_connect_failures = 0;
         if (current_status != NET_STATUS_CONNECTED) {
@@ -681,15 +670,22 @@ void net_client_update(void) {
             }
             cyw43_arch_lwip_end();
         }
-        struct netif *nif = &cyw43_state.netif[CYW43_ITF_STA];
-        ip4addr_ntoa_r(netif_ip4_addr(nif), current_ip_str, sizeof(current_ip_str));
 
         // When targeting PHONE host and on a mobile hotspot without an explicit companion yet,
         // dynamically resolve server IP to DHCP default gateway (phone AP IP)
         if ((active_host_type == HOST_TYPE_PHONE || preferred_host == HOST_TYPE_PHONE) && !has_paired_companion) {
+            ip4_addr_t gw_ip;
+            bool has_gw = false;
+            cyw43_arch_lwip_begin();
+            struct netif *nif = &cyw43_state.netif[CYW43_ITF_STA];
             const ip4_addr_t *gw = netif_ip4_gw(nif);
-            if (gw != NULL && gw->addr != 0 && !ip_addr_cmp(&server_ip_addr, gw)) {
-                ip_addr_copy_from_ip4(server_ip_addr, *gw);
+            if (gw != NULL && gw->addr != 0) {
+                gw_ip = *gw;
+                has_gw = true;
+            }
+            cyw43_arch_lwip_end();
+            if (has_gw && !ip_addr_cmp(&server_ip_addr, &gw_ip)) {
+                ip_addr_copy_from_ip4(server_ip_addr, gw_ip);
                 printf("[NET] Target server IP updated to gateway (Phone AP): %s\n", ip4addr_ntoa(&server_ip_addr));
             }
         }
@@ -754,7 +750,9 @@ void net_client_update(void) {
             const char *ssid = get_current_ssid();
             if (strlen(ssid) > 0) {
                 printf("[NET] Connecting to Wi-Fi SSID [%s] (attempt %d)...\n", ssid, ap_connect_failures + 1);
+                cyw43_arch_lwip_begin();
                 cyw43_arch_wifi_connect_async(ssid, get_current_password(), CYW43_AUTH_WPA2_AES_PSK);
+                cyw43_arch_lwip_end();
             }
         }
 #endif
@@ -829,13 +827,13 @@ static bool send_udp_packet(uint8_t msg_type, const void *payload, size_t payloa
     uint16_t target_port = (active_host_type == HOST_TYPE_PI5) ? pi5_server_port : CELESTIAL_NET_DEFAULT_PORT;
     active_server_port = target_port;
     err_t err = udp_sendto(udp_client_pcb, p, &server_ip_addr, target_port);
+    pbuf_free(p);
+    cyw43_arch_lwip_end();
+
     if (err != ERR_OK) {
         printf("[NET] udp_sendto(type=0x%02X, len=%u, to=%s:%d) FAILED err=%d\n",
                msg_type, (unsigned)payload_len, ip4addr_ntoa(&server_ip_addr), (int)target_port, (int)err);
     }
-    pbuf_free(p);
-
-    cyw43_arch_lwip_end();
 
     return (err == ERR_OK);
 }

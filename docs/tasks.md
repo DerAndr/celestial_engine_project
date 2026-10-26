@@ -69,8 +69,8 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
   - `PHONE_BRAIN_SERVER` active by default.
   - UDP 5005 bound to phone tethering interface to bypass Android tethering EPERM restrictions.
   - Retain active screen and vision state across configuration and lifecycle changes.
-- [ ] **Android Background Service**:
-  - Run foreground service `StaffBrainService` to prevent OS sleep/throttling when phone screen is locked.
+- [x] **Android Background Service**:
+  - Run foreground service `StaffBrainService` to prevent OS sleep/throttling when phone screen is locked (verified active foreground service ID 2026).
 - [x] **Preserve Raspberry Pi 5 Switchability**:
   - Keep menu item `[HOST]` on OLED with choices: `PHONE BRAIN (Default)`, `PI 5 BRAIN`, and `AUTO MESH`.
   - Companion App dashboard toggle to hand off brain execution between Phone, Pi 5, or Auto-Mesh.
@@ -118,11 +118,11 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
   - "🎲 AI Conjure" button generating unpredictable, hilarious new spells.
 - [x] **Soundboard Combos (`SoundboardScreen.kt`)**:
   - Quick-trigger sound chain buttons directly on the soundboard.
-- [ ] **2D Polar Kinematics Engine in `leds.c` (43 LEDs: 7→12→24)**:
+- [x] **2D Polar Kinematics Engine in `leds.c` (43 LEDs: 7→12→24)**:
   - `SPELL_ANIM_SPIRAL_SNAKE`: Multi-ring Ouroboros serpent coiling through 24 -> 12 -> 7 with core flare.
-  - `SPELL_ANIM_RADIAL_WAVE`: Concentric ripples & shockwaves propagating outward (or imploding inward).
+  - `SPELL_ANIM_RADIAL_WAVE`: Concentric ripples & shockwaves propagating outward with inverse-square damping.
   - `SPELL_ANIM_COLLIDING_WAVES`: Counter-rotating wave crests colliding at 0°/180° with white constructive flash.
-  - `SPELL_ANIM_ARCHIMEDES_SPIRAL`: Hypnotic rotating spoke with radial phase lag across concentric rings.
+  - `SPELL_ANIM_ARCHIMEDES_SPIRAL`: Hypnotic rotating dual spiral arms with radial phase lag across concentric rings.
   - `SPELL_ANIM_SACRED_POLYGON`: Stroboscopic geometric runes (Triquetra, Hexagram / Merkaba) rotating at harmonic ratios.
   - Phonetic VU Coupling: Real-time amplitude modulation from speaker DMA (words glow, plosives shockwave).
 
@@ -236,6 +236,48 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
   - **8-Bit Chiptune Track**: Iconic **8-bit "Moonlight Densetsu" (ムーンライト伝説)** opening melody transcribed for RP2350 audio engine, with starry stroboscopic pink/gold pulse sync.
   - **Sound Effects**: Harp glissandos, magical girl transformation chimes, cosmic bell arpeggios, celestial wand sparkles.
   - **OLED Text**: `🌙 Moon Healing Escalation!`, glittering crescent moon & star ASCII runes.
+
+- [ ] **5. Doom Mode (E1M1 At Doom's Gate & BFG Plasma Shockwaves)**:
+  - **8-Bit Chiptune Track**: Driving heavy metal square-wave riff **"At Doom's Gate" (E1M1)** with fast bass chug and bridge.
+  - **LED Animation**: Hellfire Crimson & BFG9000 Acid Green plasma shockwaves erupting from the center outward with heavy beat strobing.
+  - **Sound Effects**: Shotgun cocking & blast, demon screech, BFG9000 plasma charge-up sound.
+  - **OLED Text**: `DOOM: RIP & TEAR`, `E1M1: KNEE-DEEP IN THE DEAD`.
+
+- [ ] **6. Tetris Arcade Mode (Concentric Tetromino Ring Drop & Line Clear)**:
+  - **8-Bit Chiptune Track**: Full retro Game Boy **"Korobeiniki"** theme with accelerating BPM as game progresses.
+  - **LED Animation**: Concentric falling tetrominoes: 4-LED geometric blocks rotating through inner rings and stacking into the 24-LED outer rim, culminating in a 4-line "Tetris!" white flash.
+  - **Sound Effects**: Hard drop thud, line clear jingle, level-up fanfare, retro game over descent.
+  - **OLED Text**: `TETRIS: 4-LINE CLEAR!`, `SCORE: 999990`.
+
+- [ ] **7. The Legend of Zelda Mode (Triforce Rune & Overworld Fanfare)**:
+  - **8-Bit Chiptune Track**: Iconic **Zelda Overworld March & Fanfare** with majestic medieval chiptune cadence.
+  - **LED Animation**: Golden Sacred Triforce: 3 golden vertex points on outer ring rotating in harmonic resonance with an emerald inner courage core.
+  - **Sound Effects**: Secret discovery chime (`da-na-na-na-na-NA!`), sword beam slash, heart container refill beep.
+  - **OLED Text**: `IT'S DANGEROUS TO GO ALONE!`, `TAKE THIS 🗡️`.
+
+- [ ] **8. The Elder Scrolls III: Morrowind Mode (Nerevar Rising & Red Mountain Aurora)**:
+  - **8-Bit Chiptune Track**: Jeremy Soule's legendary **"Nerevar Rising / Call of Magic"** transcribed into evocative, rich 8-bit harmonics.
+  - **LED Animation**: Red Mountain ash storm: volcanic amber/crimson core pulsing outward, surrounded by mystical Dagoth Ur purple and tranquil Vivec turquoise auroras.
+  - **Sound Effects**: Silt Strider haunting call, Cliff Racer screech, Level-up drum fanfare ("You should rest and meditate on what you've learned").
+  - **OLED Text**: `STAND UP, THERE YOU GO...`, `NEREVARINE AWAKENS`.
+
+- [ ] **9. Ghostbusters Mode (Proton Pack Crossing Streams & Ectoplasm Green)**:
+  - **8-Bit Chiptune Track**: Ray Parker Jr.'s **"Ghostbusters"** funky 8-bit slap bassline and synth hook ("Who you gonna call?!").
+  - **LED Animation**: Slimer Ectoplasm neon lime swirl colliding with crossing Proton Pack streams (counter-propagating red and blue particle beams creating white containment sparks).
+  - **Sound Effects**: Proton pack spin-up & firing hum, ghost trap opening zap, PKE meter rapid ticking.
+  - **OLED Text**: `WHO YOU GONNA CALL?`, `GHOSTBUSTERS! 🚫👻`.
+
+- [ ] **10. Star Wars Mode (The Imperial March & Lightsaber Plasma Clash)**:
+  - **8-Bit Chiptune Track**: John Williams' **"The Imperial March (Darth Vader's Theme)"** with authoritative militaristic march tempo.
+  - **LED Animation**: Dual Lightsaber Clash: Sith Crimson wave and Jedi Azure wave colliding at 0° and 180° with white plasma flash and inverse shockwave.
+  - **Sound Effects**: Lightsaber ignition hiss & dynamic hum, TIE Fighter flyby roar, heavy blaster discharge.
+  - **OLED Text**: `THE EMPIRE STRIKES`, `MAY THE FORCE BE WITH YOU`.
+
+- [ ] **11. Spooky Scary Skeletons Mode (Bone Dance Strobe & Pumpkin Glow)**:
+  - **8-Bit Chiptune Track**: Andrew Gold's viral **"Spooky Scary Skeletons"** catchy electro-swing 8-bit xylophone & bass groove.
+  - **LED Animation**: Bone-white stroboscopic skeleton dance alternating with eerie Jack-o'-Lantern glowing pumpkin orange and spectral violet ripples.
+  - **Sound Effects**: Rattling bone castanets, cartoon xylophone stumble, witch cackle, eerie howling wind.
+  - **OLED Text**: `SPOOKY SCARY SKELETONS`, `SEND SHIVERS DOWN YOUR SPINE! 💀🎃`.
 
 ---
 

@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "config.h"
 
-#define RAINBOW_COLOR_COUNT  7
+#define RAINBOW_COLOR_COUNT  10
 
 typedef enum {
     LED_ANIM_BREATHE = 0,    // 0. Slow cosmic breathing
@@ -29,6 +29,8 @@ typedef enum {
     LED_ANIM_SPIRAL_SNAKE,   // 18. Ouroboros Snake: 2D serpent spiraling through rings 24->12->7 and erupting outward
     LED_ANIM_RADIAL_WAVE,    // 19. Concentric Ripple / Shockwave propagating outward with inverse-square damping
     LED_ANIM_COLLIDING_WAVES,// 20. Counter-propagating waves colliding at 0° and 180° with white interference flash
+    LED_ANIM_ARCHIMEDES_SPIRAL, // 21. Hypnotic rotating Archimedean dual spiral arms with radial phase lag
+    LED_ANIM_SACRED_POLYGON, // 22. Stroboscopic geometric runes (Triquetra, Hexagram, Dodecagram gear ratios)
     LED_ANIM_COUNT
 } led_anim_mode_t;
 
@@ -82,7 +84,17 @@ const char* leds_get_anim_name(int mode);
 void leds_set_rainbow_index(int color_idx);
 
 /**
- * Get name of rainbow color at index (0..6).
+ * Get currently selected color palette index.
+ */
+int leds_get_rainbow_index(void);
+
+/**
+ * Get total number of available color palette entries.
+ */
+int leds_get_rainbow_count(void);
+
+/**
+ * Get name of rainbow color at index (0..RAINBOW_COLOR_COUNT-1).
  */
 const char* leds_get_rainbow_name(int color_idx);
 

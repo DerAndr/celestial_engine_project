@@ -5,6 +5,7 @@
 #include "pico/bootrom.h"
 #include "pico/cyw43_arch.h"
 #include "hardware/i2c.h"
+#include "hardware/watchdog.h"
 #include "config.h"
 #include "sh1106.h"
 #include "encoder.h"
@@ -96,6 +97,7 @@ static staff_state_t current_state = STATE_IDLE;
 static bool volume_edit_mode = false;
 static bool mic_test_mode = false;
 static bool led_edit_mode = false;
+static bool led_color_edit_mode = false;
 static bool chiptune_mode = false;
 static bool voice_mode = false;
 static bool cosmic_mode = false;
@@ -598,21 +600,65 @@ static void draw_led_screen(int anim_idx) {
     // Effect index
     char num_buf[24];
     snprintf(num_buf, sizeof(num_buf), "EFFECT %d / %d", anim_idx + 1, LED_ANIM_COUNT);
-    sh1106_draw_string(20, 18, num_buf, true);
+    sh1106_draw_string(20, 16, num_buf, true);
 
     // Effect name in bold
-    sh1106_draw_string(10, 31, leds_get_anim_name(anim_idx), true);
+    sh1106_draw_string(10, 27, leds_get_anim_name(anim_idx), true);
 
-    // Graphical progress bar under effect name
+    if (anim_idx == LED_ANIM_BREATHE) {
+        char col_buf[32];
+        snprintf(col_buf, sizeof(col_buf), "COLOR: [%s]", leds_get_rainbow_name(leds_get_rainbow_index()));
+        sh1106_draw_string(10, 38, col_buf, true);
+    } else {
+        // Graphical progress bar under effect name
+        sh1106_draw_rect(10, 40, 108, 5, true);
+        int bar_fill = ((anim_idx + 1) * 104) / LED_ANIM_COUNT;
+        if (bar_fill > 0) {
+            sh1106_fill_rect(12, 41, bar_fill, 3, true);
+        }
+    }
+
+    // Footer instruction
+    sh1106_draw_line(2, 51, 125, 51, true);
+    if (anim_idx == LED_ANIM_BREATHE) {
+        sh1106_draw_string(4, 54, "TURN:EFF | SW:TUNE COLOR", true);
+    } else {
+        sh1106_draw_string(6, 54, "TURN: TUNE | SW: OK", true);
+    }
+
+    oled_ready = sh1106_update();
+}
+
+static void draw_led_color_screen(int color_idx) {
+    if (!oled_ready) return;
+
+    sh1106_clear();
+    sh1106_draw_rect(0, 0, 128, 64, true);
+
+    // Header banner
+    sh1106_fill_rect(2, 2, 124, 12, true);
+    sh1106_draw_string(14, 4, "[ BREATHE COLOR ]", false);
+
+    // Palette index
+    char num_buf[24];
+    snprintf(num_buf, sizeof(num_buf), "PALETTE %d / %d", color_idx + 1, leds_get_rainbow_count());
+    sh1106_draw_string(20, 17, num_buf, true);
+
+    // Color name in bold with arrows
+    char name_buf[32];
+    snprintf(name_buf, sizeof(name_buf), "<  %s  >", leds_get_rainbow_name(color_idx));
+    sh1106_draw_string(14, 29, name_buf, true);
+
+    // Graphical progress bar
     sh1106_draw_rect(10, 42, 108, 5, true);
-    int bar_fill = ((anim_idx + 1) * 104) / LED_ANIM_COUNT;
+    int bar_fill = ((color_idx + 1) * 104) / leds_get_rainbow_count();
     if (bar_fill > 0) {
         sh1106_fill_rect(12, 43, bar_fill, 3, true);
     }
 
     // Footer instruction
     sh1106_draw_line(2, 51, 125, 51, true);
-    sh1106_draw_string(6, 54, "TURN: TUNE | SW: OK", true);
+    sh1106_draw_string(6, 54, "TURN: COLOR | SW: SAVE", true);
 
     oled_ready = sh1106_update();
 }
@@ -1684,17 +1730,22 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             char anim_str[32];
             snprintf(anim_str, sizeof(anim_str), "> %s", leds_get_anim_name(active_anim_idx));
             sh1106_draw_string(6, 17, anim_str, true);
+            if (active_anim_idx == LED_ANIM_BREATHE) {
+                char col_str[32];
+                snprintf(col_str, sizeof(col_str), "COLOR: [%s]", leds_get_rainbow_name(leds_get_rainbow_index()));
+                sh1106_draw_string(6, 27, col_str, true);
+                sh1106_draw_string(6, 37, "CLICK SW: TUNE COLOR", true);
+            } else {
 #if CELESTIAL_FOUR_RINGS
-            sh1106_draw_string(6, 27, "RUNE: 4 RINGS", true);
-            sh1106_draw_string(6, 37, "ARRAY: 59 LUMENS (4%)", true);
-            sh1106_draw_line(2, 47, 125, 47, true);
-            draw_marquee(51, "// RUNE MATRIX // 59 WS2812B LEDS // PIO0 DMA PACED // CLICK SW TO SELECT RUNE //", now_ms);
+                sh1106_draw_string(6, 27, "RUNE: 4 RINGS", true);
+                sh1106_draw_string(6, 37, "ARRAY: 59 LUMENS (4%)", true);
 #else
-            sh1106_draw_string(6, 27, "RUNE: 3 RINGS", true);
-            sh1106_draw_string(6, 37, "ARRAY: 43 LUMENS (18%)", true);
-            sh1106_draw_line(2, 47, 125, 47, true);
-            draw_marquee(51, "// RUNE MATRIX // 43 WS2812B LEDS // PIO0 DMA PACED // CLICK SW TO SELECT RUNE //", now_ms);
+                sh1106_draw_string(6, 27, "RUNE: 3 RINGS", true);
+                sh1106_draw_string(6, 37, "ARRAY: 43 LUMENS (18%)", true);
 #endif
+            }
+            sh1106_draw_line(2, 47, 125, 47, true);
+            draw_marquee(51, "// RUNE MATRIX // 59 WS2812B LEDS // CLICK SW TO SELECT RUNE //", now_ms);
             break;
         }
 
@@ -1801,6 +1852,12 @@ static inline void broadcast_telemetry(void) {
 }
 
 int main(void) {
+    if (watchdog_caused_reboot()) {
+        printf("[SYS] >>> RECOVERED FROM WATCHDOG RESET! <<<\n");
+    }
+    // Enable 8-second hardware watchdog (pause during SWD debug)
+    watchdog_enable(8000, 1);
+
     stdio_init_all();
 
     // Delay to allow USB CDC terminal enumeration
@@ -1843,7 +1900,9 @@ int main(void) {
     } else {
         cyw43_ready = true;
         LOG_INFO("SYS", "CYW43 initialized successfully.");
+        cyw43_arch_lwip_begin();
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+        cyw43_arch_lwip_end();
         cyw43_arch_enable_sta_mode();
         net_client_init();
     }
@@ -1892,6 +1951,8 @@ int main(void) {
     bool need_display_update = true;
 
     while (true) {
+        watchdog_update();
+
         // Continuous audio buffer streaming, mic processing & LED updates
         audio_update();
         if (boot_voice_pending && current_state == STATE_IDLE && !audio_is_playing()) {
@@ -1952,6 +2013,8 @@ int main(void) {
         // Process authenticated Companion App remote commands
         remote_cmd_t rem_cmd;
         if (net_client_poll_remote_command(&rem_cmd)) {
+            LOG_INFO("SECURITY", "Processed authorized companion command '%c' (param %d)",
+                     rem_cmd.cmd_code, rem_cmd.param);
             switch (rem_cmd.cmd_code) {
                 case 'M': // Set mode
                     if (rem_cmd.param < MODE_COUNT) {
@@ -1971,6 +2034,14 @@ int main(void) {
                         active_confirmed_mode = MODE_LED_CORE;
                         led_edit_mode = false;
                         need_display_update = true;
+                    }
+                    break;
+                case 'R': // Set LED color palette (Cosmic Breathe)
+                    if (rem_cmd.param < leds_get_rainbow_count()) {
+                        leds_set_rainbow_index(rem_cmd.param);
+                        need_display_update = true;
+                        LOG_INFO("LEDS", "Remote command 'R': Color set to [%s]",
+                                 leds_get_rainbow_name(rem_cmd.param));
                     }
                     break;
                 case 'K': // Set clock style
@@ -2099,6 +2170,10 @@ int main(void) {
             } else if (volume_edit_mode) {
                 volume_edit_mode = false;
                 LOG_INFO("VOLUME", "Exited volume edit via button.");
+                need_display_update = true;
+            } else if (led_color_edit_mode) {
+                led_color_edit_mode = false;
+                LOG_INFO("LEDS", "Exited LED color menu via button.");
                 need_display_update = true;
             } else if (led_edit_mode) {
                 led_edit_mode = false;
@@ -2234,6 +2309,16 @@ int main(void) {
                 // Play live volume preview tone
                 audio_play_tone(440.0f, 150); // Compare loudness at a fixed pitch.
                 LOG_INFO("VOLUME", "Volume adjusted: %d%%", cur_vol);
+                need_display_update = true;
+            } else if (led_color_edit_mode) {
+                int c_count = leds_get_rainbow_count();
+                int cur_c = leds_get_rainbow_index();
+                cur_c = (cur_c + delta) % c_count;
+                if (cur_c < 0) cur_c += c_count;
+                leds_set_rainbow_index(cur_c);
+                audio_play_blip();
+                LOG_INFO("LEDS", "Breathe color selected: [%s] (%d/%d)",
+                         leds_get_rainbow_name(cur_c), cur_c + 1, c_count);
                 need_display_update = true;
             } else if (led_edit_mode) {
                 active_anim_idx = (active_anim_idx + delta) % LED_ANIM_COUNT;
@@ -2396,13 +2481,29 @@ int main(void) {
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
                 audio_play_chime();
                 LOG_INFO("MIC", "Exited mic live test screen.");
-            } else if (led_edit_mode) {
-                led_edit_mode = false;
-                leds_set_anim_mode(active_anim_idx);
+            } else if (led_color_edit_mode) {
+                led_color_edit_mode = false;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
                 audio_play_chime();
-                LOG_INFO("LEDS", "Effect confirmed: [%s]. Exited LED menu.",
-                         leds_get_anim_name(active_anim_idx));
+                LOG_INFO("LEDS", "Breathe color confirmed: [%s]. Exited color menu.",
+                         leds_get_rainbow_name(leds_get_rainbow_index()));
+                need_display_update = true;
+            } else if (led_edit_mode) {
+                if (active_anim_idx == LED_ANIM_BREATHE) {
+                    led_edit_mode = false;
+                    led_color_edit_mode = true;
+                    leds_set_anim_mode(LED_ANIM_BREATHE);
+                    audio_play_tone(523.25f, 25);
+                    LOG_INFO("LEDS", "Selected Cosmic Breathe! Entering color selection.");
+                } else {
+                    led_edit_mode = false;
+                    leds_set_anim_mode(active_anim_idx);
+                    click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
+                    audio_play_chime();
+                    LOG_INFO("LEDS", "Effect confirmed: [%s]. Exited LED menu.",
+                             leds_get_anim_name(active_anim_idx));
+                }
+                need_display_update = true;
             } else if (clock_style_edit_mode) {
                 if (selected_clock_style < CLOCK_STYLE_COUNT) {
                     active_clock_style = selected_clock_style;
@@ -2531,7 +2632,9 @@ int main(void) {
             tick_count++;
             led_state = !led_state;
             if (cyw43_ready) {
+                cyw43_arch_lwip_begin();
                 cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
+                cyw43_arch_lwip_end();
             }
 
             // Auto-recovery attempt for OLED if it was not detected at power-on
@@ -2563,13 +2666,13 @@ int main(void) {
             last_flash_toggle = get_absolute_time();
             flash_phase = !flash_phase;
             if (current_state == STATE_LISTENING || current_state == STATE_SPEAKING || easter_egg_active || volume_edit_mode ||
-                ai_model_edit_mode || lang_edit_mode || mic_test_mode || led_edit_mode || chiptune_mode || voice_mode || cosmic_mode || clock_style_edit_mode || clock_time_edit_mode) {
+                ai_model_edit_mode || lang_edit_mode || mic_test_mode || led_edit_mode || led_color_edit_mode || chiptune_mode || voice_mode || cosmic_mode || clock_style_edit_mode || clock_time_edit_mode) {
                 need_display_update = true;
             }
         }
 
         // 7. Rate-limited display update (~20 Hz / 50 ms)
-        if (current_state == STATE_IDLE && !volume_edit_mode && !ai_model_edit_mode && !lang_edit_mode && !led_edit_mode && !chiptune_mode && !voice_mode && !cosmic_mode && !mic_test_mode) {
+        if (current_state == STATE_IDLE && !volume_edit_mode && !ai_model_edit_mode && !lang_edit_mode && !led_edit_mode && !led_color_edit_mode && !chiptune_mode && !voice_mode && !cosmic_mode && !mic_test_mode) {
             need_display_update = true; // Continuously advance smooth marquee ticker at 20 FPS
         }
 
@@ -2602,6 +2705,8 @@ int main(void) {
             } else if (mic_test_mode) {
                 draw_mic_test_screen(mic_get_level_percent(), mic_get_peak_amplitude());
                 need_display_update = true;
+            } else if (led_color_edit_mode) {
+                draw_led_color_screen(leds_get_rainbow_index());
             } else if (led_edit_mode) {
                 draw_led_screen(active_anim_idx);
             } else if (chiptune_mode) {
@@ -2696,6 +2801,25 @@ int main(void) {
                     leds_set_anim_mode(next_anim);
                     LOG_INFO("LEDS", "LED mode toggled via serial to [%s]", leds_get_anim_name(next_anim));
                 }
+            } else if (cmd_c == 'R' || cmd_c == 'r') {
+                int col = -1;
+                int d = getchar_timeout_us(20000);
+                while (d == ' ' || d == '\t') d = getchar_timeout_us(20000);
+                while (d >= '0' && d <= '9') {
+                    if (col < 0) col = 0;
+                    col = col * 10 + (d - '0');
+                    d = getchar_timeout_us(20000);
+                }
+                if (col >= 0 && col < leds_get_rainbow_count()) {
+                    leds_set_rainbow_index(col);
+                } else {
+                    int next_c = (leds_get_rainbow_index() + 1) % leds_get_rainbow_count();
+                    leds_set_rainbow_index(next_c);
+                }
+                LOG_INFO("LEDS", "Cosmic Breathe color set via serial to [%s] (%d/%d)",
+                         leds_get_rainbow_name(leds_get_rainbow_index()),
+                         leds_get_rainbow_index() + 1, leds_get_rainbow_count());
+                need_display_update = true;
             } else if (cmd_c == 'S' || cmd_c == 's') {
                 LOG_INFO("AUDIO", "Audio playback stopped via serial");
                 audio_stop_all();
@@ -2737,6 +2861,7 @@ int main(void) {
                 printf("  M     - Play 8-bit chiptune track\n");
                 printf("  C     - Play Cosmic Sci-Fi SFX demo\n");
                 printf("  L<n>  - Set LED animation mode (0..%d)\n", LED_ANIM_COUNT - 1);
+                printf("  R<n>  - Set Cosmic Breathe LED color (0..%d, e.g. R0=CYAN)\n", leds_get_rainbow_count() - 1);
                 printf("  P     - Play voice announcement\n");
                 printf("  S     - Stop all audio playback\n");
                 printf("  D     - Play fixed 440 Hz diagnostic sine for 1 second\n");

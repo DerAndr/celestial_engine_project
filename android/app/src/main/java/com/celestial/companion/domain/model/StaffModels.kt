@@ -75,7 +75,9 @@ enum class LedAnimation(val id: Int, val title: String, val subtitle: String) {
     CLOCK_ORRERY(17, "Celestial Orrery", "Kinematic triple planetary orbital clock"),
     SPIRAL_SNAKE(18, "Ouroboros Snake", "Concentric snake winding through rings 24->12->7"),
     RADIAL_WAVE(19, "Radial Shockwave", "Concentric waves expanding from core to outer rim"),
-    COLLIDING_WAVES(20, "Colliding Waves", "Counter-rotating waves colliding at 0° and 180° with white flash");
+    COLLIDING_WAVES(20, "Colliding Waves", "Counter-rotating waves colliding at 0° and 180° with white flash"),
+    ARCHIMEDES_SPIRAL(21, "Archimedes Spiral", "Hypnotic rotating dual spiral arms with radial phase lag"),
+    SACRED_POLYGON(22, "Sacred Runes", "Clockwork geometric runes: Triquetra, Hexagram & Dodecagram");
 
     val displayName: String get() = title
 
