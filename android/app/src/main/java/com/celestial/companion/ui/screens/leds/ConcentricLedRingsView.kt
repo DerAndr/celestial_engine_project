@@ -933,6 +933,135 @@ private fun computeLedColors(
             }
         }
 
+        LedAnimation.DAFT_PUNK -> { // 30. Daft Punk Visor
+            for (i in 0 until 43) arr[i] = rgb(2, 1, 4)
+            val beat = (tick * 0.35f) % PI.toFloat()
+            val kick = sin(beat).pow(8f)
+            arr[0] = rgb((255 * kick).toInt(), (20 * kick).toInt(), (60 * kick).toInt())
+            for (i in 1..6) {
+                val h = 0.5f + 0.5f * sin(tick * 0.2f + (i - 1) * 1.047f)
+                arr[i] = rgb((h * 255).toInt(), (h * 190).toInt(), 15)
+            }
+            val sweep = sin(tick * 0.18f)
+            val targetAngle = 180f + sweep * 80f
+            for (i in 7..18) {
+                val angle = (i - 7) * 30f
+                var d = abs(angle - targetAngle)
+                if (d > 180f) d = 360f - d
+                val a = if (d < 40f) (1f - d / 40f) else 0f
+                arr[i] = rgb((a * 200 + 20).toInt(), (a * 240 + 30).toInt(), (a * 255 + 60).toInt())
+            }
+            val waveRot = (tick * 6f) % 360f
+            for (i in 19..42) {
+                val angle = (i - 19) * 15f
+                var d = abs(angle - waveRot)
+                if (d > 180f) d = 360f - d
+                val w = 0.5f + 0.5f * cos(d * PI.toFloat() / 90f)
+                arr[i] = if (d < 90f) rgb((w * 255).toInt(), (w * 200).toInt(), 10)
+                else rgb(10, (w * 200).toInt(), (w * 255).toInt())
+            }
+        }
+
+        LedAnimation.EBAY -> { // 31. eBay Auction
+            val ebayColors = listOf(
+                rgb(235, 33, 46),
+                rgb(0, 100, 210),
+                rgb(245, 175, 2),
+                rgb(134, 184, 23)
+            )
+            val cycle = tick % 180
+            val speed = 2f + (cycle / 180f) * 14f
+            val rot = (tick * speed) % 360f
+            val isFlash = cycle >= 170
+            val flashVal = if (isFlash) (255f * (180 - cycle) / 10f).toInt() else 0
+            val flashColor = rgb(flashVal, flashVal, flashVal)
+
+            arr[0] = if (isFlash) flashColor else ebayColors[0]
+            for (i in 1..6) {
+                val c = ebayColors[((i - 1) + (tick / 6).toInt()) % 4]
+                arr[i] = if (isFlash) flashColor else c
+            }
+            for (i in 7..18) {
+                val angle = (i - 7) * 30f
+                val q = (((angle + rot) % 360f) / 90f).toInt() % 4
+                arr[i] = if (isFlash) flashColor else ebayColors[q]
+            }
+            for (i in 19..42) {
+                val angle = (i - 19) * 15f
+                val q = (((angle - rot + 360f) % 360f) / 90f).toInt() % 4
+                arr[i] = if (isFlash) flashColor else ebayColors[q]
+            }
+        }
+
+        LedAnimation.HARRY_POTTER -> { // 32. Harry Potter
+            val lumos = 0.85f + 0.15f * sin(tick * 0.4f)
+            arr[0] = rgb((255 * lumos).toInt(), (250 * lumos).toInt(), (240 * lumos).toInt())
+            for (i in 1..6) {
+                val m = 0.5f + 0.5f * sin(tick * 0.15f + (i - 1) * 1.047f)
+                arr[i] = rgb((m * 180 + 40).toInt(), (m * 210 + 40).toInt(), 255)
+            }
+            val snitch = (tick * 11f) % 360f
+            for (i in 7..18) {
+                val angle = (i - 7) * 30f
+                var d = abs(angle - snitch)
+                if (d > 180f) d = 360f - d
+                val a = if (d < 35f) (1f - d / 35f) else 0f
+                arr[i] = rgb((a * 255 + 10).toInt(), (a * 215 + 5).toInt(), (a * 30 + 15).toInt())
+            }
+            for (i in 19..42) {
+                val rel = i - 19
+                arr[i] = when (rel) {
+                    in 0..5 -> if (rel % 2 == 0) rgb(220, 15, 10) else rgb(255, 180, 10)
+                    in 6..11 -> if (rel % 2 == 0) rgb(10, 190, 40) else rgb(200, 220, 230)
+                    in 12..17 -> if (rel % 2 == 0) rgb(10, 50, 230) else rgb(200, 120, 20)
+                    else -> if (rel % 2 == 0) rgb(255, 210, 0) else rgb(30, 30, 35)
+                }
+            }
+        }
+
+        LedAnimation.POKEMON -> { // 33. Pokémon Pokéball
+            val pulse = 0.5f + 0.5f * sin(tick * 0.15f)
+            arr[0] = rgb((180 + 75 * pulse).toInt(), (180 + 75 * pulse).toInt(), (200 + 55 * pulse).toInt())
+            for (i in 1..6) arr[i] = rgb(25, 25, 30)
+            for (i in 7..18) {
+                val angle = (i - 7) * 30f
+                val m = abs(cos(angle * PI.toFloat() / 180f))
+                arr[i] = rgb((15 + 25 * m).toInt(), (15 + 25 * m).toInt(), (20 + 30 * m).toInt())
+            }
+            for (i in 19..42) {
+                val idx = i - 19
+                arr[i] = when {
+                    idx == 0 || idx == 12 -> rgb(5, 5, 5)
+                    idx in 1..11 -> rgb(245, 12, 12)
+                    else -> rgb(240, 240, 245)
+                }
+            }
+        }
+
+        LedAnimation.SAILOR_MOON -> { // 34. Sailor Moon
+            val shimmer = 0.7f + 0.3f * sin(tick * 0.3f)
+            arr[0] = rgb((255 * shimmer).toInt(), (210 * shimmer).toInt(), (245 * shimmer).toInt())
+            for (i in 1..6) {
+                val m = 0.5f + 0.5f * sin(tick * 0.12f + (i - 1) * 1.047f)
+                arr[i] = rgb((m * 255).toInt(), (m * 215).toInt(), (m * 50).toInt())
+            }
+            for (i in 7..18) {
+                val angle = (i - 7) * 30f
+                val t = 0.5f + 0.5f * sin(angle * PI.toFloat() / 90f - tick * 0.1f)
+                arr[i] = rgb((t * 255 + (1f - t) * 180).toInt(), (t * 110 + (1f - t) * 100).toInt(), (t * 180 + (1f - t) * 255).toInt())
+            }
+            val spiral = (tick * 5f)
+            for (i in 19..42) {
+                val angle = (i - 19) * 15f
+                val hue = (angle * 2f + spiral) % 360f
+                arr[i] = when {
+                    hue < 120f -> rgb(255, 110, 180)
+                    hue < 240f -> rgb(255, 220, 40)
+                    else -> rgb(60, 230, 255)
+                }
+            }
+        }
+
         else -> { // Fallback
             val hue = (tick * 2f) % 360f
             for (i in 0 until 43) arr[i] = Color.hsv(hue, 0.8f, 0.7f)

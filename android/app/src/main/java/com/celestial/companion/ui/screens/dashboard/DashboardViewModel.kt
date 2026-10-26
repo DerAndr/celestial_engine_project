@@ -702,6 +702,14 @@ class DashboardViewModel(
         playLocalToneForSfx(trackId + 2)
     }
 
+    fun activateThematicPack(pack: com.celestial.companion.domain.model.ThematicPack) {
+        viewModelScope.launch {
+            repository.executeCommand(StaffCommand.SetLedAnimation(pack.animation))
+            repository.executeCommand(StaffCommand.PlayChiptune(pack.trackId))
+        }
+        playLocalToneForSfx(pack.trackId + 2)
+    }
+
     fun stopAudio() {
         viewModelScope.launch {
             repository.executeCommand(StaffCommand.StopAudio)

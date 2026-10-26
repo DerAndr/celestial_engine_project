@@ -84,7 +84,12 @@ enum class LedAnimation(val id: Int, val title: String, val subtitle: String) {
     STARWARS(26, "Star Wars Duel", "Lightsaber Duel Sith vs Jedi Plasma Clash"),
     GHOSTBUSTERS(27, "Ghostbusters", "Slimer Neon Ectoplasm & Crossing Proton Streams"),
     MORROWIND(28, "Morrowind Ash", "Red Mountain Ash Storm & Vivec Turquoise Aurora"),
-    SPOOKY(29, "Spooky Skeletons", "Bone Dance Strobe & Jack-o'-Lantern Glow");
+    SPOOKY(29, "Spooky Skeletons", "Bone Dance Strobe & Jack-o'-Lantern Glow"),
+    DAFT_PUNK(30, "Daft Punk Visor", "Cyberpunk Chrome Gold & Silver Visor"),
+    EBAY(31, "eBay Auction", "4-Color Auction Strobe & Gavel Shockwave"),
+    HARRY_POTTER(32, "Harry Potter", "Hogwarts 4 House Runes & Lumos Core Flash"),
+    POKEMON(33, "Pokémon Pokéball", "Red & White Pokéball with Pulsing Center Button"),
+    SAILOR_MOON(34, "Sailor Moon", "Moon Prism Power Pastel Transformation Spiral");
 
     val displayName: String get() = title
 
@@ -111,7 +116,155 @@ data class SfxItem(
             SfxItem(6, "Supernova Bass Rumble"),
             SfxItem(7, "R2-D2 Happy Whistle & Chirp", isDroid = true),
             SfxItem(8, "R2-D2 Sassy Astromech Banter", isDroid = true),
-            SfxItem(9, "R2-D2 Panicked Alarm Scream", isDroid = true)
+            SfxItem(9, "R2-D2 Panicked Alarm Scream", isDroid = true),
+            SfxItem(10, "eBay Cash Register (Cha-Ching!)"),
+            SfxItem(11, "Pokémon Center Healing Jingle"),
+            SfxItem(12, "Lumos Wand Flare"),
+            SfxItem(13, "Expecto Patronum Mist")
+        )
+    }
+}
+
+data class ThematicPack(
+    val id: Int,
+    val title: String,
+    val subtitle: String,
+    val trackId: Int,
+    val animation: LedAnimation,
+    val iconEmoji: String,
+    val description: String,
+    val quickActionName: String? = null,
+    val quickActionSfxId: Int? = null,
+    val secondaryActionName: String? = null,
+    val secondaryActionSfxId: Int? = null
+) {
+    companion object {
+        val ALL_PACKS = listOf(
+            ThematicPack(
+                id = 0,
+                title = "DOOM (E1M1)",
+                subtitle = "Hellfire Crimson & BFG Plasma",
+                trackId = 2,
+                animation = LedAnimation.DOOM,
+                iconEmoji = "🔥",
+                description = "At Doom's Gate heavy metal chiptune riff + BFG9000 shockwaves"
+            ),
+            ThematicPack(
+                id = 1,
+                title = "TETRIS ARCADE",
+                subtitle = "Korobeiniki 4-Line Clear",
+                trackId = 1,
+                animation = LedAnimation.TETRIS,
+                iconEmoji = "🧱",
+                description = "Full 64-note Korobeiniki + falling tetrominoes and line clear"
+            ),
+            ThematicPack(
+                id = 2,
+                title = "LEGEND OF ZELDA",
+                subtitle = "Triforce of Courage",
+                trackId = 3,
+                animation = LedAnimation.ZELDA,
+                iconEmoji = "🗡️",
+                description = "Overworld March fanfare + sacred spinning golden Triforce"
+            ),
+            ThematicPack(
+                id = 3,
+                title = "STAR WARS",
+                subtitle = "Imperial March Sith vs Jedi",
+                trackId = 4,
+                animation = LedAnimation.STARWARS,
+                iconEmoji = "⚔️",
+                description = "Darth Vader's theme + dual red & blue lightsaber clash"
+            ),
+            ThematicPack(
+                id = 4,
+                title = "GHOSTBUSTERS",
+                subtitle = "Ectoplasm & Proton Streams",
+                trackId = 5,
+                animation = LedAnimation.GHOSTBUSTERS,
+                iconEmoji = "👻",
+                description = "Slap-bass groove + 'Who you gonna call?!' + crossing streams"
+            ),
+            ThematicPack(
+                id = 5,
+                title = "MORROWIND",
+                subtitle = "Nerevar Rising Ash Storm",
+                trackId = 6,
+                animation = LedAnimation.MORROWIND,
+                iconEmoji = "🌋",
+                description = "Elder Scrolls majestic horns + Red Mountain ash aurora"
+            ),
+            ThematicPack(
+                id = 6,
+                title = "SPOOKY SKELETONS",
+                subtitle = "Bone Dance Strobe",
+                trackId = 7,
+                animation = LedAnimation.SPOOKY,
+                iconEmoji = "💀",
+                description = "Electro-swing xylophone triplets + Jack-o'-Lantern candlelight"
+            ),
+            ThematicPack(
+                id = 7,
+                title = "DAFT PUNK",
+                subtitle = "Harder, Better, Faster, Stronger",
+                trackId = 8,
+                animation = LedAnimation.DAFT_PUNK,
+                iconEmoji = "🤖",
+                description = "French touch electro vocoder synth + Cyberpunk chrome visor waves"
+            ),
+            ThematicPack(
+                id = 8,
+                title = "EBAY CHAOS AUCTION",
+                subtitle = "4-Color Strobe & Cha-Ching!",
+                trackId = 9,
+                animation = LedAnimation.EBAY,
+                iconEmoji = "🔨",
+                description = "Accelerating bidding war + 4-color strobe + cash register bell",
+                quickActionName = "Cha-Ching! 💰",
+                quickActionSfxId = 10
+            ),
+            ThematicPack(
+                id = 9,
+                title = "HARRY POTTER",
+                subtitle = "Hedwig's Theme & Hogwarts Runes",
+                trackId = 10,
+                animation = LedAnimation.HARRY_POTTER,
+                iconEmoji = "⚡",
+                description = "16-bit Hedwig's Theme waltz + Hogwarts 4 House Runes",
+                quickActionName = "Lumos! 🪄",
+                quickActionSfxId = 12,
+                secondaryActionName = "Patronus! 🦅",
+                secondaryActionSfxId = 13
+            ),
+            ThematicPack(
+                id = 10,
+                title = "POKÉMON PACK",
+                subtitle = "Wild Battle & Pokéball Ring",
+                trackId = 11,
+                animation = LedAnimation.POKEMON,
+                iconEmoji = "🔴",
+                description = "Wild Pokémon Battle Theme + concentric red & white Pokéball",
+                quickActionName = "PokéCenter Heal 🏥",
+                quickActionSfxId = 11
+            ),
+            ThematicPack(
+                id = 11,
+                title = "SAILOR MOON",
+                subtitle = "Moonlight Densetsu (ムーンライト伝説)",
+                trackId = 12,
+                animation = LedAnimation.SAILOR_MOON,
+                iconEmoji = "🌙",
+                description = "Romantic 8-bit anime theme + Moon Prism Power pastel transformation"
+            ),
+            ThematicPack(
+                id = 12,
+                title = "SUPER MARIO BROS",
+                subtitle = "Overworld Theme",
+                trackId = 0,
+                animation = LedAnimation.RAINBOW,
+                iconEmoji = "🍄",
+                description = "Classic Nintendo 8-bit Overworld Theme"
+            )
         )
     }
 }
@@ -274,6 +427,42 @@ data class SpellDefinition(
                 description = "Vortex • Chirp • Chatter • Scream",
                 chantText = "Bip-boop bip-bop astromech hysterium, waaaah!",
                 oledText = "🤖 DROID"
+            ),
+            SpellDefinition(
+                name = "Lumos Maxima",
+                animation = LedAnimation.HARRY_POTTER,
+                sounds = listOf(12, 5, 1),
+                prompt = "Cast Lumos Maxima! [SPELL: Lumos Maxima | ANIM: HARRY_POTTER | SOUNDS: LUMOS, PORTAL, PULSAR] Lumos maxima lux aetheris!",
+                description = "Hogwarts Runes • Lumos • Portal • Shimmer",
+                chantText = "Lumos maxima lux aetheris, illustra noctem!",
+                oledText = "🪄 LUMOS!"
+            ),
+            SpellDefinition(
+                name = "Expecto Patronum",
+                animation = LedAnimation.HARRY_POTTER,
+                sounds = listOf(13, 0, 7),
+                prompt = "Cast Expecto Patronum! [SPELL: Expecto Patronum | ANIM: HARRY_POTTER | SOUNDS: PATRONUS, WARP, HAPPY] Expecto patronum anima argentea!",
+                description = "Hogwarts Runes • Patronus Mist • Warp",
+                chantText = "Expecto patronum anima argentea, averte dementores!",
+                oledText = "🦅 PATRONUS!"
+            ),
+            SpellDefinition(
+                name = "eBay Chaos Bid",
+                animation = LedAnimation.EBAY,
+                sounds = listOf(10, 3, 6),
+                prompt = "Cast eBay Chaos Bid! [SPELL: eBay Chaos Bid | ANIM: EBAY | SOUNDS: CHA_CHING, LASER, SUPERNOVA] Cha-ching gavel strike!",
+                description = "4-Color Strobe • Cha-Ching • Laser • Gavel",
+                chantText = "Going once, going twice, sold for ten thousand credits!",
+                oledText = "🔨 SOLD!"
+            ),
+            SpellDefinition(
+                name = "Moon Prism Power",
+                animation = LedAnimation.SAILOR_MOON,
+                sounds = listOf(5, 1, 7),
+                prompt = "Cast Moon Prism Power! [SPELL: Moon Prism Power | ANIM: SAILOR_MOON | SOUNDS: PORTAL, PULSAR, HAPPY] Moon Prism Power Make Up!",
+                description = "Pastel Spiral • Portal • Shimmer • Chime",
+                chantText = "Moon Prism Power, Make Up! Tsuki ni kawatte oshioki yo!",
+                oledText = "🌙 MOON PRISM"
             )
         )
     }

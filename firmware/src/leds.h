@@ -38,6 +38,11 @@ typedef enum {
     LED_ANIM_GHOSTBUSTERS,   // 27. Ghostbusters: Slimer Neon Ectoplasm & Crossing Proton Streams
     LED_ANIM_MORROWIND,      // 28. Morrowind: Red Mountain Ash Storm & Vivec Turquoise Aurora
     LED_ANIM_SPOOKY,         // 29. Spooky Scary Skeletons: Bone Dance Strobe & Jack-o'-Lantern Glow
+    LED_ANIM_DAFT_PUNK,      // 30. Daft Punk: Cyberpunk Chrome Gold & Silver Visor
+    LED_ANIM_EBAY,           // 31. eBay Chaos Auction: 4-color auction strobe & gavel shockwave
+    LED_ANIM_HARRY_POTTER,   // 32. Harry Potter: Hogwarts 4 House Runes & Lumos Core Flash
+    LED_ANIM_POKEMON,        // 33. Pokémon: Red & White Pokéball with pulsing center button
+    LED_ANIM_SAILOR_MOON,    // 34. Sailor Moon: Moon Prism Power pastel transformation spiral
     LED_ANIM_COUNT
 } led_anim_mode_t;
 

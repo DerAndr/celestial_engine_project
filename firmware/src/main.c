@@ -1856,6 +1856,16 @@ static void sync_chiptune_thematic_leds(int track_idx) {
         leds_set_anim_mode(LED_ANIM_MORROWIND);
     } else if (strstr(name, "SPOOKY")) {
         leds_set_anim_mode(LED_ANIM_SPOOKY);
+    } else if (strstr(name, "DAFT PUNK")) {
+        leds_set_anim_mode(LED_ANIM_DAFT_PUNK);
+    } else if (strstr(name, "EBAY")) {
+        leds_set_anim_mode(LED_ANIM_EBAY);
+    } else if (strstr(name, "HARRY POTTER")) {
+        leds_set_anim_mode(LED_ANIM_HARRY_POTTER);
+    } else if (strstr(name, "POKEMON")) {
+        leds_set_anim_mode(LED_ANIM_POKEMON);
+    } else if (strstr(name, "SAILOR MOON")) {
+        leds_set_anim_mode(LED_ANIM_SAILOR_MOON);
     }
 }
 
@@ -2075,6 +2085,7 @@ int main(void) {
                     break;
                 case 'T': // Play chiptune
                     audio_play_chiptune(rem_cmd.param);
+                    sync_chiptune_thematic_leds(rem_cmd.param);
                     break;
                 case 'P': // Play voice
                     audio_play_voice((voice_phrase_id_t)rem_cmd.param);

@@ -161,6 +161,10 @@ static const chime_note_t DOOM_THEME[] = {
     { 196.00f, 85 }, { 349.23f, 110 }, { 196.00f, 85 }, { 196.00f, 85 },
     { 329.63f, 110 }, { 196.00f, 85 }, { 196.00f, 85 }, { 293.66f, 130 },
     { 196.00f, 85 }, { 196.00f, 85 }, { 311.13f, 110 }, { 329.63f, 110 },
+    // Bridge in C
+    { 130.81f, 85 }, { 130.81f, 85 }, { 261.63f, 110 }, { 130.81f, 85 },
+    { 130.81f, 85 }, { 233.08f, 110 }, { 130.81f, 85 }, { 130.81f, 85 },
+    { 207.65f, 110 }, { 130.81f, 85 }, { 130.81f, 85 }, { 174.61f, 160 },
     // Final Riff punch
     { 164.81f, 85 }, { 164.81f, 85 }, { 329.63f, 110 }, { 164.81f, 85 },
     { 164.81f, 85 }, { 293.66f, 110 }, { 164.81f, 85 }, { 164.81f, 85 },
@@ -179,7 +183,11 @@ static const chime_note_t ZELDA_THEME[] = {
     { 830.61f, 260 }, { 739.99f, 130 }, { 698.46f, 450 }, { 0.0f, 100 },
     { 622.25f, 130 }, { 622.25f, 90 },  { 698.46f, 90 },  { 739.99f, 260 },
     { 698.46f, 130 }, { 622.25f, 130 }, { 554.37f, 130 }, { 523.25f, 130 },
-    { 587.33f, 130 }, { 659.25f, 260 }, { 783.99f, 180 }, { 698.46f, 400 }
+    { 587.33f, 130 }, { 659.25f, 260 }, { 783.99f, 180 }, { 698.46f, 400 },
+    // Bridge & Heroic Resolution
+    { 698.46f, 140 }, { 622.25f, 140 }, { 554.37f, 140 }, { 523.25f, 140 },
+    { 466.16f, 280 }, { 523.25f, 140 }, { 587.33f, 140 }, { 622.25f, 140 },
+    { 698.46f, 140 }, { 783.99f, 140 }, { 880.00f, 280 }, { 932.33f, 500 }
 };
 
 // 5. Star Wars (Imperial March - Darth Vader's Theme)
@@ -201,23 +209,7 @@ static const chime_note_t IMPERIAL_THEME[] = {
     { 311.13f, 240 }, { 466.16f, 80 },  { 392.00f, 650 }
 };
 
-// 6. Mega Man 2 (Dr. Wily Stage 1 - Driving 8-bit Synth)
-static const chime_note_t MEGAMAN_THEME[] = {
-    { 293.66f, 110 }, { 293.66f, 110 }, { 293.66f, 110 }, { 293.66f, 110 },
-    { 466.16f, 180 }, { 440.00f, 180 }, { 392.00f, 180 }, { 349.23f, 180 },
-    { 392.00f, 180 }, { 440.00f, 220 },
-    { 293.66f, 110 }, { 293.66f, 110 }, { 293.66f, 110 }, { 293.66f, 110 },
-    { 466.16f, 180 }, { 440.00f, 180 }, { 392.00f, 180 }, { 349.23f, 180 },
-    { 329.63f, 180 }, { 293.66f, 220 },
-    { 349.23f, 140 }, { 392.00f, 140 }, { 440.00f, 140 }, { 587.33f, 260 },
-    { 523.25f, 180 }, { 466.16f, 180 }, { 440.00f, 180 }, { 392.00f, 180 },
-    { 440.00f, 260 },
-    { 349.23f, 140 }, { 392.00f, 140 }, { 440.00f, 140 }, { 587.33f, 260 },
-    { 523.25f, 180 }, { 466.16f, 180 }, { 440.00f, 180 }, { 392.00f, 180 },
-    { 349.23f, 180 }, { 293.66f, 350 }
-};
-
-// 7. Ghostbusters Theme (Ray Parker Jr. - Retro Slap Bass & Hook)
+// 6. Ghostbusters Theme (Ray Parker Jr. - Retro Slap Bass & Hook)
 static const chime_note_t GHOSTBUSTERS_THEME[] = {
     // Intro Slap Bass Groove
     { 246.94f, 130 }, { 246.94f, 130 }, { 293.66f, 130 }, { 246.94f, 130 },
@@ -231,10 +223,13 @@ static const chime_note_t GHOSTBUSTERS_THEME[] = {
     { 369.99f, 150 }, { 440.00f, 150 }, { 493.88f, 300 }, { 0.0f, 90 },
     { 493.88f, 160 }, { 440.00f, 160 }, { 369.99f, 320 }, { 0.0f, 100 },
     // "Ghostbusters!" Fanfare
-    { 493.88f, 220 }, { 440.00f, 220 }, { 369.99f, 400 }, { 0.0f, 150 }
+    { 493.88f, 220 }, { 440.00f, 220 }, { 369.99f, 400 }, { 0.0f, 120 },
+    // Reprise Bass Walk
+    { 246.94f, 120 }, { 293.66f, 120 }, { 329.63f, 120 }, { 369.99f, 120 },
+    { 440.00f, 120 }, { 493.88f, 350 }
 };
 
-// 8. The Elder Scrolls III: Morrowind (Nerevar Rising / Call of Magic - Jeremy Soule)
+// 7. The Elder Scrolls III: Morrowind (Nerevar Rising / Call of Magic - Jeremy Soule)
 static const chime_note_t MORROWIND_THEME[] = {
     // Majestic Theme: Phrase 1
     { 293.66f, 350 }, { 329.63f, 200 }, { 349.23f, 350 }, { 392.00f, 200 },
@@ -250,7 +245,7 @@ static const chime_note_t MORROWIND_THEME[] = {
     { 293.66f, 750 }
 };
 
-// 9. Spooky Scary Skeletons (Andrew Gold - Fast Electro-Swing Xylophone)
+// 8. Spooky Scary Skeletons (Andrew Gold - Fast Electro-Swing Xylophone)
 static const chime_note_t SPOOKY_SKELETONS_THEME[] = {
     // Hook 1: "Spooky Scary Skeletons"
     { 293.66f, 130 }, { 293.66f, 130 }, { 587.33f, 240 }, { 440.00f, 180 },
@@ -262,7 +257,128 @@ static const chime_note_t SPOOKY_SKELETONS_THEME[] = {
     { 261.63f, 130 }, { 311.13f, 130 }, { 349.23f, 240 }, { 0.0f, 70 },
     // Xylophone Bone-Rattle Cadence
     { 293.66f, 85 },  { 349.23f, 85 },  { 440.00f, 85 },  { 587.33f, 95 },
-    { 523.25f, 85 },  { 440.00f, 85 },  { 349.23f, 85 },  { 293.66f, 320 }
+    { 523.25f, 85 },  { 440.00f, 85 },  { 349.23f, 85 },  { 293.66f, 280 },
+    // Swing reprise
+    { 293.66f, 120 }, { 293.66f, 120 }, { 349.23f, 120 }, { 293.66f, 120 },
+    { 392.00f, 120 }, { 349.23f, 120 }, { 293.66f, 120 }, { 261.63f, 120 }, { 293.66f, 350 }
+};
+
+// 9. Daft Punk (Harder, Better, Faster, Stronger - French Electro Synth Riff)
+static const chime_note_t DAFT_PUNK_THEME[] = {
+    // Intro groove
+    { 185.00f, 130 }, { 185.00f, 130 }, { 220.00f, 130 }, { 246.94f, 130 },
+    { 277.18f, 130 }, { 293.66f, 130 }, { 277.18f, 130 }, { 246.94f, 130 },
+    // Hook 1: "Work it, make it, do it, makes us / Harder, better, faster, stronger"
+    { 369.99f, 140 }, { 440.00f, 140 }, { 493.88f, 140 }, { 554.37f, 140 },
+    { 587.33f, 220 }, { 554.37f, 140 }, { 493.88f, 140 }, { 440.00f, 140 },
+    { 369.99f, 280 }, { 0.0f, 70 },
+    // Hook 2: "More than ever, hour after / Our work is never over"
+    { 369.99f, 140 }, { 440.00f, 140 }, { 493.88f, 140 }, { 554.37f, 140 },
+    { 587.33f, 140 }, { 659.25f, 140 }, { 739.99f, 280 }, { 659.25f, 140 },
+    { 587.33f, 140 }, { 554.37f, 140 }, { 493.88f, 140 }, { 440.00f, 140 },
+    { 369.99f, 320 }, { 0.0f, 80 },
+    // Synth Arpeggio Climax
+    { 369.99f, 95 },  { 440.00f, 95 },  { 554.37f, 95 },  { 739.99f, 140 },
+    { 659.25f, 95 },  { 554.37f, 95 },  { 440.00f, 95 },  { 369.99f, 350 }
+};
+
+// 10. eBay Chaos Auction (Accelerating Bidding Frenzy & Gavel Finale)
+static const chime_note_t EBAY_THEME[] = {
+    // Auctioneer rhythmic chant
+    { 261.63f, 110 }, { 329.63f, 110 }, { 392.00f, 110 }, { 523.25f, 140 },
+    { 493.88f, 110 }, { 392.00f, 110 }, { 440.00f, 110 }, { 493.88f, 110 }, { 523.25f, 220 },
+    // Bidding accelerates
+    { 587.33f, 95 },  { 659.25f, 95 },  { 698.46f, 95 },  { 783.99f, 130 },
+    { 698.46f, 95 },  { 659.25f, 95 },  { 587.33f, 95 },  { 523.25f, 190 },
+    // Rapid chromatically rising bids: going once, going twice!
+    { 523.25f, 70 },  { 554.37f, 70 },  { 587.33f, 70 },  { 622.25f, 70 },
+    { 659.25f, 70 },  { 698.46f, 70 },  { 739.99f, 70 },  { 783.99f, 70 },
+    { 830.61f, 70 },  { 880.00f, 70 },  { 987.77f, 70 },  { 1046.50f, 180 },
+    // Gavel strike thuds!
+    { 130.81f, 80 },  { 0.0f, 60 },     { 130.81f, 80 },  { 0.0f, 60 },     { 130.81f, 120 },
+    // Cha-ching cash register bell fanfare!
+    { 1864.66f, 90 }, { 2349.32f, 260 }, { 0.0f, 50 },   { 2093.00f, 420 }
+};
+
+// 11. Harry Potter (Hedwig's Theme - Iconic Celesta 16-bit Waltz)
+static const chime_note_t HARRY_POTTER_THEME[] = {
+    { 246.94f, 260 }, // B3
+    { 329.63f, 390 }, // E4
+    { 392.00f, 200 }, // G4
+    { 369.99f, 200 }, // F#4
+    { 329.63f, 390 }, // E4
+    { 493.88f, 780 }, // B4
+    { 440.00f, 580 }, // A4
+    { 369.99f, 580 }, // F#4
+    { 329.63f, 390 }, // E4
+    { 392.00f, 200 }, // G4
+    { 369.99f, 200 }, // F#4
+    { 311.13f, 390 }, // D#4
+    { 349.23f, 390 }, // F4
+    { 246.94f, 780 }, // B3
+    { 246.94f, 260 }, // B3
+    { 329.63f, 390 }, // E4
+    { 392.00f, 200 }, // G4
+    { 369.99f, 200 }, // F#4
+    { 329.63f, 390 }, // E4
+    { 493.88f, 780 }, // B4
+    { 587.33f, 520 }, // D5
+    { 554.37f, 260 }, // C#5
+    { 523.25f, 520 }, // C5
+    { 415.30f, 260 }, // G#4
+    { 523.25f, 390 }, // C5
+    { 493.88f, 200 }, // B4
+    { 466.16f, 200 }, // A#4
+    { 246.94f, 390 }, // B3
+    { 392.00f, 390 }, // G4
+    { 329.63f, 850 }  // E4
+};
+
+// 12. Pokémon Pack (Wild Pokémon Battle & Pokémon Center Jingle)
+static const chime_note_t POKEMON_THEME[] = {
+    // Battle encounter chromatic descend
+    { 880.00f, 70 },  { 830.61f, 70 },  { 783.99f, 70 },  { 739.99f, 70 },
+    { 698.46f, 70 },  { 659.25f, 70 },  { 622.25f, 70 },  { 587.33f, 90 },
+    // Wild Battle driving groove
+    { 220.00f, 110 }, { 220.00f, 110 }, { 261.63f, 110 }, { 293.66f, 110 },
+    { 311.13f, 140 }, { 293.66f, 110 }, { 261.63f, 110 }, { 220.00f, 220 },
+    { 329.63f, 110 }, { 329.63f, 110 }, { 392.00f, 110 }, { 440.00f, 110 },
+    { 523.25f, 220 }, { 493.88f, 110 }, { 440.00f, 110 }, { 392.00f, 110 }, { 440.00f, 290 },
+    // Battle Horns
+    { 659.25f, 140 }, { 587.33f, 140 }, { 523.25f, 140 }, { 493.88f, 140 },
+    { 523.25f, 140 }, { 587.33f, 140 }, { 659.25f, 340 },
+    // Pokémon Center heal jingle
+    { 493.88f, 140 }, { 659.25f, 140 }, { 830.61f, 140 }, { 987.77f, 240 },
+    { 830.61f, 140 }, { 987.77f, 380 }
+};
+
+// 13. Sailor Moon (Moonlight Densetsu ムーンライト伝説 - Romantic 8-bit Anime)
+static const chime_note_t SAILOR_MOON_THEME[] = {
+    // Verse 1
+    { 392.00f, 220 }, { 523.25f, 220 }, { 587.33f, 220 }, { 622.25f, 440 },
+    { 587.33f, 220 }, { 523.25f, 220 }, { 466.16f, 440 }, { 415.30f, 220 },
+    { 392.00f, 440 }, { 349.23f, 220 }, { 392.00f, 220 }, { 415.30f, 440 },
+    { 466.16f, 220 }, { 523.25f, 440 }, { 587.33f, 220 }, { 622.25f, 550 },
+    // Chorus: Tsuki no akari ni michibikare...
+    { 622.25f, 220 }, { 698.46f, 220 }, { 783.99f, 440 }, { 698.46f, 220 }, { 622.25f, 220 },
+    { 587.33f, 440 }, { 523.25f, 220 }, { 587.33f, 220 }, { 622.25f, 440 },
+    { 523.25f, 220 }, { 587.33f, 220 }, { 392.00f, 440 }, { 523.25f, 650 }
+};
+
+// Mega Man 2 (Dr. Wily Stage 1 - Driving 8-bit Synth)
+static const chime_note_t MEGAMAN_THEME[] = {
+    { 293.66f, 110 }, { 293.66f, 110 }, { 293.66f, 110 }, { 293.66f, 110 },
+    { 466.16f, 180 }, { 440.00f, 180 }, { 392.00f, 180 }, { 349.23f, 180 },
+    { 392.00f, 180 }, { 440.00f, 220 },
+    { 293.66f, 110 }, { 293.66f, 110 }, { 293.66f, 110 }, { 293.66f, 110 },
+    { 466.16f, 180 }, { 440.00f, 180 }, { 392.00f, 180 }, { 349.23f, 180 },
+    { 329.63f, 180 }, { 293.66f, 220 },
+    { 349.23f, 140 }, { 392.00f, 140 }, { 440.00f, 140 }, { 587.33f, 260 },
+    { 523.25f, 180 }, { 466.16f, 180 }, { 440.00f, 180 }, { 392.00f, 180 },
+    { 440.00f, 260 },
+    { 349.23f, 140 }, { 392.00f, 140 }, { 440.00f, 140 }, { 587.33f, 260 },
+    { 523.25f, 180 }, { 466.16f, 180 }, { 440.00f, 180 }, { 392.00f, 180 },
+    { 349.23f, 180 }, { 293.66f, 350 }
 };
 
 // 7. Bella Ciao (Italian Folk Classic)
@@ -439,6 +555,28 @@ static const chime_note_t SFX_R2_TIME[] = {
     { 2637.02f, 80 }, { 3135.96f, 130 }
 };
 
+// 11. eBay Cash Register: "Cha-Ching!" Mechanical Bell Ring
+static const chime_note_t SFX_CHA_CHING[] = {
+    { 1864.66f, 80 }, { 2349.32f, 220 }, { 0.0f, 40 }, { 2093.00f, 320 }
+};
+
+// 12. Pokémon Center: Healing Jingle
+static const chime_note_t SFX_POKECENTER[] = {
+    { 493.88f, 140 }, { 659.25f, 140 }, { 830.61f, 140 }, { 987.77f, 220 },
+    { 830.61f, 140 }, { 987.77f, 380 }
+};
+
+// 13. Harry Potter: Lumos Celestial Flare
+static const chime_note_t SFX_LUMOS[] = {
+    { 1046.50f, 40 }, { 1318.51f, 40 }, { 1567.98f, 50 }, { 2093.00f, 60 }, { 3135.96f, 140 }
+};
+
+// 14. Harry Potter: Expecto Patronum Rising Wave
+static const chime_note_t SFX_PATRONUS[] = {
+    { 220.00f, 60 }, { 329.63f, 60 }, { 440.00f, 70 }, { 659.25f, 80 },
+    { 880.00f, 100 }, { 1318.51f, 180 }
+};
+
 typedef struct {
     const char *name;
     const chime_note_t *notes;
@@ -448,20 +586,25 @@ typedef struct {
 static const chiptune_track_t CHIPTUNE_TRACKS[] = {
     { "SUPER MARIO BROS", MARIO_THEME, sizeof(MARIO_THEME) / sizeof(MARIO_THEME[0]) },
     { "TETRIS KOROBEINIKI", TETRIS_THEME, sizeof(TETRIS_THEME) / sizeof(TETRIS_THEME[0]) },
+    { "DOOM E1M1 RIFF", DOOM_THEME, sizeof(DOOM_THEME) / sizeof(DOOM_THEME[0]) },
+    { "ZELDA OVERWORLD", ZELDA_THEME, sizeof(ZELDA_THEME) / sizeof(ZELDA_THEME[0]) },
+    { "IMPERIAL MARCH", IMPERIAL_THEME, sizeof(IMPERIAL_THEME) / sizeof(IMPERIAL_THEME[0]) },
+    { "GHOSTBUSTERS THEME", GHOSTBUSTERS_THEME, sizeof(GHOSTBUSTERS_THEME) / sizeof(GHOSTBUSTERS_THEME[0]) },
+    { "MORROWIND NEREVAR", MORROWIND_THEME, sizeof(MORROWIND_THEME) / sizeof(MORROWIND_THEME[0]) },
+    { "SPOOKY SKELETONS", SPOOKY_SKELETONS_THEME, sizeof(SPOOKY_SKELETONS_THEME) / sizeof(SPOOKY_SKELETONS_THEME[0]) },
+    { "DAFT PUNK STRONGER", DAFT_PUNK_THEME, sizeof(DAFT_PUNK_THEME) / sizeof(DAFT_PUNK_THEME[0]) },
+    { "EBAY CHAOS AUCTION", EBAY_THEME, sizeof(EBAY_THEME) / sizeof(EBAY_THEME[0]) },
+    { "HARRY POTTER HEDWIG", HARRY_POTTER_THEME, sizeof(HARRY_POTTER_THEME) / sizeof(HARRY_POTTER_THEME[0]) },
+    { "POKEMON BATTLE", POKEMON_THEME, sizeof(POKEMON_THEME) / sizeof(POKEMON_THEME[0]) },
+    { "SAILOR MOON DENSETSU", SAILOR_MOON_THEME, sizeof(SAILOR_MOON_THEME) / sizeof(SAILOR_MOON_THEME[0]) },
+    { "MEGA MAN 2 WILY", MEGAMAN_THEME, sizeof(MEGAMAN_THEME) / sizeof(MEGAMAN_THEME[0]) },
     { "BELLA CIAO", BELLA_CIAO, sizeof(BELLA_CIAO) / sizeof(BELLA_CIAO[0]) },
     { "ODE TO JOY (BEETHOVEN)", ODE_TO_JOY, sizeof(ODE_TO_JOY) / sizeof(ODE_TO_JOY[0]) },
     { "DU LIEGST MIR IM HERZEN", GERMAN_FOLK, sizeof(GERMAN_FOLK) / sizeof(GERMAN_FOLK[0]) },
     { "MO LI HUA (JASMINE)", MO_LI_HUA, sizeof(MO_LI_HUA) / sizeof(MO_LI_HUA[0]) },
     { "GREENSLEEVES", GREENSLEEVES, sizeof(GREENSLEEVES) / sizeof(GREENSLEEVES[0]) },
     { "SAKURA SAKURA", SAKURA_SAKURA, sizeof(SAKURA_SAKURA) / sizeof(SAKURA_SAKURA[0]) },
-    { "LA CUCARACHA", LA_CUCARACHA, sizeof(LA_CUCARACHA) / sizeof(LA_CUCARACHA[0]) },
-    { "DOOM E1M1 RIFF", DOOM_THEME, sizeof(DOOM_THEME) / sizeof(DOOM_THEME[0]) },
-    { "ZELDA OVERWORLD", ZELDA_THEME, sizeof(ZELDA_THEME) / sizeof(ZELDA_THEME[0]) },
-    { "IMPERIAL MARCH", IMPERIAL_THEME, sizeof(IMPERIAL_THEME) / sizeof(IMPERIAL_THEME[0]) },
-    { "MEGA MAN 2 WILY", MEGAMAN_THEME, sizeof(MEGAMAN_THEME) / sizeof(MEGAMAN_THEME[0]) },
-    { "GHOSTBUSTERS THEME", GHOSTBUSTERS_THEME, sizeof(GHOSTBUSTERS_THEME) / sizeof(GHOSTBUSTERS_THEME[0]) },
-    { "MORROWIND NEREVAR", MORROWIND_THEME, sizeof(MORROWIND_THEME) / sizeof(MORROWIND_THEME[0]) },
-    { "SPOOKY SKELETONS", SPOOKY_SKELETONS_THEME, sizeof(SPOOKY_SKELETONS_THEME) / sizeof(SPOOKY_SKELETONS_THEME[0]) }
+    { "LA CUCARACHA", LA_CUCARACHA, sizeof(LA_CUCARACHA) / sizeof(LA_CUCARACHA[0]) }
 };
 
 #define CHIPTUNE_TRACK_COUNT ((int)(sizeof(CHIPTUNE_TRACKS) / sizeof(CHIPTUNE_TRACKS[0])))
@@ -476,7 +619,11 @@ static const chiptune_track_t COSMIC_SFX_TRACKS[] = {
     { "SUPERNOVA", SFX_SUPERNOVA, sizeof(SFX_SUPERNOVA) / sizeof(SFX_SUPERNOVA[0]) },
     { "R2 HAPPY CHIRP", SFX_R2_HAPPY, sizeof(SFX_R2_HAPPY) / sizeof(SFX_R2_HAPPY[0]) },
     { "R2 DROID CHATTER", SFX_R2_CHATTER, sizeof(SFX_R2_CHATTER) / sizeof(SFX_R2_CHATTER[0]) },
-    { "R2 PANIC SCREAM", SFX_R2_PANIC, sizeof(SFX_R2_PANIC) / sizeof(SFX_R2_PANIC[0]) }
+    { "R2 PANIC SCREAM", SFX_R2_PANIC, sizeof(SFX_R2_PANIC) / sizeof(SFX_R2_PANIC[0]) },
+    { "CHA-CHING AUCTION", SFX_CHA_CHING, sizeof(SFX_CHA_CHING) / sizeof(SFX_CHA_CHING[0]) },
+    { "POKECENTER HEAL", SFX_POKECENTER, sizeof(SFX_POKECENTER) / sizeof(SFX_POKECENTER[0]) },
+    { "LUMOS FLARE", SFX_LUMOS, sizeof(SFX_LUMOS) / sizeof(SFX_LUMOS[0]) },
+    { "PATRONUS MIST", SFX_PATRONUS, sizeof(SFX_PATRONUS) / sizeof(SFX_PATRONUS[0]) }
 };
 
 #define COSMIC_SFX_TOTAL ((int)(sizeof(COSMIC_SFX_TRACKS) / sizeof(COSMIC_SFX_TRACKS[0])))
@@ -537,11 +684,19 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
             }
 
             float s1 = sinf(current_phase);
-            float warm_wave = diagnostic_sine ? s1 :
-                0.85f * s1 + 0.15f * sinf(current_phase * 2.0f);
-            if (diagnostic_sine && diagnostic_polarity != 0) {
-                // Same peak magnitude, but never crosses zero: isolates sign-bit decoding.
-                warm_wave = (0.5f + 0.5f * s1) * (float)diagnostic_polarity;
+            float warm_wave;
+            if (diagnostic_sine) {
+                warm_wave = (diagnostic_polarity != 0) ?
+                    ((0.5f + 0.5f * s1) * (float)diagnostic_polarity) : s1;
+            } else if (active_chiptune_track >= 0 || active_cosmic_sfx >= 0) {
+                // 16-bit / 8-bit retro arcade synthesizer:
+                // Odd harmonics (pulse/square wave) + punchy sub-octave bass harmonic
+                float s3 = sinf(current_phase * 3.0f);
+                float s5 = sinf(current_phase * 5.0f);
+                float sub = sinf(current_phase * 0.5f);
+                warm_wave = 0.52f * s1 + 0.22f * s3 + 0.10f * s5 + 0.16f * sub;
+            } else {
+                warm_wave = 0.85f * s1 + 0.15f * sinf(current_phase * 2.0f);
             }
 
             float val = warm_wave * (current_amplitude * env);
@@ -1130,6 +1285,22 @@ void audio_play_r2d2_random(void) {
     } else {
         audio_play_r2d2_panic();
     }
+}
+
+void audio_play_cha_ching(void) {
+    audio_play_cosmic_sfx(COSMIC_SFX_CHA_CHING);
+}
+
+void audio_play_pokecenter(void) {
+    audio_play_cosmic_sfx(COSMIC_SFX_POKECENTER);
+}
+
+void audio_play_lumos(void) {
+    audio_play_cosmic_sfx(COSMIC_SFX_LUMOS);
+}
+
+void audio_play_patronus(void) {
+    audio_play_cosmic_sfx(COSMIC_SFX_PATRONUS);
 }
 
 float audio_get_current_note_freq(void) {

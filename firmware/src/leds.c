@@ -80,7 +80,12 @@ static const char *ANIM_NAMES[LED_ANIM_COUNT] = {
     "STAR WARS DUEL",
     "GHOSTBUSTERS",
     "MORROWIND ASH",
-    "SPOOKY SKELETONS"
+    "SPOOKY SKELETONS",
+    "DAFT PUNK VISOR",
+    "EBAY AUCTION",
+    "HARRY POTTER",
+    "POKEMON POKEBALL",
+    "SAILOR MOON"
 };
 
 static inline uint32_t rgb_to_grb(uint8_t r, uint8_t g, uint8_t b) {
@@ -2289,6 +2294,219 @@ static void render_spooky(uint32_t tick) {
     }
 }
 
+// 30. Daft Punk: Cyberpunk Chrome Gold & Silver Helmet Visor
+static void render_daft_punk(uint32_t tick) {
+    // Background deep French touch electro dim
+    for (int i = 0; i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 2; pixels_g[i] = 1; pixels_b[i] = 4;
+    }
+    // 125 BPM kick pulse on core
+    float beat = fmodf((float)tick * 0.35f, 3.14159f);
+    float kick = powf(sinf(beat), 8.0f);
+    pixels_r[0] = (uint8_t)(255.0f * kick);
+    pixels_g[0] = (uint8_t)(20.0f * kick);
+    pixels_b[0] = (uint8_t)(60.0f * kick);
+
+    // Ring 7 (LEDs 1..6): Gold Guy-Manuel Equalizer
+    float eq_phase = (float)tick * 0.2f;
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        float h = 0.5f + 0.5f * sinf(eq_phase + (float)(i - 1) * 1.047f);
+        pixels_r[i] = (uint8_t)(h * 255.0f);
+        pixels_g[i] = (uint8_t)(h * 190.0f);
+        pixels_b[i] = (uint8_t)(h * 15.0f);
+    }
+
+    // Ring 12 (LEDs 7..18): Thomas Bangalter Chrome Silver Visor Horizontal Sweep
+    float sweep = sinf((float)tick * 0.18f);
+    float target_angle = 180.0f + sweep * 80.0f;
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float d = fabsf(angle - target_angle); if (d > 180.0f) d = 360.0f - d;
+        float a = (d < 40.0f) ? (1.0f - d / 40.0f) : 0.0f;
+        pixels_r[i] = (uint8_t)(a * 200.0f + 20.0f);
+        pixels_g[i] = (uint8_t)(a * 240.0f + 30.0f);
+        pixels_b[i] = (uint8_t)(a * 255.0f + 60.0f);
+    }
+
+    // Ring 24 (LEDs 19..42): Cyberpunk Neon Gold & Cyan Wave
+    float wave_rot = fmodf((float)tick * 6.0f, 360.0f);
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 19) * 15.0f;
+        float d = fabsf(angle - wave_rot); if (d > 180.0f) d = 360.0f - d;
+        float wave = 0.5f + 0.5f * cosf(d * 3.14159f / 90.0f);
+        if (d < 90.0f) {
+            pixels_r[i] = (uint8_t)(wave * 255.0f);
+            pixels_g[i] = (uint8_t)(wave * 200.0f);
+            pixels_b[i] = 10;
+        } else {
+            float c_wave = 0.5f + 0.5f * sinf(angle * 0.1f + (float)tick * 0.1f);
+            pixels_r[i] = 10;
+            pixels_g[i] = (uint8_t)(c_wave * 200.0f);
+            pixels_b[i] = (uint8_t)(c_wave * 255.0f);
+        }
+    }
+}
+
+// 31. eBay Chaos Auction: 4-Color Auction Strobe & Gavel Strike
+static void render_ebay(uint32_t tick) {
+    static const uint8_t EBAY_COLORS[4][3] = {
+        { 235, 33, 46 },   // Red
+        { 0, 100, 210 },   // Blue
+        { 245, 175, 2 },   // Yellow
+        { 134, 184, 23 }   // Green
+    };
+
+    uint32_t cycle = tick % 180;
+    float speed = 2.0f + ((float)cycle / 180.0f) * 14.0f;
+    float rot = fmodf((float)tick * speed, 360.0f);
+
+    bool gavel_flash = (cycle >= 170);
+    uint8_t flash_val = gavel_flash ? (uint8_t)(255.0f * (float)(180 - cycle) / 10.0f) : 0;
+
+    pixels_r[0] = flash_val ? flash_val : EBAY_COLORS[0][0];
+    pixels_g[0] = flash_val ? flash_val : EBAY_COLORS[0][1];
+    pixels_b[0] = flash_val ? flash_val : EBAY_COLORS[0][2];
+
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        int c_idx = ((i - 1) + (tick / 6)) % 4;
+        pixels_r[i] = add_sat_u8(EBAY_COLORS[c_idx][0], flash_val);
+        pixels_g[i] = add_sat_u8(EBAY_COLORS[c_idx][1], flash_val);
+        pixels_b[i] = add_sat_u8(EBAY_COLORS[c_idx][2], flash_val);
+    }
+
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        int quadrant = (int)(fmodf(angle + rot, 360.0f) / 90.0f) % 4;
+        pixels_r[i] = add_sat_u8(EBAY_COLORS[quadrant][0], flash_val);
+        pixels_g[i] = add_sat_u8(EBAY_COLORS[quadrant][1], flash_val);
+        pixels_b[i] = add_sat_u8(EBAY_COLORS[quadrant][2], flash_val);
+    }
+
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 19) * 15.0f;
+        int quadrant = (int)(fmodf(angle - rot + 360.0f, 360.0f) / 90.0f) % 4;
+        pixels_r[i] = add_sat_u8(EBAY_COLORS[quadrant][0], flash_val);
+        pixels_g[i] = add_sat_u8(EBAY_COLORS[quadrant][1], flash_val);
+        pixels_b[i] = add_sat_u8(EBAY_COLORS[quadrant][2], flash_val);
+    }
+}
+
+// 32. Harry Potter: Hogwarts 4 House Runes & Lumos Core Flash
+static void render_harry_potter(uint32_t tick) {
+    float lumos = 0.85f + 0.15f * sinf((float)tick * 0.4f);
+    pixels_r[0] = (uint8_t)(255.0f * lumos);
+    pixels_g[0] = (uint8_t)(250.0f * lumos);
+    pixels_b[0] = (uint8_t)(240.0f * lumos);
+
+    float mist_phase = (float)tick * 0.15f;
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        float m = 0.5f + 0.5f * sinf(mist_phase + (float)(i - 1) * 1.047f);
+        pixels_r[i] = (uint8_t)(m * 180.0f + 40.0f);
+        pixels_g[i] = (uint8_t)(m * 210.0f + 40.0f);
+        pixels_b[i] = (uint8_t)(m * 255.0f);
+    }
+
+    float snitch_ang = fmodf((float)tick * 11.0f, 360.0f);
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float d = fabsf(angle - snitch_ang); if (d > 180.0f) d = 360.0f - d;
+        float a = (d < 35.0f) ? (1.0f - d / 35.0f) : 0.0f;
+        pixels_r[i] = (uint8_t)(a * 255.0f + 10.0f);
+        pixels_g[i] = (uint8_t)(a * 215.0f + 5.0f);
+        pixels_b[i] = (uint8_t)(a * 30.0f + 15.0f);
+    }
+
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        int rel = i - 19;
+        if (rel < 6) {
+            pixels_r[i] = (rel % 2 == 0) ? 220 : 255;
+            pixels_g[i] = (rel % 2 == 0) ? 15 : 180;
+            pixels_b[i] = 10;
+        } else if (rel < 12) {
+            pixels_r[i] = (rel % 2 == 0) ? 10 : 200;
+            pixels_g[i] = (rel % 2 == 0) ? 190 : 220;
+            pixels_b[i] = (rel % 2 == 0) ? 40 : 230;
+        } else if (rel < 18) {
+            pixels_r[i] = (rel % 2 == 0) ? 10 : 200;
+            pixels_g[i] = (rel % 2 == 0) ? 50 : 120;
+            pixels_b[i] = (rel % 2 == 0) ? 230 : 20;
+        } else {
+            pixels_r[i] = (rel % 2 == 0) ? 255 : 30;
+            pixels_g[i] = (rel % 2 == 0) ? 210 : 30;
+            pixels_b[i] = (rel % 2 == 0) ? 0 : 35;
+        }
+    }
+}
+
+// 33. Pokémon: Red & White Pokéball with Pulsing Center Button
+static void render_pokemon(uint32_t tick) {
+    float pulse = 0.5f + 0.5f * sinf((float)tick * 0.15f);
+    pixels_r[0] = (uint8_t)(180.0f + 75.0f * pulse);
+    pixels_g[0] = (uint8_t)(180.0f + 75.0f * pulse);
+    pixels_b[0] = (uint8_t)(200.0f + 55.0f * pulse);
+
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        pixels_r[i] = 25; pixels_g[i] = 25; pixels_b[i] = 30;
+    }
+
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float m = fabsf(cosf(angle * 3.14159f / 180.0f));
+        pixels_r[i] = (uint8_t)(15.0f + 25.0f * m);
+        pixels_g[i] = (uint8_t)(15.0f + 25.0f * m);
+        pixels_b[i] = (uint8_t)(20.0f + 30.0f * m);
+    }
+
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        int idx = i - 19;
+        if (idx == 0 || idx == 12) {
+            pixels_r[i] = 5; pixels_g[i] = 5; pixels_b[i] = 5;
+        } else if (idx > 0 && idx < 12) {
+            pixels_r[i] = 245; pixels_g[i] = 12; pixels_b[i] = 12;
+        } else {
+            pixels_r[i] = 240; pixels_g[i] = 240; pixels_b[i] = 245;
+        }
+    }
+}
+
+// 34. Sailor Moon: Moon Prism Power Pastel Celestial Transformation
+static void render_sailor_moon(uint32_t tick) {
+    float shimmer = 0.7f + 0.3f * sinf((float)tick * 0.3f);
+    pixels_r[0] = (uint8_t)(255.0f * shimmer);
+    pixels_g[0] = (uint8_t)(210.0f * shimmer);
+    pixels_b[0] = (uint8_t)(245.0f * shimmer);
+
+    float moon_rot = (float)tick * 0.12f;
+    for (int i = 1; i <= 6 && i < LED_RING_COUNT; i++) {
+        float m = 0.5f + 0.5f * sinf(moon_rot + (float)(i - 1) * 1.047f);
+        pixels_r[i] = (uint8_t)(m * 255.0f);
+        pixels_g[i] = (uint8_t)(m * 215.0f);
+        pixels_b[i] = (uint8_t)(m * 50.0f);
+    }
+
+    for (int i = 7; i <= 18 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 7) * 30.0f;
+        float wave = sinf(angle * 3.14159f / 90.0f - (float)tick * 0.1f);
+        float t = 0.5f + 0.5f * wave;
+        pixels_r[i] = (uint8_t)(t * 255.0f + (1.0f - t) * 180.0f);
+        pixels_g[i] = (uint8_t)(t * 110.0f + (1.0f - t) * 100.0f);
+        pixels_b[i] = (uint8_t)(t * 180.0f + (1.0f - t) * 255.0f);
+    }
+
+    float spiral = (float)tick * 5.0f;
+    for (int i = 19; i <= 42 && i < LED_RING_COUNT; i++) {
+        float angle = (float)(i - 19) * 15.0f;
+        float hue = fmodf(angle * 2.0f + spiral, 360.0f);
+        if (hue < 120.0f) {
+            pixels_r[i] = 255; pixels_g[i] = 110; pixels_b[i] = 180;
+        } else if (hue < 240.0f) {
+            pixels_r[i] = 255; pixels_g[i] = 220; pixels_b[i] = 40;
+        } else {
+            pixels_r[i] = 60; pixels_g[i] = 230; pixels_b[i] = 255;
+        }
+    }
+}
+
 #if CELESTIAL_FOUR_RINGS && CELESTIAL_RING_EXPERIMENT
 // Diagnostic build only: pure RGB cycle on spare during RAINBOW
 static void render_spare_ring(uint32_t tick, int mode, uint8_t mic_level_pct, bool music_active) {
@@ -2437,6 +2655,21 @@ void leds_update(bool easter_egg_active, bool led_menu_active, int selected_anim
                 break;
             case LED_ANIM_SPOOKY:
                 render_spooky(anim_tick);
+                break;
+            case LED_ANIM_DAFT_PUNK:
+                render_daft_punk(anim_tick);
+                break;
+            case LED_ANIM_EBAY:
+                render_ebay(anim_tick);
+                break;
+            case LED_ANIM_HARRY_POTTER:
+                render_harry_potter(anim_tick);
+                break;
+            case LED_ANIM_POKEMON:
+                render_pokemon(anim_tick);
+                break;
+            case LED_ANIM_SAILOR_MOON:
+                render_sailor_moon(anim_tick);
                 break;
             default:
                 render_rainbow_wave(anim_tick);
