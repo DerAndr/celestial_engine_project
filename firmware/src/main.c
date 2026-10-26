@@ -1842,30 +1842,38 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
 static void sync_chiptune_thematic_leds(int track_idx) {
     const char *name = audio_get_chiptune_name(track_idx);
     if (!name) return;
+    int target_anim = -1;
     if (strstr(name, "DOOM")) {
-        leds_set_anim_mode(LED_ANIM_DOOM);
+        target_anim = LED_ANIM_DOOM;
     } else if (strstr(name, "TETRIS")) {
-        leds_set_anim_mode(LED_ANIM_TETRIS);
+        target_anim = LED_ANIM_TETRIS;
     } else if (strstr(name, "ZELDA")) {
-        leds_set_anim_mode(LED_ANIM_ZELDA);
+        target_anim = LED_ANIM_ZELDA;
     } else if (strstr(name, "IMPERIAL")) {
-        leds_set_anim_mode(LED_ANIM_STARWARS);
+        target_anim = LED_ANIM_STARWARS;
     } else if (strstr(name, "GHOSTBUSTERS")) {
-        leds_set_anim_mode(LED_ANIM_GHOSTBUSTERS);
+        target_anim = LED_ANIM_GHOSTBUSTERS;
     } else if (strstr(name, "MORROWIND")) {
-        leds_set_anim_mode(LED_ANIM_MORROWIND);
+        target_anim = LED_ANIM_MORROWIND;
     } else if (strstr(name, "SPOOKY")) {
-        leds_set_anim_mode(LED_ANIM_SPOOKY);
+        target_anim = LED_ANIM_SPOOKY;
     } else if (strstr(name, "DAFT PUNK")) {
-        leds_set_anim_mode(LED_ANIM_DAFT_PUNK);
+        target_anim = LED_ANIM_DAFT_PUNK;
     } else if (strstr(name, "EBAY")) {
-        leds_set_anim_mode(LED_ANIM_EBAY);
+        target_anim = LED_ANIM_EBAY;
     } else if (strstr(name, "HARRY POTTER")) {
-        leds_set_anim_mode(LED_ANIM_HARRY_POTTER);
+        target_anim = LED_ANIM_HARRY_POTTER;
     } else if (strstr(name, "POKEMON")) {
-        leds_set_anim_mode(LED_ANIM_POKEMON);
+        target_anim = LED_ANIM_POKEMON;
     } else if (strstr(name, "SAILOR MOON")) {
-        leds_set_anim_mode(LED_ANIM_SAILOR_MOON);
+        target_anim = LED_ANIM_SAILOR_MOON;
+    }
+    if (target_anim >= 0) {
+        leds_set_anim_mode(target_anim);
+        active_anim_idx = target_anim;
+        current_mode_idx = MODE_LED_CORE;
+        active_confirmed_mode = MODE_LED_CORE;
+        led_edit_mode = false;
     }
 }
 
@@ -2808,11 +2816,11 @@ int main(void) {
                 need_display_update = true;
             } else if (cmd_c == 'D' || cmd_c == 'd') {
                 // Instant Doom Mode!
-                active_track_idx = 9; // DOOM E1M1 RIFF
+                active_track_idx = 2; // DOOM E1M1 RIFF
                 chiptune_mode = true;
                 LOG_INFO("DOOM", ">>> DOOM MODE ACTIVATED VIA SERIAL! (E1M1 + HELLFIRE LEDS) <<<");
                 audio_play_chiptune(active_track_idx);
-                leds_set_anim_mode(LED_ANIM_DOOM);
+                sync_chiptune_thematic_leds(active_track_idx);
                 need_display_update = true;
             } else if (cmd_c == 'C' || cmd_c == 'c') {
                 int sfx = -1;

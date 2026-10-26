@@ -55,7 +55,19 @@ static inline uint32_t compute_auth_token(const char *key) {
 static ip_addr_t companion_ip_addr;
 static u16_t companion_port = CELESTIAL_NET_DEFAULT_PORT;
 static bool has_paired_companion = false;
-static remote_cmd_t pending_remote_cmd = {0};
+
+#define REMOTE_CMD_QUEUE_LEN 16
+static remote_cmd_t remote_cmd_queue[REMOTE_CMD_QUEUE_LEN];
+static volatile uint8_t remote_cmd_head = 0;
+static volatile uint8_t remote_cmd_tail = 0;
+
+static inline void enqueue_remote_command(const remote_cmd_t *cmd) {
+    uint8_t next_head = (remote_cmd_head + 1) % REMOTE_CMD_QUEUE_LEN;
+    if (next_head != remote_cmd_tail) {
+        remote_cmd_queue[remote_cmd_head] = *cmd;
+        remote_cmd_head = next_head;
+    }
+}
 
 static ip_addr_t pi5_server_ip_addr;
 static uint16_t pi5_server_port = BRAIN_SERVER_PORT;
@@ -281,9 +293,11 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 companion_ip_addr = *addr;
                 companion_port = CELESTIAL_NET_DEFAULT_PORT;
                 has_paired_companion = true;
-                pending_remote_cmd.cmd_code = payload[4];
-                pending_remote_cmd.param = payload[5];
-                pending_remote_cmd.has_command = true;
+                remote_cmd_t cmd = {0};
+                cmd.cmd_code = payload[4];
+                cmd.param = payload[5];
+                cmd.has_command = true;
+                enqueue_remote_command(&cmd);
             }
         }
         pbuf_free(p);
@@ -301,12 +315,14 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 companion_ip_addr = *addr;
                 companion_port = CELESTIAL_NET_DEFAULT_PORT;
                 has_paired_companion = true;
-                pending_remote_cmd.cmd_code = 'X';
-                pending_remote_cmd.val32 = (uint32_t)payload[4] | ((uint32_t)payload[5] << 8) |
-                                          ((uint32_t)payload[6] << 16) | ((uint32_t)payload[7] << 24);
-                pending_remote_cmd.val32_extra = (uint32_t)payload[8] | ((uint32_t)payload[9] << 8) |
-                                                ((uint32_t)payload[10] << 16) | ((uint32_t)payload[11] << 24);
-                pending_remote_cmd.has_command = true;
+                remote_cmd_t cmd = {0};
+                cmd.cmd_code = 'X';
+                cmd.val32 = (uint32_t)payload[4] | ((uint32_t)payload[5] << 8) |
+                            ((uint32_t)payload[6] << 16) | ((uint32_t)payload[7] << 24);
+                cmd.val32_extra = (uint32_t)payload[8] | ((uint32_t)payload[9] << 8) |
+                                  ((uint32_t)payload[10] << 16) | ((uint32_t)payload[11] << 24);
+                cmd.has_command = true;
+                enqueue_remote_command(&cmd);
             }
         }
         pbuf_free(p);
@@ -988,11 +1004,11 @@ bool net_client_response_failed(void) { return response_failed; }
 uint32_t net_client_response_progress_ms(void) { return response_progress_ms; }
 
 bool net_client_poll_remote_command(remote_cmd_t *cmd) {
-    if (!pending_remote_cmd.has_command) {
+    if (remote_cmd_tail == remote_cmd_head) {
         return false;
     }
-    *cmd = pending_remote_cmd;
-    pending_remote_cmd.has_command = false;
+    *cmd = remote_cmd_queue[remote_cmd_tail];
+    remote_cmd_tail = (remote_cmd_tail + 1) % REMOTE_CMD_QUEUE_LEN;
     return true;
 }
 

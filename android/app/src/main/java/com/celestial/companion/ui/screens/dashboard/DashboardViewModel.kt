@@ -705,6 +705,7 @@ class DashboardViewModel(
     fun activateThematicPack(pack: com.celestial.companion.domain.model.ThematicPack) {
         viewModelScope.launch {
             repository.executeCommand(StaffCommand.SetLedAnimation(pack.animation))
+            kotlinx.coroutines.delay(50)
             repository.executeCommand(StaffCommand.PlayChiptune(pack.trackId))
         }
         playLocalToneForSfx(pack.trackId + 2)
