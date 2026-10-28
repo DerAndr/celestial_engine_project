@@ -2,6 +2,7 @@ package com.celestial.companion.audio
 
 import android.content.Context
 import android.os.Build
+import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -107,12 +108,13 @@ class StaffTtsSynthesizer(private val context: Context) {
         })
 
         var pfd: ParcelFileDescriptor? = null
+        val params = Bundle()
         val synthRes = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 pfd = ParcelFileDescriptor.open(outputFile, ParcelFileDescriptor.MODE_READ_WRITE)
-                engine.synthesizeToFile(cleanText, null, pfd, utteranceId)
+                engine.synthesizeToFile(cleanText, params, pfd, utteranceId)
             } else {
-                engine.synthesizeToFile(cleanText, null, outputFile, utteranceId)
+                engine.synthesizeToFile(cleanText, params, outputFile, utteranceId)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Error invoking synthesizeToFile: ${e.message}")
