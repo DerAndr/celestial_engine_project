@@ -170,30 +170,56 @@ static const chime_note_t TETRIS_THEME[] = {
     { 523.25f, 90 },  { 493.88f, 90 },  { 440.00f, 280 }
 };
 
-// 3. Doom E1M1 (At Doom's Gate - Driving Metal Riff & Bridge)
+// 3. Doom E1M1 (At Doom's Gate - Authentic Bobby Prince Heavy Metal Score)
+// Key: E minor, 168 BPM (sixteenth = 89 ms, eighth = 178 ms, quarter = 357 ms)
 static const chime_note_t DOOM_THEME[] = {
-    // Main Riff Part 1
-    { 164.81f, 85 }, { 164.81f, 85 }, { 329.63f, 110 }, { 164.81f, 85 },
-    { 164.81f, 85 }, { 293.66f, 110 }, { 164.81f, 85 }, { 164.81f, 85 },
-    { 261.63f, 110 }, { 164.81f, 85 }, { 164.81f, 85 }, { 233.08f, 130 },
-    { 164.81f, 85 }, { 164.81f, 85 }, { 246.94f, 110 }, { 261.63f, 110 },
-    // Main Riff Part 2
-    { 164.81f, 85 }, { 164.81f, 85 }, { 329.63f, 110 }, { 164.81f, 85 },
-    { 164.81f, 85 }, { 293.66f, 110 }, { 164.81f, 85 }, { 164.81f, 85 },
-    { 261.63f, 110 }, { 164.81f, 85 }, { 164.81f, 85 }, { 233.08f, 160 },
-    // Bridge in G
-    { 196.00f, 85 }, { 196.00f, 85 }, { 392.00f, 110 }, { 196.00f, 85 },
-    { 196.00f, 85 }, { 349.23f, 110 }, { 196.00f, 85 }, { 196.00f, 85 },
-    { 329.63f, 110 }, { 196.00f, 85 }, { 196.00f, 85 }, { 293.66f, 130 },
-    { 196.00f, 85 }, { 196.00f, 85 }, { 311.13f, 110 }, { 329.63f, 110 },
-    // Bridge in C
-    { 130.81f, 85 }, { 130.81f, 85 }, { 261.63f, 110 }, { 130.81f, 85 },
-    { 130.81f, 85 }, { 233.08f, 110 }, { 130.81f, 85 }, { 130.81f, 85 },
-    { 207.65f, 110 }, { 130.81f, 85 }, { 130.81f, 85 }, { 174.61f, 160 },
-    // Final Riff punch
-    { 164.81f, 85 }, { 164.81f, 85 }, { 329.63f, 110 }, { 164.81f, 85 },
-    { 164.81f, 85 }, { 293.66f, 110 }, { 164.81f, 85 }, { 164.81f, 85 },
-    { 261.63f, 110 }, { 164.81f, 85 }, { 164.81f, 85 }, { 233.08f, 220 }
+    // --- PART 1: Main Riff in E minor (Chug on E2 with chromatic upper line) ---
+    // Measure 1: E2, E2, E3, E2, E2, D3, E2, E2
+    {  82.41f,  89 }, {  82.41f,  89 }, { 164.81f,  89 }, {  82.41f,  89 },
+    {  82.41f,  89 }, { 146.83f,  89 }, {  82.41f,  89 }, {  82.41f,  89 },
+    // Measure 2: C3, E2, E2, Bb2, B2, C3
+    { 130.81f,  89 }, {  82.41f,  89 }, {  82.41f,  89 }, { 116.54f,  89 },
+    { 123.47f,  89 }, { 130.81f, 178 },
+    // Measure 3: E2, E2, E3, E2, E2, D3, E2, E2
+    {  82.41f,  89 }, {  82.41f,  89 }, { 164.81f,  89 }, {  82.41f,  89 },
+    {  82.41f,  89 }, { 146.83f,  89 }, {  82.41f,  89 }, {  82.41f,  89 },
+    // Measure 4: C3, E2, E2, Bb2 (Accent hold)
+    { 130.81f,  89 }, {  82.41f,  89 }, {  82.41f,  89 }, { 116.54f, 357 },
+
+    // --- PART 2: The Iconic Modulation Down to A2 (A minor fourth shift) ---
+    // Measure 5: A2, A2, A3, A2, A2, G3, A2, A2
+    { 110.00f,  89 }, { 110.00f,  89 }, { 220.00f,  89 }, { 110.00f,  89 },
+    { 110.00f,  89 }, { 196.00f,  89 }, { 110.00f,  89 }, { 110.00f,  89 },
+    // Measure 6: F3, A2, A2, Eb3, E3, F3
+    { 174.61f,  89 }, { 110.00f,  89 }, { 110.00f,  89 }, { 155.56f,  89 },
+    { 164.81f,  89 }, { 174.61f, 178 },
+    // Measure 7: A2, A2, A3, A2, A2, G3, A2, A2
+    { 110.00f,  89 }, { 110.00f,  89 }, { 220.00f,  89 }, { 110.00f,  89 },
+    { 110.00f,  89 }, { 196.00f,  89 }, { 110.00f,  89 }, { 110.00f,  89 },
+    // Measure 8: F3, A2, A2, Eb3 (Accent hold)
+    { 174.61f,  89 }, { 110.00f,  89 }, { 110.00f,  89 }, { 155.56f, 357 },
+
+    // --- PART 3: Return to E2 Riff ---
+    // Measure 9: E2, E2, E3, E2, E2, D3, E2, E2
+    {  82.41f,  89 }, {  82.41f,  89 }, { 164.81f,  89 }, {  82.41f,  89 },
+    {  82.41f,  89 }, { 146.83f,  89 }, {  82.41f,  89 }, {  82.41f,  89 },
+    // Measure 10: C3, E2, E2, Bb2, B2, C3
+    { 130.81f,  89 }, {  82.41f,  89 }, {  82.41f,  89 }, { 116.54f,  89 },
+    { 123.47f,  89 }, { 130.81f, 178 },
+
+    // --- PART 4: Heavy Thrash Power Chords & Lead Climax ---
+    // Measure 11: E3 power stab, syncopated hits
+    { 164.81f, 267 }, {    0.00f,  89 }, { 164.81f,  89 }, { 164.81f, 178 }, {    0.00f,  89 },
+    // Measure 12: G3, E3, Bb3, A3, G3, E3
+    { 196.00f, 178 }, { 164.81f, 178 }, {    0.00f,  89 }, { 233.08f, 267 },
+    { 220.00f, 178 }, { 196.00f, 178 }, { 164.81f, 357 }, {    0.00f, 178 },
+    // Measure 13: Second heavy power stab
+    { 164.81f, 267 }, {    0.00f,  89 }, { 164.81f,  89 }, { 164.81f, 178 }, {    0.00f,  89 },
+    // Measure 14: Descending chromatic lead: D4, C#4, C4, Bb3, B3, C4
+    { 293.66f, 178 }, { 277.18f, 178 }, { 261.63f, 178 }, { 233.08f, 178 },
+    { 246.94f, 178 }, { 261.63f, 178 },
+    // Grand heavy low E sustain finale
+    {  82.41f, 714 }
 };
 
 // 4. The Legend of Zelda (Overworld March - Fanfare & Main Theme)
@@ -1002,10 +1028,12 @@ static const chiptune_track_t COSMIC_SFX_TRACKS[] = {
 
 #define COSMIC_SFX_TOTAL ((int)(sizeof(COSMIC_SFX_TRACKS) / sizeof(COSMIC_SFX_TRACKS[0])))
 
-static int active_chiptune_track = -1;
-static size_t chiptune_step = 0;
-static absolute_time_t next_chiptune_step;
-static float live_chiptune_freq = 0.0f;
+static volatile int active_chiptune_track = -1;
+static volatile size_t chiptune_step = 0;
+static volatile float live_chiptune_freq = 0.0f;
+static volatile uint32_t chiptune_note_samples_left = 0;
+static volatile uint32_t chiptune_sound_samples_left = 0;
+static volatile uint32_t chiptune_note_sample_idx = 0;
 
 static int active_cosmic_sfx = -1;
 static size_t cosmic_sfx_step = 0;
@@ -1027,7 +1055,7 @@ static float calculate_volume_gain(uint8_t volume_percent) {
 // count is FIFO words: one 32-bit word per stereo frame (16-bit L in MSW, 16-bit R in LSW).
 static void fill_audio_buffer(uint32_t *buf, size_t count) {
     float phase_step = (current_freq > 0.0f) ? (current_freq * 2.0f * 3.14159265f / (float)AUDIO_SAMPLE_RATE) : 0.0f;
-    const uint32_t RAMP_SAMPLES = 192; // 12 ms smooth raised-cosine fade-in/fade-out
+    const uint32_t RAMP_SAMPLES = 192; // 12 ms smooth raised-cosine fade-in/fade-out for standalone tones
 
     float gain = master_gain;
     float voice_gain = AUDIO_PCM16_PEAK / 128.0f;
@@ -1038,9 +1066,66 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
     for (size_t i = 0; i < count; i++) {
         float mixed_sample = 0.0f;
 
+        // 1. Chiptune synthesis (sample-accurate hardware-clocked sequencer)
+        if (active_chiptune_track >= 0) {
+            const chiptune_track_t *trk = &CHIPTUNE_TRACKS[active_chiptune_track];
+            if (chiptune_note_samples_left == 0) {
+                chiptune_step++;
+                if (chiptune_step < trk->count) {
+                    float f = trk->notes[chiptune_step].freq;
+                    uint32_t dur = trk->notes[chiptune_step].dur_ms;
+                    current_freq = f;
+                    live_chiptune_freq = f;
+                    current_amplitude = calculate_amplitude(f);
+                    uint32_t tot = (dur * AUDIO_SAMPLE_RATE) / 1000;
+                    chiptune_note_samples_left = tot;
+                    chiptune_sound_samples_left = (f > 0.0f) ? ((tot * 94) / 100) : 0;
+                    chiptune_note_sample_idx = 0;
+                    phase_step = (current_freq > 0.0f) ? (current_freq * 2.0f * 3.14159265f / (float)AUDIO_SAMPLE_RATE) : 0.0f;
+                } else {
+                    active_chiptune_track = -1;
+                    current_freq = 0.0f;
+                    live_chiptune_freq = 0.0f;
+                    phase_step = 0.0f;
+                }
+            }
 
-        // 1. Synthesize musical tone with smooth harmonic shaping
-        if (samples_played < total_note_samples && current_freq > 0.0f) {
+            if (active_chiptune_track >= 0) {
+                if (chiptune_note_samples_left > 0) {
+                    chiptune_note_samples_left--;
+                }
+
+                if (chiptune_note_sample_idx < chiptune_sound_samples_left && current_freq > 0.0f) {
+                    // Fast 32-sample (~2 ms) anti-click envelope for punchy, full-power 8-bit sound
+                    float env = 1.0f;
+                    if (chiptune_note_sample_idx < 32) {
+                        env = (float)chiptune_note_sample_idx / 32.0f;
+                    }
+                    uint32_t rem = chiptune_sound_samples_left - chiptune_note_sample_idx;
+                    if (rem < 32) {
+                        float r_env = (float)rem / 32.0f;
+                        if (r_env < env) env = r_env;
+                    }
+
+                    // True zero-DC symmetric retro arcade waveform:
+                    // Fundamental + 3rd harmonic + 5th harmonic (pulse wave spectrum)
+                    float s1 = sinf(current_phase);
+                    float s3 = sinf(current_phase * 3.0f);
+                    float s5 = sinf(current_phase * 5.0f);
+                    float warm_wave = 0.65f * s1 + 0.25f * s3 + 0.10f * s5;
+
+                    mixed_sample += warm_wave * (current_amplitude * env);
+                    chiptune_note_sample_idx++;
+                }
+
+                current_phase += phase_step;
+                if (current_phase >= 2.0f * 3.14159265f) {
+                    current_phase -= 2.0f * 3.14159265f;
+                }
+            }
+        }
+        // 1b. Synthesize standalone musical tone (chimes, clicks, alerts)
+        else if (samples_played < total_note_samples && current_freq > 0.0f) {
             float env = 1.0f;
 
             // Raised-cosine attack ramp (first 12 ms)
@@ -1062,13 +1147,10 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
             if (diagnostic_sine) {
                 warm_wave = (diagnostic_polarity != 0) ?
                     ((0.5f + 0.5f * s1) * (float)diagnostic_polarity) : s1;
-            } else if (active_chiptune_track >= 0 || active_cosmic_sfx >= 0) {
-                // 16-bit / 8-bit retro arcade synthesizer:
-                // Odd harmonics (pulse/square wave) + punchy sub-octave bass harmonic
+            } else if (active_cosmic_sfx >= 0) {
                 float s3 = sinf(current_phase * 3.0f);
                 float s5 = sinf(current_phase * 5.0f);
-                float sub = sinf(current_phase * 0.5f);
-                warm_wave = 0.52f * s1 + 0.22f * s3 + 0.10f * s5 + 0.16f * sub;
+                warm_wave = 0.65f * s1 + 0.25f * s3 + 0.10f * s5;
             } else {
                 warm_wave = 0.85f * s1 + 0.15f * sinf(current_phase * 2.0f);
             }
@@ -1484,35 +1566,7 @@ int audio_get_voice_count(void) {
 // Audio Update Sequencer (Main Loop)
 // -------------------------------------------------------------------------
 void audio_update(void) {
-    // 1. Process 8-bit chiptune jukebox sequencer
-    if (active_chiptune_track >= 0) {
-        if (absolute_time_diff_us(next_chiptune_step, get_absolute_time()) >= 0) {
-            const chiptune_track_t *trk = &CHIPTUNE_TRACKS[active_chiptune_track];
-            if (chiptune_step < trk->count) {
-                float f = trk->notes[chiptune_step].freq;
-                uint32_t dur = trk->notes[chiptune_step].dur_ms;
-                live_chiptune_freq = f;
-
-                if (f > 0.0f) {
-                    // Staccato 8-bit note: 82% sound, 18% gap
-                    audio_play_tone(f, (dur * 82) / 100);
-                } else {
-                    current_freq = 0.0f;
-                }
-
-                chiptune_step++;
-                next_chiptune_step = delayed_by_ms(get_absolute_time(), dur);
-            } else {
-                // Note sequence finished
-                active_chiptune_track = -1;
-                chiptune_step = 0;
-                live_chiptune_freq = 0.0f;
-                current_freq = 0.0f;
-            }
-        }
-    }
-
-    // 1b. Check if active music finished and handle playlist progression
+    // 1. Check if active music finished and handle playlist progression
     if (current_music_track_idx >= 0) {
         bool finished = false;
         const chiptune_track_t *trk = &CHIPTUNE_TRACKS[current_music_track_idx];
@@ -1633,6 +1687,9 @@ void audio_play_chiptune(int track_id) {
             chiptune_step = 0;
             live_chiptune_freq = 440.0f;
             current_freq = 0.0f;
+            chiptune_note_samples_left = 0;
+            chiptune_sound_samples_left = 0;
+            chiptune_note_sample_idx = 0;
 
             active_adpcm_clip = music_get_adpcm_clip((music_adpcm_id_t)trk->adpcm_id);
             adpcm_sample_idx = 0;
@@ -1645,7 +1702,22 @@ void audio_play_chiptune(int track_id) {
 
             active_chiptune_track = track_id;
             chiptune_step = 0;
-            next_chiptune_step = get_absolute_time();
+            if (trk->count > 0) {
+                float f = trk->notes[0].freq;
+                uint32_t dur = trk->notes[0].dur_ms;
+                current_freq = f;
+                live_chiptune_freq = f;
+                current_amplitude = calculate_amplitude(f);
+                uint32_t tot = (dur * AUDIO_SAMPLE_RATE) / 1000;
+                chiptune_note_samples_left = tot;
+                chiptune_sound_samples_left = (f > 0.0f) ? ((tot * 94) / 100) : 0;
+                chiptune_note_sample_idx = 0;
+            } else {
+                active_chiptune_track = -1;
+                chiptune_note_samples_left = 0;
+                chiptune_sound_samples_left = 0;
+                chiptune_note_sample_idx = 0;
+            }
         }
         amp_wake();
         restore_interrupts(save);
@@ -1658,6 +1730,9 @@ void audio_stop_chiptune(void) {
     chiptune_step = 0;
     live_chiptune_freq = 0.0f;
     current_freq = 0.0f;
+    chiptune_note_samples_left = 0;
+    chiptune_sound_samples_left = 0;
+    chiptune_note_sample_idx = 0;
     samples_played = total_note_samples;
     adpcm_active = false;
     active_adpcm_clip = NULL;
