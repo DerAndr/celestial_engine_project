@@ -36,17 +36,21 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           Live Simulator
         </a>
+        <a href="#schematic" class="btn-pill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4m-3.17-6.83l-2.83 2.83m-8 8l-2.83 2.83m0-13.66l2.83 2.83m8 8l2.83 2.83"/></svg>
+          3D Hardware Schematic
+        </a>
+        <a href="#architecture" class="btn-pill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          Technical Architecture
+        </a>
         <a href="#releases" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download Binaries (v1.1.1)
         </a>
-        <a href="interactive_map.html" class="btn-pill">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
-          Interactive Pinout Map
-        </a>
         <a href="https://github.com/DerAndr/celestial_engine_project" target="_blank" rel="noopener" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          GitHub Repository
+          GitHub Repo
         </a>
       </div>
     </header>
@@ -203,6 +207,502 @@
       </section>
 
     </main>
+
+    <!-- =====================================================================
+         INTERACTIVE 3D HARDWARE SCHEMATIC & WIRING EXPLORER
+         ===================================================================== -->
+    <section id="schematic" class="schematic-section">
+      <div class="section-heading">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4m-3.17-6.83l-2.83 2.83m-8 8l-2.83 2.83m0-13.66l2.83 2.83m8 8l2.83 2.83"/></svg>
+        Interactive 3D Hardware Wiring & Component Schematic
+      </div>
+      <p style="color: var(--text-secondary); margin-top: -12px; margin-bottom: 8px; font-size: 0.95rem;">
+        Click and drag to rotate the staff's electronics core in 3D space (mouse drag or touch, scroll to zoom). Click any hardware module to inspect its physical pin connections, bus assignments, and voltage safety rails.
+      </p>
+
+      <div class="schematic-layout">
+        <!-- 3D Viewport -->
+        <div class="schematic-viewport">
+          <canvas id="schematic-canvas" width="700" height="480" aria-label="3D Hardware Schematic Viewport"></canvas>
+          
+          <div class="schematic-overlay-controls">
+            <div class="schematic-hint-badge">
+              <span>🖱️ Drag to rotate • Wheel to zoom • Click component</span>
+            </div>
+            <div class="schematic-btn-group">
+              <button id="schem-btn-orbit" class="schematic-tool-btn" title="Toggle Auto-Orbit">⏸ Pause</button>
+              <button id="schem-btn-reset" class="schematic-tool-btn" title="Reset Camera View">⟲ Reset</button>
+              <button id="schem-btn-top" class="schematic-tool-btn" title="Top-Down Orthographic View">📐 Top View</button>
+            </div>
+          </div>
+
+          <div class="schematic-legend">
+            <div class="legend-tag">
+              <span class="legend-color-dot" style="background: #f59e0b;"></span>
+              <span>I2C1 (SDA/SCL)</span>
+            </div>
+            <div class="legend-tag">
+              <span class="legend-color-dot" style="background: #38bdf8;"></span>
+              <span>I2S Audio (MAX98357A / INMP441)</span>
+            </div>
+            <div class="legend-tag">
+              <span class="legend-color-dot" style="background: #d946ef;"></span>
+              <span>WS2812B DIN (PIO)</span>
+            </div>
+            <div class="legend-tag">
+              <span class="legend-color-dot" style="background: #10b981;"></span>
+              <span>Wi-Fi UDP (CYW43439)</span>
+            </div>
+            <div class="legend-tag">
+              <span class="legend-color-dot" style="background: #a855f7;"></span>
+              <span>GPIO Controls</span>
+            </div>
+            <div class="legend-tag">
+              <span class="legend-color-dot" style="background: #ef4444;"></span>
+              <span>5V / 3.3V Power</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Component Inspector Card -->
+        <aside class="inspector-card" id="inspector-card">
+          <div class="inspector-header">
+            <div>
+              <h3 id="inspector-title" class="inspector-title">Raspberry Pi Pico 2 W</h3>
+              <div id="inspector-subtitle" class="inspector-subtitle">RP2350 • Dual Cortex-M33 @ 150MHz</div>
+            </div>
+            <span class="badge cyan">CORE MCU</span>
+          </div>
+
+          <p id="inspector-desc" class="inspector-desc">
+            Central micro-controller unit. Handles real-time dual-core execution: Core 0 runs peripheral drivers and UDP networking, Core 1 executes the sample-accurate 16 kHz chiptune synth and 43-LED animations.
+          </p>
+
+          <div style="flex: 1; overflow-y: auto;">
+            <table class="spec-table">
+              <thead>
+                <tr>
+                  <th>Pin / Net</th>
+                  <th>Pico Pin</th>
+                  <th>Function</th>
+                  <th>Voltage / Note</th>
+                </tr>
+              </thead>
+              <tbody id="inspector-spec-tbody">
+                <!-- Dynamically populated by selectSchematicComponent() -->
+              </tbody>
+            </table>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         TECHNICAL ARCHITECTURE & ENGINEERING DEEP-DIVE
+         ===================================================================== -->
+    <section id="architecture" class="tech-tabs-section" style="margin-top: 48px;">
+      <div class="section-heading">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+        Technical Architecture & System Deep-Dive
+      </div>
+      <p style="color: var(--text-secondary); margin-top: -12px; margin-bottom: 12px; font-size: 0.95rem;">
+        Comprehensive engineering documentation of the Phone-to-Pico binary transport, dual-direction digital audio pipelines, hardware wiring matrix, and dual-brain edge AI redundancy.
+      </p>
+
+      <!-- Tabs Navigation -->
+      <div class="tabs-nav">
+        <button class="tab-btn active" data-tab="tab-udp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+          Phone ⇄ Pico UDP v2 Protocol
+        </button>
+        <button class="tab-btn" data-tab="tab-audio">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          Duplex I2S Audio Pipeline
+        </button>
+        <button class="tab-btn" data-tab="tab-pinout">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+          Consolidated Pinout & Rails
+        </button>
+        <button class="tab-btn" data-tab="tab-dualbrain">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Dual-Brain Edge AI Architecture
+        </button>
+      </div>
+
+      <!-- Tab 1: Phone <-> Pico UDP Protocol v2 -->
+      <div id="tab-udp" class="tab-content active">
+        <div class="glass-panel" style="padding: 24px;">
+          <h3 style="color: var(--cyan-primary); font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 8px;">
+            Deterministic Binary UDP v2 Framing & Network Topology
+          </h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 16px;">
+            The smartphone (Google Pixel 9 Pro XL running Android 15) functions as an autonomous Wi-Fi Hotspot (SoftAP) at <code>10.169.248.1</code>. The Raspberry Pi Pico 2 W connects upon boot via its onboard Infineon CYW43439 802.11n radio. Both devices communicate over bidirectional UDP sockets on port <code>5005</code> with custom zero-copy framing, achieving round-trip latency under <strong>18 milliseconds</strong>.
+          </p>
+
+          <!-- Packet Structure Breakdown -->
+          <div style="margin-bottom: 16px;">
+            <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
+              Binary Packet Framing Layout (Fixed-Header + Payload + CRC16)
+            </div>
+            <div class="packet-diagram">
+              <div class="packet-chunk fnv">
+                <strong>0x811C9DC5</strong>
+                <span class="sub">FNV-1a Magic (4B)</span>
+              </div>
+              <div class="packet-chunk op">
+                <strong>0x01..0x05</strong>
+                <span class="sub">Opcode (1B)</span>
+              </div>
+              <div class="packet-chunk" style="border-color: #f59e0b; color: #f59e0b;">
+                <strong>Length</strong>
+                <span class="sub">uint16_t (2B)</span>
+              </div>
+              <div class="packet-chunk payload">
+                <strong>Payload Data Buffer</strong>
+                <span class="sub">Variable (0 - 512 Bytes)</span>
+              </div>
+              <div class="packet-chunk crc">
+                <strong>CRC-16-CCITT</strong>
+                <span class="sub">Checksum (2B)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Opcode Matrix -->
+          <table class="spec-table" style="margin-bottom: 20px;">
+            <thead>
+              <tr>
+                <th>Opcode</th>
+                <th>Mnemonic</th>
+                <th>Direction</th>
+                <th>Payload Content</th>
+                <th>Handling Latency</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color: var(--gold-accent);"><code>0x01</code></td>
+                <td><strong>MSG_TELEMETRY</strong></td>
+                <td>Pico → Phone</td>
+                <td>Staff status: Battery mV, Staff State enum, Track Index, Encoder delta, Uptime ms</td>
+                <td>20 Hz periodic tick</td>
+              </tr>
+              <tr>
+                <td style="color: var(--cyan-primary);"><code>0x02</code></td>
+                <td><strong>MSG_CMD_SPELL</strong></td>
+                <td>Phone → Pico</td>
+                <td>Spell ID, target concentric ring pattern, RGB override, duration ms</td>
+                <td>&lt; 5 ms dispatch</td>
+              </tr>
+              <tr>
+                <td style="color: var(--violet-arcane);"><code>0x03</code></td>
+                <td><strong>MSG_AUDIO_STREAM</strong></td>
+                <td>Phone → Pico</td>
+                <td>16 kHz 16-bit Mono PCM audio chunks (Gemma 4 Voice / Google Cloud TTS)</td>
+                <td>Buffered into DMA</td>
+              </tr>
+              <tr>
+                <td style="color: #ef4444;"><code>0x04</code></td>
+                <td><strong>MSG_STOP_CANCEL</strong></td>
+                <td>Bidirectional</td>
+                <td>Instant cancellation flag: halts active audio playback and aborts spells</td>
+                <td>Immediate (&lt; 2 ms)</td>
+              </tr>
+              <tr>
+                <td style="color: var(--emerald-green);"><code>0x05</code></td>
+                <td><strong>MSG_HANDSHAKE</strong></td>
+                <td>Bidirectional</td>
+                <td>Protocol version (v2), firmware build string, keepalive heartbeat ping</td>
+                <td>1000 ms watchdog</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
+            Sequence Flow: Voice Inquiry & Real-Time Multimodal Dispatch
+          </div>
+          <pre class="code-card">
+<code>[USER] (Presses Query Button on Staff)
+   │
+   ▼
+[Pico 2 W / RP2350]
+   ├── Samples INMP441 MEMS Mic via PIO0 SM0 DMA Ring Buffer (16 kHz, 16-bit)
+   └── Encapsulates into UDP packets (Opcode 0x03) ──► (Port 5005 / Hotspot)
+                                                             │
+                                                             ▼
+                                                [Google Pixel 9 Pro XL]
+                                                   ├── Companion Android App receives stream
+                                                   ├── Whisper.cpp / Google Cloud STT converts to text
+                                                   ├── Gemma 4 Multimodal AI infers arcane intent
+                                                   ├── Generates TTS speech audio & spell animation command
+                                                   │
+   ◄── Transmits Spell Command (0x02) & PCM Stream (0x03) ───┘
+   │
+   ▼
+[Pico 2 W]
+   ├── Feeds PCM to MAX98357A I2S Amplifier (PIO0 SM1 DMA) ──► 3W Neodymium Speaker
+   ├── Dispatches 43-LED concentric animations on Core 1 ──► WS2812B Rings
+   └── Updates SH1106 OLED HUD (128x64) with Oracle text response</code>
+          </pre>
+        </div>
+      </div>
+
+      <!-- Tab 2: Duplex I2S Audio Pipeline -->
+      <div id="tab-audio" class="tab-content">
+        <div class="glass-panel" style="padding: 24px;">
+          <h3 style="color: var(--cyan-primary); font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 8px;">
+            Dual Programmable I/O (PIO) I2S Audio Pipelines on RP2350
+          </h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 16px;">
+            Celestial Engine Mk.V implements full-duplex digital audio without an external codec. The RP2350 ARM Cortex-M33 utilizes two independent PIO state machines and four DMA channels to stream microphone input and speaker output simultaneously at 16,000 Hz sample rate.
+          </p>
+
+          <div class="schematic-layout" style="gap: 16px; margin-bottom: 20px;">
+            <!-- Mic Pipeline -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: 10px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: #38bdf8; font-size: 0.9rem;">1. Microphone Input (INMP441)</strong>
+                <span class="badge cyan">PIO0 SM0</span>
+              </div>
+              <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 18px; line-height: 1.6;">
+                <li><strong>SCK (Clock):</strong> GPIO 8 (Pico Pin 11)</li>
+                <li><strong>WS (Word Select):</strong> GPIO 9 (Pico Pin 12)</li>
+                <li><strong>SD (Serial Data):</strong> GPIO 10 (Pico Pin 14)</li>
+                <li><strong>Format:</strong> 16 kHz, 16-bit Mono PCM (Left Channel)</li>
+                <li><strong>DMA Double-Buffering:</strong> 2x 256-sample ping-pong buffers with zero CPU overhead.</li>
+              </ul>
+            </div>
+
+            <!-- Amp Pipeline -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: 10px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: var(--gold-accent); font-size: 0.9rem;">2. Speaker Output (MAX98357A)</strong>
+                <span class="badge gold">PIO0 SM1</span>
+              </div>
+              <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 18px; line-height: 1.6;">
+                <li><strong>DIN (Serial Data):</strong> GPIO 0 (Pico Pin 1)</li>
+                <li><strong>BCLK (Bit Clock):</strong> GPIO 1 (Pico Pin 2)</li>
+                <li><strong>LRC / WS (Word Select):</strong> GPIO 2 (Pico Pin 4)</li>
+                <li><strong>Power:</strong> 3.2W Class-D into 4Ω neodymium speaker (5V VBUS rail)</li>
+                <li><strong>DMA Streamer:</strong> 16-bit signed PCM fed directly into 32-bit I2S serializer.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: 10px; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <strong style="color: var(--emerald-green); font-size: 0.9rem;">3. Onboard Hardware Chiptune Synthesizer (Zero-Network Fallback)</strong>
+              <span class="badge emerald">Core 1 Dedicated</span>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+              When network connectivity is unavailable, RP2350 Core 1 synthesizes authentic retro arcade square-wave chiptunes directly in C. The synthesizer computes phase accumulators at 16,000 samples/sec, mixing note frequencies, ADSR envelopes, and octave harmonics into the DMA ring buffer. Includes 24 iconic tracks (DOOM E1M1, Tetris, Star Wars Imperial March, Zelda, Daft Punk, etc.) with instant early stop and track skipping.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Consolidated Pinout & Rails -->
+      <div id="tab-pinout" class="tab-content">
+        <div class="glass-panel" style="padding: 24px;">
+          <h3 style="color: var(--cyan-primary); font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 8px;">
+            Canonical RP2350 Pinout & Voltage Rail Matrix
+          </h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 16px;">
+            Complete electrical mapping for Celestial Engine Mk.V based on <code>docs/wiring/pinout.md</code>. Power rails are segregated: Staff 5V/3.3V runs from a 18650 Li-ion battery + boost regulator, completely isolated from wearable Pi 5 compute power.
+          </p>
+
+          <table class="spec-table">
+            <thead>
+              <tr>
+                <th>Physical Pin</th>
+                <th>RP2350 GPIO</th>
+                <th>Connected Module</th>
+                <th>Bus / Function</th>
+                <th>Voltage Rail</th>
+                <th>Safety Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Pin 1</strong></td>
+                <td><code>GPIO 0</code></td>
+                <td>MAX98357A I2S DAC</td>
+                <td>DIN (Data Input)</td>
+                <td>3.3V Logic</td>
+                <td>Direct connection</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 2</strong></td>
+                <td><code>GPIO 1</code></td>
+                <td>MAX98357A I2S DAC</td>
+                <td>BCLK (Bit Clock)</td>
+                <td>3.3V Logic</td>
+                <td>Direct connection</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 4</strong></td>
+                <td><code>GPIO 2</code></td>
+                <td>MAX98357A I2S DAC</td>
+                <td>LRC / WS (Word Select)</td>
+                <td>3.3V Logic</td>
+                <td>Direct connection</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 6</strong></td>
+                <td><code>GPIO 4</code></td>
+                <td>SH1106 1.3" OLED</td>
+                <td>I2C0 SDA</td>
+                <td>3.3V Logic</td>
+                <td>Onboard pull-up to 3V3</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 7</strong></td>
+                <td><code>GPIO 5</code></td>
+                <td>SH1106 1.3" OLED</td>
+                <td>I2C0 SCL</td>
+                <td>3.3V Logic</td>
+                <td>Onboard pull-up to 3V3</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 11</strong></td>
+                <td><code>GPIO 8</code></td>
+                <td>INMP441 MEMS Mic</td>
+                <td>SCK (Serial Clock)</td>
+                <td>3.3V Logic</td>
+                <td>Direct connection</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 12</strong></td>
+                <td><code>GPIO 9</code></td>
+                <td>INMP441 MEMS Mic</td>
+                <td>WS (Word Select)</td>
+                <td>3.3V Logic</td>
+                <td>Direct connection</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 14</strong></td>
+                <td><code>GPIO 10</code></td>
+                <td>INMP441 MEMS Mic</td>
+                <td>SD (Serial Data Out)</td>
+                <td>3.3V Logic</td>
+                <td>Mic L/R pin tied to GND</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 21</strong></td>
+                <td><code>GPIO 16</code></td>
+                <td>WS2812B Rings (43 LEDs)</td>
+                <td>DIN (Data In)</td>
+                <td>3.3V Logic / 5V Rail</td>
+                <td>330Ω inline series resistor</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 24</strong></td>
+                <td><code>GPIO 18</code></td>
+                <td>Bourns PEC11R Rotary</td>
+                <td>CLK / Channel A</td>
+                <td>3.3V Logic</td>
+                <td>Internal pull-up enabled</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 25</strong></td>
+                <td><code>GPIO 19</code></td>
+                <td>Bourns PEC11R Rotary</td>
+                <td>DT / Channel B</td>
+                <td>3.3V Logic</td>
+                <td>Internal pull-up enabled</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 26</strong></td>
+                <td><code>GPIO 20</code></td>
+                <td>Push-to-Talk Switch</td>
+                <td>SW / Query Button</td>
+                <td>3.3V Logic</td>
+                <td>Active-low debounce</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 36</strong></td>
+                <td><code>3V3_OUT</code></td>
+                <td>OLED, INMP441, Sensors</td>
+                <td>Main 3.3V Supply</td>
+                <td>3.3V @ up to 300mA</td>
+                <td>Clean regulated rail</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 40</strong></td>
+                <td><code>VBUS</code></td>
+                <td>MAX98357A, 43 WS2812B LEDs</td>
+                <td>Main 5.0V Power Bus</td>
+                <td>5.0V Boost Converter</td>
+                <td>1000µF electrolytic cap</td>
+              </tr>
+              <tr>
+                <td><strong>Pins 3,8,13,18,23,28,38</strong></td>
+                <td><code>GND</code></td>
+                <td>Common Star Ground</td>
+                <td>System Ground</td>
+                <td>0V Reference</td>
+                <td>Shared common ground</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab 4: Dual-Brain Edge AI Architecture -->
+      <div id="tab-dualbrain" class="tab-content">
+        <div class="glass-panel" style="padding: 24px;">
+          <h3 style="color: var(--cyan-primary); font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 8px;">
+            Dual-Brain Architecture & Autonomous Fault-Tolerant Redundancy
+          </h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 16px;">
+            Celestial Engine Mk.V solves the classic wearable robotics problem: high-end neural networks consume too much power to reside in the handheld staff, but cloud-only reliance introduces lag and connectivity failure in the field. Mk.V uses a tiered <strong>Dual-Brain Architecture</strong>.
+          </p>
+
+          <div class="schematic-layout" style="gap: 20px;">
+            <!-- Brain 1: Android Companion -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: 10px; padding: 20px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4 style="color: var(--emerald-green); font-size: 1.05rem;">Brain 1: Google Pixel 9 Pro XL</h4>
+                <span class="badge emerald">Android 15 Compose</span>
+              </div>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
+                Primary interactive companion. Features the <strong>Eye of the Oracle</strong> camera for real-time computer vision, Gemma 4 multimodal AI reasoning, Arcane Grimoire spellbook, and Google Cloud neural TTS playback.
+              </p>
+              <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 18px; line-height: 1.6;">
+                <li>Operates as local Wi-Fi Hotspot router (zero external router required).</li>
+                <li>Instant touch screen UI for selecting spells, visual tuning, and live telemetry.</li>
+                <li>Dispatches commands to Pico 2 W in &lt; 18ms.</li>
+              </ul>
+            </div>
+
+            <!-- Brain 2: Wearable Pi 5 -->
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: 10px; padding: 20px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4 style="color: var(--gold-accent); font-size: 1.05rem;">Brain 2: Wearable Raspberry Pi 5 16GB</h4>
+                <span class="badge gold">100% Offline Edge AI</span>
+              </div>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
+                Backpack-mounted autonomous edge compute node with a 1TB Lexar NM790 PCIe Gen 3 NVMe SSD. Runs completely offline without internet or cellular connectivity.
+              </p>
+              <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 18px; line-height: 1.6;">
+                <li>Whisper.cpp: Local speech-to-text inference (&lt; 200ms).</li>
+                <li>Ollama LLM: Local Llama 3.2 1B & Gemma 2B quantization.</li>
+                <li>Piper Neural TTS: Fast C++ voice generation with arcane pitch models.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div style="margin-top: 20px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 10px; padding: 16px;">
+            <div style="font-weight: 600; color: var(--cyan-primary); font-size: 0.9rem; margin-bottom: 6px;">
+              ⚡ Autonomous Fail-Safe Core (Pico 2 W Firmware)
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin: 0;">
+              If both the Android phone and the Pi 5 server lose Wi-Fi signal, the staff's RP2350 microcontroller immediately detects packet timeout via its 1000ms watchdog. It smoothly transitions the HUD to <strong>AUTONOMOUS STANDALONE MODE</strong>: the physical rotary knob, OLED menu, 21 LED animations, and 24 retro chiptune synthesizers remain 100% operational with zero freeze or reboot.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Official Releases & Artifacts Showcase -->
     <section id="releases" class="releases-showcase-section">

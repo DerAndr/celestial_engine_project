@@ -290,15 +290,13 @@ header.hero-header {
   gap: 20px;
 }
 
-/* OLED Cybernetic HUD */
+/* OLED Cybernetic HUD - High-Contrast Razor-Sharp Pixel Rendering */
 .oled-bezel {
-  background: #090c14;
+  background: #000000;
   border: 3px solid #1e293b;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 
-    inset 0 0 16px rgba(0, 0, 0, 0.9),
-    0 0 20px rgba(56, 189, 248, 0.1);
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -318,13 +316,15 @@ header.hero-header {
 
 #oled-canvas {
   width: 100%;
-  max-width: 384px;
-  height: 192px; /* 128x64 scaled 3x */
-  background: var(--oled-bg);
+  max-width: 480px;
+  height: 240px; /* 512x256 scaled 1:1 crisp display */
+  background: #000000;
+  border: 1px solid #1e293b;
   border-radius: 4px;
   image-rendering: pixelated;
+  image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
-  box-shadow: inset 0 0 12px rgba(255, 184, 51, 0.15);
+  box-shadow: none; /* Zero blur! Razor-sharp crisp OLED */
 }
 
 /* Physical Rotary Controls Row */
@@ -713,6 +713,302 @@ header.hero-header {
   color: var(--emerald-green);
 }
 
+/* ==========================================================================
+   INTERACTIVE 3D SCHEMATIC & COMPONENT EXPLORER
+   ========================================================================== */
+
+.schematic-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.schematic-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 1080px) {
+  .schematic-layout {
+    grid-template-columns: 1.4fr 1fr;
+    align-items: start;
+  }
+}
+
+.schematic-viewport {
+  position: relative;
+  background: radial-gradient(circle at center, #0a0f1d 0%, #03050a 100%);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.9);
+}
+
+#schematic-canvas {
+  width: 100%;
+  height: 480px;
+  display: block;
+  cursor: grab;
+}
+
+#schematic-canvas:active {
+  cursor: grabbing;
+}
+
+.schematic-overlay-controls {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.schematic-hint-badge {
+  pointer-events: auto;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid var(--border-glass);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  backdrop-filter: blur(8px);
+}
+
+.schematic-btn-group {
+  pointer-events: auto;
+  display: flex;
+  gap: 6px;
+}
+
+.schematic-tool-btn {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.schematic-tool-btn:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: var(--cyan-primary);
+  color: var(--text-primary);
+}
+
+.schematic-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: rgba(10, 14, 24, 0.75);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  backdrop-filter: blur(8px);
+}
+
+.legend-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Component Inspector Card */
+.inspector-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 480px;
+}
+
+.inspector-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 12px;
+}
+
+.inspector-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.inspector-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--cyan-primary);
+}
+
+.inspector-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.spec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.spec-table th {
+  text-align: left;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.spec-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.spec-table tr:hover td {
+  background: rgba(56, 189, 248, 0.04);
+}
+
+/* Technical Architecture Tabs Section */
+.tech-tabs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tabs-nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-glass);
+  padding-bottom: 8px;
+}
+
+.tab-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: var(--cyan-primary);
+  color: var(--cyan-primary);
+  box-shadow: 0 0 16px var(--cyan-glow);
+}
+
+.tab-content {
+  display: none;
+  flex-direction: column;
+  gap: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.tab-content.active {
+  display: flex;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Packet Structure Visualizer */
+.packet-diagram {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  background: #04060a;
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.packet-chunk {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  min-width: 80px;
+  text-align: center;
+}
+
+.packet-chunk.fnv { border-color: var(--gold-accent); color: var(--gold-accent); }
+.packet-chunk.op { border-color: var(--cyan-primary); color: var(--cyan-primary); }
+.packet-chunk.payload { border-color: var(--violet-arcane); color: var(--violet-arcane); flex: 1; min-width: 140px; }
+.packet-chunk.crc { border-color: var(--emerald-green); color: var(--emerald-green); }
+
+.packet-chunk span.sub {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Code block highlight */
+pre.code-card {
+  background: #04060a;
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  padding: 14px 18px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+
+pre.code-card code {
+  color: #38bdf8;
+}
+
 /* Footer */
 footer.showcase-footer {
   text-align: center;
@@ -733,3 +1029,4 @@ footer a {
 footer a:hover {
   text-decoration: underline;
 }
+
