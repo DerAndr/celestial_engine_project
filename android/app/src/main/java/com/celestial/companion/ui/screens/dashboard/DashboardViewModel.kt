@@ -100,6 +100,34 @@ class DashboardViewModel(
     private val _dashboardVoiceEnabled = MutableStateFlow(true)
     val dashboardVoiceEnabled: StateFlow<Boolean> = _dashboardVoiceEnabled.asStateFlow()
 
+    // Oracle Persona & System Prompt Customization
+    private val _currentPersona = MutableStateFlow(
+        OraclePersona.fromId(gemmaEngine?.config?.personaId ?: OraclePersona.MACHINE_GOD.id)
+    )
+    val currentPersona: StateFlow<OraclePersona> = _currentPersona.asStateFlow()
+
+    private val _customSystemPrompt = MutableStateFlow(
+        gemmaEngine?.config?.customSystemPrompt ?: ""
+    )
+    val customSystemPrompt: StateFlow<String> = _customSystemPrompt.asStateFlow()
+
+    fun setPersona(persona: OraclePersona) {
+        _currentPersona.value = persona
+        gemmaEngine?.let { engine ->
+            val updated = engine.config.copy(personaId = persona.id)
+            engine.saveConfigToPrefs(updated)
+        }
+        repository.log("AI-PERSONA", "🎭 Active Persona switched to: ${persona.title} (${persona.icon})", LogLevel.INFO)
+    }
+
+    fun setCustomSystemPrompt(prompt: String) {
+        _customSystemPrompt.value = prompt
+        gemmaEngine?.let { engine ->
+            val updated = engine.config.copy(customSystemPrompt = prompt)
+            engine.saveConfigToPrefs(updated)
+        }
+    }
+
     init {
         loadCustomSpells()
         loadVoicePreferences()

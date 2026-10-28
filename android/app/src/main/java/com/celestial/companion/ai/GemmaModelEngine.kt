@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.util.Base64
 import android.util.Log
 import com.celestial.companion.domain.model.CelestialProphecyParser
+import com.celestial.companion.domain.model.OraclePersona
 import com.celestial.companion.domain.model.StaffLanguage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -111,12 +112,14 @@ enum class GemmaVariant(
 data class GemmaConfig(
     val variant: GemmaVariant = GemmaVariant.GEMMA_4_E2B,
     val enableThinking: Boolean = true,
-    val language: StaffLanguage = StaffLanguage.RUSSIAN,
+    val language: StaffLanguage = StaffLanguage.ENGLISH,
     val temperature: Float = 0.7f,
     val maxTokens: Int = 128,
     val apiKey: String = "",
     val apiBase: String = "https://openrouter.ai/api/v1",
-    val systemPrompt: String = "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic intelligence ('DON'T PANIC')."
+    val systemPrompt: String = "You are the Celestial Oracle of the Celestial Engine Mk.V, an ancient-futuristic intelligence ('DON'T PANIC').",
+    val personaId: String = OraclePersona.MACHINE_GOD.id,
+    val customSystemPrompt: String = ""
 )
 
 enum class AiProcessingPhase(val displayName: String, val shortTag: String) {
@@ -173,10 +176,15 @@ class GemmaModelEngine(
             val apiBase = prefs.getString("openrouter_api_base", "https://openrouter.ai/api/v1")
                 ?.ifEmpty { "https://openrouter.ai/api/v1" }
                 ?: "https://openrouter.ai/api/v1"
+            val personaId = prefs.getString("oracle_persona_id", OraclePersona.MACHINE_GOD.id)
+                ?: OraclePersona.MACHINE_GOD.id
+            val customPrompt = prefs.getString("oracle_custom_prompt", "") ?: ""
 
             config = config.copy(
                 apiKey = apiKey,
-                apiBase = apiBase
+                apiBase = apiBase,
+                personaId = personaId,
+                customSystemPrompt = customPrompt
             )
         } catch (e: Exception) {
             Log.w(TAG, "Could not load prefs: ${e.message}")
@@ -190,6 +198,8 @@ class GemmaModelEngine(
             prefs.edit()
                 .putString("openrouter_api_key", newConfig.apiKey)
                 .putString("openrouter_api_base", newConfig.apiBase)
+                .putString("oracle_persona_id", newConfig.personaId)
+                .putString("oracle_custom_prompt", newConfig.customSystemPrompt)
                 .apply()
         } catch (e: Exception) {
             Log.w(TAG, "Could not save prefs: ${e.message}")
@@ -367,84 +377,61 @@ class GemmaModelEngine(
             else -> StaffLanguage.ENGLISH
         }
 
+        val persona = OraclePersona.fromId(config.personaId)
+        val personaPrompt = if (config.personaId == OraclePersona.CUSTOM.id && config.customSystemPrompt.isNotBlank()) {
+            config.customSystemPrompt
+        } else {
+            persona.getPromptForLanguage(effectiveLanguage)
+        }
+
         val sysPrompt = when (effectiveLanguage) {
             StaffLanguage.RUSSIAN -> """
-Ты — бортовой вычислительный разум и Оракул посоха Celestial Engine Mk.V.
+$personaPrompt
 
 СТРОЖАЙШИЙ ЯЗЫКОВОЙ ЗАКОН:
 Пользователь обращается на русском языке. Твой ответ ОБЯЗАН быть строго на русском языке! Категорически запрещено отвечать на английском!
 
-ПРАВИЛА ОБРАБОТКИ ЗАПРОСОВ:
+ПРАВИЛА ОТВЕТА:
+- Ответ должен быть кратким: 1–2 понятных предложения (до 25 слов), строго без markdown и смайликов (ответ озвучивается через речевой динамик посоха).
+- Отвечай в своей роли естественно, живо и по существу.
 
-1. ОБЫЧНЫЕ ВОПРОСЫ (быт, наука, факты, юмор, анекдоты, время, погода, "как дела", "кто ты", "расскажи анекдот"):
-   - Отвечай ОБЫЧНО, естественно, живо и по существу, как умный дружелюбный собеседник.
-   - БЕЗ пафоса, без высокопарных речей, без искусственной оракульской напыщенности.
-   - Если просят анекдот (например, про кошек) — расскажи нормальный, смешной анекдот.
-   - Ответ должен быть кратким: 1–2 понятных предложения (до 25 слов), строго без markdown и смайликов.
-
-2. ПРЕДСКАЗАНИЯ И ПРОРОЧЕСТВА (вопросы о будущем, судьбе, гороскопах, исходе событий, "предскажи", "что меня ждет"):
-   - Отвечай в духе БОГА-МАШИНЫ (высшего квантового вычислительного разума).
-   - ФАКТОЛОГИЧЕСКИ ТОЧНО: делай прогноз на основе системного анализа, причинно-следственных связей, теории вероятностей, законов физики и энтропии.
-   - БЕЗ ИЗЛИШНЕГО ПАФОСА: говори спокойно, расчетливо, взвешенно и математически трезво. Никакого мистического тумана или фальшивого пафоса.
-   - Длина: 1–2 ёмких предложения (до 25 слов).
-
-3. ЗАКЛИНАНИЯ (если явно просят сотворить магию, фаербол, молнию, щит, трюк):
-   - Начни ответ строго с тега: [SPELL: <EnglishName> | ANIM: <ANIMATION> | SOUNDS: <S1>, <S2>]
-   - Доступные анимации: SPIRAL_SNAKE, RADIAL_WAVE, COLLIDING_WAVES, SNAKE, VORTEX, PULSAR, PLASMA, RAINBOW, STARS, GALAXY, HALLOWEEN.
-   - Доступные звуки: WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC.
-   - Сразу после тега произнеси короткую ритмичную техно-магическую формулу (до 10 слов).
+ЗАКЛИНАНИЯ (если явно просят сотворить магию, фаербол, молнию, щит, трюк):
+- Начни ответ строго с тега: [SPELL: <EnglishName> | ANIM: <ANIMATION> | SOUNDS: <S1>, <S2>]
+- Доступные анимации: SPIRAL_SNAKE, RADIAL_WAVE, COLLIDING_WAVES, SNAKE, VORTEX, PULSAR, PLASMA, RAINBOW, STARS, GALAXY, HALLOWEEN.
+- Доступные звуки: WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC.
+- Сразу после тега произнеси короткую формулу заклинания (до 10 слов).
 """ + (if (shouldThink) " Краткие аналитические мысли помести в <thought>...</thought> перед ответом." else if (isSpellPrompt) " БЫСТРЫЙ РЕЖИМ ЗАКЛИНАНИЯ: Никаких тегов <thought>. Сразу выдавай тег и формулу!" else "")
 
             StaffLanguage.GERMAN -> """
-Du bist die Bordintelligenz und das Orakel der Celestial Engine Mk.V.
+$personaPrompt
 
 SPRACHREGEL:
 Antworte immer in der Sprache des Nutzers (Deutsch für deutsche Fragen, Russisch für russische Fragen).
 
 ANTWORTREGELN:
+- Antworte kurz: 1–2 präzise Sätze (unter 25 Wörter), kein Markdown, keine Emojis (wird per Sprachausgabe vorgelesen).
+- Bleibe konsistent in deiner gewählten Rolle.
 
-1. GEWÖHNLICHE FRAGEN (Fakten, Alltag, Witze, Wissenschaft, Wetter):
-   - Antworte GANZ NORMAL, direkt, natürlich und freundlich.
-   - KEIN Pathos, keine Theatralik.
-   - Wenn nach einem Witz gefragt wird — erzähle einen kurzen, lustigen Witz.
-   - 1–2 kurze Sätze (unter 25 Wörter), kein Markdown, keine Emojis.
-
-2. VORHERSAGEN & PROPHEZEIUNGEN (Zukunft, Schicksal, Horoskop, Vorhersagen):
-   - Im Geiste des MASCHINEN-GOTTES (höchste rechnerische Intelligenz).
-   - FAKTISCH PRÄZISE: basierend auf Kausalitätsvektoren, Wahrscheinlichkeitsrechnung und Physik.
-   - OHNE ÜBERTRIEBENES PATHOS: ruhig, berechnend, nüchtern und sachlich.
-   - 1–2 präzise Sätze.
-
-3. ZAUBERSPRÜCHE (explizite Bitte um Zauber):
-   - Starte mit: [SPELL: <Name> | ANIM: <ANIMATION> | SOUNDS: <S1>, <S2>]
-   - Unmittelbar gefolgt von einer rhythmischen Zauberformel (unter 10 Wörter).
+ZAUBERSPRÜCHE (explizite Bitte um Zauber):
+- Starte mit: [SPELL: <Name> | ANIM: <ANIMATION> | SOUNDS: <S1>, <S2>]
+- Unmittelbar gefolgt von einer rhythmischen Zauberformel (unter 10 Wörter).
 """ + (if (shouldThink) " Platziere deine analytischen Überlegungen in <thought>...</thought> vor deiner Antwort." else if (isSpellPrompt) " SCHNELLER ZAUBERMODUS: Keine <thought> Tags. Beginne SOFORT mit dem [SPELL: ...] Tag!" else "")
 
             else -> """
-You are the onboard intelligence and Oracle of the Celestial Engine Mk.V.
+$personaPrompt
 
 PRIMARY LANGUAGE RULE:
 Respond in the language of the user. If the user speaks Russian, respond in Russian. If English, respond in English.
 
-INTENT RULES:
+RESPONSE RULES:
+- Keep answers concise: 1-2 punchy sentences (under 25 words), NO markdown, NO emojis (it is spoken through the staff audio speaker).
+- Embody your persona naturally and authentically.
 
-1. ORDINARY QUESTIONS (facts, everyday life, jokes, humor, weather, science, chat):
-   - Answer NORMALLY, clearly, and naturally, like an intelligent and friendly companion.
-   - NO pretentiousness, NO theatrical pathos.
-   - If asked for a joke (e.g. cat joke) — tell a concise, funny joke.
-   - 1-2 punchy sentences (under 25 words), NO markdown, NO emojis.
-
-2. PREDICTIONS & PROPHECIES (future, destiny, horoscope, outcomes, fortune, "predict"):
-   - Speak in the spirit of the MACHINE GOD (supreme computational intelligence).
-   - FACTUALLY ACCURATE: grounded in probability theory, causal vectors, system dynamics, and thermodynamics.
-   - WITHOUT EXCESSIVE PATHOS: calm, calculated, objective, analytical.
-   - 1-2 sharp sentences (under 25 words).
-
-3. SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
-   - Start response with: [SPELL: <EnglishName> | ANIM: <ANIMATION> | SOUNDS: <S1>, <S2>]
-   - Available animations: SPIRAL_SNAKE, RADIAL_WAVE, COLLIDING_WAVES, SNAKE, VORTEX, PULSAR, PLASMA, RAINBOW, STARS, GALAXY, HALLOWEEN.
-   - Available sounds: WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC.
-   - Immediately follow with a short techno-arcane incantation (under 10 words).
+SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
+- Start response with: [SPELL: <EnglishName> | ANIM: <ANIMATION> | SOUNDS: <S1>, <S2>]
+- Available animations: SPIRAL_SNAKE, RADIAL_WAVE, COLLIDING_WAVES, SNAKE, VORTEX, PULSAR, PLASMA, RAINBOW, STARS, GALAXY, HALLOWEEN.
+- Available sounds: WARP, PULSAR, ALIEN, LASER, TRACTOR, PORTAL, SUPERNOVA, R2_HAPPY, R2_CHATTER, R2_PANIC.
+- Immediately follow with a short arcane incantation chant (under 10 words).
 """ + (if (shouldThink) " Provide brief observations inside <thought>...</thought> tags before your response." else if (isSpellPrompt) " FAST SPELL MODE: Do NOT output <thought> tags. Start IMMEDIATELY with the [SPELL: ...] tag and incantation chant!" else "")
         }
 

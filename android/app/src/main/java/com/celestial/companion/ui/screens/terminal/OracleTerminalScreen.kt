@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.sp
 import com.celestial.companion.ai.AiProcessingPhase
 import com.celestial.companion.ai.GemmaVariant
 import com.celestial.companion.domain.model.CelestialProphecyParser
+import com.celestial.companion.domain.model.OraclePersona
 import com.celestial.companion.domain.model.SfxItem
 import com.celestial.companion.domain.model.SpellDefinition
 import com.celestial.companion.domain.model.StaffLanguage
@@ -84,11 +85,24 @@ fun OracleTerminalScreen(
     val selectedModelVariant by viewModel.selectedModelVariant.collectAsState()
     val selectedBitmap by viewModel.selectedImage.collectAsState()
     val activeSpell by viewModel.activeSpell.collectAsState()
+    val currentPersona by viewModel.currentPersona.collectAsState()
+    val customSystemPrompt by viewModel.customSystemPrompt.collectAsState()
 
     var promptInput by remember { mutableStateOf("") }
     var thinkingModeEnabled by remember { mutableStateOf(viewModel.gemmaEngine?.config?.enableThinking ?: true) }
     var showThinkingCard by remember { mutableStateOf(true) }
     var showHistoryDialog by remember { mutableStateOf(false) }
+    var isPersonaExpanded by remember { mutableStateOf(false) }
+    var personaPromptInput by remember(currentPersona, currentLanguage, customSystemPrompt) {
+        mutableStateOf(
+            if (currentPersona.id == OraclePersona.CUSTOM.id) {
+                customSystemPrompt.ifBlank { currentPersona.getPromptForLanguage(currentLanguage) }
+            } else {
+                currentPersona.getPromptForLanguage(currentLanguage)
+            }
+        )
+    }
+    var personaSavedBanner by remember { mutableStateOf(false) }
 
     // Blinking cursor for live token streaming
     val infiniteTransition = rememberInfiniteTransition(label = "cursorBlink")
@@ -595,6 +609,221 @@ fun OracleTerminalScreen(
                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                                 fontFamily = FontFamily.Monospace
                             )
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- AI PERSONA & SYSTEM PROMPT EDITOR ---
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = CardSurface),
+            border = BorderStroke(1.dp, if (isPersonaExpanded) AetherCyan else CardBorder)
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isPersonaExpanded = !isPersonaExpanded },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = currentPersona.icon,
+                            fontSize = 20.sp
+                        )
+                        Column {
+                            Text(
+                                text = "ORACLE PERSONA & PROMPT",
+                                color = AetherCyan,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = "${currentPersona.title}: ${currentPersona.subtitle}",
+                                color = TextMuted,
+                                fontSize = 10.sp,
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0x3300E5FF)
+                        ) {
+                            Text(
+                                text = currentPersona.title.uppercase(),
+                                color = AetherCyan,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                        Icon(
+                            imageVector = if (isPersonaExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = "Toggle Persona Editor",
+                            tint = TextMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                if (isPersonaExpanded) {
+                    HorizontalDivider(color = CardBorder, thickness = 1.dp)
+
+                    // Presets Row
+                    Text(
+                        text = "ROLE PRESETS",
+                        color = TextMuted,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        OraclePersona.PRESETS.forEach { preset ->
+                            val isSelected = preset.id == currentPersona.id
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) DeepVoid else SpaceBlack,
+                                border = BorderStroke(1.dp, if (isSelected) RunicGold else CardBorder),
+                                modifier = Modifier.clickable {
+                                    viewModel.setPersona(preset)
+                                    personaPromptInput = if (preset.id == OraclePersona.CUSTOM.id) {
+                                        customSystemPrompt.ifBlank { preset.getPromptForLanguage(currentLanguage) }
+                                    } else {
+                                        preset.getPromptForLanguage(currentLanguage)
+                                    }
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                ) {
+                                    Text(preset.icon, fontSize = 14.sp)
+                                    Text(
+                                        text = preset.title,
+                                        color = if (isSelected) RunicGold else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Editable Persona Prompt Field
+                    Text(
+                        text = "SYSTEM PROMPT INSTRUCTION",
+                        color = TextMuted,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    OutlinedTextField(
+                        value = personaPromptInput,
+                        onValueChange = {
+                            personaPromptInput = it
+                            if (currentPersona.id != OraclePersona.CUSTOM.id) {
+                                viewModel.setPersona(OraclePersona.CUSTOM)
+                            }
+                            viewModel.setCustomSystemPrompt(it)
+                            personaSavedBanner = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 100.dp, max = 220.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AetherCyan,
+                            unfocusedBorderColor = CardBorder,
+                            focusedContainerColor = SpaceBlack,
+                            unfocusedContainerColor = SpaceBlack,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        textStyle = LocalTextStyle.current.copy(
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        placeholder = {
+                            Text(
+                                "Enter custom role: e.g. 'You are a wise archmage of the stars...'",
+                                color = TextMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${personaPromptInput.length} chars",
+                            color = TextMuted,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Reset button
+                            TextButton(
+                                onClick = {
+                                    personaPromptInput = currentPersona.getPromptForLanguage(currentLanguage)
+                                    viewModel.setCustomSystemPrompt(personaPromptInput)
+                                    Toast.makeText(context, "Reset to ${currentPersona.title} default", Toast.LENGTH_SHORT).show()
+                                },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Reset", color = TextMuted, fontSize = 11.sp)
+                            }
+
+                            // Save button
+                            Button(
+                                onClick = {
+                                    viewModel.setCustomSystemPrompt(personaPromptInput)
+                                    Toast.makeText(context, "💾 System Persona updated!", Toast.LENGTH_SHORT).show()
+                                    personaSavedBanner = false
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0x3300E5FF)),
+                                border = BorderStroke(1.dp, AetherCyan),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = AetherCyan, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Save", color = AetherCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
