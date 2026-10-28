@@ -1,6 +1,8 @@
 package com.celestial.companion.audio
 
 import android.content.Context
+import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
@@ -34,7 +36,8 @@ class StaffTtsSynthesizer(private val context: Context) {
                 // Pre-warm background synthesis pipeline to eliminate cold-start delay
                 kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        val warmupFile = File(context.cacheDir, "tts_warmup.wav")
+                        val cacheDir = context.externalCacheDir ?: context.cacheDir
+                        val warmupFile = File(cacheDir, "tts_warmup.wav")
                         tts?.synthesizeToFile("Ready", null, warmupFile, "warmup")
                         kotlinx.coroutines.delay(250)
                         if (warmupFile.exists()) warmupFile.delete()
@@ -75,9 +78,14 @@ class StaffTtsSynthesizer(private val context: Context) {
         if (cleanText.isEmpty()) return@withContext null
 
         val curMs = System.currentTimeMillis()
-        val outputFile = File(context.cacheDir, "staff_tts_$curMs.wav")
+        val cacheDir = context.externalCacheDir ?: context.cacheDir
+        val outputFile = File(cacheDir, "staff_tts_$curMs.wav")
         val utteranceId = "staff_tts_$curMs"
         val doneDeferred = CompletableDeferred<Boolean>()
+        try {
+            if (outputFile.exists()) outputFile.delete()
+            outputFile.createNewFile()
+        } catch (_: Exception) {}
 
         engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(id: String?) {
@@ -98,14 +106,29 @@ class StaffTtsSynthesizer(private val context: Context) {
             }
         })
 
-        val synthRes = engine.synthesizeToFile(cleanText, null, outputFile, utteranceId)
+        var pfd: ParcelFileDescriptor? = null
+        val synthRes = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                pfd = ParcelFileDescriptor.open(outputFile, ParcelFileDescriptor.MODE_READ_WRITE)
+                engine.synthesizeToFile(cleanText, null, pfd, utteranceId)
+            } else {
+                engine.synthesizeToFile(cleanText, null, outputFile, utteranceId)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error invoking synthesizeToFile: ${e.message}")
+            TextToSpeech.ERROR
+        }
+
         if (synthRes != TextToSpeech.SUCCESS) {
             Log.w(TAG, "synthesizeToFile returned error code: $synthRes")
+            try { pfd?.close() } catch (_: Exception) {}
             outputFile.delete()
             return@withContext null
         }
 
-        val completed = withTimeoutOrNull(7000) { doneDeferred.await() } ?: false
+        val completed = withTimeoutOrNull(25000) { doneDeferred.await() } ?: false
+        try { pfd?.close() } catch (_: Exception) {}
+
         if (!completed || !outputFile.exists() || outputFile.length() < 44) {
             Log.w(TAG, "TTS synthesis timed out or output file invalid (completed=$completed, exists=${outputFile.exists()}, len=${outputFile.length()})")
             outputFile.delete()
@@ -161,25 +184,66 @@ class StaffTtsSynthesizer(private val context: Context) {
                 dataLength = chunkSize.coerceAtMost(wav.size - offset)
                 break
             }
-            offset += chunkSize
+            offset += (chunkSize + (chunkSize and 1))
         }
 
-        if (dataOffset < 0 || dataLength <= 0 || audioFormat != 1 || bitsPerSample != 16) {
+        if (dataOffset < 0 || dataLength <= 0 || (audioFormat != 1 && audioFormat != 3)) {
             Log.w(TAG, "Unsupported WAV format: format=$audioFormat, bits=$bitsPerSample, channels=$numChannels, rate=$sampleRate")
             return null
         }
 
-        val totalSamples = dataLength / 2
-        val channelSamples = totalSamples / numChannels
-        val monoPcm = ShortArray(channelSamples)
+        val bytesPerSample = (bitsPerSample / 8).coerceAtLeast(1)
+        val bytesPerFrame = bytesPerSample * numChannels
+        val channelSamples = dataLength / bytesPerFrame
+        if (channelSamples <= 0) return null
 
+        val monoPcm = ShortArray(channelSamples)
         val dataBb = ByteBuffer.wrap(wav, dataOffset, dataLength).order(ByteOrder.LITTLE_ENDIAN)
-        for (i in 0 until channelSamples) {
-            var sum = 0
-            for (ch in 0 until numChannels) {
-                sum += dataBb.short.toInt()
+
+        if (audioFormat == 3 && bitsPerSample == 32) {
+            // 32-bit IEEE Float PCM
+            for (i in 0 until channelSamples) {
+                var sumFloat = 0.0f
+                for (ch in 0 until numChannels) {
+                    sumFloat += dataBb.float
+                }
+                val avg = sumFloat / numChannels
+                monoPcm[i] = (avg.coerceIn(-1.0f, 1.0f) * 32767.0f).toInt().toShort()
             }
-            monoPcm[i] = (sum / numChannels).coerceIn(-32768, 32767).toShort()
+        } else if (bitsPerSample == 16) {
+            // Standard 16-bit signed PCM
+            for (i in 0 until channelSamples) {
+                var sum = 0
+                for (ch in 0 until numChannels) {
+                    sum += dataBb.short.toInt()
+                }
+                monoPcm[i] = (sum / numChannels).coerceIn(-32768, 32767).toShort()
+            }
+        } else if (bitsPerSample == 24) {
+            // 24-bit signed PCM
+            for (i in 0 until channelSamples) {
+                var sum = 0
+                for (ch in 0 until numChannels) {
+                    val b0 = dataBb.get().toInt() and 0xFF
+                    val b1 = dataBb.get().toInt() and 0xFF
+                    val b2 = dataBb.get().toInt()
+                    val s24 = (b0) or (b1 shl 8) or (b2 shl 16)
+                    sum += (s24 shr 8)
+                }
+                monoPcm[i] = (sum / numChannels).coerceIn(-32768, 32767).toShort()
+            }
+        } else if (bitsPerSample == 32) {
+            // 32-bit integer PCM
+            for (i in 0 until channelSamples) {
+                var sum = 0L
+                for (ch in 0 until numChannels) {
+                    sum += dataBb.int
+                }
+                monoPcm[i] = ((sum / numChannels) shr 16).toInt().coerceIn(-32768, 32767).toShort()
+            }
+        } else {
+            Log.w(TAG, "Unsupported PCM bit depth: $bitsPerSample")
+            return null
         }
 
         val resampled = if (sampleRate == 16000) {

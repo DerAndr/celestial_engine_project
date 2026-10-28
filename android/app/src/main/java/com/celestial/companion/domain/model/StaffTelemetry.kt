@@ -14,7 +14,7 @@ data class StaffTelemetry(
     val lastAiResponseText: String = "",
     val roundTripTimeMs: Long = 0,
     val activeHost: String = "STANDALONE",
-    val language: StaffLanguage = StaffLanguage.RUSSIAN,
+    val language: StaffLanguage = StaffLanguage.ENGLISH,
     val preferredHost: Int = 0,
     val aiModelId: Int = 0,
     val micLevelPercent: Int = 0,

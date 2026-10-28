@@ -154,6 +154,7 @@ void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis) {
 static int active_anim_idx = LED_ANIM_RAINBOW;
 static int live_rendered_anim = LED_ANIM_RAINBOW;
 static int active_track_idx = 0;
+static int selected_music_idx = 1;
 static int active_voice_idx = 0;
 static int active_cosmic_idx = 0;
 static bool easter_egg_active = false;
@@ -663,7 +664,7 @@ static void draw_led_color_screen(int color_idx) {
     oled_ready = sh1106_update();
 }
 
-static void draw_chiptune_screen(int track_idx, bool is_playing) {
+static void draw_chiptune_screen(int sel_idx, int act_trk, bool is_playing) {
     if (!oled_ready) return;
 
     sh1106_clear();
@@ -671,41 +672,65 @@ static void draw_chiptune_screen(int track_idx, bool is_playing) {
 
     // Header banner
     sh1106_fill_rect(2, 2, 124, 12, true);
-    sh1106_draw_string(14, 4, "[ 8-BIT JUKEBOX ]", false);
+    sh1106_draw_string(14, 4, "[ CELESTIAL MUSIC ]", false);
 
-    // Track index & status
-    char num_buf[48];
-    snprintf(num_buf, sizeof(num_buf), "TRK %d/%d  %s",
-             track_idx + 1, audio_get_chiptune_count(),
-             is_playing ? "[PLAYING]" : "[PAUSED]");
-    sh1106_draw_string(6, 17, num_buf, true);
-
-    // Track Name
-    sh1106_draw_string(6, 26, audio_get_chiptune_name(track_idx), true);
-
-    // Real-time Volume Gauge (x=6, y=36, w=116, h=5)
-    int cur_vol = (int)audio_get_volume();
-    char vol_buf[16];
-    snprintf(vol_buf, sizeof(vol_buf), "V:%2d%%", cur_vol);
-    sh1106_draw_string(6, 36, vol_buf, true);
-    sh1106_draw_rect(42, 37, 80, 5, true);
-    int v_fill = (cur_vol * 76) / 100;
-    if (v_fill > 0) {
-        sh1106_fill_rect(44, 38, v_fill, 3, true);
+    int total_items = audio_get_chiptune_count() + 1; // Item 0 is MODE, 1..N are tracks
+    const int visible_rows = 4;
+    int scroll_offset = 0;
+    if (sel_idx >= visible_rows) {
+        scroll_offset = sel_idx - (visible_rows - 1);
     }
+    if (scroll_offset > total_items - visible_rows) {
+        scroll_offset = total_items - visible_rows;
+    }
+    if (scroll_offset < 0) scroll_offset = 0;
 
-    // Retro Equalizer Bars (animated while playing!)
-    for (int b = 0; b < 10; b++) {
-        int bar_h = 2;
-        if (is_playing) {
-            bar_h = 2 + (rand() % 6);
+    for (int r = 0; r < visible_rows; r++) {
+        int item_idx = scroll_offset + r;
+        if (item_idx >= total_items) break;
+        int y = 16 + r * 9;
+        bool is_selected = (item_idx == sel_idx);
+
+        if (item_idx == 0) {
+            // Mode toggle row
+            audio_play_mode_t cur_mode = audio_get_play_mode();
+            const char *m_name = audio_get_play_mode_name(cur_mode);
+            char mode_buf[32];
+            snprintf(mode_buf, sizeof(mode_buf), "MODE: < %s >", m_name);
+            if (is_selected) {
+                sh1106_fill_rect(4, y - 1, 116, 9, true);
+                sh1106_draw_string(6, y, mode_buf, false);
+            } else {
+                sh1106_draw_string(6, y, mode_buf, true);
+            }
+        } else {
+            // Track item row
+            int t_idx = item_idx - 1;
+            bool is_active = (t_idx == act_trk) && is_playing;
+            const char *t_name = audio_get_chiptune_name(t_idx);
+            char trk_buf[32];
+            if (is_selected) {
+                sh1106_fill_rect(4, y - 1, 116, 9, true);
+                snprintf(trk_buf, sizeof(trk_buf), "> %s %s", t_name, is_active ? "[*]" : "");
+                sh1106_draw_string(6, y, trk_buf, false);
+            } else {
+                snprintf(trk_buf, sizeof(trk_buf), "  %s %s", t_name, is_active ? "[PLAY]" : "");
+                sh1106_draw_string(6, y, trk_buf, true);
+            }
         }
-        sh1106_fill_rect(8 + b * 11, 51 - bar_h, 8, bar_h, true);
     }
 
-    // Footer instruction
+    // Vertical scrollbar on right edge (x=122..124, y=14..52)
+    if (total_items > visible_rows) {
+        sh1106_draw_rect(122, 14, 3, 38, true);
+        int track_h = 38 - 8;
+        int thumb_y = 14 + (sel_idx * track_h) / (total_items - 1);
+        sh1106_fill_rect(122, thumb_y, 3, 8, true);
+    }
+
+    // Footer divider and instructions
     sh1106_draw_line(2, 53, 125, 53, true);
-    sh1106_draw_string(4, 55, "TURN:VOL SW:NEXT QRY:EX", true);
+    sh1106_draw_string(4, 55, "TURN:NAV  SW:ACT  QRY:EX", true);
 
     oled_ready = sh1106_update();
 }
@@ -1764,14 +1789,16 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
 
         case MODE_CHIPTUNE: {
             char trk_str[32];
-            snprintf(trk_str, sizeof(trk_str), "WAVE: %d/%d %s",
+            snprintf(trk_str, sizeof(trk_str), "MUSIC: %d/%d %s",
                      active_track_idx + 1, audio_get_chiptune_count(),
                      audio_is_chiptune_playing() ? "[PLAY]" : "[IDLE]");
             sh1106_draw_string(6, 17, trk_str, true);
             sh1106_draw_string(6, 27, audio_get_chiptune_name(active_track_idx), true);
-            sh1106_draw_string(6, 37, "SYNTH: 8-BIT RETRO", true);
+            char mode_str[32];
+            snprintf(mode_str, sizeof(mode_str), "MODE: %s", audio_get_play_mode_name(audio_get_play_mode()));
+            sh1106_draw_string(6, 37, mode_str, true);
             sh1106_draw_line(2, 47, 125, 47, true);
-            draw_marquee(51, "// HARMONIC RESONATOR // CLICK SW TO PLAY/STOP // ROTATE TO SELECT //", now_ms);
+            draw_marquee(51, "// CELESTIAL MUSIC // CLICK SW TO BROWSE & PLAY // GHOSTBUSTERS & ADDAMS //", now_ms);
             break;
         }
 
@@ -1853,6 +1880,8 @@ static void sync_chiptune_thematic_leds(int track_idx) {
         target_anim = LED_ANIM_STARWARS;
     } else if (strstr(name, "GHOSTBUSTERS")) {
         target_anim = LED_ANIM_GHOSTBUSTERS;
+    } else if (strstr(name, "ADDAMS")) {
+        target_anim = LED_ANIM_HALLOWEEN;
     } else if (strstr(name, "MORROWIND")) {
         target_anim = LED_ANIM_MORROWIND;
     } else if (strstr(name, "SPOOKY")) {
@@ -2091,9 +2120,30 @@ int main(void) {
                 case 'C': // Play SFX
                     audio_play_cosmic_sfx(rem_cmd.param);
                     break;
-                case 'T': // Play chiptune
-                    audio_play_chiptune(rem_cmd.param);
-                    sync_chiptune_thematic_leds(rem_cmd.param);
+                case 'T': // Play chiptune / music
+                    if (rem_cmd.param == 0xFE) {
+                        // Play All
+                        audio_set_play_mode(AUDIO_PLAY_ALL);
+                        active_track_idx = 0;
+                        selected_music_idx = 1;
+                        audio_play_chiptune(0);
+                        sync_chiptune_thematic_leds(0);
+                    } else if (rem_cmd.param == 0xFF) {
+                        // Play Cycle
+                        audio_set_play_mode(AUDIO_PLAY_CYCLE);
+                        active_track_idx = 0;
+                        selected_music_idx = 1;
+                        audio_play_chiptune(0);
+                        sync_chiptune_thematic_leds(0);
+                    } else {
+                        // Specific track
+                        audio_set_play_mode(AUDIO_PLAY_SINGLE);
+                        active_track_idx = rem_cmd.param;
+                        selected_music_idx = rem_cmd.param + 1;
+                        audio_play_chiptune(rem_cmd.param);
+                        sync_chiptune_thematic_leds(rem_cmd.param);
+                    }
+                    need_display_update = true;
                     break;
                 case 'P': // Play voice
                     audio_play_voice((voice_phrase_id_t)rem_cmd.param);
@@ -2122,6 +2172,15 @@ int main(void) {
                     break;
             }
             broadcast_telemetry();
+        }
+
+        // Auto-sync active track if playlist advanced in background
+        int playing_trk = audio_get_active_track_idx();
+        if (playing_trk >= 0 && playing_trk != active_track_idx) {
+            active_track_idx = playing_trk;
+            selected_music_idx = active_track_idx + 1;
+            sync_chiptune_thematic_leds(active_track_idx);
+            need_display_update = true;
         }
 
         // Check for unsolicited broadcast text pushed from Companion App (e.g. "To Staff")
@@ -2165,7 +2224,7 @@ int main(void) {
                 current_state = STATE_IDLE;
                 need_display_update = true;
             } else if (now_ms - processing_start_ms > 180000 ||
-                       now_ms - net_client_response_progress_ms() > 15000) {
+                       now_ms - net_client_response_progress_ms() > 45000) {
                 LOG_WARN("NET", "Response deadline exceeded; cancelling request and ignoring late packets.");
                 net_client_cancel();
                 current_state = STATE_IDLE;
@@ -2369,13 +2428,10 @@ int main(void) {
                          leds_get_anim_name(active_anim_idx), active_anim_idx + 1, LED_ANIM_COUNT);
                 need_display_update = true;
             } else if (chiptune_mode) {
-                // Immediate, direct volume control while in Jukebox!
-                int cur_vol = (int)audio_get_volume();
-                cur_vol += delta; // Same quiet-level resolution as the volume menu.
-                if (cur_vol < 0) cur_vol = 0;
-                if (cur_vol > 100) cur_vol = 100;
-                audio_set_volume((uint8_t)cur_vol);
-                LOG_INFO("CHIPTUNE", "Live Volume tuned: %d%%", cur_vol);
+                int total_items = audio_get_chiptune_count() + 1;
+                selected_music_idx = (selected_music_idx + delta) % total_items;
+                if (selected_music_idx < 0) selected_music_idx += total_items;
+                audio_play_blip();
                 need_display_update = true;
             } else if (voice_mode) {
                 active_voice_idx = (active_voice_idx + delta) % audio_get_voice_count();
@@ -2611,11 +2667,28 @@ int main(void) {
                 LOG_INFO("LEDS", "Entering LED effects menu (current: %s)",
                          leds_get_anim_name(active_anim_idx));
             } else if (chiptune_mode) {
-                // Advance to next track!
-                active_track_idx = (active_track_idx + 1) % audio_get_chiptune_count();
-                audio_play_chiptune(active_track_idx);
-                sync_chiptune_thematic_leds(active_track_idx);
-                LOG_INFO("CHIPTUNE", "Switched to track: %s", audio_get_chiptune_name(active_track_idx));
+                if (selected_music_idx == 0) {
+                    audio_play_mode_t next_mode = (audio_play_mode_t)((audio_get_play_mode() + 1) % AUDIO_PLAY_MODE_COUNT);
+                    audio_set_play_mode(next_mode);
+                    audio_play_tone(523.25f, 25);
+                    LOG_INFO("MUSIC", "Play mode toggled to: [%s]", audio_get_play_mode_name(next_mode));
+                } else {
+                    int target_trk = selected_music_idx - 1;
+                    if (audio_is_chiptune_playing() && active_track_idx == target_trk) {
+                        audio_stop_chiptune();
+                        audio_play_tone(220.0f, 30);
+                        LOG_INFO("MUSIC", "Stopped playback of: %s", audio_get_chiptune_name(target_trk));
+                    } else {
+                        active_track_idx = target_trk;
+                        audio_play_chiptune(target_trk);
+                        sync_chiptune_thematic_leds(target_trk);
+                        audio_play_blip();
+                        LOG_INFO("MUSIC", "Playing track [%d]: %s (Mode: %s)",
+                                 target_trk + 1, audio_get_chiptune_name(target_trk),
+                                 audio_get_play_mode_name(audio_get_play_mode()));
+                    }
+                }
+                need_display_update = true;
             } else if (voice_mode) {
                 // Play selected voice phrase!
                 audio_play_voice((voice_phrase_id_t)active_voice_idx);
@@ -2628,10 +2701,11 @@ int main(void) {
                          audio_get_cosmic_sfx_name(active_cosmic_idx));
             } else if (current_mode_idx == MODE_CHIPTUNE) {
                 chiptune_mode = true;
-                audio_play_chiptune(active_track_idx);
-                sync_chiptune_thematic_leds(active_track_idx);
-                LOG_INFO("CHIPTUNE", "Entering 8-bit Jukebox! Playing %s",
+                selected_music_idx = active_track_idx + 1;
+                audio_play_tone(523.25f, 25);
+                LOG_INFO("MUSIC", "Entering Celestial Music menu (Track: %s)",
                          audio_get_chiptune_name(active_track_idx));
+                need_display_update = true;
             } else if (current_mode_idx == MODE_COSMIC) {
                 cosmic_mode = true;
                 audio_play_cosmic_sfx(active_cosmic_idx);
@@ -2751,7 +2825,7 @@ int main(void) {
             } else if (led_edit_mode) {
                 draw_led_screen(active_anim_idx);
             } else if (chiptune_mode) {
-                draw_chiptune_screen(active_track_idx, audio_is_chiptune_playing());
+                draw_chiptune_screen(selected_music_idx, active_track_idx, audio_is_chiptune_playing());
                 need_display_update = true;
             } else if (voice_mode) {
                 draw_voice_screen(active_voice_idx, audio_is_voice_playing());

@@ -142,15 +142,42 @@ data class ThematicPack(
         val ALL_PACKS = listOf(
             ThematicPack(
                 id = 0,
-                title = "DOOM (E1M1)",
-                subtitle = "Hellfire Crimson & BFG Plasma",
-                trackId = 2,
-                animation = LedAnimation.DOOM,
-                iconEmoji = "🔥",
-                description = "At Doom's Gate heavy metal chiptune riff + BFG9000 shockwaves"
+                title = "GHOSTBUSTERS",
+                subtitle = "Original Master Audio & Proton Streams",
+                trackId = 21,
+                animation = LedAnimation.GHOSTBUSTERS,
+                iconEmoji = "👻",
+                description = "Official theme hook: 'Who you gonna call?! Ghostbusters!' + crossing proton streams"
             ),
             ThematicPack(
                 id = 1,
+                title = "THE ADDAMS FAMILY",
+                subtitle = "Finger Snaps & Harpsichord Theme",
+                trackId = 22,
+                animation = LedAnimation.HALLOWEEN,
+                iconEmoji = "🖐️",
+                description = "Iconic theme with authentic finger snaps and eerie harpsichord + Jack-o'-Lantern candlelight"
+            ),
+            ThematicPack(
+                id = 2,
+                title = "DAFT PUNK (ROBOT ROCK)",
+                subtitle = "Around The World / Robot Rock Master",
+                trackId = 23,
+                animation = LedAnimation.DAFT_PUNK,
+                iconEmoji = "🤖",
+                description = "Iconic Robot Rock heavy vocoder & guitar riff + Cyberpunk visor waves"
+            ),
+            ThematicPack(
+                id = 3,
+                title = "SUPER MARIO BROS",
+                subtitle = "Classic Overworld Theme",
+                trackId = 0,
+                animation = LedAnimation.RAINBOW,
+                iconEmoji = "🍄",
+                description = "Classic Nintendo 8-bit Overworld Theme"
+            ),
+            ThematicPack(
+                id = 4,
                 title = "TETRIS ARCADE",
                 subtitle = "Korobeiniki 4-Line Clear",
                 trackId = 1,
@@ -159,7 +186,16 @@ data class ThematicPack(
                 description = "Full 64-note Korobeiniki + falling tetrominoes and line clear"
             ),
             ThematicPack(
-                id = 2,
+                id = 5,
+                title = "DOOM (E1M1)",
+                subtitle = "Hellfire Crimson & BFG Plasma",
+                trackId = 2,
+                animation = LedAnimation.DOOM,
+                iconEmoji = "🔥",
+                description = "At Doom's Gate heavy metal chiptune riff + BFG9000 shockwaves"
+            ),
+            ThematicPack(
+                id = 6,
                 title = "LEGEND OF ZELDA",
                 subtitle = "Triforce of Courage",
                 trackId = 3,
@@ -168,7 +204,7 @@ data class ThematicPack(
                 description = "Overworld March fanfare + sacred spinning golden Triforce"
             ),
             ThematicPack(
-                id = 3,
+                id = 7,
                 title = "STAR WARS",
                 subtitle = "Imperial March Sith vs Jedi",
                 trackId = 4,
@@ -177,17 +213,17 @@ data class ThematicPack(
                 description = "Darth Vader's theme + dual red & blue lightsaber clash"
             ),
             ThematicPack(
-                id = 4,
-                title = "GHOSTBUSTERS",
-                subtitle = "Ectoplasm & Proton Streams",
+                id = 8,
+                title = "GHOSTBUSTERS (8-BIT NES)",
+                subtitle = "NES 8-Bit Funk Groove",
                 trackId = 5,
                 animation = LedAnimation.GHOSTBUSTERS,
-                iconEmoji = "👻",
-                description = "Slap-bass groove + 'Who you gonna call?!' + crossing streams"
+                iconEmoji = "🕹️",
+                description = "Retro 8-bit NES chiptune groove + crossing proton streams"
             ),
             ThematicPack(
-                id = 5,
-                title = "MORROWIND",
+                id = 9,
+                title = "MORROWIND (TES III)",
                 subtitle = "Nerevar Rising Ash Storm",
                 trackId = 6,
                 animation = LedAnimation.MORROWIND,
@@ -195,25 +231,25 @@ data class ThematicPack(
                 description = "Elder Scrolls majestic horns + Red Mountain ash aurora"
             ),
             ThematicPack(
-                id = 6,
-                title = "SPOOKY SKELETONS",
-                subtitle = "Bone Dance Strobe",
+                id = 10,
+                title = "SPOOKY SCARY SKELETONS",
+                subtitle = "Bone Dance Electro-Swing",
                 trackId = 7,
                 animation = LedAnimation.SPOOKY,
                 iconEmoji = "💀",
-                description = "Electro-swing xylophone triplets + Jack-o'-Lantern candlelight"
+                description = "Electro-swing saxophone triplets + Jack-o'-Lantern candlelight"
             ),
             ThematicPack(
-                id = 7,
-                title = "DAFT PUNK",
-                subtitle = "Harder, Better, Faster, Stronger",
+                id = 11,
+                title = "DAFT PUNK (DA FUNK)",
+                subtitle = "Iconic 303 Acid Groove",
                 trackId = 8,
                 animation = LedAnimation.DAFT_PUNK,
-                iconEmoji = "🤖",
-                description = "French touch electro vocoder synth + Cyberpunk chrome visor waves"
+                iconEmoji = "🕶️",
+                description = "Legendary Da Funk 303 acid bassline + French touch disco visor waves"
             ),
             ThematicPack(
-                id = 8,
+                id = 12,
                 title = "EBAY CHAOS AUCTION",
                 subtitle = "4-Color Strobe & Cha-Ching!",
                 trackId = 9,
@@ -224,7 +260,7 @@ data class ThematicPack(
                 quickActionSfxId = 10
             ),
             ThematicPack(
-                id = 9,
+                id = 13,
                 title = "HARRY POTTER",
                 subtitle = "Hedwig's Theme & Hogwarts Runes",
                 trackId = 10,
@@ -237,33 +273,24 @@ data class ThematicPack(
                 secondaryActionSfxId = 13
             ),
             ThematicPack(
-                id = 10,
-                title = "POKÉMON PACK",
-                subtitle = "Wild Battle & Pokéball Ring",
+                id = 14,
+                title = "POKÉMON (GOTTA CATCH 'EM ALL)",
+                subtitle = "Original Anime Theme & Pokéball",
                 trackId = 11,
                 animation = LedAnimation.POKEMON,
                 iconEmoji = "🔴",
-                description = "Wild Pokémon Battle Theme + concentric red & white Pokéball",
+                description = "Gotta catch 'em all! Iconic anime chorus + concentric red & white Pokéball",
                 quickActionName = "PokéCenter Heal 🏥",
                 quickActionSfxId = 11
             ),
             ThematicPack(
-                id = 11,
-                title = "SAILOR MOON",
-                subtitle = "Moonlight Densetsu (ムーンライト伝説)",
+                id = 15,
+                title = "SAILOR MOON (MOONLIGHT DENSETSU)",
+                subtitle = "Full Intro, Verse & Chorus (ムーンライト伝説)",
                 trackId = 12,
                 animation = LedAnimation.SAILOR_MOON,
                 iconEmoji = "🌙",
-                description = "Romantic 8-bit anime theme + Moon Prism Power pastel transformation"
-            ),
-            ThematicPack(
-                id = 12,
-                title = "SUPER MARIO BROS",
-                subtitle = "Overworld Theme",
-                trackId = 0,
-                animation = LedAnimation.RAINBOW,
-                iconEmoji = "🍄",
-                description = "Classic Nintendo 8-bit Overworld Theme"
+                description = "Full 50s iconic anime theme + Moon Prism Power pastel transformation"
             )
         )
     }

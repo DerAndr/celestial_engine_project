@@ -36,6 +36,7 @@ add_executable(celestial_firmware
     src/mic.c
     src/leds.c
     src/voice_data.c
+    src/music_data.c
     src/net_client.c
 )
 target_compile_definitions(celestial_firmware PRIVATE CELESTIAL_FOUR_RINGS=0)

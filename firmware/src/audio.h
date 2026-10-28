@@ -83,14 +83,26 @@ void audio_set_volume(uint8_t volume_percent);
 uint8_t audio_get_volume(void);
 
 /**
- * 8-bit chiptune jukebox controls
+ * 8-bit chiptune & compressed audio jukebox controls
  */
+typedef enum {
+    AUDIO_PLAY_SINGLE = 0,
+    AUDIO_PLAY_ALL,
+    AUDIO_PLAY_CYCLE,
+    AUDIO_PLAY_MODE_COUNT
+} audio_play_mode_t;
+
 int audio_get_chiptune_count(void);
 const char* audio_get_chiptune_name(int track_id);
 void audio_play_chiptune(int track_id);
 void audio_stop_chiptune(void);
 bool audio_is_chiptune_playing(void);
 float audio_get_current_note_freq(void);
+int audio_get_active_track_idx(void);
+
+void audio_set_play_mode(audio_play_mode_t mode);
+audio_play_mode_t audio_get_play_mode(void);
+const char* audio_get_play_mode_name(audio_play_mode_t mode);
 
 /**
  * Cosmic Sci-Fi Sound FX Demo Suite

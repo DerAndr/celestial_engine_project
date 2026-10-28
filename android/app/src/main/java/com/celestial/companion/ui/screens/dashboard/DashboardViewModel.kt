@@ -49,7 +49,7 @@ class DashboardViewModel(
     val phoneModels: StateFlow<List<PhoneAiModel>> = repository.phoneModels
     val connectionMode: StateFlow<ConnectionMode> = repository.connectionMode
 
-    private val _currentLanguage = MutableStateFlow(StaffLanguage.RUSSIAN)
+    private val _currentLanguage = MutableStateFlow(StaffLanguage.ENGLISH)
     val currentLanguage: StateFlow<StaffLanguage> = _currentLanguage.asStateFlow()
 
     private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMMA_4_E2B)
@@ -280,7 +280,7 @@ class DashboardViewModel(
     init {
         loadCustomSpells()
         gemmaEngine?.let { engine ->
-            engine.config = engine.config.copy(language = StaffLanguage.RUSSIAN)
+            engine.config = engine.config.copy(language = StaffLanguage.ENGLISH)
         }
         // Collect incoming voice queries from the physical staff over UDP
         viewModelScope.launch {
@@ -294,7 +294,8 @@ class DashboardViewModel(
                     prompt = "",
                     audioBytes = query.audioBytes,
                     broadcastOnComplete = true,
-                    targetStaffIp = query.senderIp
+                    targetStaffIp = query.senderIp,
+                    queryRequestId = query.requestId
                 )
             }
         }
@@ -356,7 +357,8 @@ class DashboardViewModel(
         image: Bitmap? = null,
         audioBytes: ByteArray? = null,
         broadcastOnComplete: Boolean = false,
-        targetStaffIp: String? = null
+        targetStaffIp: String? = null,
+        queryRequestId: Long = 0L
     ) {
         val engine = gemmaEngine ?: return
         if (_isGenerating.value) {
@@ -562,7 +564,8 @@ class DashboardViewModel(
                                 repository.broadcastAiResponse(
                                     chunk.result.outputText,
                                     targetStaffIp ?: repository.getTargetStaffIp(),
-                                    skipVisualEffects = spellExecuted
+                                    skipVisualEffects = spellExecuted,
+                                    customReqId = queryRequestId.takeIf { it != 0L }
                                 )
                             }
                         }
@@ -700,6 +703,18 @@ class DashboardViewModel(
             repository.executeCommand(StaffCommand.PlayChiptune(trackId))
         }
         playLocalToneForSfx(trackId + 2)
+    }
+
+    fun playAllTracks() {
+        viewModelScope.launch {
+            repository.executeCommand(StaffCommand.PlayChiptune(0xFE))
+        }
+    }
+
+    fun playAllCycled() {
+        viewModelScope.launch {
+            repository.executeCommand(StaffCommand.PlayChiptune(0xFF))
+        }
     }
 
     fun activateThematicPack(pack: com.celestial.companion.domain.model.ThematicPack) {
