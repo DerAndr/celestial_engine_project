@@ -389,6 +389,22 @@ cd android
 
 ---
 
+## ⚖️ Legal Disclaimer & Fair Use Notice
+
+All 8-bit musical melodies and thematic LED animations featured in this project are original monophonic square-wave chiptune interpretations developed exclusively for non-commercial educational, research, and embedded microcontroller demonstration purposes under the doctrine of Fair Use (17 U.S. Code § 107).
+
+- All original compositions, trademarks, character likenesses, franchise titles, and logos referenced are the intellectual property of their respective copyright and trademark owners:
+  - *Nintendo Co., Ltd.* (The Legend of Zelda, Super Mario)
+  - *The Tetris Company, Inc.* (Tetris)
+  - *Lucasfilm Ltd. LLC / The Walt Disney Company* (Star Wars)
+  - *id Software LLC / Bethesda Softworks LLC / ZeniMax Media* (DOOM)
+  - *Columbia Pictures Industries, Inc. / Sony Pictures* (Ghostbusters)
+  - *Daft Life Ltd.* (Daft Punk)
+- *"Korobeiniki"* is an authentic 19th-century folk song (poem by Nikolay Nekrasov, 1861) and resides in the **Public Domain**.
+- **Celestial Engine Mk.V** is an independent, non-commercial open-source research and hobbyist robotics project. It is **not** affiliated with, endorsed by, sponsored by, or associated with any of the trademark or copyright owners mentioned above.
+
+---
+
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE) © 2026 Andrey Holz.

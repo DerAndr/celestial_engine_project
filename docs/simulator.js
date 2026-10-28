@@ -112,8 +112,8 @@
   // Chiptune Tracks (Note frequencies and durations matching RP2350 audio.c)
   const TRACKS = [
     {
-      name: 'DOOM E1M1 RIFF',
-      anim: 14, // DOOM
+      name: 'INFERNAL PHOBOS (8-BIT)',
+      anim: 14, // INFERNAL
       notes: [
         { f: 82.4, d: 130 }, { f: 82.4, d: 130 }, { f: 164.8, d: 130 }, { f: 82.4, d: 130 },
         { f: 82.4, d: 130 }, { f: 146.8, d: 130 }, { f: 82.4, d: 130 }, { f: 82.4, d: 130 },
@@ -125,8 +125,8 @@
       ]
     },
     {
-      name: 'TETRIS KOROBEINIKI',
-      anim: 12, // TETRIS
+      name: 'KOROBEINIKI (FOLK 1861)',
+      anim: 12, // BLOCKS
       notes: [
         { f: 659.25, d: 300 }, { f: 493.88, d: 150 }, { f: 523.25, d: 150 }, { f: 587.33, d: 300 },
         { f: 523.25, d: 150 }, { f: 493.88, d: 150 }, { f: 440.00, d: 300 }, { f: 440.00, d: 150 },
@@ -136,8 +136,8 @@
       ]
     },
     {
-      name: 'IMPERIAL MARCH',
-      anim: 11, // STARWARS
+      name: 'GALACTIC MARCH (HOMAGE)',
+      anim: 11, // SPACE
       notes: [
         { f: 440, d: 400 }, { f: 440, d: 400 }, { f: 440, d: 400 }, { f: 349.2, d: 300 },
         { f: 523.25, d: 120 }, { f: 440, d: 400 }, { f: 349.2, d: 300 }, { f: 523.25, d: 120 },
@@ -147,8 +147,8 @@
       ]
     },
     {
-      name: 'ZELDA OVERWORLD',
-      anim: 13, // ZELDA
+      name: 'TRIFORCE HYMN (HOMAGE)',
+      anim: 13, // ARCANE
       notes: [
         { f: 466.16, d: 400 }, { f: 349.23, d: 150 }, { f: 466.16, d: 150 }, { f: 523.25, d: 150 },
         { f: 587.33, d: 150 }, { f: 659.25, d: 150 }, { f: 698.46, d: 500 }, { f: 698.46, d: 150 },
@@ -156,15 +156,15 @@
       ]
     },
     {
-      name: 'GHOSTBUSTERS 8-BIT',
-      anim: 15, // GHOSTBUSTERS
+      name: 'ECTO GROOVE (8-BIT)',
+      anim: 15, // PROTON
       notes: [
         { f: 587.33, d: 160 }, { f: 587.33, d: 160 }, { f: 739.99, d: 160 }, { f: 587.33, d: 160 },
         { f: 659.25, d: 240 }, { f: 554.37, d: 240 }, { f: 493.88, d: 240 }, { f: 440.00, d: 300 }
       ]
     },
     {
-      name: 'SUPER MARIO BROS',
+      name: 'PIXEL KINGDOM (8-BIT)',
       anim: 0, // RAINBOW
       notes: [
         { f: 659.25, d: 120 }, { f: 659.25, d: 120 }, { f: 0, d: 120 }, { f: 659.25, d: 120 },
@@ -181,8 +181,8 @@
       ]
     },
     {
-      name: 'DAFT PUNK DA FUNK',
-      anim: 19, // DAFT PUNK
+      name: 'CYBER VISOR FUNK',
+      anim: 19, // CYBER
       notes: [
         { f: 146.8, d: 180 }, { f: 146.8, d: 180 }, { f: 220.0, d: 180 }, { f: 293.6, d: 180 },
         { f: 261.6, d: 180 }, { f: 220.0, d: 180 }, { f: 196.0, d: 240 }
@@ -271,10 +271,10 @@
   const ANIM_NAMES = [
     'RAINBOW SWIRL', 'CYAN PULSE', 'MATRIX RAIN', 'COSMIC BREATHE',
     'STELLAR AURORA', 'SOLAR FLARE', 'QUANTUM SPARK', 'VOID WARP',
-    'SUPERNOVA', 'ARCANE FIRE', 'NEBULA DREAM', 'IMPERIAL MARCH',
-    'TETRIS BLOCKS', 'ZELDA TRIFORCE', 'DOOM HELLFIRE', 'GHOSTBUSTERS',
-    'HALLOWEEN ORANGE', 'MORROWIND ASH', 'SPOOKY BONES', 'DAFT PUNK VISOR',
-    'EBAY STROBE', 'HOGWARTS HOUSES', 'POKEBALL', 'SAILOR MOON'
+    'SUPERNOVA', 'ARCANE FIRE', 'NEBULA DREAM', 'GALACTIC MARCH',
+    'GEOMETRIC BLOCKS', 'TRIFORCE HYMN', 'INFERNAL HELLFIRE', 'ECTO GROOVE',
+    'HALLOWEEN ORANGE', 'ASH MOUNTAIN', 'SPOOKY BONES', 'CYBER VISOR',
+    'STROBE SURGE', 'ARCANE CITADEL', 'COSMIC SPHERE', 'LUNAR GUARDIAN'
   ];
 
   // --- 43 CONCENTRIC WS2812B LED ENGINE ---
@@ -666,7 +666,7 @@
 
     let marqueeText = '';
     if (isChiptunePlaying) {
-      marqueeText = '// CELESTIAL MUSIC PLAYING // CLICK SW TO STOP // GHOSTBUSTERS & DOOM // ';
+      marqueeText = '// CELESTIAL MUSIC PLAYING // CLICK SW TO STOP // 8-BIT RETRO SYNTHESIS // ';
     } else if (isChiptuneSubMode) {
       marqueeText = '// JUKEBOX // ROTATE TO SELECT // CLICK SW TO PLAY/STOP // QUERY TO EXIT // ';
     } else {

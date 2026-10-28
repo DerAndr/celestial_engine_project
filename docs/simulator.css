@@ -1030,3 +1030,28 @@ footer a:hover {
   text-decoration: underline;
 }
 
+/* Legal & Fair Use Disclaimer Box */
+.legal-disclaimer-box {
+  margin-top: 14px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.legal-disclaimer-box svg {
+  color: var(--cyan-primary);
+}
+
+.legal-disclaimer-box strong {
+  color: var(--text-secondary);
+}
+
+
