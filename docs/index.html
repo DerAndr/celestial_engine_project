@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Celestial Engine Mk.V — Cyber-Arcane Web Simulator & Showcase</title>
+  <meta name="description" content="Interactive digital twin and web simulator for Celestial Engine Mk.V. Autonomous AI Staff with RP2350, 43 concentric WS2812B LEDs, duplex I2S audio, and wearable Raspberry Pi 5.">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="simulator.css">
+</head>
+<body>
+  <!-- Ambient Deep Space Starfield -->
+  <canvas id="space-canvas"></canvas>
+
+  <div class="app-container">
+    <!-- Hero Header -->
+    <header class="hero-header">
+      <div class="badge-row">
+        <span class="badge cyan">Pico 2 W (RP2350)</span>
+        <span class="badge gold">Wearable Pi 5 16GB</span>
+        <span class="badge violet">Android 15 Compose</span>
+        <span class="badge emerald">Release v1.1.1</span>
+        <span class="badge fire">Gemma 4 AI Brain</span>
+      </div>
+
+      <h1 class="hero-title">CELESTIAL ENGINE Mk.V</h1>
+      <p class="hero-subtitle">
+        Autonomous Interactive AI Staff & Wearable Edge Compute System. Experience the live digital twin with 43 concentric LEDs, cybernetic OLED HUD, and retro arcade chiptune synthesis.
+      </p>
+
+      <div class="quick-links">
+        <a href="#simulator" class="btn-pill primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          Live Simulator
+        </a>
+        <a href="#releases" class="btn-pill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Binaries (v1.1.1)
+        </a>
+        <a href="interactive_map.html" class="btn-pill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+          Interactive Pinout Map
+        </a>
+        <a href="https://github.com/DerAndr/celestial_engine_project" target="_blank" rel="noopener" class="btn-pill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub Repository
+        </a>
+      </div>
+    </header>
+
+    <!-- Interactive Digital Twin Section -->
+    <main id="simulator" class="simulator-layout">
+      
+      <!-- Left Column: 43 Concentric LED Rings -->
+      <section class="glass-panel" aria-labelledby="led-panel-title">
+        <div class="panel-header">
+          <h2 id="led-panel-title" class="panel-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            43-LED Concentric Headpiece
+          </h2>
+          <span class="badge cyan">WS2812B • 3 Rings</span>
+        </div>
+
+        <div class="led-stage-container">
+          <div class="led-housing">
+            <canvas id="led-canvas" width="310" height="310" aria-label="43 Concentric WS2812B LEDs"></canvas>
+          </div>
+          <div class="led-caption">
+            Active Rune Mode: <span id="telem-anim">DOOM HELLFIRE</span> (24 Authentic Effects)
+          </div>
+        </div>
+
+        <!-- One-Click Preset Showcase -->
+        <div style="margin-top: 24px;">
+          <div class="panel-header" style="margin-bottom: 12px; padding-bottom: 8px;">
+            <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">
+              Arcane Presets (Audio + Thematic LEDs)
+            </span>
+          </div>
+          <div class="preset-grid">
+            <button class="preset-btn doom" data-track="0" id="preset-doom">
+              <strong>DOOM E1M1</strong>
+              <span>Hellfire Flame</span>
+            </button>
+            <button class="preset-btn tetris" data-track="1" id="preset-tetris">
+              <strong>TETRIS</strong>
+              <span>Falling Blocks</span>
+            </button>
+            <button class="preset-btn starwars" data-track="2" id="preset-starwars">
+              <strong>STAR WARS</strong>
+              <span>Imperial March</span>
+            </button>
+            <button class="preset-btn zelda" data-track="3" id="preset-zelda">
+              <strong>ZELDA</strong>
+              <span>Triforce Gold</span>
+            </button>
+            <button class="preset-btn daft" data-track="7" id="preset-daft">
+              <strong>DAFT PUNK</strong>
+              <span>Cyber Visor</span>
+            </button>
+            <button class="preset-btn" data-track="4" id="preset-ghostbusters">
+              <strong>GHOSTBUSTERS</strong>
+              <span>Proton Stream</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Audio Spectrum -->
+        <div class="visualizer-container" style="margin-top: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted);">
+              8-BIT PULSE WAVE SYNTHESIS (16 kHz)
+            </span>
+            <span id="audio-status" class="audio-status-pill">○ IDLE</span>
+          </div>
+          <canvas id="audio-spectrum-canvas" width="300" height="64" aria-label="Audio Spectrum Visualizer"></canvas>
+        </div>
+      </section>
+
+      <!-- Right Column: SH1106 OLED HUD & Physical Controls -->
+      <section class="glass-panel hardware-controls-panel" aria-labelledby="hud-panel-title">
+        <div class="panel-header">
+          <h2 id="hud-panel-title" class="panel-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            SH1106 1.3" Cybernetic OLED HUD
+          </h2>
+          <span class="badge gold">128x64 • 20 FPS Ticker</span>
+        </div>
+
+        <!-- OLED Bezel -->
+        <div class="oled-bezel">
+          <div class="oled-header-label">
+            <span>I2C1 OLED (128x64)</span>
+            <span>AMBER PHOSPHOR</span>
+          </div>
+          <canvas id="oled-canvas" width="128" height="64" aria-label="SH1106 OLED Display"></canvas>
+        </div>
+
+        <!-- Physical Controls: Rotary Knob & Push-to-Talk -->
+        <div class="physical-controls-row">
+          
+          <!-- Rotary Encoder Unit -->
+          <div class="rotary-knob-unit">
+            <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">
+              ROTARY ENCODER
+            </div>
+            <div id="knob-outer" class="knob-outer" title="Rotate with Mouse Wheel or Drag">
+              <div class="knob-indicator"></div>
+              <button id="knob-center-btn" class="knob-center-switch" title="Click to Select / Stop Music">
+                SW
+              </button>
+            </div>
+            <div class="knob-step-buttons">
+              <button id="btn-step-left" class="btn-icon-step" title="Rotate Left">◄ PREV</button>
+              <button id="btn-step-right" class="btn-icon-step" title="Rotate Right">NEXT ►</button>
+            </div>
+            <span style="font-size: 0.65rem; color: var(--text-dim); font-family: var(--font-mono);">
+              Click SW to Enter / Stop
+            </span>
+          </div>
+
+          <!-- Query Button Unit -->
+          <div class="query-button-unit">
+            <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">
+              QUERY BUTTON
+            </div>
+            <button id="big-query-btn" class="big-query-button" title="Press & Hold for Voice Inquiry">
+              QUERY
+              <span class="sub">HOLD TO TALK</span>
+            </button>
+            <span style="font-size: 0.65rem; color: var(--text-dim); font-family: var(--font-mono);">
+              GPIO 20 / Voice Trigger
+            </span>
+          </div>
+
+        </div>
+
+        <!-- Live Telemetry Monitor -->
+        <div class="telemetry-bar">
+          <div class="telemetry-item">
+            <span class="telemetry-label">Active Screen</span>
+            <span id="telem-mode" class="telemetry-value">CELESTIAL MUSIC</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Staff State</span>
+            <span class="telemetry-value">
+              <span class="status-dot pulse"></span>
+              <span id="telem-state">IDLE</span>
+            </span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Track Queue</span>
+            <span id="active-track-name" class="telemetry-value">DOOM E1M1</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="telemetry-label">Network Transport</span>
+            <span class="telemetry-value" style="color: var(--cyan-primary);">UDP 5005</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Official Releases & Artifacts Showcase -->
+    <section id="releases" class="releases-showcase-section">
+      <div class="section-heading">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Official Release Artifacts (v1.1.1)
+      </div>
+
+      <div class="release-cards-grid">
+        <!-- Firmware Card -->
+        <article class="release-card">
+          <div class="release-card-header">
+            <div>
+              <h3 class="release-title">Pico 2 W Firmware</h3>
+              <span class="badge cyan">celestial_firmware.uf2</span>
+            </div>
+            <span class="badge">RP2350</span>
+          </div>
+          <p class="release-desc">
+            Production C/C++ firmware built for the Raspberry Pi Pico 2 W. Includes sample-accurate 16 kHz retro pulse chiptune synth, 24 musical tracks, 21 concentric LED animations, I2S microphone streaming, and UDP v2 telemetry.
+          </p>
+          <ul class="release-specs">
+            <li>Target: Raspberry Pi Pico 2 W (ARM Cortex-M33)</li>
+            <li>Audio: MAX98357A I2S 3W + INMP441 MEMS Mic</li>
+            <li>Controls: Bourns PEC11R Encoder + 1.3" OLED</li>
+            <li>Fix: Instant early stop & seamless track switching</li>
+          </ul>
+          <a href="https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.1-release/celestial_firmware.uf2" class="btn-download" id="download-uf2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Firmware (.UF2)
+          </a>
+        </article>
+
+        <!-- Android Companion Card -->
+        <article class="release-card">
+          <div class="release-card-header">
+            <div>
+              <h3 class="release-title">Android Companion App</h3>
+              <span class="badge emerald">celestial_companion_v1.1.0.apk</span>
+            </div>
+            <span class="badge">Android 15</span>
+          </div>
+          <p class="release-desc">
+            Native Jetpack Compose companion application for Google Pixel 9 Pro XL and Android 15+. Features the Eye of the Oracle multimodal camera, Arcane Grimoire, Spell Forge, Gemma 4 Voice AI, and real-time 43-LED visualizer.
+          </p>
+          <ul class="release-specs">
+            <li>Platform: Android 15+ (API 35), Kotlin & Material 3</li>
+            <li>Audio: Google Cloud TTS 32-bit Float PCM playback</li>
+            <li>Network: Zero-Latency UDP socket routing</li>
+            <li>Spells: Remote hardware dispatch (<20ms latency)</li>
+          </ul>
+          <a href="https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.1-release/celestial_companion_v1.1.0.apk" class="btn-download emerald" id="download-apk">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Companion (.APK)
+          </a>
+        </article>
+
+        <!-- Wearable Pi 5 SBC Card -->
+        <article class="release-card">
+          <div class="release-card-header">
+            <div>
+              <h3 class="release-title">Wearable Pi 5 Server</h3>
+              <span class="badge gold">celestial-brain.service</span>
+            </div>
+            <span class="badge">Pi 5 16GB</span>
+          </div>
+          <p class="release-desc">
+            Autonomous wearable edge compute daemon for Raspberry Pi 5. Powers 100% offline edge AI with Whisper.cpp, Ollama (Llama 3.2 1B & Gemma 2B), and Piper C++ neural voice synthesis over local Wi-Fi hotspot.
+          </p>
+          <ul class="release-specs">
+            <li>Storage: Lexar NM790 1TB NVMe SSD (PCIe Gen 3)</li>
+            <li>STT / LLM: Whisper.cpp + Ollama edge models</li>
+            <li>TTS: Piper neural voice (<300ms inference)</li>
+            <li>Daemon: Automatic systemd background service</li>
+          </ul>
+          <a href="https://github.com/DerAndr/celestial_engine_project/tree/master/tools" class="btn-download" style="background: linear-gradient(135deg, #f59e0b, #d97706);" id="explore-pi5">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Explore Server Source
+          </a>
+        </article>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="showcase-footer">
+      <div>
+        CELESTIAL ENGINE Mk.V • Created by <a href="https://github.com/DerAndr" target="_blank" rel="noopener">@DerAndr</a> • Released under the MIT License
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 0.75rem;">
+        Pico 2 W (RP2350) • Raspberry Pi 5 Wearable SBC • Google Pixel 9 Pro XL • SH1106 OLED • MAX98357A I2S • WS2812B
+      </div>
+    </footer>
+  </div>
+
+  <script src="simulator.js"></script>
+</body>
+</html>

@@ -5,23 +5,42 @@
 <p align="center">
   <a href="firmware/"><img src="https://img.shields.io/badge/Platform-RP2350%20(Pico%202%20W)-C51A4A?style=flat-square&logo=raspberrypi&logoColor=white" alt="Platform"></a>
   <a href="tools/"><img src="https://img.shields.io/badge/Wearable%20Brain-Raspberry%20Pi%205%20(16GB)-C51A4A?style=flat-square&logo=raspberrypi&logoColor=white" alt="Pi 5"></a>
-  <a href="docs/hardware/inventory.md"><img src="https://img.shields.io/badge/NVMe-Lexar%20NM790%201TB-006699?style=flat-square&logo=fastlane&logoColor=white" alt="NVMe"></a>
-  <a href="firmware/"><img src="https://img.shields.io/badge/Firmware-v1.0.20-00E5FF?style=flat-square&logo=c&logoColor=white" alt="Firmware"></a>
+  <a href="https://github.com/DerAndr/celestial_engine_project/releases/tag/v1.1.1-release"><img src="https://img.shields.io/badge/Release-v1.1.1--Canonical-3DDC84?style=flat-square&logo=github&logoColor=white" alt="Release"></a>
+  <a href="https://derandr.github.io/celestial_engine_project/"><img src="https://img.shields.io/badge/Live%20Simulator-Online-00E5FF?style=flat-square&logo=html5&logoColor=white" alt="Simulator"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License"></a>
 </p>
 <p align="center">
   <a href="https://github.com/DerAndr/celestial_engine_project/actions"><img src="https://img.shields.io/badge/CI-Tests%20Passing-3DDC84?style=flat-square&logo=githubactions&logoColor=white" alt="CI"></a>
-  <a href="tools/"><img src="https://img.shields.io/badge/Local%20AI-Gemma%202%20%7C%20Qwen%202.5-8A2BE2?style=flat-square&logo=google&logoColor=white" alt="AI Models"></a>
-  <a href="android/"><img src="https://img.shields.io/badge/Companion-Android%20Compose-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android"></a>
-  <a href="tools/brain_config.json"><img src="https://img.shields.io/badge/Safety-PG--13%20Guardrails-00C853?style=flat-square" alt="Safety"></a>
+  <a href="tools/"><img src="https://img.shields.io/badge/Local%20AI-Gemma%204%20%7C%20Qwen%202.5-8A2BE2?style=flat-square&logo=google&logoColor=white" alt="AI Models"></a>
+  <a href="android/"><img src="https://img.shields.io/badge/Companion-Android%2015%20Compose-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android"></a>
+  <a href="docs/hardware/inventory.md"><img src="https://img.shields.io/badge/NVMe-Lexar%20NM790%201TB-006699?style=flat-square&logo=fastlane&logoColor=white" alt="NVMe"></a>
 </p>
 
 **Autonomous Interactive AI Staff & Wearable Edge Compute System**  
 *Embedded RP2350 M33 controller • 43-LED concentric WS2812B headpiece • Duplex I2S audio • Dual-Brain wearable Raspberry Pi 5 AI Server (100% Autonomous Offline + Hybrid Cloud Fallback) • Native Android Companion.*
 
-[Architecture](#-system-architecture) • [Concentric Rings](#-43-led-concentric-headpiece) • [Cosmos Star Map](#-unified-cosmos-navigation) • [Cybernetic HUD](#-minimalist-cybernetic-architecture-scheme) • [AI Presets](#-dual-brain-ai-engine) • [Android App](#-native-android-companion) • [Quick Start](#-developer-quick-start)
+[🎮 Live Web Simulator](https://derandr.github.io/celestial_engine_project/) • [📦 Official Releases (v1.1.1)](https://github.com/DerAndr/celestial_engine_project/releases/tag/v1.1.1-release) • [🗺️ Pinout Map](https://derandr.github.io/celestial_engine_project/interactive_map.html) • [Architecture](#-system-architecture) • [Concentric Rings](#-43-led-concentric-headpiece) • [Android App](#-native-android-companion) • [Quick Start](#-developer-quick-start)
 
 </div>
+
+---
+
+> ### 🎮 **[Interactive Web Simulator (Digital Twin)](https://derandr.github.io/celestial_engine_project/)**
+> Try Celestial Engine Mk.V directly in your browser:
+> - **43 Concentric WS2812B LEDs** with 24 authentic animations (Doom Hellfire, Tetris Blocks, Imperial March, Zelda Triforce, Daft Punk, Matrix Rain).
+> - **SH1106 Cybernetic OLED HUD** with 20 FPS marquee ticker, live clock, and Jukebox track selection.
+> - **Sample-Accurate 8-Bit Chiptune Synth** powered by Web Audio API (authentic pulse wave harmonics).
+> - **Tactile Rotary Encoder & Query Button** for interactive control.
+
+---
+
+## 📦 Production Release Artifacts (v1.1.1)
+
+| Artifact | Target | Description | Download |
+|---|---|---|---|
+| **`celestial_firmware.uf2`** | Raspberry Pi Pico 2 W (RP2350) | C/C++ Firmware: 24-track Jukebox with early stop & seamless switching, 21 concentric LED animations, I2S duplex audio, UDP v2 client | [⬇️ Download UF2](https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.1-release/celestial_firmware.uf2) |
+| **`celestial_companion_v1.1.0.apk`** | Google Pixel 9 Pro XL / Android 15+ | Native Kotlin Jetpack Compose app: Eye of the Oracle camera vision, Arcane Grimoire, Spell Forge (<20ms latency), Gemma 4 Voice AI | [⬇️ Download APK](https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.1-release/celestial_companion_v1.1.0.apk) |
+| **`celestial-brain.service`** | Raspberry Pi 5 16GB (Lexar 1TB NVMe) | 100% Offline Edge AI: Whisper.cpp + Ollama (Llama 3.2 1B & Gemma 2B) + Piper C++ TTS | [📂 Explore Code](tools/) |
 
 ---
 
