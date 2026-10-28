@@ -20,12 +20,12 @@
 #elif CELESTIAL_FOUR_RINGS
 #define FIRMWARE_VERSION       "1.0.14-FOUR-RINGS"
 #else
-#define FIRMWARE_VERSION       "1.0.17-HOST-AGNOSTIC"
+#define FIRMWARE_VERSION       "1.1.0-RELEASE"
 #endif
 #define PROJECT_NAME           "Celestial Engine Mk.V"
-#define FIRMWARE_CODENAME      "AURA-STREAM"
+#define FIRMWARE_CODENAME      "HALLOWEEN-ORACLE"
 #define FIRMWARE_CHIP_TARGET   "RP2350 (ARM-S)"
-#define FIRMWARE_BUILD_DATE    "OCT 2026"
+#define FIRMWARE_BUILD_DATE    "28 OCT 2026"
 
 /* Audio Configuration: Official Raspberry Pi 16-bit I2S Stereo with Hardware Sleep */
 #define AUDIO_DIAGNOSTIC_BOOT   0        // Normal application UI and peripherals.

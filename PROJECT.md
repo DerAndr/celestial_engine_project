@@ -5,11 +5,11 @@ Build a working interactive AI staff quickly from the hardware already purchased
 
 The coding agent must guide the user physically, one testable prototype at a time, and maintain the repository as an engineering notebook.
 
-## Current implementation — 2026-10-26 Standalone Grimoire, Spell Forge, Optional Incantation Vocalization & Runes Controller
+## Current implementation — 2026-10-28 Standalone Grimoire, 24-Track Jukebox, Thematic Lighting, Multimodal Vision & Canonical TTS Streaming
 
 Active physical staff: **7→12→24 = 43 LEDs**, GP15 / PIO0 SM1 / DMA, 300 µs reset, 18% brightness cap, SH1106 OLED, INMP441 Mic, MAX98357A Amp.
-Firmware baseline: **1.0.18-LOCAL-AI**, `firmware/build/celestial_firmware.uf2`. Pico 2 W / RP2350, official SDK 2.3.1.
-Companion Mobile Brain: Android app (Kotlin / Jetpack Compose) with Foreground Service (`StaffBrainService`), standalone **Arcane Grimoire** (Tab 0: Library with interactive per-spell `[ 🔊 CHANT: ON ]` / `[ 🔇 CHANT: OFF ]` toggle badges and dual `[ ⚡ SILENT ]` / `[ ⚡ CHANT CAST ]` action buttons, Tab 1: Spell Forge), restored **Runes** continuous 43-LED ambient controller (21 animations), zero-latency fast-path casting (<20ms hardware dispatch), Latin incantation vocalization via Google TTS, dashboard global chant toggle chip, and 100% English UI localization.
+Firmware baseline: **1.1.0-RELEASE (HALLOWEEN-ORACLE)**, `firmware/build/celestial_firmware.uf2`. Pico 2 W / RP2350, official SDK 2.3.1.
+Companion Mobile Brain: Android app v1.1.0 (`com.celestial.companion`) with Foreground Service (`StaffBrainService`), standalone **Arcane Grimoire** (Tab 0: Library with interactive per-spell toggles, Tab 1: Spell Forge), **Runes** continuous 43-LED ambient controller (21 animations), **Arcane Soundboard & Jukebox** (24 chiptunes & studio master tracks with Play All & Cycle modes), zero-latency fast-path casting (<20ms), Gemma 4 Vision & Voice, 32-bit Float TTS stream engine, and default English localization.
 
 Wearable SBC Node: **Raspberry Pi 5 (16 GB RAM)** on **Pimoroni PIM699 Base** with **Lexar NM790 1 TB NVMe SSD** running in **PCIe Gen 3** mode (688 MB/s sustained write, 0x0 throttling, MicroSD completely removed, pure NVMe boot).
 AI Brain Service: Active systemd daemon `celestial-brain.service` listening on UDP port 5005. Features both **100% Autonomous Offline AI** (`whisper.cpp` + Ollama `llama3.2:1b`/`gemma2:2b` + `piper` C++ ONNX) and **Hybrid Cloud Core** (OpenRouter + Edge-TTS) with seamless automatic failover.
