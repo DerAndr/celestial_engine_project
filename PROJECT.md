@@ -219,8 +219,9 @@ The staff must operate independently of the brain/network, including local effec
 ### P9 — Brain link [PC SERVICE WORKING / V2 FIXES PREPARED]
 Built-in Wi-Fi with heartbeat, live upload, cloud AI and acknowledged response streaming. Validate the v2 pair before changing network/provider deployment.
 
-### P10 — Pi 5 deployment [NEXT]
-Move the existing brain service to Pi 5 on the same router; verify mock, then current cloud STT/LLM/TTS. See docs/pi5-next-stage.md. Local STT/TTS/LLM and hotspot remain separate future milestones.
+### P10 — Pi 5 deployment & feature synchronization [ACTIVE TASK]
+Offline local AI baseline (Whisper + Ollama + Piper on NVMe) verified in Exp 041. Active task: synchronize Pi 5 Python server (`tools/ai_brain_server.py`, `tools/local_ai_engine.py`) with canonical release v1.1.0 (6 AI Personas, concise <25 words constraint, [SPELL: ...] hardware dispatch, default English, and wearable field networking). See docs/tasks.md.
+
 
 ### P11 — Portable operation
 Integrate/test Pi 5 portable power separately. Do not confuse it with staff power.
