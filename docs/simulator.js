@@ -245,11 +245,11 @@
   const STATE_SPEAKING = 3;
 
   let currentState = STATE_IDLE;
-  let currentModeIdx = 6; // Start on MODE_CHIPTUNE
+  let currentModeIdx = 8; // Start on VOICE ORACLE (Neutral, futuristic AI HUD)
   let isChiptuneSubMode = false;
-  let selectedMusicIdx = 1; // 0 is STOP/MODE, 1 is Track 0
-  let activeTrackIdx = 0;
-  let currentAnimIdx = 14; // Start on DOOM Hellfire!
+  let selectedMusicIdx = 0; // Standby
+  let activeTrackIdx = 3;   // ZELDA / Celestial
+  let currentAnimIdx = 4;   // Start on STELLAR AURORA (Neutral, beautiful cosmic aurora)
   let encoderPos = 0;
   let encoderAngle = 0;
   let masterVolume = 55;
@@ -359,6 +359,44 @@
     }
 
     switch (currentAnimIdx) {
+      case 4: // STELLAR AURORA (Neutral, magical, celestial flowing aurora)
+        LED_NODES.forEach((n, i) => {
+          const wave1 = Math.sin(sec * 1.6 + (n.angle || 0) * 2 + n.ring * 0.8);
+          const wave2 = Math.cos(sec * 1.2 - n.ring * 1.1);
+          const blend = (wave1 + wave2 + 2) / 4;
+          if (n.ring === 0) {
+            n.r = 255; n.g = 225; n.b = 100; // Warm gold center star
+          } else {
+            // Elegant flowing teal, cyan, and deep celestial indigo
+            n.r = Math.floor(20 + 80 * blend);
+            n.g = Math.floor(160 + 90 * Math.sin(sec * 1.5 + n.ring));
+            n.b = Math.floor(215 + 40 * Math.cos(sec * 1.3 + (n.angle || 0)));
+          }
+        });
+        break;
+
+      case 1: // CYAN PULSE
+        const cPulse = 0.5 + 0.5 * Math.sin(sec * 2.5);
+        LED_NODES.forEach((n, i) => {
+          if (n.ring === 0) {
+            n.r = 255; n.g = 220; n.b = 80;
+          } else {
+            n.r = Math.floor(10 + 20 * cPulse);
+            n.g = Math.floor(150 + 90 * cPulse);
+            n.b = Math.floor(220 + 35 * cPulse);
+          }
+        });
+        break;
+
+      case 3: // COSMIC BREATHE
+        const bPulse = 0.5 + 0.5 * Math.sin(sec * 1.8);
+        LED_NODES.forEach((n, i) => {
+          n.r = Math.floor(90 + 90 * bPulse);
+          n.g = Math.floor(40 + 70 * bPulse);
+          n.b = Math.floor(190 + 65 * bPulse);
+        });
+        break;
+
       case 14: // DOOM HELLFIRE
         LED_NODES.forEach((n, i) => {
           const flicker = Math.sin(sec * 14 + i * 1.5) * 0.3 + 0.7;
@@ -831,7 +869,13 @@
     if (elAnim) elAnim.textContent = ANIM_NAMES[currentAnimIdx] || 'CUSTOM';
 
     const elTrack = document.getElementById('active-track-name');
-    if (elTrack) elTrack.textContent = TRACKS[activeTrackIdx] ? TRACKS[activeTrackIdx].name : '--';
+    if (elTrack) {
+      if (isChiptunePlaying) {
+        elTrack.textContent = TRACKS[activeTrackIdx] ? TRACKS[activeTrackIdx].name : '--';
+      } else {
+        elTrack.textContent = 'STANDBY (SELECT PRESET)';
+      }
+    }
   }
 
   function updateAudioStatusPill() {

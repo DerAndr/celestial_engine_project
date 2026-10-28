@@ -14,10 +14,11 @@
   <a href="tools/"><img src="https://img.shields.io/badge/Local%20AI-Gemma%204%20%7C%20Qwen%202.5-8A2BE2?style=flat-square&logo=google&logoColor=white" alt="AI Models"></a>
   <a href="android/"><img src="https://img.shields.io/badge/Companion-Android%2015%20Compose-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android"></a>
   <a href="docs/hardware/inventory.md"><img src="https://img.shields.io/badge/NVMe-Lexar%20NM790%201TB-006699?style=flat-square&logo=fastlane&logoColor=white" alt="NVMe"></a>
+  <img src="https://img.shields.io/badge/Engineered%20With-Antigravity%20%26%20Gemini%203.8%20Flash-9333EA?style=flat-square&logo=google&logoColor=white" alt="Antigravity & Gemini 3.8 Flash">
 </p>
 
 **Autonomous Interactive AI Staff & Wearable Edge Compute System**  
-*Embedded RP2350 M33 controller • 43-LED concentric WS2812B headpiece • Duplex I2S audio • Dual-Brain wearable Raspberry Pi 5 AI Server (100% Autonomous Offline + Hybrid Cloud Fallback) • Native Android Companion.*
+*Embedded RP2350 M33 controller • 43-LED concentric WS2812B headpiece • Duplex I2S audio • Dual-Brain wearable Raspberry Pi 5 AI Server (100% Autonomous Offline + Hybrid Cloud Fallback) • Native Android Companion • Engineered with Google Antigravity & Gemini 3.8 Flash.*
 
 [🎮 Live Web Simulator](https://derandr.github.io/celestial_engine_project/) • [📦 Official Releases (v1.1.1)](https://github.com/DerAndr/celestial_engine_project/releases/tag/v1.1.1-release) • [🗺️ Pinout Map](https://derandr.github.io/celestial_engine_project/interactive_map.html) • [Architecture](#-system-architecture) • [Concentric Rings](#-43-led-concentric-headpiece) • [Android App](#-native-android-companion) • [Quick Start](#-developer-quick-start)
 
@@ -27,10 +28,12 @@
 
 > ### 🎮 **[Interactive Web Simulator (Digital Twin)](https://derandr.github.io/celestial_engine_project/)**
 > Try Celestial Engine Mk.V directly in your browser:
-> - **43 Concentric WS2812B LEDs** with 24 authentic animations (Doom Hellfire, Tetris Blocks, Imperial March, Zelda Triforce, Daft Punk, Matrix Rain).
-> - **SH1106 Cybernetic OLED HUD** with 20 FPS marquee ticker, live clock, and Jukebox track selection.
+> - **43 Concentric WS2812B LEDs** with 24 authentic animations (Stellar Aurora, Zelda Triforce, Tetris Blocks, Daft Punk, Matrix Rain, Doom Hellfire).
+> - **SH1106 Cybernetic OLED HUD** with razor-sharp pixel rendering, 20 FPS marquee ticker, live clock, and Jukebox track selection.
+> - **Interactive 3D Hardware Wiring Explorer** with real-time signal pulse animations and component inspector.
 > - **Sample-Accurate 8-Bit Chiptune Synth** powered by Web Audio API (authentic pulse wave harmonics).
 > - **Tactile Rotary Encoder & Query Button** for interactive control.
+> - *Engineered with **Google Antigravity** & **Gemini 3.8 Flash**.*
 
 ---
 
