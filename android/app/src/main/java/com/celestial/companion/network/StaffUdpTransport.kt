@@ -151,11 +151,7 @@ class StaffUdpTransport(
         } catch (_: Exception) {}
 
         val newSocket: DatagramSocket
-        if (matchedLocal != null) {
-            // Binding directly to the local interface address routes directly via tethering/ap_br_wlan2
-            // without calling network.bindSocket (which triggers Android 15 EPERM on tethering networks)
-            newSocket = DatagramSocket(InetSocketAddress(matchedLocal, 0))
-        } else if (matchedNetwork != null) {
+        if (matchedNetwork != null) {
             val s = DatagramSocket(null)
             try {
                 matchedNetwork.bindSocket(s)
@@ -166,6 +162,7 @@ class StaffUdpTransport(
             s.bind(InetSocketAddress(0))
             newSocket = s
         } else {
+            // Unbound local IP avoids Android 15 EPERM on hotspot/tethering interfaces
             newSocket = DatagramSocket()
         }
 
@@ -186,7 +183,7 @@ class StaffUdpTransport(
 
                 if (targetIp == "255.255.255.255") {
                     var sentAny = false
-                    // Interface-bound broadcast (directed and 255.255.255.255) without network.bindSocket (avoids Android 15 tethering EPERM)
+                    // Interface-bound broadcast (directed and 255.255.255.255)
                     try {
                         val interfaces = java.net.NetworkInterface.getNetworkInterfaces()?.toList() ?: emptyList()
                         for (iface in interfaces) {
@@ -195,10 +192,10 @@ class StaffUdpTransport(
                                 val bcast = ifaceAddr.broadcast
                                 val local = ifaceAddr.address
                                 if (local is java.net.Inet4Address) {
-                                    // Directed subnet broadcast (e.g. 10.111.174.255)
+                                    // Directed subnet broadcast (e.g. 10.169.248.255)
                                     if (bcast != null) {
                                         try {
-                                            DatagramSocket(InetSocketAddress(local, 0)).use { boundSocket ->
+                                            DatagramSocket().use { boundSocket ->
                                                 boundSocket.broadcast = true
                                                 val bcastDatagram = DatagramPacket(bytes, bytes.size, bcast, targetPort)
                                                 boundSocket.send(bcastDatagram)
@@ -206,9 +203,9 @@ class StaffUdpTransport(
                                             }
                                         } catch (_: Exception) {}
                                     }
-                                    // Global 255.255.255.255 bound to local address
+                                    // Global 255.255.255.255
                                     try {
-                                        DatagramSocket(InetSocketAddress(local, 0)).use { boundSocket ->
+                                        DatagramSocket().use { boundSocket ->
                                             boundSocket.broadcast = true
                                             val globalDatagram = DatagramPacket(bytes, bytes.size, targetAddr, targetPort)
                                             boundSocket.send(globalDatagram)
@@ -224,40 +221,45 @@ class StaffUdpTransport(
                     if (!sentAny) {
                         val curSock = socket
                         if (curSock != null && !curSock.isClosed) {
-                            curSock.send(datagram)
+                            try { curSock.send(datagram) } catch (_: Exception) {}
                         } else {
-                            DatagramSocket().use { fallback ->
-                                fallback.broadcast = true
-                                fallback.send(datagram)
-                            }
-                        }
-                    }
-                } else {
-                    // Unicast:
-                    try {
-                        val unicastSocket = getOrCreateUnicastSocket(targetAddr)
-                        unicastSocket.send(datagram)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Cached unicast send failed, retrying with fallback: ${e.message}")
-                        if (cachedUnicastSocket != socket) {
-                            try { cachedUnicastSocket?.close() } catch (_: Exception) {}
-                        }
-                        cachedUnicastSocket = null
-                        val retryLocal = findMatchingLocalAddress(targetAddr)
-                        if (retryLocal != null) {
-                            DatagramSocket(InetSocketAddress(retryLocal, 0)).use { localSock ->
-                                localSock.broadcast = true
-                                localSock.send(datagram)
-                            }
-                        } else {
-                            val curSock = socket
-                            if (curSock != null && !curSock.isClosed) {
-                                curSock.send(datagram)
-                            } else {
+                            try {
                                 DatagramSocket().use { fallback ->
                                     fallback.broadcast = true
                                     fallback.send(datagram)
                                 }
+                            } catch (_: Exception) {}
+                        }
+                    }
+                } else {
+                    // Unicast: try primary listening socket first, then cached unicast, then ephemeral fallback
+                    var sent = false
+                    val curSock = socket
+                    if (curSock != null && !curSock.isClosed) {
+                        try {
+                            curSock.send(datagram)
+                            sent = true
+                        } catch (_: Exception) {}
+                    }
+                    if (!sent) {
+                        try {
+                            val unicastSocket = getOrCreateUnicastSocket(targetAddr)
+                            unicastSocket.send(datagram)
+                            sent = true
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Cached unicast send failed, retrying with ephemeral fallback: ${e.message}")
+                            if (cachedUnicastSocket != socket) {
+                                try { cachedUnicastSocket?.close() } catch (_: Exception) {}
+                            }
+                            cachedUnicastSocket = null
+                            try {
+                                DatagramSocket().use { fallback ->
+                                    fallback.broadcast = true
+                                    fallback.send(datagram)
+                                    sent = true
+                                }
+                            } catch (e2: Exception) {
+                                Log.e(TAG, "Ephemeral unicast send failed: ${e2.message}")
                             }
                         }
                     }
