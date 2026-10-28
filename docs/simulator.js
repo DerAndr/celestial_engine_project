@@ -71,6 +71,39 @@
     playTone(220, 35, 'sine');
   }
 
+  // --- ENGLISH VOICE DISCOVERY FOR ORACLE SYNTHESIS ---
+  let cachedEnglishVoice = null;
+  function getEnglishVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    // Filter all English voices
+    const enVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+    if (enVoices.length === 0) return null;
+
+    // Prioritize natural English voices
+    const preferred = enVoices.find(v => 
+      v.name.includes('Natural') || 
+      v.name.includes('Google US English') ||
+      v.name.includes('David') || 
+      v.name.includes('Zira') || 
+      v.name.includes('Jenny') || 
+      v.name.includes('Guy') ||
+      v.name.includes('Aria') ||
+      v.lang === 'en-US'
+    );
+
+    return preferred || enVoices[0];
+  }
+
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      cachedEnglishVoice = getEnglishVoice();
+    };
+    cachedEnglishVoice = getEnglishVoice();
+  }
+
   // Chiptune Tracks (Note frequencies and durations matching RP2350 audio.c)
   const TRACKS = [
     {
@@ -717,17 +750,43 @@
       updateTelemetryUi();
       renderOledScreen();
 
-      // Speak simulated oracle voice response
+      // Speak simulated oracle voice response in authentic English
       if ('speechSynthesis' in window) {
         const synth = window.speechSynthesis;
-        const msg = new SpeechSynthesisUtterance('Celestial Engine online. All runes aligned and operational.');
-        msg.pitch = 0.9;
-        msg.rate = 1.05;
+        synth.cancel(); // Abort any lingering speech
+
+        const phrases = [
+          "Celestial Engine online. All runes aligned and operational.",
+          "Oracle core synchronized. Quantum flux nominal.",
+          "Gemma neural link established. Ready for inquiry.",
+          "The stars align. Wisdom of the cosmos awaits your command.",
+          "Arcane telemetry active. Edge compute running at full power."
+        ];
+        const text = phrases[Math.floor(Math.random() * phrases.length)];
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = 'en-US';
+
+        const voice = cachedEnglishVoice || getEnglishVoice();
+        if (voice) {
+          msg.voice = voice;
+          msg.lang = voice.lang || 'en-US';
+        }
+
+        msg.pitch = 0.95;
+        msg.rate = 1.0;
+        msg.volume = 1.0;
+
         msg.onend = () => {
           currentState = STATE_IDLE;
           updateTelemetryUi();
           renderOledScreen();
         };
+        msg.onerror = () => {
+          currentState = STATE_IDLE;
+          updateTelemetryUi();
+          renderOledScreen();
+        };
+
         synth.speak(msg);
       } else {
         playTone(440, 200, 'sine');
