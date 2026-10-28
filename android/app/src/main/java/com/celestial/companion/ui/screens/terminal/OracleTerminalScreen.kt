@@ -651,7 +651,7 @@ fun OracleTerminalScreen(
                                 fontFamily = FontFamily.Monospace
                             )
                             Text(
-                                text = "${currentPersona.title}: ${currentPersona.subtitle}",
+                                text = "${currentPersona.getTitle(currentLanguage)}: ${currentPersona.getSubtitle(currentLanguage)}",
                                 color = TextMuted,
                                 fontSize = 10.sp,
                                 maxLines = 1
@@ -668,7 +668,7 @@ fun OracleTerminalScreen(
                             color = Color(0x3300E5FF)
                         ) {
                             Text(
-                                text = currentPersona.title.uppercase(),
+                                text = currentPersona.getTitle(currentLanguage).uppercase(),
                                 color = AetherCyan,
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
@@ -725,7 +725,7 @@ fun OracleTerminalScreen(
                                 ) {
                                     Text(preset.icon, fontSize = 14.sp)
                                     Text(
-                                        text = preset.title,
+                                        text = preset.getTitle(currentLanguage),
                                         color = if (isSelected) RunicGold else TextSecondary,
                                         fontSize = 11.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -799,7 +799,7 @@ fun OracleTerminalScreen(
                                 onClick = {
                                     personaPromptInput = currentPersona.getPromptForLanguage(currentLanguage)
                                     viewModel.setCustomSystemPrompt(personaPromptInput)
-                                    Toast.makeText(context, "Reset to ${currentPersona.title} default", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Reset to ${currentPersona.getTitle(currentLanguage)} default", Toast.LENGTH_SHORT).show()
                                 },
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                             ) {

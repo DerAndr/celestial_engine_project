@@ -49,7 +49,7 @@ class DashboardViewModel(
     val phoneModels: StateFlow<List<PhoneAiModel>> = repository.phoneModels
     val connectionMode: StateFlow<ConnectionMode> = repository.connectionMode
 
-    private val _currentLanguage = MutableStateFlow(StaffLanguage.ENGLISH)
+    private val _currentLanguage = MutableStateFlow(gemmaEngine?.config?.language ?: StaffLanguage.ENGLISH)
     val currentLanguage: StateFlow<StaffLanguage> = _currentLanguage.asStateFlow()
 
     private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMMA_4_E2B)
@@ -307,9 +307,8 @@ class DashboardViewModel(
 
     init {
         loadCustomSpells()
-        gemmaEngine?.let { engine ->
-            engine.config = engine.config.copy(language = StaffLanguage.ENGLISH)
-        }
+        val initLang = gemmaEngine?.config?.language ?: StaffLanguage.ENGLISH
+        _currentLanguage.value = initLang
         // Collect incoming voice queries from the physical staff over UDP
         viewModelScope.launch {
             repository.staffVoiceQueries.collect { query ->
@@ -331,7 +330,10 @@ class DashboardViewModel(
 
     fun setLanguage(lang: StaffLanguage) {
         _currentLanguage.value = lang
-        gemmaEngine?.config = gemmaEngine?.config?.copy(language = lang) ?: return
+        gemmaEngine?.let { engine ->
+            val updatedConfig = engine.config.copy(language = lang)
+            engine.saveConfigToPrefs(updatedConfig)
+        }
         viewModelScope.launch {
             repository.executeCommand(StaffCommand.SetLanguage(lang))
         }
@@ -486,12 +488,6 @@ class DashboardViewModel(
                             if (chunk.token.startsWith("Acoustic voice received: \"")) {
                                 val transcribedText = chunk.token.removePrefix("Acoustic voice received: \"").substringBefore("\"")
                                 if (transcribedText.isNotBlank()) {
-                                    if (transcribedText.any { it in '\u0400'..'\u04FF' } && _currentLanguage.value != StaffLanguage.RUSSIAN) {
-                                        _currentLanguage.value = StaffLanguage.RUSSIAN
-                                        gemmaEngine?.let { engine ->
-                                            engine.config = engine.config.copy(language = StaffLanguage.RUSSIAN)
-                                        }
-                                    }
                                     _chatHistory.value = _chatHistory.value.map { msg ->
                                         if (msg.id == userMsgId) msg.copy(text = "🎤 \"$transcribedText\"") else msg
                                     }

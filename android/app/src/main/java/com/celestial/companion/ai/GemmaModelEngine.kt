@@ -179,12 +179,15 @@ class GemmaModelEngine(
             val personaId = prefs.getString("oracle_persona_id", OraclePersona.MACHINE_GOD.id)
                 ?: OraclePersona.MACHINE_GOD.id
             val customPrompt = prefs.getString("oracle_custom_prompt", "") ?: ""
+            val langCode = prefs.getString("oracle_language", StaffLanguage.ENGLISH.name) ?: StaffLanguage.ENGLISH.name
+            val language = try { StaffLanguage.valueOf(langCode) } catch (_: Exception) { StaffLanguage.ENGLISH }
 
             config = config.copy(
                 apiKey = apiKey,
                 apiBase = apiBase,
                 personaId = personaId,
-                customSystemPrompt = customPrompt
+                customSystemPrompt = customPrompt,
+                language = language
             )
         } catch (e: Exception) {
             Log.w(TAG, "Could not load prefs: ${e.message}")
@@ -200,6 +203,7 @@ class GemmaModelEngine(
                 .putString("openrouter_api_base", newConfig.apiBase)
                 .putString("oracle_persona_id", newConfig.personaId)
                 .putString("oracle_custom_prompt", newConfig.customSystemPrompt)
+                .putString("oracle_language", newConfig.language.name)
                 .apply()
         } catch (e: Exception) {
             Log.w(TAG, "Could not save prefs: ${e.message}")
