@@ -692,11 +692,15 @@ static void draw_chiptune_screen(int sel_idx, int act_trk, bool is_playing) {
         bool is_selected = (item_idx == sel_idx);
 
         if (item_idx == 0) {
-            // Mode toggle row
-            audio_play_mode_t cur_mode = audio_get_play_mode();
-            const char *m_name = audio_get_play_mode_name(cur_mode);
+            // Mode toggle row or Stop Playback row
             char mode_buf[32];
-            snprintf(mode_buf, sizeof(mode_buf), "MODE: < %s >", m_name);
+            if (is_playing) {
+                snprintf(mode_buf, sizeof(mode_buf), "[ STOP PLAYBACK ]");
+            } else {
+                audio_play_mode_t cur_mode = audio_get_play_mode();
+                const char *m_name = audio_get_play_mode_name(cur_mode);
+                snprintf(mode_buf, sizeof(mode_buf), "MODE: < %s >", m_name);
+            }
             if (is_selected) {
                 sh1106_fill_rect(4, y - 1, 116, 9, true);
                 sh1106_draw_string(6, y, mode_buf, false);
@@ -711,7 +715,7 @@ static void draw_chiptune_screen(int sel_idx, int act_trk, bool is_playing) {
             char trk_buf[32];
             if (is_selected) {
                 sh1106_fill_rect(4, y - 1, 116, 9, true);
-                snprintf(trk_buf, sizeof(trk_buf), "> %s %s", t_name, is_active ? "[*]" : "");
+                snprintf(trk_buf, sizeof(trk_buf), "> %s %s", t_name, is_active ? "[STOP]" : "");
                 sh1106_draw_string(6, y, trk_buf, false);
             } else {
                 snprintf(trk_buf, sizeof(trk_buf), "  %s %s", t_name, is_active ? "[PLAY]" : "");
@@ -1798,7 +1802,11 @@ static void draw_dashboard(int sel_idx, int32_t pos, bool sw_down, bool click_fe
             snprintf(mode_str, sizeof(mode_str), "MODE: %s", audio_get_play_mode_name(audio_get_play_mode()));
             sh1106_draw_string(6, 37, mode_str, true);
             sh1106_draw_line(2, 47, 125, 47, true);
-            draw_marquee(51, "// CELESTIAL MUSIC // CLICK SW TO BROWSE & PLAY // GHOSTBUSTERS & ADDAMS //", now_ms);
+            if (audio_is_chiptune_playing()) {
+                draw_marquee(51, "// CELESTIAL MUSIC PLAYING // CLICK SW TO STOP // GHOSTBUSTERS & ADDAMS //", now_ms);
+            } else {
+                draw_marquee(51, "// CELESTIAL MUSIC // CLICK SW TO BROWSE & PLAY // GHOSTBUSTERS & ADDAMS //", now_ms);
+            }
             break;
         }
 
@@ -1900,9 +1908,6 @@ static void sync_chiptune_thematic_leds(int track_idx) {
     if (target_anim >= 0) {
         leds_set_anim_mode(target_anim);
         active_anim_idx = target_anim;
-        current_mode_idx = MODE_LED_CORE;
-        active_confirmed_mode = MODE_LED_CORE;
-        led_edit_mode = false;
     }
 }
 
@@ -2180,6 +2185,14 @@ int main(void) {
             active_track_idx = playing_trk;
             selected_music_idx = active_track_idx + 1;
             sync_chiptune_thematic_leds(active_track_idx);
+            need_display_update = true;
+        }
+
+        // Instant OLED refresh when playback starts or stops
+        static bool prev_chiptune_playing = false;
+        bool cur_chiptune_playing = audio_is_chiptune_playing();
+        if (cur_chiptune_playing != prev_chiptune_playing) {
+            prev_chiptune_playing = cur_chiptune_playing;
             need_display_update = true;
         }
 
@@ -2634,6 +2647,47 @@ int main(void) {
                              (unsigned)h, (unsigned)m);
                 }
                 need_display_update = true;
+            } else if (chiptune_mode) {
+                if (selected_music_idx == 0) {
+                    if (audio_is_chiptune_playing()) {
+                        audio_stop_chiptune();
+                        audio_play_tone(220.0f, 30);
+                        LOG_INFO("MUSIC", "Stopped playback via [STOP PLAYBACK] row.");
+                    } else {
+                        audio_play_mode_t next_mode = (audio_play_mode_t)((audio_get_play_mode() + 1) % AUDIO_PLAY_MODE_COUNT);
+                        audio_set_play_mode(next_mode);
+                        audio_play_tone(523.25f, 25);
+                        LOG_INFO("MUSIC", "Play mode toggled to: [%s]", audio_get_play_mode_name(next_mode));
+                    }
+                } else {
+                    int target_trk = selected_music_idx - 1;
+                    if (audio_is_chiptune_playing() && active_track_idx == target_trk) {
+                        audio_stop_chiptune();
+                        audio_play_tone(220.0f, 30);
+                        LOG_INFO("MUSIC", "Stopped playback of: %s", audio_get_chiptune_name(target_trk));
+                    } else {
+                        audio_stop_chiptune();
+                        active_track_idx = target_trk;
+                        audio_play_chiptune(target_trk);
+                        sync_chiptune_thematic_leds(target_trk);
+                        LOG_INFO("MUSIC", "Playing track [%d]: %s (Mode: %s)",
+                                 target_trk + 1, audio_get_chiptune_name(target_trk),
+                                 audio_get_play_mode_name(audio_get_play_mode()));
+                    }
+                }
+                need_display_update = true;
+            } else if (voice_mode) {
+                // Play selected voice phrase!
+                audio_play_voice((voice_phrase_id_t)active_voice_idx);
+                LOG_INFO("VOICE", "Speaking phrase: %s",
+                         audio_get_voice_name((voice_phrase_id_t)active_voice_idx));
+                need_display_update = true;
+            } else if (cosmic_mode) {
+                // Trigger selected cosmic sound effect!
+                audio_play_cosmic_sfx(active_cosmic_idx);
+                LOG_INFO("COSMIC", "Triggering Cosmic SFX: %s",
+                         audio_get_cosmic_sfx_name(active_cosmic_idx));
+                need_display_update = true;
             } else if (current_mode_idx == MODE_CLOCK) {
                 clock_style_edit_mode = true;
                 selected_clock_style = active_clock_style;
@@ -2666,56 +2720,31 @@ int main(void) {
                 audio_play_tone(523.25f, 25);
                 LOG_INFO("LEDS", "Entering LED effects menu (current: %s)",
                          leds_get_anim_name(active_anim_idx));
-            } else if (chiptune_mode) {
-                if (selected_music_idx == 0) {
-                    audio_play_mode_t next_mode = (audio_play_mode_t)((audio_get_play_mode() + 1) % AUDIO_PLAY_MODE_COUNT);
-                    audio_set_play_mode(next_mode);
-                    audio_play_tone(523.25f, 25);
-                    LOG_INFO("MUSIC", "Play mode toggled to: [%s]", audio_get_play_mode_name(next_mode));
-                } else {
-                    int target_trk = selected_music_idx - 1;
-                    if (audio_is_chiptune_playing() && active_track_idx == target_trk) {
-                        audio_stop_chiptune();
-                        audio_play_tone(220.0f, 30);
-                        LOG_INFO("MUSIC", "Stopped playback of: %s", audio_get_chiptune_name(target_trk));
-                    } else {
-                        active_track_idx = target_trk;
-                        audio_play_chiptune(target_trk);
-                        sync_chiptune_thematic_leds(target_trk);
-                        audio_play_blip();
-                        LOG_INFO("MUSIC", "Playing track [%d]: %s (Mode: %s)",
-                                 target_trk + 1, audio_get_chiptune_name(target_trk),
-                                 audio_get_play_mode_name(audio_get_play_mode()));
-                    }
-                }
-                need_display_update = true;
-            } else if (voice_mode) {
-                // Play selected voice phrase!
-                audio_play_voice((voice_phrase_id_t)active_voice_idx);
-                LOG_INFO("VOICE", "Speaking phrase: %s",
-                         audio_get_voice_name((voice_phrase_id_t)active_voice_idx));
-            } else if (cosmic_mode) {
-                // Trigger selected cosmic sound effect!
-                audio_play_cosmic_sfx(active_cosmic_idx);
-                LOG_INFO("COSMIC", "Triggering Cosmic SFX: %s",
-                         audio_get_cosmic_sfx_name(active_cosmic_idx));
             } else if (current_mode_idx == MODE_CHIPTUNE) {
-                chiptune_mode = true;
-                selected_music_idx = active_track_idx + 1;
-                audio_play_tone(523.25f, 25);
-                LOG_INFO("MUSIC", "Entering Celestial Music menu (Track: %s)",
-                         audio_get_chiptune_name(active_track_idx));
+                if (audio_is_chiptune_playing()) {
+                    audio_stop_chiptune();
+                    audio_play_tone(220.0f, 30);
+                    LOG_INFO("MUSIC", "Stopped playback from dashboard.");
+                } else {
+                    chiptune_mode = true;
+                    selected_music_idx = active_track_idx + 1;
+                    audio_play_tone(523.25f, 25);
+                    LOG_INFO("MUSIC", "Entering Celestial Music menu (Track: %s)",
+                             audio_get_chiptune_name(active_track_idx));
+                }
                 need_display_update = true;
             } else if (current_mode_idx == MODE_COSMIC) {
                 cosmic_mode = true;
                 audio_play_cosmic_sfx(active_cosmic_idx);
                 LOG_INFO("COSMIC", "Entering Cosmic FX Demo! Playing %s",
                          audio_get_cosmic_sfx_name(active_cosmic_idx));
+                need_display_update = true;
             } else if (current_mode_idx == MODE_VOICE) {
                 voice_mode = true;
                 audio_play_voice((voice_phrase_id_t)active_voice_idx);
                 LOG_INFO("VOICE", "Entering Voice Oracle! Speaking %s",
                          audio_get_voice_name((voice_phrase_id_t)active_voice_idx));
+                need_display_update = true;
             } else if (current_mode_idx == MODE_COSMOS) {
                 cosmos_zoom_level = (cosmos_zoom_level + 1) % COSMOS_ZOOM_COUNT;
                 click_feedback_until = delayed_by_ms(get_absolute_time(), 600);
