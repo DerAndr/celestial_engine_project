@@ -337,6 +337,89 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
   - **Virtual Companion App & Spell Forge Sandbox**:
     - Embedded interactive companion phone UI allowing visitors to test the Grimoire, create custom spells in the Spell Forge, toggle `[ ⚡ SILENT ]` vs `[ ⚡ CHANT CAST ]`, and hear browser Web Speech API vocal chants.
 
+---
 
+## 7. Future Task: Honest Offline Multilingual AI Pipeline (Focus on English)
 
+> **User Directive (2026-10-29):**
+> *"давай в задачи на будущее запишем честный offline многоязычный с фокусом на английский."*
 
+### 7.1. Motivation & Technical Rationale
+- **The Problem with Prior Offline Fallback**: Previous "offline mode" relied on acoustic energy/duration heuristics (guessing commands by packet size modulo-4) and static persona quotes (e.g. "Directive 42"). When real audio streamed from the staff with no internet, it could not transcribe arbitrary words or synthesize genuine contextual reasoning.
+- **The Core Objective**: Implement a **100% genuine, on-device neural AI pipeline (STT ➔ LLM ➔ TTS)** running completely offline with **zero cloud dependencies, zero external network calls, and zero fake pre-scripted fallbacks**. The pipeline must truly transcribe raw voice from the staff microphone, reason over it dynamically using local neural weights, and synthesize live speech return.
+- **Language Priority**: Primary development, tuning, and latency benchmarking focused strictly on **English (`[EN]`)**, with clean modular support for **German (`[DE]`)** and **Russian (`[RU]`)**.
+
+---
+
+### 7.2. End-to-End Pipeline Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                           HONEST ON-DEVICE OFFLINE AI PIPELINE                               │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+  1. Staff Microphone (INMP441 MEMS)
+         │  16 kHz 16-bit Mono PCM streamed over Wi-Fi (UDP port 5005)
+         ▼
+  2. Genuine On-Device Neural STT (Speech-to-Text)
+     ├── Android Mobile Host: Sherpa-ONNX / Whisper-tiny INT8 via Android NDK
+     └── Wearable SBC Host (Pi 5): Whisper.cpp (whisper-tiny.en / whisper-base quantized)
+         │  Verbatim transcript string (e.g., "Cast a flame wave into the dark")
+         ▼
+  3. Genuine On-Device Neural LLM (Local Brain & Reasoning)
+     ├── Android Mobile Host: MediaPipe GenAI / LiteRT (Gemma 2 2B / Gemma 3 1B / Qwen 2.5 1.5B)
+     └── Wearable SBC Host (Pi 5): llama.cpp / Ollama (llama3.2:1b, gemma2:2b, qwen2.5:1.5b)
+         │  Generates dynamic persona response + [SPELL: Flame Wave | ANIM: PLASMA | SOUNDS: ...]
+         ▼
+  4. Genuine On-Device Neural / Local TTS (Text-to-Speech)
+     ├── Android Mobile Host: Android Offline System TTS (high-quality en-US/en-GB offline voice data)
+     └── Wearable SBC Host (Pi 5): Piper TTS C++ ONNX (en_GB-alan-medium, de_DE, ru_RU)
+         │  Generates 16 kHz 16-bit Mono PCM audio chunks
+         ▼
+  5. Staff Speaker (MAX98357A I2S + 43 WS2812B LEDs)
+     Spoken vocal playback synchronized with real-time concentric polar lighting effects
+```
+
+---
+
+### 7.3. Actionable Milestone Breakdown
+
+#### Phase 1: Real On-Device Speech Recognition (Neural STT)
+- [ ] **Android Companion Integration (`sherpa-onnx` or `whisper.tflite`)**:
+  - Integrate `sherpa-onnx` Kotlin JNI bindings or LiteRT Whisper into `com.celestial.companion`.
+  - On-demand / bundled model storage in `context.filesDir/models/stt/`:
+    - **Primary Model**: `whisper-tiny.en` (~39 MB, quantized INT8, target < 300ms inference on modern ARM Cortex-X/A).
+    - **Multilingual Pack**: `sherpa-onnx-whisper-base` (~140 MB, EN/DE/RU support).
+  - Pipe incoming 16 kHz PCM buffers directly from `StaffUdpTransport` into the on-device acoustic decoder without network requests.
+- [ ] **Raspberry Pi 5 Standalone Integration (`whisper.cpp`)**:
+  - Keep `ggml-tiny.en.bin` pre-warmed in RAM/NVMe cache.
+  - Implement streaming VAD (Silero VAD or WebRTC VAD) in `tools/local_ai_engine.py` to trim silence before STT inference.
+
+#### Phase 2: Real On-Device Local LLM Inference (Neural Reasoning)
+- [ ] **Android Companion Integration (Google MediaPipe GenAI / LiteRT)**:
+  - Add `com.google.mediapipe:tasks-genai` to `app/build.gradle.kts`.
+  - Support mobile-optimized models:
+    - `gemma-2-2b-it-gpu-int4.bin` (Google official Android weights).
+    - `qwen2.5-1.5b-instruct-int4.bin` (ultra-fast reasoning & prompt obedience).
+  - Hook streaming token flow directly into `DashboardViewModel.kt`'s `AiProcessingPhase.STREAMING`.
+  - Retain the strict response constraints: 1–2 punchy sentences, max 20 words, no markdown/emojis, with `[SPELL: ...]` arcane tag generation.
+- [ ] **Raspberry Pi 5 Standalone Optimization (`llama.cpp` / Ollama)**:
+  - Benchmark `llama3.2:1b-instruct-q4_K_M` and `qwen2.5:1.5b` on BCM2712 4-core Cortex-A76 (target > 25 tokens/sec).
+  - Integrate interactive persona prompts and spell dispatch into `tools/ai_brain_server.py`.
+
+#### Phase 3: Real On-Device Speech Synthesis (Offline TTS)
+- [ ] **Android Companion Offline TTS**:
+  - Verify and pre-cache Android offline voice packages (`TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA` for `en-US`, `en-GB`, `de-DE`, `ru-RU`).
+  - Direct 16 kHz PCM frame capture from `TextToSpeech.synthesizeToFile()` or in-memory audio synthesis callback.
+  - Stream chunks via UDP `NET_MSG_RESP_AUDIO_CHUNK` to staff with pre-buffer pacing.
+- [ ] **Raspberry Pi 5 Piper TTS C++ ONNX**:
+  - Maintain low-latency streaming pipeline with `en_GB-alan-medium.onnx` and `en_US-lessac-medium.onnx`.
+
+#### Phase 4: English-First Benchmarks & Latency Targets
+- [ ] **Target Latency Budget for English Voice Loop**:
+  - User releases QUERY button ➔ Staff speaker begins playing voice: **< 1.8 seconds total**.
+    - STT (Whisper Tiny EN): ~350 ms.
+    - LLM TTFT (Time-To-First-Token on 2B parameter model): ~400 ms.
+    - TTS first audio packet synthesis: ~250 ms.
+    - UDP network transfer & DAC buffer prime: ~30 ms.
+- [ ] **Multilingual Validation**:
+  - Switching OLED `[ LANGUAGE ]` menu to `[EN]`, `[DE]`, or `[RU]` automatically routes to matching offline STT dictionary, LLM system prompt, and TTS voice model.

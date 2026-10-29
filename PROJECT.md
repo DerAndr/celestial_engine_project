@@ -120,10 +120,11 @@ QUERY:
   - **English (Default):** *"Celestial Sphere online"*, *"System ready"*, *"Celestial anomaly detected"*
   - **Deutsch:** *"Himmelssphäre online"*, *"System bereit"*, *"Kosmische Anomalie erkannt"*
   - **Русский:** *"Небесная сфера в сети"*, *"Система готова"*, *"Обнаружена аномалия"*
-- **Full AI Voice Pipeline (Raspberry Pi 5):**
-  - **STT:** Multilingual Whisper / Sherpa-onnx targeted to language code received from staff.
-  - **LLM:** System prompt persona "Celestial Sphere" in selected language.
-  - **TTS:** Fast local Piper TTS with native voices (`en_GB-alan-medium`, `de_DE-thorsten-medium`, `ru_RU-dmitri-medium`).
+- **Full AI Voice Pipeline (Raspberry Pi 5 & Mobile Brain Roadmap):**
+  - **STT:** Multilingual Whisper / Sherpa-onnx targeted to language code received from staff (English primary).
+  - **LLM:** System prompt persona in selected language (Gemma 2B / Llama 1B local inference).
+  - **TTS:** Fast local Piper TTS or Android offline voice packs (`en_GB-alan-medium`, `de_DE-thorsten-medium`, `ru_RU-dmitri-medium`).
+  - **Future Roadmap**: See [Honest Offline Multilingual AI Pipeline (docs/tasks.md#7)](docs/tasks.md#7-future-task-honest-offline-multilingual-ai-pipeline-focus-on-english).
 
 ## Staff state machine
 Use one authoritative state machine for OLED, LEDs and interaction logic:
