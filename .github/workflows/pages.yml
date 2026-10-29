@@ -5,7 +5,10 @@ on:
     branches: ["master"]
     paths:
       - "docs/**"
+      - "android/app/build.gradle.kts"
       - ".github/workflows/pages.yml"
+  release:
+    types: [published, edited]
   workflow_dispatch:
 
 permissions:
@@ -26,6 +29,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Auto-sync Android Companion version & latest GitHub Release links in docs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ANDROID_VER=$(grep -oP 'versionName\s*=\s*"\K[^"]+' android/app/build.gradle.kts || echo "1.1.2")
+          echo "Detected Android versionName: v${ANDROID_VER}"
+          sed -i "s/celestial_companion_v[0-9.]*\.apk/celestial_companion_v${ANDROID_VER}.apk/g" docs/index.html
+          sed -i "s/Android 15 Compose v[0-9.]*/Android 15 Compose v${ANDROID_VER}/g" docs/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

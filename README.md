@@ -1,418 +1,138 @@
-# 🌌 CELESTIAL ENGINE Mk.V
+# Celestial Engine Mk.V
 
-<div align="center">
+Embedded RP2350 controller, full-duplex I2S audio node, 43-LED concentric WS2812B display, and wireless UDP voice/telemetry system with Android and Raspberry Pi 5 host backends.
 
-<p align="center">
-  <a href="firmware/"><img src="https://img.shields.io/badge/Platform-RP2350%20(Pico%202%20W)-C51A4A?style=flat-square&logo=raspberrypi&logoColor=white" alt="Platform"></a>
-  <a href="android/"><img src="https://img.shields.io/badge/Primary%20Brain-Pixel%209%20Pro%20XL%20(v1.1.2)-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Mobile Brain"></a>
-  <a href="https://github.com/DerAndr/celestial_engine_project/releases/tag/v1.1.0-release"><img src="https://img.shields.io/badge/Release-v1.1.0--Canonical-3DDC84?style=flat-square&logo=github&logoColor=white" alt="Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License"></a>
-</p>
-<p align="center">
-  <a href="https://github.com/DerAndr/celestial_engine_project/actions"><img src="https://img.shields.io/badge/CI-Tests%20Passing-3DDC84?style=flat-square&logo=githubactions&logoColor=white" alt="CI"></a>
-</p>
-
-**Autonomous Interactive AI Staff & Wearable Edge Compute Ecosystem**  
-*Embedded RP2350 M33 controller • 43-LED concentric WS2812B headpiece • Duplex I2S audio • Primary Mobile Brain (Google Pixel 9 Pro XL with Gemini 2.5 Flash Active • Gemma 4 E2B Target Roadmap • Grimoire/Spell Forge <20ms) • Secondary Wearable SBC (Raspberry Pi 5 16GB NVMe offline AI) • 100% Autonomous Standalone Fallback • Engineered with Google Antigravity & Gemini 3.8 Flash.*
-
-[🎮 Live Web Simulator](https://derandr.github.io/celestial_engine_project/) • [📦 Official Releases (v1.2.0)](https://github.com/DerAndr/celestial_engine_project/releases/tag/v1.2.0-release) • [🗺️ Pinout Map](https://derandr.github.io/celestial_engine_project/interactive_map.html) • [Architecture](#-system-architecture) • [Concentric Rings](#-43-led-concentric-headpiece) • [Android App](#-native-android-companion) • [Quick Start](#-developer-quick-start)
-
-</div>
+- **Web Simulator & Pinout Explorer:** [derandr.github.io/celestial_engine_project](https://derandr.github.io/celestial_engine_project/)
+- **Latest Release:** [v1.2.0](https://github.com/DerAndr/celestial_engine_project/releases/latest) (`celestial_firmware.uf2` + `celestial_companion_v1.1.2.apk`)
+- **Hardware Documentation:** [Inventory & BOM](docs/hardware/inventory.md) • [Pinout & Wiring](docs/wiring/pinout.md) • [UDP Protocol v2](docs/protocol.md)
 
 ---
 
-> ### 🎮 **[Interactive Web Simulator (Digital Twin)](https://derandr.github.io/celestial_engine_project/)**
-> Try Celestial Engine Mk.V directly in your browser:
-> - **43 Concentric WS2812B LEDs** with 24 authentic animations (Stellar Aurora, Zelda Triforce, Tetris Blocks, Daft Punk, Matrix Rain, Doom Hellfire).
-> - **SH1106 Cybernetic OLED HUD** with razor-sharp pixel rendering, 20 FPS marquee ticker, live clock, and Jukebox track selection.
-> - **Interactive 3D Hardware Wiring Explorer** with real-time signal pulse animations and component inspector matching true hardware GPIOs.
-> - **Sample-Accurate 8-Bit Chiptune Synth** powered by Web Audio API (authentic pulse wave harmonics).
-> - **Tactile Rotary Encoder & Query Button** for interactive control.
-> - *Engineered with **Google Antigravity** & **Gemini 2.5 Flash**.*
+## Overview
+
+**Celestial Engine Mk.V** is a hardware and software platform built around the **Raspberry Pi Pico 2 W (RP2350)**. The staff operates as a real-time embedded peripheral node over Wi-Fi (UDP port `5005`) while maintaining a deterministic local fallback mode on Core 1 if no external host is connected.
+
+### Core Subsystems
+
+1. **Staff Firmware (`firmware/`)** — Bare-metal C/C++ firmware built on the Raspberry Pi Pico SDK (RP2350 Dual Cortex-M33 @ 150 MHz):
+   - **Core 0:** Manages `CYW43439` Wi-Fi connectivity, binary UDP v2 packet framing (`port 5005`, CRC-16-CCITT, FNV-1a header `0x811C9DC5`), `SH1106` 128×64 I2C1 OLED UI (`400 kHz`), and quadrature rotary encoder / push-to-talk GPIO interrupts.
+   - **Core 1:** Runs timing-critical PIO state machines and DMA transfers: `PIO0 SM0` drives 43 addressable WS2812B LEDs (`800 kHz`), `PIO0 SM1` captures 16 kHz 16-bit mono PCM audio from the `INMP441` I2S microphone, and `PIO1 SM0` streams 16 kHz audio and 24 onboard chiptune sequences to the `MAX98357A` I2S Class-D amplifier.
+2. **Android Companion App (`android/`)** — Native Android 15+ application (`v1.1.2`, Kotlin / Jetpack Compose):
+   - Acts as a mobile Wi-Fi hotspot gateway (`10.169.248.1:5005`), handling voice queries, LLM/TTS streaming, remote LED/mode control, and real-time 43-LED state synchronization.
+3. **Offline Raspberry Pi 5 Host (`tools/`)** — Local Linux service (`celestial-brain.service`) for Raspberry Pi 5 (16 GB RAM, 1 TB NVMe SSD):
+   - Provides fully offline speech-to-text (`Whisper.cpp`), local LLM inference (`Ollama`: `qwen2.5:0.5b`, `qwen2.5:1.5b`, `gemma4:e2b`), and neural text-to-speech (`Piper` ONNX) over local Wi-Fi.
+4. **Browser Digital Twin (`docs/`)** — Zero-dependency ES module web replica deployed via GitHub Pages:
+   - Interactive 2D physical assembly view, direct RP2350 pinout map, 43-LED effect simulator, SH1106 OLED HUD, Web Audio 8-bit synth, microphone voice input, and an in-browser Oracle (scripted responses + optional local WebGPU/WASM inference).
 
 ---
 
-## 📦 Production Release Artifacts (v1.1.0 / v1.1.2)
+## Verified Hardware Configuration
 
-| Artifact | Target | Description | Download |
-|---|---|---|---|
-| **`celestial_firmware.uf2`** | Raspberry Pi Pico 2 W (RP2350) | C/C++ Firmware v1.1.0-RELEASE: 24-track Jukebox with early stop & seamless switching, 21 concentric LED animations, I2S duplex audio, 1000ms watchdog autonomous fallback | [⬇️ Download UF2](https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.0-release/celestial_firmware.uf2) |
-| **`celestial_companion_v1.1.2.apk`** | Google Pixel 9 Pro XL / Android 15+ | Native Kotlin Jetpack Compose app: Eye of the Oracle camera vision, Arcane Grimoire, Spell Forge (<20ms deterministic routing), Gemini 2.5 Flash default voice AI, Google Cloud TTS streaming | [⬇️ Download APK](https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.0-release/celestial_companion_v1.1.2.apk) |
-| **`celestial-brain.service`** | Raspberry Pi 5 16GB (Lexar 1TB NVMe) | 100% Offline Edge AI node: Whisper.cpp + Ollama (Llama 3.2 1B & Gemma 2B) + Piper C++ TTS | [📂 Explore Code](tools/) |
+All physical components and electrical boundaries are documented in [`docs/hardware/inventory.md`](docs/hardware/inventory.md).
 
----
-
-## 🏛️ System Architecture
-
-Celestial Engine Mk.V operates as a high-speed, decentralized edge ecosystem. The staff is entirely self-sufficient with onboard voice synthesis, clockwork chronometer, and interactive navigation, communicating wirelessly over a binary UDP protocol with wearable and mobile AI hosts.
-
-```mermaid
-flowchart TB
-    subgraph MobileBrain["PRIMARY HOST: ANDROID COMPANION (Pixel 9 Pro XL)"]
-        direction TB
-        Phone["Google Pixel 9 Pro XL<br/>Hotspot AP Gateway 10.169.248.1 • UDP Port 5005"]
-        
-        subgraph MobileServices["Companion Brain Engine v1.1.2"]
-            Forge["Arcane Grimoire and Spell Forge<br/>Sub-20ms Fast-Path Routing"]
-            Gemini["Default AI: Gemini 2.5 Flash<br/>OpenRouter Multi-Turn Streaming"]
-            Gemma["On-Device and Vision Options:<br/>Gemma 4 (E2B / 31B / Think 26B) • Gemma 3 (27B)"]
-            CloudTTS["Google Cloud Neural TTS Streamer<br/>16 kHz Mono Float/PCM chunks"]
-            Twin["Live 43-LED Digital Twin (33 Hz)<br/>Cosmos Multi-Scale Zoom Viewport"]
-        end
-        
-        Phone --> Forge
-        Forge -->|Direct Spells| Phone
-        Forge -->|Complex Queries| Gemini
-        Gemini --> CloudTTS
-        Gemma -.-> CloudTTS
-        CloudTTS --> Phone
-        Phone --> Twin
-    end
-
-    subgraph StaffNode["EMBEDDED CONTROLLER: CELESTIAL STAFF (RP2350 Node)"]
-        direction TB
-        Pico["Raspberry Pi Pico 2 W<br/>RP2350 Dual M33 @ 150 MHz • 10.169.248.64:5005"]
-        
-        subgraph PhysicalInputs["Physical Inputs and Navigation"]
-            Mic["INMP441 MEMS Microphone<br/>16 kHz Mono I2S • PIO0 SM0 DMA • GP10/11/12"]
-            Enc["Bourns PEC11R Rotary Encoder<br/>Quadrature GP6/GP7 + Push Switch GP8"]
-            Btn["Query PTT Button<br/>Momentary NO • Active-Low GP9"]
-        end
-        
-        subgraph PhysicalOutputs["Actuators and Optical Headpiece"]
-            OLED["SH1106 1.3-inch I2C1 OLED 128x64<br/>Cybernetic HUD • Pictograms • GP2/GP3"]
-            Amp["MAX98357A 3.2W Class-D Amp<br/>16 kHz I2S Mono • PIO1 SM0 DMA • GP16/17/18"]
-            Rings["43x WS2812B Concentric LED Rings<br/>1 Center • 6 Inner • 12 Mid • 24 Outer • GP15"]
-        end
-        
-        subgraph StandaloneCore["Autonomous Fallback Engine (Watchdog 1000ms Timeout)"]
-            Chiptune["Core 1 16 kHz Chiptune Synth<br/>24 Iconic 8-bit Tracks • ADSR Envelopes"]
-            RuneAnim["21 Hardware LED Animations<br/>Stellar Aurora • Daft Punk • Hellfire"]
-            FlashProphecy["Flash-Stored Audio Prophecies<br/>English • Deutsch • Russian"]
-        end
-
-        Mic --> Pico
-        Enc --> Pico
-        Btn --> Pico
-        Pico --> OLED
-        Pico --> Amp
-        Pico --> Rings
-        Pico -.->|Wi-Fi Lost| StandaloneCore
-    end
-
-    subgraph WearableNode["SECONDARY WEARABLE SBC (Raspberry Pi 5 16GB)"]
-        direction TB
-        Pi5["Raspberry Pi 5 (Quad A76 @ 2.4 GHz • 10.169.248.50:5005)<br/>Pimoroni Base + Lexar NM790 1TB NVMe PCIe Gen 3"]
-        
-        subgraph Pi5Services["100% Offline Edge AI Daemon"]
-            Daemon["celestial-brain.service (UDP 5005)<br/>ai_brain_server.py + State Machine"]
-            Whisper["Whisper.cpp (ARM NEON SIMD)"]
-            Ollama["Ollama Local LLM (Llama 3.2 1B / Gemma 2B)"]
-            Piper["Piper C++ Neural TTS (ONNX)"]
-            Whisper --> Ollama --> Piper
-            Daemon --> Whisper
-            Piper --> Daemon
-        end
-        
-        Pi5 --- Daemon
-    end
-
-    MobileBrain <-->|"Wi-Fi 802.11n / UDP v2 Port 5005<br/>FNV-1a Auth • Acknowledged Telemetry and Audio"| StaffNode
-    WearableNode <-.->|"Selectable Host via OLED AI Core<br/>PHONE or PI 5 or AUTO"| StaffNode
-```
+| Subsystem | Component | Interface / Spec | Power Domain |
+| :--- | :--- | :--- | :--- |
+| **Microcontroller** | Raspberry Pi Pico 2 W (`RP2350` + `CYW43439`) | Dual ARM Cortex-M33 @ 150 MHz, 802.11n Wi-Fi | 5V `VBUS` in, 3.3V logic |
+| **LED Array** | 43× WS2812B (3 concentric rings: `7 + 12 + 24`) | `GP15` via `SN74AHCT125N` level shifter + `470 Ω` resistor | 5V `VBUS` + `1000 µF` cap (18% brightness cap) |
+| **OLED Display** | 1.3" `SH1106` 128×64 I2C OLED (`0x3C`) | `I2C1` @ 400 kHz (`GP2` SDA, `GP3` SCL) | 3.3V (`Pin 36`) |
+| **Rotary Encoder** | Bourns `PEC11R-4225F-S0024` (24 detents + switch) | Quadrature `GP6` (CLK), `GP7` (DT), `GP8` (SW) | 3.3V internal pull-ups |
+| **Query Button** | Side momentary push-button (NO, Push-to-Talk) | `GP9` (Active-LOW) | 3.3V internal pull-up |
+| **Microphone** | `INMP441` omnidirectional I2S MEMS module | `PIO0` I2S RX: `GP10` (SCK), `GP11` (WS), `GP12` (SD) | 3.3V (`Pin 36`), `L/R` tied to `GND` |
+| **Audio Amplifier** | `MAX98357A` I2S Class-D amp + `4 Ω 3 W` speaker | `PIO1` I2S TX: `GP16` (BCLK), `GP17` (LRCLK), `GP18` (DIN) | 5V `VBUS` (9 dB default gain) |
+| **Staff Power** | 5V USB power bank (`Intenso XS5000` / USB-C) | Direct feed to Pico `VBUS` (`Pin 40`) & star ground | Isolated 5V staff rail |
+| **Wearable Host** | Raspberry Pi 5 16 GB + `Lexar NM790` 1 TB NVMe | `Geekworm X1209` UPS + 4× `Molicel INR18650-M35A` | Isolated wearable battery rail |
 
 ---
 
-## 🧭 System Status Matrix
+## RP2350 Pinout Summary
 
-| Subsystem | Hardware Platform | Operational State | Performance / Active Specifications |
-| :--- | :--- | :---: | :--- |
-| **Staff Embedded Core** | Raspberry Pi Pico 2 W (RP2350) | **OPERATIONAL** | 150 MHz dual Cortex-M33, official Pico SDK 2.3.1, CYW43 Wi-Fi 802.11n, firmware v1.1.0-RELEASE |
-| **Concentric Light Rings**| 43 WS2812B LEDs (1→6→12→24) | **OPERATIONAL** | GP15 PIO0 state machine, 33 Hz refresh, 21 distinct firmware animation modes, 18% brightness cap |
-| **Cybernetic OLED HUD** | SH1106 1.3'' I2C1 (128×64) | **OPERATIONAL** | GP2/GP3, pure pictogram architecture, dynamic scrollable model catalog, responsive VU |
-| **Audio Pipeline** | INMP441 + MAX98357A | **OPERATIONAL** | Full-duplex 16 kHz I2S; Mic on GP10/11/12 (PIO0), Amp on GP16/17/18 (PIO1) with hardware sleep |
-| **Primary Mobile Brain**| Google Pixel 9 Pro XL (Android 15+) | **OPERATIONAL** | Hotspot AP (10.169.248.1), Gemini 2.5 Flash default, Grimoire & Spell Forge (<20ms latency), 33 Hz Digital Twin |
-| **Secondary Wearable SBC**| Raspberry Pi 5 (16 GB RAM) | **OPERATIONAL** | Lexar NM790 1TB NVMe, PCIe Gen 3 (688 MB/s), Whisper.cpp + Ollama + Piper C++ TTS offline edge daemon |
-| **Mission Control HUD** | Pi 5 Console (`tmux` + `btop`) | **OPERATIONAL** | Real-time multi-pane telemetry: SoC thermals (44.1°C), memory, NVMe I/O, live STT/TTS journal |
-| **Autonomous Fallback** | Pico 2 W Standalone Core | **OPERATIONAL** | 1000ms watchdog failover: Core 1 16 kHz Chiptune Synth (24 tracks), 21 animations, flash speech |
+Verified against [`firmware/include/config.h`](firmware/include/config.h) and [`docs/wiring/pinout.md`](docs/wiring/pinout.md). All Pico 2 W GPIOs are strictly **3.3 V logic**.
 
----
-
-## 🌟 43-LED Concentric Headpiece
-
-The physical headpiece features **43 addressable WS2812B RGB LEDs** arranged in three concentric rings centered around a single core gemstone:
-
-<p align="center">
-  <img src="docs/assets/concentric_rings.svg" alt="43-LED Concentric Headpiece Schematic" width="100%" />
-</p>
-
-### Ring Topology & Power Distribution
-
-| Ring Tier | LED Count | Angular Spacing | Logical Indices | Logical Function | Hardware Rail |
-| :--- | :---: | :---: | :---: | :--- | :---: |
-| **Core Gemstone** | **1** | — | `Index #00` | Center focal anchor & voice prompt status | 5V / VBUS (18% Cap) |
-| **Inner Ring 1** | **6** | 60° | `Indices #01 – #06` | High-speed vortex singularity & hours | 5V / VBUS (18% Cap) |
-| **Middle Ring 2**| **12** | 30° | `Indices #07 – #18` | Chromatic rainbow & minutes indicator | 5V / VBUS (18% Cap) |
-| **Outer Ring 3** | **24** | 15° | `Indices #19 – #42` | Star map orbits, plasma flares & seconds | 5V / VBUS (18% Cap) |
-
-- **Electrical Safety Cap:** Firmware enforces an unbreakable **18% global brightness ceiling** (`0x2E` maximum channel value), drawing less than 650 mA on full white while keeping LEDs cool to the touch.
-
-### 18 Firmware Animation Modes
-All animations execute at **33 Hz** driven by PIO DMA:
-`BREATHE` • `VORTEX` • `SNAKE` • `RAINBOW` • `PULSAR` • `PLASMA` • `STARS` • `VOICE` • `SOLAR` • `DATA_RECV` • `EXPAND_SPEECH` • `GALAXY` • `EARTH` • `HALLOWEEN` • `CLOCK_DIAL` • `CLOCK_HOURGLASS` • `CLOCK_PRISMATIC` • `CLOCK_ORRERY`.
+| Signal / Module | Physical Pin | GPIO | Function | Notes |
+| :--- | :---: | :---: | :--- | :--- |
+| **OLED SDA** | Pin 4 | `GP2` | `I2C1 SDA` | 400 kHz Fast-Mode |
+| **OLED SCL** | Pin 5 | `GP3` | `I2C1 SCL` | 3.3V pull-ups |
+| **Encoder CLK (A)** | Pin 9 | `GP6` | Digital In (IRQ) | Internal pull-up |
+| **Encoder DT (B)** | Pin 10 | `GP7` | Digital In | Internal pull-up |
+| **Encoder SW** | Pin 11 | `GP8` | Digital In | Push-button confirm (Active-LOW) |
+| **Query Button (PTT)** | Pin 12 | `GP9` | Digital In | Side push-to-talk trigger (Active-LOW) |
+| **INMP441 SCK** | Pin 14 | `GP10` | `PIO0 I2S BCLK` | 512 kHz bit clock (16 kHz sample rate) |
+| **INMP441 WS** | Pin 15 | `GP11` | `PIO0 I2S LRCLK` | 16 kHz word select |
+| **INMP441 SD** | Pin 16 | `GP12` | `PIO0 I2S RX` | 16-bit mono PCM input via DMA |
+| **WS2812B DIN** | Pin 20 | `GP15` | `PIO0 WS2812B` | Routed via `SN74AHCT125N` (`1A -> 1Y`) + `470 Ω` |
+| **MAX98357A BCLK** | Pin 21 | `GP16` | `PIO1 I2S BCLK` | 512 kHz bit clock |
+| **MAX98357A LRCLK** | Pin 22 | `GP17` | `PIO1 I2S LRCLK` | 16 kHz word select |
+| **MAX98357A DIN** | Pin 24 | `GP18` | `PIO1 I2S TX` | 16-bit mono PCM output via DMA |
+| **3V3 Logic Supply** | Pin 36 | `3V3(OUT)` | 3.3V Regulator Out | Powers `SH1106` OLED and `INMP441` mic |
+| **5V Power Supply** | Pin 40 | `VBUS` | 5V USB Rail | Powers `WS2812B` rings, `SN74AHCT125N`, and `MAX98357A` |
+| **Common Ground** | Pins 3, 8, 13, 18, 23, 28, 38 | `GND` | Star Ground | Shared 0V reference across staff modules |
 
 ---
 
-## 🔭 Unified Cosmos Navigation
-
-Astronomy, Keplerian orbits, and planetary navigation are consolidated into a single interactive viewport on both the staff OLED (`MODE_COSMOS`) and the companion Android app:
-
-<p align="center">
-  <img src="docs/assets/cosmos_zoom.svg" alt="Unified Cosmos Zoom Viewport" width="100%" />
-</p>
-
-1. **Level 0 — Milky Way Galaxy (`1x`)**: Spiral arm star map, rotating Perseus & Scutum-Centaurus arms, Sagittarius A* core, and blinking Sol beacon.
-2. **Level 1 — Solar System Orrery (`1,000x`)**: Keplerian planetary orbits (Mercury, Venus, Earth with Moon, Mars), dynamic directional presence arrow pointing to Earth.
-3. **Level 2 — Terra Planetary Globe (`1,000,000x`)**: Close-up globe with rotating continents, orbital Moon, and surface target reticle.
-4. **Interactive Controls:**
-   - **Click Encoder Switch:** Seamlessly transitions between zoom scales (`Galaxy` $\to$ `Solar` $\to$ `Terra` $\to$ `Galaxy`), triggers cosmic warp/portal chimes, and synchronizes the concentric LED rings (`LED_ANIM_GALAXY`, `LED_ANIM_SOLAR`, `LED_ANIM_EARTH`).
-   - **Rotate Encoder:** Scrubs planetary orbits and celestial rotation in real time.
-
----
-
-## 🖼️ Minimalist Cybernetic Architecture Scheme
-
-Mode `[01] ARCHITECTURE` on the staff OLED renders a pure pictogram schematic with zero text clutter:
-
-<p align="center">
-  <img src="docs/assets/cybernetic_hud.svg" alt="Cybernetic Architecture HUD" width="100%" />
-</p>
-
-- **Staff Node (Left):** Three concentric ring arcs, glowing center core, staff rod, and pulsing ethereal pinnacle sparks.
-- **Wireless Link (Center):** Radiating antenna wave arcs with bidirectional data packets flying between nodes.
-- **Host Node (Right):** Dynamic hardware silhouette reflecting active host — Raspberry Pi 5 with cooling fins and an animated 4-blade spinning fan, Smartphone silhouette with live equalizer audio bars, or Standalone IC chip.
-
----
-
-## 🧠 Dual-Brain AI Engine
-
-The staff rotary encoder menu `[04] AI CORE` dynamically switches the reasoning target between **Raspberry Pi 5 Brain** (`< PI 5 >`), **Companion Smartphone Brain** (`< PHONE >`), or **Mesh Auto-Detect** (`< AUTO >`), exposing the active host's live catalog on the OLED:
-
-### Raspberry Pi 5 AI Core Catalog
-
-| Preset ID | Menu Name | Badge | Engine / Model | Execution Target | Typical Latency |
-| :---: | :--- | :---: | :--- | :--- | :---: |
-| **[0]** | `DEEP THOUGHT` | `[42]` | DeepSeek V3 (`deepseek-chat`) | Cloud (OpenRouter) | ~2.5 – 3.5 s |
-| **[1]** | `EDDIE (8B)` | `[EDD]`| Ministral 8B (`ministral-8b-2512`) | Cloud (OpenRouter) | ~2.0 – 3.0 s |
-| **[2]** | `GROK 4.5` | `[GRK]`| Grok 4.5 (`x-ai/grok-4.5`) | Cloud (OpenRouter) | ~3.0 – 4.5 s |
-| **[3]** | `MARVIN (70B)` | `[MRV]`| Llama 3.3 70B Instruct | Cloud (OpenRouter) | ~3.5 – 5.0 s |
-| **[4]** | `QWEN 0.5B FAST` | `[Q05]`| **Qwen 2.5 0.5B (Distilled)** | **100% Offline Pi 5** | **~3.4 s** |
-| **[5]** | `GEMMA 4 (E2B)` | `[G4]` | **Gemma 4 Distilled 2B** | **100% Offline Pi 5** | **~10.2 s** |
-| **[6]** | `DEEPSEEK R1` | `[R1]` | **DeepSeek-R1 1.5B (Qwen Distill)** | **100% Offline Pi 5** | **~28.7 s (Thinking)** |
-| **[7]** | `QWEN 1.5B CORE` | `[Q15]`| **Qwen 2.5 1.5B (Multilingual Core)** | **100% Offline Pi 5** | **~6.5 s** |
-
-### Companion Smartphone AI Core Catalog (Pixel 9 Pro XL)
-
-| Preset ID | Menu Name | Badge | Engine / Model | Execution Target | Typical Latency |
-| :---: | :--- | :---: | :--- | :--- | :---: |
-| **[0]** | `GEMINI 2.5 FLASH` | `[G2.5-FL]` | **Google Gemini 2.5 Flash (Default)** | Cloud Streaming (OpenRouter) | **~1.2 – 2.0 s** |
-| **[1]** | `GEMMA 4 (E2B)` | `[G4-E2B]` | Gemma 4 Distilled 2B Multimodal Core | Cloud Streaming (OpenRouter) | ~1.5 – 2.5 s |
-| **[2]** | `GEMMA 4 (31B)` | `[G4-31B]` | Gemma 4 High-Parameter Arcane Core | Cloud Streaming (OpenRouter) | ~2.5 – 4.0 s |
-| **[3]** | `GEMMA 4 THINK` | `[G4-26B]` | Gemma 4 Deep Reasoning (26B CoT) | Cloud Streaming (OpenRouter) | ~3.0 – 5.0 s |
-| **[4]** | `GEMMA 3 (27B)` | `[G3-27B]` | Gemma 3 Conversational Polyglot | Cloud Streaming (OpenRouter) | ~2.8 – 4.5 s |
-| **[5]** | `PI 5 RELAY` | `[PI5]` | Mesh Relay to Raspberry Pi 5 Core | Local Wi-Fi Mesh | ~3.5 – 5.5 s |
-
-### Staff Rotary Encoder Operation
-1. Rotate encoder to menu `[04] AI CORE` and click the encoder switch to enter Core selection.
-2. The topmost item is the **Host Selector**: `HOST: < AUTO >`, `HOST: < PI 5 >`, or `HOST: < PHONE >`.
-3. Click the encoder switch on the Host Selector row to toggle the target host. The staff instantly swaps its active catalog to the selected host and locks network queries to that target.
-4. Rotate below the Host Selector to scroll through available models with the right-edge scrollbar track.
-5. Click on any model to activate it. The concentric WS2812B LED rings will immediately flash the model's signature theme (Azure, Amber, Magenta, Steel, or Emerald).
-
-### Local Models (Ollama on Pi 5 NVMe)
-1. **Alibaba Qwen 2.5 0.5B (`qwen2.5:0.5b`)**: Ultra-distilled low-latency offline core (~3.4 s end-to-end latency).
-2. **Google Gemma 4 Distilled 2B (`gemma4:e2b`)**: Rich retro-sci-fi reasoning (*"DON'T PANIC"*, Hitchhiker oracle personality).
-3. **DeepSeek-R1 1.5B (`deepseek-r1:1.5b`)**: Distilled reasoning model with transparent chain-of-thought `<think>` tags.
-4. **Alibaba Qwen 2.5 1.5B (`qwen2.5:1.5b`)**: High-speed multilingual polyglot (superb German & Russian reasoning).
-
-> **Voice Model Switching:** Hold QUERY and say *"Switch to Qwen"*, *"Switch to Gemma"*, or *"Switch to DeepSeek"* (also supports German *"Wechsel zu Gemma"* and Russian *"Включи гемму"*) to switch local models on the fly without touching any keyboard.
-
-### Language Dialects
-- **English [EN]** — Default primary dialect across all prompts, system messages, and voice responses.
-- **German [DE]** — Thorsten neural voice (`de_DE-thorsten-medium.onnx`).
-- **Russian [RU]** — Dmitri neural voice (`ru_RU-dmitri-medium.onnx`).
-
-### Speech Safety & Adult Mode (18+)
-By default, the AI Oracle operates in **PG-13 Family Safe Mode** with strict decency guardrails that forbid profanity, obscenities, vulgarity, and slang across all languages.
-- **Enable Adult Mode (18+):** Hold QUERY and say *"Enable adult mode"* or *"Adult mode on"*. The Oracle confirms: *"Attention! Decency filters disabled. Adult mode 18+ is now active."*
-- **Restore Family Mode (PG-13):** Hold QUERY and say *"Disable adult mode"* or *"Family mode"*. The Oracle confirms: *"Decency protocols restored. Family-friendly polite mode is now active."*
-
----
-
-## 📱 Native Android Companion
-
-Located in [`android/`](android/), the companion app for Android 15/16/17 (optimized for Google Pixel 9 Pro XL) features:
-- **Concentric LED Rings Visualizer**: Real-time 33 Hz Canvas rendering of all 43 physical LEDs with radial gradient halos and specular highlights, synchronized bidirectionally with Pico 2 W over UDP.
-- **Interactive Cosmos Zoom Canvas**: Multi-scale astronomy viewport (`Galaxy` $\to$ `Solar` $\to$ `Terra`) with pinch/tap zoom and Keplerian orbits.
-- **Phone Brain Server**: Transforms your smartphone into a portable AI Brain running Google Gemma on-device, servicing staff voice queries directly over Wi-Fi without needing a PC or Raspberry Pi 5.
-- **Pure Pictogram Connection Scheme**: Interactive 3-node diagram (`Phone` $\leftrightarrow$ `Staff` $\leftrightarrow$ `Pi 5`) with one-tap mode switching.
-
----
-
-## 📋 Firmware Modes Index
-
-Rotary encoder rotation switches between the 13 unified operating modes on the staff OLED:
-
-| Mode ID | Name | Function / Observable Behavior |
-|:---:|:---|:---|
-| **00** | `GUIDE` | Primary utilitarian HUD: real-time clock, Wi-Fi link status, active AI core, and audio gain |
-| **01** | `ARCHITECTURE` | Pure pictogram cybernetic schematic: Staff, wireless link waves, and active Host hardware |
-| **02** | `COSMOS` | Unified astronomy star map: click to zoom between Galaxy (1x), Solar (1k x), and Terra (1M x) |
-| **03** | `CHRONOS` | Celestial Chronometer: Dial, Hourglass, Prismatic, and Orrery time displays with time adjust |
-| **04** | `AI CORE` | Dynamic scrollable AI model selector (Deep Thought, Eddie, Grok, Marvin, Pi 5 Local) |
-| **05** | `LINGUA` | Voice TTS and STT dialect selector (English default, Auto, Deutsch, Russian) |
-| **06** | `VOLUME` | Master audio volume adjustment (0% to 100% logarithmic curve) |
-| **07** | `RUNE LEDS` | WS2812B animation preset gallery (18 distinct concentric ring patterns) |
-| **08** | `MIC VU` | Live INMP441 MEMS microphone peak VU meter and diagnostics |
-| **09** | `JUKEBOX` | 8-bit retro chiptune player |
-| **10** | `COSMIC FX` | Sci-Fi sound suite & R2-D2 astromech droids chirps, screams, and whistles |
-| **11** | `ORACLE` | Built-in flash-stored speech prophecies (English, German, Russian) |
-| **12** | `SYSTEM` | RP2350 hardware telemetry, CYW43 Wi-Fi RSSI, supply voltage, and uptime |
-
----
-
-## 🔌 Hardware Wiring & Pinout
-
-All connections use strictly **3.3 V logic** directly from the Raspberry Pi Pico 2 W (verified against `firmware/src/config.h` & `docs/wiring/pinout.md`):
-
-| Peripheral | Pico Physical Pin | RP2350 Function | Supply Rail | Notes |
-|:---|:---:|:---:|:---:|:---|
-| **SH1106 SDA** | Pin 4 | GPIO 2 (I2C1 SDA) | 3.3V | 128×64 Cybernetic OLED Data |
-| **SH1106 SCL** | Pin 5 | GPIO 3 (I2C1 SCL) | 3.3V | 128×64 Cybernetic OLED Clock |
-| **Encoder A (CLK)**| Pin 9 | GPIO 6 (Digital In) | 3.3V (Pull-up) | Bourns PEC11R Quadrature A |
-| **Encoder B (DT)** | Pin 10 | GPIO 7 (Digital In) | 3.3V (Pull-up) | Bourns PEC11R Quadrature B |
-| **Encoder Switch** | Pin 11 | GPIO 8 (Digital In) | 3.3V (Pull-up) | Bourns PEC11R Push-to-Confirm / Zoom Click |
-| **Query Button** | Pin 12 | GPIO 9 (Digital In) | 3.3V (Pull-up) | Momentary NO Push-to-Talk Trigger (Active-Low) |
-| **INMP441 SCK** | Pin 14 | GPIO 10 (PIO0 SM0 / I2S BCLK)| 3.3V | I2S Bit Clock (512 kHz, 16 kHz sample rate) |
-| **INMP441 WS** | Pin 15 | GPIO 11 (PIO0 SM0 / I2S LRC) | 3.3V | I2S Word Select / Frame Sync (16 kHz) |
-| **INMP441 SD** | Pin 16 | GPIO 12 (PIO0 SM0 / I2S RX)  | 3.3V | I2S Serial PCM Audio In (DMA Double-Buffering) |
-| **INMP441 L/R** | Pin 18 (GND) | GND | GND | Left Channel Select |
-| **WS2812B DIN** | Pin 20 | GPIO 15 (PIO0 SM1 / DMA) | 5V / VBUS Rail | 43 Concentric LEDs (7 Core + 12 Inner + 24 Outer, 18% cap) |
-| **MAX98357A BCLK**| Pin 21 | GPIO 16 (PIO1 SM0 / I2S BCLK)| 5V / VBUS Rail | I2S Bit Clock (512 kHz stereo slots, hardware sleep) |
-| **MAX98357A LRC** | Pin 22 | GPIO 17 (PIO1 SM0 / I2S LRC) | 5V / VBUS Rail | I2S Word Select / Frame Sync (16 kHz) |
-| **MAX98357A DIN** | Pin 24 | GPIO 18 (PIO1 SM0 / I2S TX)  | 5V / VBUS Rail | Serial Audio PCM Out into 3.2W Class-D Amp |
-| **MAX98357A GAIN**| — | Unconnected (Floating) | — | Hardware Default 9 dB Internal Gain |
-| **Common Ground** | Pins 3,8,13,18,23,28,38 | GND | 0V | Unified Star Ground Bus |
-| **3.3V Logic Rail**| Pin 36 | 3V3_OUT | 3.3V Rail | Supply to Sensors, OLED, and Mic |
-| **5.0V Power Bus** | Pin 40 | VBUS | 5V Rail | Supply to 43-LED array & MAX98357A Amp (1000µF cap) |
-
----
-
-## 📂 Repository Structure
+## Repository Structure
 
 ```text
 celestial_engine_project/
-├── .github/
-│   ├── workflows/             # GitHub Actions CI for Android & Core Engine
-│   └── ISSUE_TEMPLATE/        # Bug report, feature request & hardware templates
-├── android/                   # Native Android Companion (Kotlin & Jetpack Compose)
-│   └── app/src/main/java/     # 43-LED visualizer, Cosmos canvas, Phone Brain server
-├── docs/                      # Architecture, hardware inventory & 42 experiment logs
-│   ├── architecture/          # Dual-brain AI & Android companion architecture
-│   ├── experiments/           # Step-by-step breadboard verification journals
-│   ├── hardware/              # Bill of Materials & incident reviews
-│   └── wiring/                # Pinout table & safe logic diagrams
-├── firmware/                  # Raspberry Pi Pico 2 W (RP2350) firmware
-│   ├── include/               # Modular headers (net, audio, OLED, LEDs, fonts)
-│   └── src/                   # main.c, leds.c, audio.c, sh1106.c, net_client.c
-├── scripts/                   # Automated build & audio test harness scripts
-├── tests/                     # Native C probes & Python regression test suite
-└── tools/                     # Pi 5 AI Server, Ollama engine, Piper TTS & HUD scripts
+├── .github/workflows/     # CI pipelines for firmware, Android APK, and GitHub Pages
+├── android/               # Android 15+ Companion App (Kotlin, Jetpack Compose, UDP server)
+├── docs/                  # Technical documentation & GitHub Pages interactive simulator
+│   ├── architecture/      # System and dual-host design specifications
+│   ├── experiments/       # Hardware bring-up and verification logs (000..058)
+│   ├── hardware/          # Verified Bill of Materials and power safety notes
+│   ├── twin/              # Modular ES6 browser digital replica & pinout renderer
+│   └── wiring/            # Pinout allocation and breadboard wiring guides
+├── firmware/              # Raspberry Pi Pico 2 W (RP2350) C/C++ firmware
+│   ├── include/           # Hardware configuration, protocol, audio, OLED, and LED headers
+│   └── src/               # Dual-core main loop, PIO I2S drivers, SH1106, and UDP client
+├── scripts/               # PowerShell/Bash build and audio verification scripts
+├── tests/                 # C host probes and Python protocol regression tests
+└── tools/                 # Raspberry Pi 5 offline AI daemon (Whisper.cpp, Ollama, Piper)
 ```
 
 ---
 
-## 🛠️ Developer Quick Start
+## Build & Development Quick Start
 
-### 1. Build & Flash Staff Firmware (Pico 2 W)
+### 1. Build & Flash RP2350 Firmware (`firmware/`)
 ```powershell
-# From repository root on Windows
 cmake --build firmware/build --target celestial_firmware --parallel 4
-
-# Flash the compiled UF2 to the connected Pico 2 W
 Copy-Item firmware\build\celestial_firmware.uf2 <PICO_DRIVE_LETTER>:\
 ```
 
-### 2. Verify Audio Harness (Native C Probes)
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\check-audio.ps1
-```
-
-### 3. Run Python Protocol & Regression Tests
-```bash
-python -m unittest discover -s tests -v
-```
-
-### 4. Manage AI Brain Service on Raspberry Pi 5
-```bash
-# Check systemd daemon status
-sudo systemctl status celestial-brain.service
-
-# View live streaming speech transactions
-sudo journalctl -u celestial-brain.service -f
-
-# Launch interactive 3-pane Mission Control HUD (btop + SoC thermals + logs)
-hud
-# or
-bash tools/start_monitor.sh
-```
-
-### 5. Build Android Companion APK
+### 2. Build Android Companion APK (`android/`)
 ```bash
 cd android
 ./gradlew assembleDebug
-# APK generated at android/app/build/outputs/apk/debug/app-debug.apk
+# Output: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### 3. Run Verification & Acceptance Tests
+```bash
+# Protocol & firmware regression suite
+python -m unittest discover -s tests -v
+
+# Web simulator parity & safety checks
+python tools/test_twin_acceptance.py
+```
+
+### 4. Run Local Web Simulator (`docs/`)
+```bash
+python -m http.server 8080 --directory docs
+# Open http://localhost:8080
+```
+
+### 5. Raspberry Pi 5 Service Management (`tools/`)
+```bash
+sudo systemctl status celestial-brain.service
+sudo journalctl -u celestial-brain.service -f
 ```
 
 ---
 
-## 📚 Technical Documentation
+## Legal & Fair Use Notice
 
-- **[PROJECT.md](PROJECT.md)** — Core engineering mission and milestone tracking.
-- **[Hardware Inventory](docs/hardware/inventory.md)** — Complete Bill of Materials and module specifications.
-- **[Global Pinout Guide](docs/wiring/pinout.md)** — Safe electrical wiring rules and pin assignments.
-- **[Network Protocol v2](docs/protocol.md)** — Binary UDP framing, authentication, and packet layouts.
-- **[Experiment 041 — Standalone Offline AI](docs/experiments/041-rpi5-standalone-offline-ai.md)** — Raspberry Pi 5 Whisper + Ollama + Piper benchmarks.
-- **[Experiment 037 — NVMe Boot Migration](docs/experiments/037-rpi5-nvme-stand-alone-migration.md)** — Pimoroni Base and Lexar NM790 cutover.
-- **[Companion Security Protocol](docs/experiments/040-android-companion-remote-security.md)** — Zero-leak FNV-1a authenticated remote control.
-- **[Contributing Guide](CONTRIBUTING.md)** — Hands-on development rules, coding style, and safety protocols.
-- **[Security Policy](SECURITY.md)** — Network security, threat model, and family guardrails.
+All monophonic 8-bit chiptune sequences included in the standalone synthesizer are simplified educational demonstrations for microcontroller research under Fair Use (17 U.S.C. § 107). All original musical compositions and trademarks belong to their respective owners. *"Korobeiniki"* (1861) is in the Public Domain.
 
----
+## License
 
-## ⚖️ Legal Disclaimer & Fair Use Notice
-
-All 8-bit musical melodies and thematic LED animations featured in this project are original monophonic square-wave chiptune interpretations developed exclusively for non-commercial educational, research, and embedded microcontroller demonstration purposes under the doctrine of Fair Use (17 U.S. Code § 107).
-
-- All original compositions, trademarks, character likenesses, franchise titles, and logos referenced are the intellectual property of their respective copyright and trademark owners:
-  - *Nintendo Co., Ltd.* (The Legend of Zelda, Super Mario)
-  - *The Tetris Company, Inc.* (Tetris)
-  - *Lucasfilm Ltd. LLC / The Walt Disney Company* (Star Wars)
-  - *id Software LLC / Bethesda Softworks LLC / ZeniMax Media* (DOOM)
-  - *Columbia Pictures Industries, Inc. / Sony Pictures* (Ghostbusters)
-  - *Daft Life Ltd.* (Daft Punk)
-- *"Korobeiniki"* is an authentic 19th-century folk song (poem by Nikolay Nekrasov, 1861) and resides in the **Public Domain**.
-- **Celestial Engine Mk.V** is an independent, non-commercial open-source research and hobbyist robotics project. It is **not** affiliated with, endorsed by, sponsored by, or associated with any of the trademark or copyright owners mentioned above.
-
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE) © 2026 Andrey Holz.
-
-<div align="center">
-
-*CELESTIAL ENGINE Mk.V — Built for autonomous discovery, retro-futuristic exploration, and cosmic wisdom.*  
-**"DON'T PANIC."**
-
-</div>
+Released under the [MIT License](LICENSE). © 2026 Andrey Holz.

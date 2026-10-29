@@ -637,9 +637,24 @@
         case 1: // AI MODEL
           oledCtx.fillText('AI REASONING CORE', 24, 80);
           oledCtx.font = 'bold 24px "JetBrains Mono", monospace';
-          oledCtx.fillText('ACTIVE: GEMINI 2.5 FLASH', 24, 126);
+          oledCtx.fillText(window.__celestialTwinBridge && window.__celestialTwinBridge.oracleMode === 'local-ai' ? 'ACTIVE: LOCAL WEB AI' : 'ACTIVE: SCRIPTED / GEMINI', 24, 126);
           oledCtx.font = 'bold 18px "JetBrains Mono", monospace';
-          oledCtx.fillText('HOST  : PHONE BRAIN (UDP)', 24, 168);
+          oledCtx.fillText(`PERSONA: ${(window.__celestialTwinBridge && window.__celestialTwinBridge.personaTitle) || 'MACHINE GOD'}`, 24, 168);
+          break;
+
+        case 8: // VOICE ORACLE
+          {
+            const bridge = window.__celestialTwinBridge || {};
+            const pTitle = (bridge.personaTitle || 'MACHINE GOD').toUpperCase();
+            const stNames = ['IDLE', 'LISTENING', 'PROCESSING', 'SPEAKING'];
+            const stLabel = stNames[currentState] || 'IDLE';
+            oledCtx.fillText(`ORACLE: ${pTitle.slice(0, 14)} [${stLabel}]`, 24, 78);
+            oledCtx.font = 'bold 19px "JetBrains Mono", monospace';
+            const resp = String(bridge.lastResponse || 'Press QUERY or type an inquiry below.');
+            oledCtx.fillText(resp.slice(0, 26), 24, 122);
+            oledCtx.font = 'bold 17px "JetBrains Mono", monospace';
+            oledCtx.fillText(resp.slice(26, 54) || 'TURN: TUNE | SW: OK | GP9: PTT', 24, 164);
+          }
           break;
 
         case 3: // VOLUME
@@ -745,10 +760,33 @@
     renderOledScreen();
   }
 
+  let queryPressStartMs = 0;
+  let queryWasAlreadyRecording = false;
+
   function handleQueryButtonDown() {
     initAudioContext();
-    currentState = STATE_LISTENING;
     playTone(587.33, 40, 'sine');
+    queryPressStartMs = Date.now();
+
+    if (isChiptuneSubMode) {
+      currentState = STATE_LISTENING;
+      updateTelemetryUi();
+      renderOledScreen();
+      return;
+    }
+
+    if (typeof window.__celestialIsVoiceCapturing === 'function' && window.__celestialIsVoiceCapturing()) {
+      queryWasAlreadyRecording = true;
+      return;
+    }
+    queryWasAlreadyRecording = false;
+
+    if (typeof window.__celestialStartVoiceCapture === 'function') {
+      window.__celestialStartVoiceCapture();
+      return;
+    }
+
+    currentState = STATE_LISTENING;
     updateTelemetryUi();
     renderOledScreen();
   }
@@ -761,6 +799,21 @@
       currentState = STATE_IDLE;
       updateTelemetryUi();
       renderOledScreen();
+      return;
+    }
+
+    const heldDuration = Date.now() - queryPressStartMs;
+    if (typeof window.__celestialStopVoiceCapture === 'function') {
+      // If user clicked a second time while recording, or held PTT for > 450ms and released, stop & send!
+      // If it was a quick click (< 450ms) to start recording, keep recording open so user can speak!
+      if (queryWasAlreadyRecording || heldDuration > 450) {
+        window.__celestialStopVoiceCapture();
+      }
+      return;
+    }
+
+    if (typeof window.__celestialTriggerOracleQuery === 'function') {
+      window.__celestialTriggerOracleQuery();
       return;
     }
 
@@ -789,6 +842,20 @@
       });
     }, 900);
   }
+
+  // Expose bridge hooks for twin/controls.js
+  window.__celestialRenderOled = renderOledScreen;
+  window.__celestialSyncLegacyState = function (st) {
+    currentState = st;
+    updateTelemetryUi();
+    renderOledScreen();
+  };
+  window.__celestialSetAnimIdx = function (idx) {
+    currentAnimIdx = idx % ANIM_NAMES.length;
+    currentModeIdx = 5; // CORE FX
+    updateTelemetryUi();
+    renderOledScreen();
+  };
 
   // --- AUDIO SPECTRUM VISUALIZER ---
   const spectrumCanvas = document.getElementById('audio-spectrum-canvas');
@@ -985,16 +1052,16 @@
     },
     {
       id: 'query',
-      name: 'Momentary Query Button',
-      chip: 'Push-To-Talk Trigger',
+      name: 'Green Side Query Button (PTT)',
+      chip: 'Compact Momentary Push-To-Talk',
       category: 'AI Voice Trigger',
       voltage: '3.3V Logic',
       x: 210, y: 10, z: 15,
       expX: 210, expY: 10, expZ: 15,
-      asmX: 45, asmY: -10, asmZ: 15,
+      asmX: -55, asmY: 20, asmZ: 15,
       w: 56, h: 40,
-      color: '#3b82f6',
-      desc: 'Main inquiry button. Hold to activate 16 kHz I2S microphone streaming to Android Companion / Pi 5. Release to synthesize response.',
+      color: '#22c55e',
+      desc: 'Small green momentary push-button mounted on the side of the enclosure. Hold to activate 16 kHz I2S microphone streaming; release to trigger Oracle response.',
       pins: [
         { mod: 'Pin 1', pico: 'GPIO 9 (Pin 12)', func: 'PTT Interrupt', note: 'Pull-up, Active LOW' },
         { mod: 'Pin 2', pico: 'GND (Pin 13)', func: 'Ground', note: 'Common ground' }
@@ -1022,16 +1089,16 @@
     },
     {
       id: 'mic',
-      name: 'INMP441 I2S MEMS Mic',
-      chip: 'Omnidirectional MEMS',
+      name: 'INMP441 I2S Microphone (Yellow)',
+      chip: 'Omnidirectional MEMS + Acoustic Capsule',
       category: 'Audio Input',
       voltage: '3.3V (Strict)',
       x: -180, y: 20, z: 20,
       expX: -180, expY: 20, expZ: 20,
-      asmX: -45, asmY: -25, asmZ: 15,
+      asmX: 0, asmY: 120, asmZ: 10,
       w: 64, h: 44,
       color: '#8b5cf6',
-      desc: 'High-sensitivity digital microphone. Sampled via RP2350 PIO0 SM0 DMA into double buffers, streamed over UDP to smartphone / SBC.',
+      desc: 'High-sensitivity omnidirectional digital MEMS microphone mounted at the bottom of the enclosure for 16 kHz voice queries.',
       pins: [
         { mod: 'SCK (BCLK)', pico: 'GPIO 10 (Pin 14)', func: 'PIO0 Bit Clock', note: '512 kHz clock' },
         { mod: 'WS (LRC)', pico: 'GPIO 11 (Pin 15)', func: 'PIO0 Word Select', note: '16 kHz frame' },
@@ -1089,379 +1156,323 @@
     { from: 'pico', to: 'pi5', color: '#f59e0b', label: 'Wi-Fi UDP 5005', isWireless: true }
   ];
 
-  function project3D(x, y, z, cx, cy) {
-    // 3D Rotation matrices
-    const cosY = Math.cos(schemRotY);
-    const sinY = Math.sin(schemRotY);
-    const cosX = Math.cos(schemRotX);
-    const sinX = Math.sin(schemRotX);
+  let schemCircuitMode = 'all'; // Default to full direct pinout map
 
-    // Rotate around Y axis
-    const x1 = x * cosY - z * sinY;
-    const z1 = z * cosY + x * sinY;
+  let schemHitBoxes = [];
 
-    // Rotate around X axis
-    const y2 = y * cosX - z1 * sinX;
-    const z2 = z1 * cosX + y * sinX;
 
-    // Perspective projection
-    const fov = 450;
-    const dist = z2 + 550;
-    const scale = (dist > 10) ? (fov / dist) * schemZoom : 0.5;
-
-    return {
-      x: cx + x1 * scale,
-      y: cy + y2 * scale,
-      scale: scale,
-      depth: z2
-    };
-  }
 
   function renderSchematic(t) {
+
     if (!schematicCtx || !schematicCanvas) return;
-    const w = schematicCanvas.width;
-    const h = schematicCanvas.height;
-    const cx = w / 2;
-    const cy = h / 2;
 
-    schematicCtx.clearRect(0, 0, w, h);
+    if (typeof window.__celestialRenderBreadboard2D === 'function') {
 
-    // Smooth transition between exploded and assembled modes
-    const targetProgress = (schemMode === 'assembled') ? 1.0 : 0.0;
-    schemModeProgress += (targetProgress - schemModeProgress) * 0.07;
+      schemHitBoxes = window.__celestialRenderBreadboard2D(
 
-    // Interpolate component positions
-    SCHEMATIC_COMPONENTS.forEach(comp => {
-      comp.x = comp.expX + (comp.asmX - comp.expX) * schemModeProgress;
-      comp.y = comp.expY + (comp.asmY - comp.expY) * schemModeProgress;
-      comp.z = comp.expZ + (comp.asmZ - comp.expZ) * schemModeProgress;
-    });
+        schematicCtx,
 
-    if (autoOrbitSchem && !isDraggingSchem) {
-      schemRotY += 0.003;
+        schematicCanvas.width,
+
+        schematicCanvas.height,
+
+        {
+
+          circuitMode: schemCircuitMode,
+
+          selectedId: selectedComponentId,
+
+          ledNodes: LED_NODES,
+
+          timestamp: t
+
+        }
+
+      );
+
     }
 
-    // Grid platform
-    schematicCtx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-    schematicCtx.lineWidth = 1;
-    for (let gx = -250; gx <= 250; gx += 50) {
-      const p1 = project3D(gx, 100, -250, cx, cy);
-      const p2 = project3D(gx, 100, 250, cx, cy);
-      schematicCtx.beginPath();
-      schematicCtx.moveTo(p1.x, p1.y);
-      schematicCtx.lineTo(p2.x, p2.y);
-      schematicCtx.stroke();
-    }
-
-    // Physical Acrylic Flask Chassis (Assembled / Transition Mode)
-    if (schemModeProgress > 0.04) {
-      const pTop = project3D(0, -115, 0, cx, cy);
-      const pMid = project3D(0, 10, 0, cx, cy);
-      const pBase = project3D(0, 115, 0, cx, cy);
-      const flaskScale = pMid.scale;
-      const glassAlpha = schemModeProgress * 0.45;
-
-      schematicCtx.save();
-      // Glass body outline & ambient blue glow
-      schematicCtx.strokeStyle = `rgba(56, 189, 248, ${glassAlpha})`;
-      schematicCtx.lineWidth = 2 * flaskScale;
-      schematicCtx.fillStyle = `rgba(56, 189, 248, ${glassAlpha * 0.12})`;
-
-      // Dome outline at top
-      schematicCtx.beginPath();
-      schematicCtx.arc(pTop.x, pTop.y, 65 * flaskScale, Math.PI, 0, false);
-      schematicCtx.lineTo(pBase.x + 65 * flaskScale, pBase.y);
-      schematicCtx.arc(pBase.x, pBase.y, 65 * flaskScale, 0, Math.PI, false);
-      schematicCtx.lineTo(pTop.x - 65 * flaskScale, pTop.y);
-      schematicCtx.closePath();
-      schematicCtx.fill();
-      schematicCtx.stroke();
-
-      // Yellow Rotary Knob at base
-      const pKnob = project3D(0, 125, 0, cx, cy);
-      schematicCtx.fillStyle = `rgba(250, 204, 21, ${schemModeProgress * 0.95})`;
-      schematicCtx.shadowColor = '#facc15';
-      schematicCtx.shadowBlur = 10 * flaskScale;
-      schematicCtx.beginPath();
-      schematicCtx.arc(pKnob.x, pKnob.y, 16 * flaskScale, 0, Math.PI * 2);
-      schematicCtx.fill();
-      schematicCtx.shadowBlur = 0;
-      schematicCtx.restore();
-    }
-
-    // Draw wires with animated packet pulses
-    SCHEMATIC_WIRES.forEach((wire, wireIdx) => {
-      const c1 = SCHEMATIC_COMPONENTS.find(c => c.id === wire.from);
-      const c2 = SCHEMATIC_COMPONENTS.find(c => c.id === wire.to);
-      if (!c1 || !c2) return;
-
-      const p1 = project3D(c1.x, c1.y, c1.z, cx, cy);
-      const p2 = project3D(c2.x, c2.y, c2.z, cx, cy);
-
-      schematicCtx.strokeStyle = wire.isWireless ? 'rgba(56, 189, 248, 0.35)' : wire.color;
-      schematicCtx.lineWidth = wire.isWireless ? 1.5 : 2;
-      if (wire.isWireless) {
-        schematicCtx.setLineDash([4, 4]);
-      } else {
-        schematicCtx.setLineDash([]);
-      }
-
-      schematicCtx.beginPath();
-      schematicCtx.moveTo(p1.x, p1.y);
-      schematicCtx.lineTo(p2.x, p2.y);
-      schematicCtx.stroke();
-      schematicCtx.setLineDash([]);
-
-      // Animated traveling pulse
-      const pulseT = ((t * 0.001 * 0.8) + wireIdx * 0.35) % 1;
-      const px = p1.x + (p2.x - p1.x) * pulseT;
-      const py = p1.y + (p2.y - p1.y) * pulseT;
-
-      schematicCtx.fillStyle = wire.color;
-      schematicCtx.shadowColor = wire.color;
-      schematicCtx.shadowBlur = 8;
-      schematicCtx.beginPath();
-      schematicCtx.arc(px, py, 3.5, 0, Math.PI * 2);
-      schematicCtx.fill();
-      schematicCtx.shadowBlur = 0;
-    });
-
-    // Sort components by 3D depth for painter's algorithm
-    const sorted = [...SCHEMATIC_COMPONENTS].map(comp => {
-      const p = project3D(comp.x, comp.y, comp.z, cx, cy);
-      return { comp, p };
-    }).sort((a, b) => b.p.depth - a.p.depth);
-
-    // Draw component cards
-    sorted.forEach(({ comp, p }) => {
-      const isSel = (comp.id === selectedComponentId);
-      const bw = comp.w * p.scale;
-      const bh = comp.h * p.scale;
-      const bx = p.x - bw / 2;
-      const by = p.y - bh / 2;
-
-      // Card shadow
-      schematicCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      schematicCtx.fillRect(bx + 4, by + 4, bw, bh);
-
-      // Card Body
-      schematicCtx.fillStyle = isSel ? 'rgba(20, 30, 50, 0.95)' : 'rgba(10, 16, 28, 0.9)';
-      schematicCtx.strokeStyle = isSel ? '#38bdf8' : comp.color;
-      schematicCtx.lineWidth = isSel ? 2.5 : 1.2;
-
-      if (isSel) {
-        schematicCtx.shadowColor = '#38bdf8';
-        schematicCtx.shadowBlur = 14;
-      }
-
-      schematicCtx.beginPath();
-      schematicCtx.roundRect ? schematicCtx.roundRect(bx, by, bw, bh, 6) : schematicCtx.rect(bx, by, bw, bh);
-      schematicCtx.fill();
-      schematicCtx.stroke();
-      schematicCtx.shadowBlur = 0;
-
-      // Color top indicator bar
-      schematicCtx.fillStyle = comp.color;
-      schematicCtx.fillRect(bx, by, bw, 4 * p.scale);
-
-      // Component Name Text
-      schematicCtx.fillStyle = '#ffffff';
-      schematicCtx.font = `bold ${Math.max(8, Math.floor(10 * p.scale))}px "JetBrains Mono", monospace`;
-      schematicCtx.fillText(comp.id.toUpperCase(), bx + 6, by + 16 * p.scale);
-
-      schematicCtx.fillStyle = comp.color;
-      schematicCtx.font = `${Math.max(6, Math.floor(7.5 * p.scale))}px "JetBrains Mono", monospace`;
-      schematicCtx.fillText(comp.category, bx + 6, by + 28 * p.scale);
-    });
   }
+
+
 
   function selectSchematicComponent(id) {
+
     const comp = SCHEMATIC_COMPONENTS.find(c => c.id === id);
+
     if (!comp) return;
 
+
+
     selectedComponentId = id;
+
     const elTitle = document.getElementById('inspector-title');
+
     const elSub = document.getElementById('inspector-subtitle');
+
     const elDesc = document.getElementById('inspector-desc');
+
     const elTbody = document.getElementById('inspector-spec-tbody');
 
+
+
     if (elTitle) elTitle.textContent = comp.name;
+
     if (elSub) elSub.textContent = `${comp.chip} • ${comp.voltage}`;
+
     if (elDesc) elDesc.textContent = comp.desc;
 
+
+
     if (elTbody) {
+
       elTbody.innerHTML = '';
+
       comp.pins.forEach(pin => {
+
         const tr = document.createElement('tr');
+
         tr.innerHTML = `
+
           <td><strong>${pin.mod}</strong></td>
+
           <td style="color: #38bdf8;">${pin.pico}</td>
+
           <td>${pin.func}</td>
+
           <td style="color: var(--text-muted);">${pin.note}</td>
+
         `;
+
         elTbody.appendChild(tr);
+
       });
+
     }
+
   }
+
+
 
   function handleSchematicPointerDown(e) {
-    isDraggingSchem = true;
-    autoOrbitSchem = false;
-    lastMouseX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-    lastMouseY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
 
-    // Check hit test on components
+    if (!schematicCanvas) return;
+
     const rect = schematicCanvas.getBoundingClientRect();
-    const clickX = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
-    const clickY = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
-    const cx = schematicCanvas.width / 2;
-    const cy = schematicCanvas.height / 2;
 
-    for (const comp of SCHEMATIC_COMPONENTS) {
-      const p = project3D(comp.x, comp.y, comp.z, cx, cy);
-      const bw = comp.w * p.scale;
-      const bh = comp.h * p.scale;
-      if (Math.abs(clickX - p.x) <= bw / 2 && Math.abs(clickY - p.y) <= bh / 2) {
-        selectSchematicComponent(comp.id);
-        playTone(659.25, 20, 'sine');
-        break;
-      }
-    }
-  }
+    const scaleX = schematicCanvas.width / rect.width;
 
-  function handleSchematicPointerMove(e) {
-    if (!isDraggingSchem) return;
+    const scaleY = schematicCanvas.height / rect.height;
+
     const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+
     const clientY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
-    const dx = clientX - lastMouseX;
-    const dy = clientY - lastMouseY;
 
-    schemRotY += dx * 0.008;
-    schemRotX -= dy * 0.008;
+    const clickX = (clientX - rect.left) * scaleX;
 
-    if (schemRotX > 0.8) schemRotX = 0.8;
-    if (schemRotX < -0.6) schemRotX = -0.6;
+    const clickY = (clientY - rect.top) * scaleY;
 
-    lastMouseX = clientX;
-    lastMouseY = clientY;
+
+
+    for (let i = schemHitBoxes.length - 1; i >= 0; i--) {
+
+      const box = schemHitBoxes[i];
+
+      if (clickX >= box.x && clickX <= box.x + box.w && clickY >= box.y && clickY <= box.y + box.h) {
+
+        selectSchematicComponent(box.id);
+
+        playTone(659.25, 20, 'sine');
+
+        break;
+
+      }
+
+    }
+
   }
 
-  function handleSchematicPointerUp() {
-    isDraggingSchem = false;
-  }
+
 
   // --- MAIN LOOP ANIMATION ---
+
   let lastMarqueeTime = 0;
+
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+
+
   function animate(t) {
-    renderStarfield(t);
+
+    if (document.hidden) {
+
+      requestAnimationFrame(animate);
+
+      return;
+
+    }
+
+
+
+    if (!prefersReducedMotion) {
+
+      renderStarfield(t);
+
+    }
+
     updateLedColors(t);
+
     renderLeds();
 
-    if (t - lastMarqueeTime >= 50) {
-      marqueeOffset += 2;
-      lastMarqueeTime = t;
-      renderOledScreen();
+
+
+    if (typeof window.__celestialRenderReplicaFrame === 'function') {
+
+      window.__celestialRenderReplicaFrame(t, LED_NODES);
+
     }
+
+
+
+    if (t - lastMarqueeTime >= (prefersReducedMotion ? 250 : 50)) {
+
+      if (!prefersReducedMotion) marqueeOffset += 2;
+
+      lastMarqueeTime = t;
+
+      renderOledScreen();
+
+    }
+
+
 
     renderSpectrum();
+
     renderSchematic(t);
+
     requestAnimationFrame(animate);
+
   }
 
+
+
   // --- INITIALIZATION ---
+
   document.addEventListener('DOMContentLoaded', () => {
+
     initLedGeometry();
+
     initStarfield();
 
+
+
     // Sharp 512x256 buffer for OLED
+
     if (oledCanvas) {
+
       oledCanvas.width = 512;
+
       oledCanvas.height = 256;
+
     }
+
     if (ledCanvas) {
+
       ledCanvas.width = 310;
+
       ledCanvas.height = 310;
+
     }
+
     if (spectrumCanvas) {
+
       spectrumCanvas.width = spectrumCanvas.parentElement.clientWidth || 300;
+
       spectrumCanvas.height = 64;
+
     }
+
     if (schematicCanvas) {
+
       schematicCanvas.width = schematicCanvas.parentElement.clientWidth || 700;
+
       schematicCanvas.height = 480;
+
     }
+
+
 
     window.addEventListener('resize', () => {
+
       initStarfield();
+
       if (spectrumCanvas) {
+
         spectrumCanvas.width = spectrumCanvas.parentElement.clientWidth || 300;
+
       }
+
       if (schematicCanvas) {
+
         schematicCanvas.width = schematicCanvas.parentElement.clientWidth || 700;
+
       }
+
     });
 
-    // 3D Schematic Interactive Listeners
+
+
+    // 2D Breadboard Schematic Click Listener
+
     if (schematicCanvas) {
+
       schematicCanvas.addEventListener('mousedown', handleSchematicPointerDown);
-      window.addEventListener('mousemove', handleSchematicPointerMove);
-      window.addEventListener('mouseup', handleSchematicPointerUp);
 
       schematicCanvas.addEventListener('touchstart', handleSchematicPointerDown, { passive: true });
-      window.addEventListener('touchmove', handleSchematicPointerMove, { passive: true });
-      window.addEventListener('touchend', handleSchematicPointerUp, { passive: true });
 
-      schematicCanvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        schemZoom += e.deltaY < 0 ? 0.08 : -0.08;
-        if (schemZoom < 0.6) schemZoom = 0.6;
-        if (schemZoom > 1.8) schemZoom = 1.8;
-      }, { passive: false });
     }
 
-    // 3D Schematic Toolbar Buttons
-    const btnModeExp = document.getElementById('schem-btn-mode-exp');
-    const btnModeAsm = document.getElementById('schem-btn-mode-asm');
-    if (btnModeExp && btnModeAsm) {
-      btnModeExp.addEventListener('click', () => {
-        schemMode = 'exploded';
-        btnModeExp.classList.add('active');
-        btnModeAsm.classList.remove('active');
-      });
-      btnModeAsm.addEventListener('click', () => {
-        schemMode = 'assembled';
-        btnModeAsm.classList.add('active');
-        btnModeExp.classList.remove('active');
-      });
-    }
 
-    const btnResetView = document.getElementById('schem-btn-reset');
-    if (btnResetView) {
-      btnResetView.addEventListener('click', () => {
-        schemRotX = 0.38;
-        schemRotY = -0.45;
-        schemZoom = 1.0;
-        autoOrbitSchem = false;
-      });
-    }
 
-    const btnAutoOrbit = document.getElementById('schem-btn-orbit');
-    if (btnAutoOrbit) {
-      btnAutoOrbit.addEventListener('click', () => {
-        autoOrbitSchem = !autoOrbitSchem;
-        btnAutoOrbit.textContent = autoOrbitSchem ? '⏸ Pause' : '▶ Orbit';
-      });
-    }
+    // 2D Breadboard Wiring Example Buttons
 
-    const btnTopView = document.getElementById('schem-btn-top');
-    if (btnTopView) {
-      btnTopView.addEventListener('click', () => {
-        schemRotX = 1.57;
-        schemRotY = 0;
-        schemZoom = 1.0;
-        autoOrbitSchem = false;
+    const circuitMap = {
+
+      all: 'pico',
+
+      leds: 'leds',
+
+      oled: 'oled',
+
+      controls: 'query',
+
+      audio: 'mic'
+
+    };
+
+    document.querySelectorAll('.schematic-tool-btn[data-circuit]').forEach(btn => {
+
+      btn.addEventListener('click', () => {
+
+        const mode = btn.dataset.circuit || 'all';
+
+        schemCircuitMode = mode;
+
+        document.querySelectorAll('.schematic-tool-btn[data-circuit]').forEach(b => b.classList.remove('active'));
+
+        btn.classList.add('active');
+
+        if (circuitMap[mode]) {
+
+          selectSchematicComponent(circuitMap[mode]);
+
+        }
+
       });
-    }
+
+    });
+
+
 
     // Rotary Knob Controls
     const btnCenter = document.getElementById('knob-center-btn');

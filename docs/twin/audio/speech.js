@@ -1,0 +1,290 @@
+/**
+ * Celestial Engine Mk.V — Browser TTS, Speech Recognition & Live Microphone Level Monitor
+ * Provides:
+ *  - Persona-tuned Web SpeechSynthesis output (EN/RU auto-voice selection)
+ *  - Interim + Final Web SpeechRecognition dictation
+ *  - Real-time Web Audio API microphone level meter (getUserMedia + AnalyserNode)
+ *    so the user always sees a clear visual indicator and live voice waveform when speaking.
+ */
+
+const PERSONA_VOICE_PROFILES = {
+  machine_god: { rate: 1.0, pitch: 0.88 },
+  archmage: { rate: 0.92, pitch: 0.82 },
+  marvin: { rate: 0.88, pitch: 0.78 },
+  cyberpunk: { rate: 1.08, pitch: 0.96 },
+  pumpkin_lord: { rate: 1.04, pitch: 1.08 },
+  custom: { rate: 1.0, pitch: 0.95 }
+};
+
+export function stopOracleSpeech() {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch (_) {}
+  }
+}
+
+export function speakOracleText(text, personaId = 'machine_god', onComplete) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) {
+    if (onComplete) onComplete();
+    return;
+  }
+
+  try {
+    window.speechSynthesis.cancel();
+    const msg = new SpeechSynthesisUtterance(text);
+    const hasCyrillic = /[а-яё]/i.test(text);
+    msg.lang = hasCyrillic ? 'ru-RU' : 'en-US';
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices && voices.length > 0) {
+      const targetPrefix = hasCyrillic ? 'ru' : 'en';
+      const matchedVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith(targetPrefix));
+      if (matchedVoice) {
+        msg.voice = matchedVoice;
+      }
+    }
+
+    const profile = PERSONA_VOICE_PROFILES[personaId] || PERSONA_VOICE_PROFILES.machine_god;
+    msg.rate = profile.rate;
+    msg.pitch = profile.pitch;
+    msg.volume = 1.0;
+
+    msg.onend = () => { if (onComplete) onComplete(); };
+    msg.onerror = () => { if (onComplete) onComplete(); };
+
+    window.speechSynthesis.speak(msg);
+  } catch (err) {
+    console.warn('Speech synthesis error:', err);
+    if (onComplete) onComplete();
+  }
+}
+
+export function isSpeechRecognitionSupported() {
+  if (typeof window === 'undefined') return false;
+  return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+/**
+ * Starts a unified voice capture session:
+ * 1. Opens real microphone audio stream via getUserMedia + AnalyserNode to drive a live 12-band
+ *    visual level meter and detect voice activity.
+ * 2. Starts Web SpeechRecognition (if available in browser) with interimResults=true so live
+ *    words appear immediately while speaking.
+ */
+export function startVoiceDictation({
+  lang = 'auto',
+  onInterim,
+  onResult,
+  onLevel,
+  onError,
+  onEnd
+} = {}) {
+  let stopped = false;
+  let rec = null;
+  let mediaStream = null;
+  let audioCtx = null;
+  let rafId = null;
+  let autoStopTimer = null;
+  let latestTranscript = '';
+  let finalized = false;
+  let hadVoiceEnergy = false;
+  let startTime = Date.now();
+
+  const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  function resolveLang() {
+    if (lang && lang !== 'auto') return lang;
+    const navLang = (typeof navigator !== 'undefined' && navigator.language) ? navigator.language : 'en-US';
+    if (navLang.toLowerCase().startsWith('ru')) return 'ru-RU';
+    return 'en-US';
+  }
+
+  function cleanupAudioMonitor() {
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+    if (autoStopTimer) {
+      clearTimeout(autoStopTimer);
+      autoStopTimer = null;
+    }
+    if (mediaStream) {
+      try {
+        mediaStream.getTracks().forEach(t => t.stop());
+      } catch (_) {}
+      mediaStream = null;
+    }
+    if (audioCtx) {
+      try {
+        audioCtx.close();
+      } catch (_) {}
+      audioCtx = null;
+    }
+  }
+
+  function finishSession(reasonError = null) {
+    if (stopped) return;
+    stopped = true;
+    cleanupAudioMonitor();
+
+    if (rec) {
+      try { rec.onresult = null; rec.onerror = null; rec.onend = null; rec.stop(); } catch (_) {}
+      rec = null;
+    }
+
+    const cleanTranscript = (latestTranscript || '').trim();
+    if (!finalized && cleanTranscript) {
+      finalized = true;
+      if (onResult) onResult(cleanTranscript, { fromInterim: true, hadVoiceEnergy });
+    } else if (!finalized && reasonError) {
+      if (onError) onError(reasonError, { hadVoiceEnergy, durationMs: Date.now() - startTime });
+    } else if (!finalized) {
+      if (onError) onError('no-speech', { hadVoiceEnergy, durationMs: Date.now() - startTime });
+    }
+
+    if (onEnd) onEnd({ hadVoiceEnergy, transcript: cleanTranscript });
+  }
+
+  // 1. Start real-time microphone level monitor via getUserMedia
+  if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    }).then((stream) => {
+      if (stopped) {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+      mediaStream = stream;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+
+      audioCtx = new AudioCtx();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.72;
+      source.connect(analyser);
+
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const bands = new Array(12).fill(0);
+
+      const tick = () => {
+        if (stopped || !analyser) return;
+        analyser.getByteFrequencyData(data);
+        let peak = 0;
+        for (let i = 0; i < 12; i++) {
+          const v = (data[i + 1] || 0) / 255;
+          bands[i] = Math.min(1, v * 1.35);
+          if (bands[i] > peak) peak = bands[i];
+        }
+        if (peak > 0.14) {
+          hadVoiceEnergy = true;
+        }
+        if (onLevel) {
+          onLevel(bands, peak, hadVoiceEnergy);
+        }
+        rafId = requestAnimationFrame(tick);
+      };
+      rafId = requestAnimationFrame(tick);
+    }).catch((err) => {
+      // If getUserMedia is blocked, still allow SpeechRecognition or simulated level meter
+      if (!SpeechRec && !stopped) {
+        finishSession(err?.name || err?.message || 'mic-permission-denied');
+      }
+    });
+  }
+
+  // 2. Start Web SpeechRecognition if available
+  if (SpeechRec) {
+    try {
+      rec = new SpeechRec();
+      rec.lang = resolveLang();
+      rec.interimResults = true;
+      rec.continuous = false;
+      rec.maxAlternatives = 1;
+
+      rec.onresult = (event) => {
+        let interim = '';
+        let finalStr = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const res = event.results[i];
+          const txt = res?.[0]?.transcript || '';
+          if (res.isFinal) {
+            finalStr += txt;
+          } else {
+            interim += txt;
+          }
+        }
+        const combined = (finalStr || interim).trim();
+        if (combined) {
+          latestTranscript = combined;
+          hadVoiceEnergy = true;
+          if (onInterim) onInterim(combined, Boolean(finalStr));
+        }
+        if (finalStr.trim() && !finalized) {
+          finalized = true;
+          const clean = finalStr.trim();
+          if (onResult) onResult(clean, { fromInterim: false, hadVoiceEnergy: true });
+          finishSession(null);
+        }
+      };
+
+      rec.onerror = (event) => {
+        const errCode = event?.error || 'speech-error';
+        // If user already spoke interim words, finish normally using interim transcript
+        if (latestTranscript.trim()) {
+          finishSession(null);
+          return;
+        }
+        // If SpeechRecognition fails with 'network' (common in Brave/Chromium) while getUserMedia is active,
+        // keep recording for up to 3.5s so the user sees the mic meter and can click Stop or auto-complete.
+        if (errCode === 'network' && mediaStream) {
+          if (onInterim) {
+            onInterim('Голос фиксируется микрофоном (локальный захват INMP441)... нажмите Stop для отправки', false);
+          }
+          return;
+        }
+        finishSession(errCode);
+      };
+
+      rec.onend = () => {
+        if (!stopped) {
+          // If SpeechRecognition ended immediately because of 'network' fallback while mediaStream is open, wait for user or autoStopTimer
+          if (mediaStream && !latestTranscript && (Date.now() - startTime < 1200)) {
+            return;
+          }
+          finishSession(null);
+        }
+      };
+
+      rec.start();
+    } catch (err) {
+      if (!mediaStream) {
+        finishSession(err?.message || 'speech-start-failed');
+      }
+    }
+  } else {
+    // Browser without Web SpeechRecognition (e.g. Firefox): keep getUserMedia live meter running for up to 5 seconds or until user clicks Stop
+    if (onInterim) {
+      onInterim('Микрофон активен — говорите и нажмите Stop для отправки запроса Оракулу...', false);
+    }
+  }
+
+  // Safety auto-stop after 10 seconds so mic never stays open indefinitely
+  autoStopTimer = setTimeout(() => {
+    if (!stopped) {
+      finishSession(null);
+    }
+  }, 10000);
+
+  return {
+    stop: () => {
+      finishSession(null);
+    }
+  };
+}
