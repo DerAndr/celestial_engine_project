@@ -7,16 +7,18 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.2';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.2';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.2';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.2';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.2';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.3';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.3';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.3';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.3';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.3';
 
 let oracleProvider = null;
 let staff2D = null;
 let staff3D = null;
 let activeDictation = null;
+let pendingQueryAfterLoad = null;
+let userManuallyUnloadedAi = false;
 
 function setSafeText(id, text) {
   const el = document.getElementById(id);
@@ -147,6 +149,35 @@ export async function submitOracleQuery(questionText) {
     oracleProvider.cancel(state.activeRequestId);
   }
   stopOracleSpeech();
+
+  // Automatically load the Local AI LLM on first query (unless user explicitly unloaded it or loading failed)
+  if (!oracleProvider.isLocalModelReady() && !userManuallyUnloadedAi && state.aiStatus !== 'error') {
+    pendingQueryAfterLoad = q;
+    const modelKey = state.selectedModelKey || 'smollm2-135m';
+    const drawer = document.querySelector('.local-ai-optin-drawer');
+    if (drawer) drawer.open = true;
+
+    twinState.update({
+      staffState: STAFF_STATES.PROCESSING,
+      lastQuestion: q,
+      lastResponse: `⏳ Загрузка локальной LLM (${modelKey}) для генерации ответа на: "${q || 'status'}"...`,
+      aiErrorText: ''
+    });
+    if (typeof window.__celestialSyncLegacyState === 'function') {
+      window.__celestialSyncLegacyState(STAFF_STATES.PROCESSING);
+    }
+
+    if (state.aiStatus !== 'loading') {
+      twinState.update({
+        aiStatus: 'loading',
+        aiProgressPct: 2,
+        aiProgressText: `Initializing ${modelKey} worker...`
+      });
+      oracleProvider.initLocalModel(modelKey);
+    }
+    updateOracleUi();
+    return;
+  }
 
   const reqId = twinState.nextRequestId();
   const useLocalAi = state.oracleMode === 'local-ai' && oracleProvider.isLocalModelReady();
@@ -325,10 +356,15 @@ async function toggle3DView(enable) {
 export async function initTwinReplica() {
   oracleProvider = new OracleProvider({
     onProgress: (pct, status) => {
+      const curState = twinState.getState();
+      const pendingMsg = pendingQueryAfterLoad !== null
+        ? `⏳ Загрузка LLM (${pct}%) для ответа на "${pendingQueryAfterLoad}" — ${status}`
+        : curState.lastResponse;
       twinState.update({
         aiStatus: 'loading',
         aiProgressPct: pct,
         aiProgressText: status,
+        lastResponse: pendingMsg,
         aiErrorText: ''
       });
       updateOracleUi();
@@ -342,6 +378,12 @@ export async function initTwinReplica() {
         aiErrorText: ''
       });
       updateOracleUi();
+
+      if (pendingQueryAfterLoad !== null) {
+        const queuedQ = pendingQueryAfterLoad;
+        pendingQueryAfterLoad = null;
+        submitOracleQuery(queuedQ);
+      }
     },
     onError: (errMsg) => {
       twinState.update({
@@ -350,6 +392,12 @@ export async function initTwinReplica() {
         aiErrorText: `Model load failed: ${errMsg}. Using Scripted Demo Mode.`
       });
       updateOracleUi();
+
+      if (pendingQueryAfterLoad !== null) {
+        const queuedQ = pendingQueryAfterLoad;
+        pendingQueryAfterLoad = null;
+        submitOracleQuery(queuedQ);
+      }
     },
     onDisposed: () => {
       twinState.update({
@@ -529,6 +577,18 @@ export async function initTwinReplica() {
     if (activeDictation) return;
     stopOracleSpeech();
 
+    // Pre-warm Local AI model in background as soon as user starts speaking
+    const stNow = twinState.getState();
+    if (stNow.aiStatus === 'unloaded' && !userManuallyUnloadedAi) {
+      const mKey = stNow.selectedModelKey || 'smollm2-135m';
+      twinState.update({
+        aiStatus: 'loading',
+        aiProgressPct: 2,
+        aiProgressText: `Pre-loading ${mKey} while listening...`
+      });
+      oracleProvider.initLocalModel(mKey);
+    }
+
     const selectedLang = micLangSelect ? micLangSelect.value : 'auto';
     let receivedRealAudioLevels = false;
 
@@ -664,6 +724,7 @@ export async function initTwinReplica() {
   const loadAiBtn = document.getElementById('btn-load-ai');
   if (loadAiBtn) {
     loadAiBtn.addEventListener('click', () => {
+      userManuallyUnloadedAi = false;
       const modelKey = twinState.getState().selectedModelKey;
       twinState.update({
         aiStatus: 'loading',
@@ -679,6 +740,8 @@ export async function initTwinReplica() {
   const unloadAiBtn = document.getElementById('btn-unload-ai');
   if (unloadAiBtn) {
     unloadAiBtn.addEventListener('click', () => {
+      userManuallyUnloadedAi = true;
+      pendingQueryAfterLoad = null;
       oracleProvider.unloadLocalModel();
     });
   }

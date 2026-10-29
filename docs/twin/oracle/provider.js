@@ -4,8 +4,8 @@
  * instant Scripted Demo responses, and opt-in Local AI Web Worker inference.
  */
 
-import { getScriptedResponse } from './scripted.js?v=1.2.1';
-import { LocalLlmClient, MODEL_INFO, probeWebGpuSupport } from './llm.js?v=1.2.1';
+import { getScriptedResponse } from './scripted.js?v=1.2.3';
+import { LocalLlmClient, MODEL_INFO, probeWebGpuSupport } from './llm.js?v=1.2.3';
 
 export { MODEL_INFO, probeWebGpuSupport };
 

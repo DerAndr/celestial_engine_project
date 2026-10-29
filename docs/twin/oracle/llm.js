@@ -31,13 +31,8 @@ export async function probeWebGpuSupport() {
     if (!adapter) {
       return { available: false, label: 'No compatible WebGPU adapter found' };
     }
-    const device = await adapter.requestDevice();
-    if (!device) {
-      return { available: false, label: 'WebGPU device creation failed' };
-    }
     const info = adapter.info || {};
     const label = [info.vendor, info.architecture, info.description].filter(Boolean).join(' ') || 'WebGPU Hardware Adapter';
-    device.destroy();
     return { available: true, label };
   } catch (err) {
     return { available: false, label: err && err.message ? err.message : 'WebGPU probe error' };
@@ -58,7 +53,7 @@ export class LocalLlmClient {
 
   ensureWorker() {
     if (this.worker) return;
-    const workerUrl = new URL('./worker.js', import.meta.url);
+    const workerUrl = new URL('./worker.js?v=1.2.3', import.meta.url);
     this.worker = new Worker(workerUrl, { type: 'module' });
 
     this.worker.addEventListener('message', (e) => {
