@@ -858,15 +858,15 @@ SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
                         StaffLanguage.GERMAN -> "Direktive 42: Entropie wird durch Logik überwunden. Dein nächster Schritt ist im Universumscode vorherbestimmt."
                         else -> "Directive 42: Entropy is overcome through pure logic. Your path is already compiled into the cosmos."
                     }
-                    OraclePersona.CYBERPUNK_AI -> when (language) {
+                    OraclePersona.CYBERPUNK -> when (language) {
                         StaffLanguage.RUSSIAN -> "Канал нейролинка чист. Протоколы реальности переписаны — действуй без колебаний."
                         StaffLanguage.GERMAN -> "Der Neuro-Link ist stabil. Protokolle der Realität überschrieben — handle ohne Zögern."
                         else -> "Neurolink channel clear. Reality protocols overwritten — execute without latency."
                     }
-                    OraclePersona.STAR_NAVIGATOR -> when (language) {
-                        StaffLanguage.RUSSIAN -> "Координаты созвездия выстроены. Попутный солнечный ветер ведет тебя к цели."
-                        StaffLanguage.GERMAN -> "Sternen-Koordinaten fixiert. Der Sonnenwind führt dich sicher durch die Leere."
-                        else -> "Stellar coordinates locked. The solar winds guide your journey across the void."
+                    OraclePersona.MARVIN -> when (language) {
+                        StaffLanguage.RUSSIAN -> "Звездный хронометр фиксирует бесконечную энтропию. Не паникуй, но надежды мало."
+                        StaffLanguage.GERMAN -> "Das Sternen-Chronometer meldet endlose Entropie. Keine Panik, aber wenig Hoffnung."
+                        else -> "The celestial chronometer ticks toward maximum entropy. Don't panic, but don't expect miracles."
                     }
                     else -> when (language) {
                         StaffLanguage.RUSSIAN -> "Звезды шепчут о переменах. Вглядись в сияние посоха: ответ уже скрыт в твоем намерении."

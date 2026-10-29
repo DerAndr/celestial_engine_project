@@ -718,7 +718,7 @@ fun OracleTerminalScreen(
                                 Toast.makeText(context, "Key cleared — 100% Offline Edge Mode active", Toast.LENGTH_SHORT).show()
                             }
                         ) {
-                            Text("CLEAR (OFFLINE)", color = CrimsonRed, fontSize = 11.sp)
+                            Text("CLEAR (OFFLINE)", color = NeonMagenta, fontSize = 11.sp)
                         }
                         TextButton(
                             onClick = { showApiSettingsDialog = false }
