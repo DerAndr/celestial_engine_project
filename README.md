@@ -10,7 +10,80 @@ Embedded RP2350 controller, full-duplex I2S audio node, 43-LED concentric WS2812
 
 ## Overview
 
-**Celestial Engine Mk.V** is a hardware and software platform built around the **Raspberry Pi Pico 2 W (RP2350)**. The staff operates as a real-time embedded peripheral node over Wi-Fi (UDP port `5005`) while maintaining a deterministic local fallback mode on Core 1 if no external host is connected.
+**Celestial Engine Mk.V** is a hardware and software platform built around the **Raspberry Pi Pico 2 W (RP2350)**. The staff operates as a real-time embedded peripheral node over Wi-Fi (UDP port `5005`) while maintaining a deterministic local fallback mode on Core 1 (21 onboard 8-bit chiptunes, 14 cosmic/R2-D2 sound effects, and 28 concentric LED patterns) if no external host is connected.
+
+> **DIY Maker & Halloween Prop Disclaimer:** Celestial Engine Mk.V is a personal open-source embedded hardware project built as an interactive Halloween / cosplay prop and RP2350 engineering testbed. Festive LED effects and 8-bit chiptune interpretations are included strictly for non-commercial hobbyist demonstration.
+
+---
+
+## System Architecture & Real-Time Audio / Local LLM Streaming
+
+### 1. Primary Architecture (Default): Staff ⇄ Android Smartphone Hotspot
+
+In standard operation, only **two devices** are required: the physical **Staff (`Pico 2 W / RP2350`)** and an **Android Smartphone** running the companion app (`v1.1.2`) with its mobile Wi-Fi hotspot enabled (`10.169.248.1`).
+
+```mermaid
+flowchart LR
+    subgraph STAFF["1. Physical Staff (Pico 2 W / RP2350)"]
+        MIC["INMP441 I2S Mic\n(GP10-12 • 16 kHz PCM)"]
+        PTT["Side QUERY Button\n(GP9 • Push-to-Talk)"]
+        MCU["RP2350 Dual Cortex-M33\nCore 0: Wi-Fi UDP + OLED\nCore 1: PIO I2S + 43 LEDs"]
+        SPK["MAX98357A I2S Amp + 3W Spkr\n(GP16-18 • 64 KB Ring Buffer)"]
+        HUD["1.3\" SH1106 I2C OLED\n+ 43 WS2812B Rings (GP15)"]
+        MIC --> MCU
+        PTT --> MCU
+        MCU --> SPK
+        MCU --> HUD
+    end
+
+    subgraph PHONE["2. Android Smartphone (Primary Host • 10.169.248.1)"]
+        HOTSPOT["Wi-Fi Hotspot Gateway\nBinary UDP v2 (:5005)"]
+        STT["Speech-to-Text (STT)\n16 kHz PCM Stream Decoder"]
+        LLM["Oracle Persona Engine\n(On-Device / Cloud / Local Relay)"]
+        TTS["16 kHz TTS Pacer\n(1024 B / 32 ms UDP Chunks)"]
+        HOTSPOT --> STT --> LLM --> TTS --> HOTSPOT
+    end
+
+    MCU -- "UDP :5005 Uplink\n16 kHz Mono PCM (640 B / 20 ms) + PTT" --> HOTSPOT
+    HOTSPOT -- "UDP :5005 Downlink\n16 kHz TTS Audio + OLED Text + LED Effect ID" --> MCU
+```
+
+### 2. Optional Expansion Architecture: Staff ⇄ Android Phone ⇄ Wearable Raspberry Pi 5 (Local LLMs)
+
+For **100% offline air-gapped operation** using local open-weight LLMs without draining the smartphone battery, an optional wearable **Raspberry Pi 5 (16 GB RAM + 1 TB NVMe SSD + X1209 UPS)** connects to the same smartphone Wi-Fi hotspot (`10.169.248.x`) and runs `celestial-brain.service`.
+
+```mermaid
+flowchart LR
+    STAFF["1. Physical Staff\nPico 2 W (RP2350)\nI2S Mic + Amp + 43 LEDs + OLED"]
+    PHONE["2. Android Smartphone\nWi-Fi Hotspot (10.169.248.1)\nTelemetry UI & Mode Control"]
+    subgraph PI5["3. Optional Wearable Raspberry Pi 5 (16 GB RAM Local AI Node)"]
+        WHISPER["Whisper.cpp\n(Offline Speech-to-Text)"]
+        OLLAMA["Ollama Local LLMs\n(qwen2.5:0.5b / 1.5b • gemma4:e2b)"]
+        PIPER["Piper C++ ONNX\n(Low-Latency Neural TTS)"]
+        WHISPER --> OLLAMA --> PIPER
+    end
+
+    STAFF <== "UDP :5005\n16 kHz Audio + Telemetry" ==> PHONE
+    PHONE <== "Local Wi-Fi LAN\nPrompt / Audio Relay" ==> PI5
+    STAFF -. "Direct Offline Mode\nUDP :5005 (No Phone Required)" .-> PI5
+```
+
+### 3. How Local LLMs & Real-Time UDP Streaming Work
+
+1. **Push-to-Talk & I2S DMA Capture (Uplink):**
+   - Holding the side `QUERY` button (`GP9`) transitions the staff state machine into `LISTENING`.
+   - RP2350 **Core 1** reads 32-bit I2S samples from the `INMP441` microphone via `PIO0 SM1`, converts them to 16-bit 16 kHz mono PCM, and streams `640-byte` (`20 ms`) UDP v2 packets (`0x04` audio frames with CRC-16-CCITT) to port `5005`.
+2. **Speech Recognition & Local LLM Generation:**
+   - Releasing `QUERY` sends a `PTT_RELEASE` event (`0x05`) and switches the staff to `THINKING` (spinning cosmic vortex on the 43 LEDs).
+   - The host (`Android` or optional `Raspberry Pi 5`) transcribes the recorded PCM stream via `Whisper.cpp` / Android STT and queries the selected persona using **Ollama** (`qwen2.5:0.5b`, `qwen2.5:1.5b`, `gemma4:e2b`) or in-browser **Transformers.js ONNX WebGPU** in the web simulator.
+3. **Sentence-Chunked TTS & Visual Synchronization:**
+   - As the LLM generates tokens, completed clauses are immediately synthesized into `16 kHz` 16-bit mono PCM audio via **Piper ONNX** (`<300 ms` latency) or Android TTS.
+   - Before audio frames begin, the host sends an OLED text packet (`0x03`) and a thematic LED effect command (`0x01`) so the 1.3" `SH1106` display scrolls the response while the 43 concentric LEDs switch to the matching spell animation.
+4. **Zero-Stutter 64 KB Ring Buffer Playback (Downlink):**
+   - The host paces `1024-byte` (`32 ms`) PCM packets over UDP back to the staff.
+   - RP2350 **Core 0** pushes incoming audio into a lock-free **64 KB circular ring buffer** (`2.04 seconds` of buffer capacity), and **Core 1** streams the samples via DMA through `PIO1 SM0` to the `MAX98357A` Class-D amplifier without blocking LED or OLED updates.
+
+---
 
 ### Core Subsystems
 

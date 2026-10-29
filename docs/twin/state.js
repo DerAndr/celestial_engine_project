@@ -38,7 +38,7 @@ export const FIRMWARE_EFFECTS = [
   { id: 8, name: 'SOLAR ORRERY', ringDesc: 'Kinematic concentric planetary orbits' },
   { id: 9, name: 'RADAR RIPPLE', ringDesc: 'Concentric data reception radar ripples' },
   { id: 10, name: 'SONIC EXPAND', ringDesc: 'Expanding sonic ripples from core to rim' },
-  { id: 11, name: 'GALACTIC MARCH', ringDesc: 'Crimson Sith pulse & Imperial strobe' },
+  { id: 11, name: 'STAR WARS DUEL', ringDesc: 'Lightsaber duel: Sith crimson vs Jedi cyan clash' },
   { id: 12, name: 'TETRIS BLOCKS', ringDesc: 'Concentric tetromino cycle & line clear' },
   { id: 13, name: 'TRIFORCE HYMN', ringDesc: 'Golden sacred core & emerald outer aura' },
   { id: 14, name: 'DOOM HELLFIRE', ringDesc: 'Crimson hellfire & BFG9000 plasma surge' },
@@ -50,7 +50,11 @@ export const FIRMWARE_EFFECTS = [
   { id: 20, name: 'CHROMA PRISMATIC', ringDesc: 'Full spectral color-encoded astronomical clock' },
   { id: 21, name: 'AETHER HOURGLASS', ringDesc: 'Orientation-free concentric sand accumulator' },
   { id: 22, name: 'SACRED POLYGON', ringDesc: 'Triquetra, Hexagram & Dodecagram runes' },
-  { id: 23, name: 'LUNAR GUARDIAN', ringDesc: 'Moon Prism pastel transformation spiral' }
+  { id: 23, name: 'SAILOR MOON', ringDesc: 'Moon Prism pastel transformation spiral' },
+  { id: 24, name: 'HARRY POTTER', ringDesc: 'Hogwarts 4-House colors & Lumos core flash' },
+  { id: 25, name: 'POKEMON POKEBALL', ringDesc: 'Red & white Pokéball with pulsing center button' },
+  { id: 26, name: 'EBAY AUCTION', ringDesc: '4-color auction strobe & gavel shockwave' },
+  { id: 27, name: 'TERRA PLANET', ringDesc: 'Azure oceans, emerald continents & polar aurora' }
 ];
 
 export const CUSTOM_PROMPT_STORAGE_KEY = 'celestial_twin_custom_prompt_v1';

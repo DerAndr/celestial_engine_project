@@ -245,7 +245,7 @@ export function startVoiceDictation({
         // keep recording for up to 3.5s so the user sees the mic meter and can click Stop or auto-complete.
         if (errCode === 'network' && mediaStream) {
           if (onInterim) {
-            onInterim('Голос фиксируется микрофоном (локальный захват INMP441)... нажмите Stop для отправки', false);
+            onInterim('Capturing voice via microphone (INMP441 stream)... click Stop & Send to submit', false);
           }
           return;
         }
@@ -271,7 +271,7 @@ export function startVoiceDictation({
   } else {
     // Browser without Web SpeechRecognition (e.g. Firefox): keep getUserMedia live meter running for up to 5 seconds or until user clicks Stop
     if (onInterim) {
-      onInterim('Микрофон активен — говорите и нажмите Stop для отправки запроса Оракулу...', false);
+      onInterim('Microphone active — speak your question and click Stop & Send to submit...', false);
     }
   }
 

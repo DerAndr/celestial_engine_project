@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.4';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.4';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.4';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.4';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.4';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.5';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.5';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.5';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.5';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.5';
 
 let oracleProvider = null;
 let staff2D = null;
@@ -160,7 +160,7 @@ export async function submitOracleQuery(questionText) {
     twinState.update({
       staffState: STAFF_STATES.PROCESSING,
       lastQuestion: q,
-      lastResponse: `⏳ Загрузка локальной LLM (${modelKey}) для генерации ответа на: "${q || 'status'}"...`,
+      lastResponse: `⏳ Loading local LLM (${modelKey}) to generate response for: "${q || 'status'}"...`,
       aiErrorText: ''
     });
     if (typeof window.__celestialSyncLegacyState === 'function') {
@@ -358,7 +358,7 @@ export async function initTwinReplica() {
     onProgress: (pct, status) => {
       const curState = twinState.getState();
       const pendingMsg = pendingQueryAfterLoad !== null
-        ? `⏳ Загрузка LLM (${pct}%) для ответа на "${pendingQueryAfterLoad}" — ${status}`
+        ? `⏳ Loading local LLM (${pct}%) for "${pendingQueryAfterLoad}" — ${status}`
         : curState.lastResponse;
       twinState.update({
         aiStatus: 'loading',
@@ -548,7 +548,7 @@ export async function initTwinReplica() {
     }
     if (hudMicStatusPill) {
       hudMicStatusPill.textContent = isRec
-        ? '🔴 ● REC — ЗАПИСЬ РЕЧИ (INMP441 MIC ACTIVE)'
+        ? '🔴 ● REC — RECORDING SPEECH (INMP441 MIC ACTIVE)'
         : 'GP9 (Pin 12) / Side PTT Button';
       hudMicStatusPill.style.color = isRec ? '#f87171' : '';
     }
@@ -596,14 +596,14 @@ export async function initTwinReplica() {
 
     twinState.update({
       staffState: STAFF_STATES.LISTENING,
-      lastResponse: '🔴 ЗАПИСЬ РЕЧИ (INMP441 16 kHz I2S)... Говорите в микрофон и нажмите Stop Rec / Stop & Send.',
+      lastResponse: '🔴 RECORDING SPEECH (INMP441 16 kHz I2S)... Speak into the microphone and click Stop & Send.',
       aiErrorText: ''
     });
     if (typeof window.__celestialSyncLegacyState === 'function') {
       window.__celestialSyncLegacyState(STAFF_STATES.LISTENING);
     }
     updateOracleUi();
-    setMicRecordingUi(true, '🎙️ Слушаю микрофон... Говорите вопрос (RU / EN)...');
+    setMicRecordingUi(true, '🎙️ Listening to microphone... Speak your question (EN / RU)...');
 
     // Fallback animated level bars until getUserMedia stream delivers real FFT samples
     simMeterInterval = setInterval(() => {
@@ -617,10 +617,10 @@ export async function initTwinReplica() {
       lang: selectedLang,
       onInterim: (liveText) => {
         if (micLiveTranscript) {
-          micLiveTranscript.textContent = `🗣️ Распознано: "${liveText}"`;
+          micLiveTranscript.textContent = `🗣️ Recognized: "${liveText}"`;
         }
         const inputEl = document.getElementById('oracle-question-input');
-        if (inputEl && liveText && !liveText.startsWith('Голос фиксируется') && !liveText.startsWith('Микрофон активен')) {
+        if (inputEl && liveText && !liveText.startsWith('Capturing voice') && !liveText.startsWith('Microphone active')) {
           inputEl.value = liveText;
         }
       },
@@ -642,7 +642,7 @@ export async function initTwinReplica() {
         if (errCode === 'not-allowed' || errCode === 'service-not-allowed' || errCode === 'mic-permission-denied') {
           twinState.update({
             staffState: STAFF_STATES.IDLE,
-            lastResponse: 'Доступ к микрофону запрещен в браузере. Разрешите доступ к микрофону в адресной строке или введите вопрос текстом.',
+            lastResponse: 'Microphone access is blocked in your browser. Please allow microphone permission in the address bar or type your question.',
             aiErrorText: 'Microphone permission denied by browser settings.'
           });
           if (typeof window.__celestialSyncLegacyState === 'function') {
@@ -656,13 +656,13 @@ export async function initTwinReplica() {
         if (existingText) {
           submitOracleQuery(existingText);
         } else if (meta.hadVoiceEnergy || errCode === 'no-speech' || errCode === 'network') {
-          const fallbackVoicePrompt = 'How does the Celestial Engine Mk.V hardware and yellow INMP441 microphone work?';
+          const fallbackVoicePrompt = 'How does the Celestial Engine Mk.V hardware and INMP441 microphone work?';
           if (inputEl) inputEl.value = fallbackVoicePrompt;
           submitOracleQuery(fallbackVoicePrompt);
         } else {
           twinState.update({
             staffState: STAFF_STATES.IDLE,
-            aiErrorText: `Голосовой ввод завершен (${errCode}). Попробуйте еще раз или введите вопрос.`
+            aiErrorText: `Voice input ended (${errCode}). Please try again or type your question.`
           });
           if (typeof window.__celestialSyncLegacyState === 'function') {
             window.__celestialSyncLegacyState(STAFF_STATES.IDLE);

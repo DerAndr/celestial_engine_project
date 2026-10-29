@@ -109,86 +109,368 @@
     }
   }
 
-  // Chiptune Tracks (Note frequencies and durations matching RP2350 audio.c)
+  // 21 Authentic 8-Bit Chiptune Melodies from firmware/src/audio.c (RP2350 16 kHz Synth)
   const TRACKS = [
-    {
-      name: 'INFERNAL PHOBOS (8-BIT)',
-      anim: 14, // INFERNAL
+    { // 0: DOOM E1M1
+      name: 'DOOM E1M1 (AT DOOM\'S GATE)',
+      anim: 14, // DOOM HELLFIRE
       notes: [
-        { f: 82.4, d: 130 }, { f: 82.4, d: 130 }, { f: 164.8, d: 130 }, { f: 82.4, d: 130 },
-        { f: 82.4, d: 130 }, { f: 146.8, d: 130 }, { f: 82.4, d: 130 }, { f: 82.4, d: 130 },
-        { f: 138.6, d: 130 }, { f: 82.4, d: 130 }, { f: 82.4, d: 130 }, { f: 130.8, d: 130 },
-        { f: 82.4, d: 130 }, { f: 82.4, d: 130 }, { f: 138.6, d: 130 }, { f: 146.8, d: 130 },
-        { f: 82.4, d: 130 }, { f: 82.4, d: 130 }, { f: 164.8, d: 130 }, { f: 82.4, d: 130 },
-        { f: 82.4, d: 130 }, { f: 146.8, d: 130 }, { f: 82.4, d: 130 }, { f: 82.4, d: 130 },
-        { f: 138.6, d: 130 }, { f: 82.4, d: 130 }, { f: 82.4, d: 130 }, { f: 116.5, d: 260 }
+        { f: 82.41, d: 42 }, { f: 0, d: 84 }, { f: 82.41, d: 158 }, { f: 164.81, d: 116 },
+        { f: 82.41, d: 42 }, { f: 0, d: 95 }, { f: 82.41, d: 148 }, { f: 146.83, d: 116 },
+        { f: 82.41, d: 42 }, { f: 0, d: 95 }, { f: 82.41, d: 137 }, { f: 130.81, d: 126 },
+        { f: 82.41, d: 42 }, { f: 0, d: 95 }, { f: 82.41, d: 148 }, { f: 116.54, d: 116 },
+        { f: 82.41, d: 63 }, { f: 0, d: 74 }, { f: 82.41, d: 137 }, { f: 123.47, d: 137 },
+        { f: 130.81, d: 158 }, { f: 0, d: 105 }, { f: 82.41, d: 137 }, { f: 164.81, d: 137 },
+        { f: 82.41, d: 42 }, { f: 0, d: 84 }, { f: 82.41, d: 158 }, { f: 146.83, d: 116 },
+        { f: 82.41, d: 42 }, { f: 0, d: 84 }, { f: 82.41, d: 137 }, { f: 130.81, d: 137 },
+        { f: 82.41, d: 53 }, { f: 0, d: 84 }, { f: 82.41, d: 201 }, { f: 0, d: 84 },
+        { f: 369.99, d: 74 }, { f: 329.63, d: 63 }, { f: 311.13, d: 63 }, { f: 369.99, d: 63 },
+        { f: 440.00, d: 74 }, { f: 392.00, d: 63 }, { f: 369.99, d: 74 }, { f: 311.13, d: 63 },
+        { f: 369.99, d: 63 }, { f: 392.00, d: 74 }, { f: 440.00, d: 63 }, { f: 493.88, d: 74 }
       ]
     },
-    {
-      name: 'KOROBEINIKI (FOLK 1861)',
-      anim: 12, // BLOCKS
+    { // 1: TETRIS KOROBEINIKI
+      name: 'TETRIS (KOROBEINIKI 1861)',
+      anim: 12, // TETRIS BLOCKS
       notes: [
-        { f: 659.25, d: 300 }, { f: 493.88, d: 150 }, { f: 523.25, d: 150 }, { f: 587.33, d: 300 },
-        { f: 523.25, d: 150 }, { f: 493.88, d: 150 }, { f: 440.00, d: 300 }, { f: 440.00, d: 150 },
-        { f: 523.25, d: 150 }, { f: 659.25, d: 300 }, { f: 587.33, d: 150 }, { f: 523.25, d: 150 },
-        { f: 493.88, d: 450 }, { f: 523.25, d: 150 }, { f: 587.33, d: 300 }, { f: 659.25, d: 300 },
-        { f: 523.25, d: 300 }, { f: 440.00, d: 300 }, { f: 440.00, d: 450 }
+        { f: 659.25, d: 220 }, { f: 493.88, d: 110 }, { f: 523.25, d: 110 }, { f: 587.33, d: 220 },
+        { f: 523.25, d: 110 }, { f: 493.88, d: 110 }, { f: 440.00, d: 220 }, { f: 440.00, d: 110 },
+        { f: 523.25, d: 110 }, { f: 659.25, d: 220 }, { f: 587.33, d: 110 }, { f: 523.25, d: 110 },
+        { f: 493.88, d: 330 }, { f: 523.25, d: 110 }, { f: 587.33, d: 220 }, { f: 659.25, d: 220 },
+        { f: 523.25, d: 220 }, { f: 440.00, d: 220 }, { f: 440.00, d: 330 }, { f: 0, d: 110 },
+        { f: 587.33, d: 220 }, { f: 698.46, d: 110 }, { f: 880.00, d: 220 }, { f: 783.99, d: 110 },
+        { f: 698.46, d: 110 }, { f: 659.25, d: 330 }, { f: 523.25, d: 110 }, { f: 659.25, d: 220 },
+        { f: 587.33, d: 110 }, { f: 523.25, d: 110 }, { f: 493.88, d: 220 }, { f: 493.88, d: 110 },
+        { f: 523.25, d: 110 }, { f: 587.33, d: 220 }, { f: 659.25, d: 220 }, { f: 523.25, d: 220 },
+        { f: 440.00, d: 220 }, { f: 440.00, d: 330 }
       ]
     },
-    {
-      name: 'GALACTIC MARCH (HOMAGE)',
-      anim: 11, // SPACE
+    { // 2: STAR WARS IMPERIAL MARCH
+      name: 'STAR WARS (IMPERIAL MARCH)',
+      anim: 11, // STAR WARS DUEL
       notes: [
-        { f: 440, d: 400 }, { f: 440, d: 400 }, { f: 440, d: 400 }, { f: 349.2, d: 300 },
-        { f: 523.25, d: 120 }, { f: 440, d: 400 }, { f: 349.2, d: 300 }, { f: 523.25, d: 120 },
-        { f: 440, d: 650 }, { f: 659.25, d: 400 }, { f: 659.25, d: 400 }, { f: 659.25, d: 400 },
-        { f: 698.46, d: 300 }, { f: 523.25, d: 120 }, { f: 415.3, d: 400 }, { f: 349.2, d: 300 },
-        { f: 523.25, d: 120 }, { f: 440, d: 650 }
+        { f: 392.00, d: 320 }, { f: 392.00, d: 320 }, { f: 392.00, d: 320 }, { f: 311.13, d: 240 },
+        { f: 466.16, d: 80 },  { f: 392.00, d: 320 }, { f: 311.13, d: 240 }, { f: 466.16, d: 80 },
+        { f: 392.00, d: 600 }, { f: 0, d: 120 },
+        { f: 587.33, d: 320 }, { f: 587.33, d: 320 }, { f: 587.33, d: 320 }, { f: 622.25, d: 240 },
+        { f: 466.16, d: 80 },  { f: 369.99, d: 320 }, { f: 311.13, d: 240 }, { f: 466.16, d: 80 },
+        { f: 392.00, d: 600 }, { f: 0, d: 120 },
+        { f: 783.99, d: 320 }, { f: 392.00, d: 240 }, { f: 392.00, d: 80 },  { f: 783.99, d: 320 },
+        { f: 739.99, d: 240 }, { f: 698.46, d: 80 },  { f: 659.25, d: 90 },  { f: 622.25, d: 90 },
+        { f: 659.25, d: 220 }, { f: 0, d: 120 },      { f: 415.30, d: 180 }, { f: 554.37, d: 320 },
+        { f: 523.25, d: 240 }, { f: 493.88, d: 80 },  { f: 466.16, d: 90 },  { f: 440.00, d: 90 },
+        { f: 466.16, d: 220 }, { f: 0, d: 120 },      { f: 311.13, d: 180 }, { f: 369.99, d: 320 },
+        { f: 311.13, d: 240 }, { f: 466.16, d: 80 },  { f: 392.00, d: 650 }
       ]
     },
-    {
-      name: 'TRIFORCE HYMN (HOMAGE)',
-      anim: 13, // ARCANE
+    { // 3: ZELDA OVERWORLD
+      name: 'ZELDA (OVERWORLD HYMN)',
+      anim: 13, // TRIFORCE HYMN
       notes: [
-        { f: 466.16, d: 400 }, { f: 349.23, d: 150 }, { f: 466.16, d: 150 }, { f: 523.25, d: 150 },
-        { f: 587.33, d: 150 }, { f: 659.25, d: 150 }, { f: 698.46, d: 500 }, { f: 698.46, d: 150 },
-        { f: 698.46, d: 150 }, { f: 783.99, d: 150 }, { f: 880.00, d: 150 }, { f: 932.33, d: 600 }
+        { f: 466.16, d: 260 }, { f: 349.23, d: 180 }, { f: 0, d: 80 },    { f: 466.16, d: 140 },
+        { f: 466.16, d: 90 },  { f: 523.25, d: 90 },  { f: 587.33, d: 90 },  { f: 622.25, d: 90 },
+        { f: 698.46, d: 450 }, { f: 0, d: 120 },      { f: 698.46, d: 130 }, { f: 698.46, d: 90 },
+        { f: 739.99, d: 90 },  { f: 830.61, d: 90 },  { f: 932.33, d: 450 }, { f: 0, d: 120 },
+        { f: 932.33, d: 130 }, { f: 932.33, d: 90 },  { f: 830.61, d: 90 },  { f: 739.99, d: 90 },
+        { f: 830.61, d: 260 }, { f: 739.99, d: 130 }, { f: 698.46, d: 450 }, { f: 0, d: 100 },
+        { f: 622.25, d: 130 }, { f: 622.25, d: 90 },  { f: 698.46, d: 90 },  { f: 739.99, d: 260 },
+        { f: 698.46, d: 130 }, { f: 622.25, d: 130 }, { f: 554.37, d: 130 }, { f: 523.25, d: 130 },
+        { f: 587.33, d: 130 }, { f: 659.25, d: 260 }, { f: 783.99, d: 180 }, { f: 698.46, d: 400 }
       ]
     },
-    {
-      name: 'ECTO GROOVE (8-BIT)',
-      anim: 15, // PROTON
+    { // 4: GHOSTBUSTERS 8-BIT
+      name: 'GHOSTBUSTERS (ECTO GROOVE)',
+      anim: 15, // ECTO GROOVE
       notes: [
-        { f: 587.33, d: 160 }, { f: 587.33, d: 160 }, { f: 739.99, d: 160 }, { f: 587.33, d: 160 },
-        { f: 659.25, d: 240 }, { f: 554.37, d: 240 }, { f: 493.88, d: 240 }, { f: 440.00, d: 300 }
+        { f: 493.88, d: 120 }, { f: 0, d: 30 }, { f: 493.88, d: 120 }, { f: 0, d: 30 },
+        { f: 622.25, d: 240 }, { f: 493.88, d: 120 }, { f: 554.37, d: 240 }, { f: 440.00, d: 360 }, { f: 0, d: 120 },
+        { f: 493.88, d: 120 }, { f: 0, d: 30 }, { f: 493.88, d: 120 }, { f: 0, d: 30 },
+        { f: 493.88, d: 120 }, { f: 493.88, d: 120 }, { f: 440.00, d: 240 }, { f: 493.88, d: 360 }, { f: 0, d: 120 },
+        { f: 493.88, d: 180 }, { f: 587.33, d: 220 }, { f: 493.88, d: 180 }, { f: 587.33, d: 480 }, { f: 0, d: 160 },
+        { f: 493.88, d: 150 }, { f: 493.88, d: 150 }, { f: 622.25, d: 240 }, { f: 493.88, d: 150 },
+        { f: 659.25, d: 300 }, { f: 739.99, d: 750 }
       ]
     },
-    {
-      name: 'PIXEL KINGDOM (8-BIT)',
-      anim: 0, // RAINBOW
+    { // 5: SUPER MARIO BROS
+      name: 'SUPER MARIO BROS (OVERWORLD)',
+      anim: 3, // RAINBOW SWIRL
       notes: [
-        { f: 659.25, d: 120 }, { f: 659.25, d: 120 }, { f: 0, d: 120 }, { f: 659.25, d: 120 },
-        { f: 0, d: 120 }, { f: 523.25, d: 120 }, { f: 659.25, d: 200 }, { f: 783.99, d: 350 },
-        { f: 0, d: 150 }, { f: 392.00, d: 350 }
+        { f: 659.25, d: 120 }, { f: 659.25, d: 120 }, { f: 0, d: 120 },   { f: 659.25, d: 120 },
+        { f: 0, d: 120 },      { f: 523.25, d: 120 }, { f: 659.25, d: 120 }, { f: 783.99, d: 240 },
+        { f: 0, d: 240 },      { f: 392.00, d: 240 }, { f: 0, d: 240 },
+        { f: 523.25, d: 180 }, { f: 0, d: 90 },       { f: 392.00, d: 180 }, { f: 0, d: 90 },
+        { f: 329.63, d: 180 }, { f: 0, d: 90 },       { f: 440.00, d: 150 }, { f: 493.88, d: 150 },
+        { f: 466.16, d: 120 }, { f: 440.00, d: 180 }, { f: 392.00, d: 140 }, { f: 659.25, d: 160 },
+        { f: 783.99, d: 160 }, { f: 880.00, d: 180 }, { f: 698.46, d: 130 }, { f: 783.99, d: 150 },
+        { f: 0, d: 90 },       { f: 659.25, d: 160 }, { f: 523.25, d: 130 }, { f: 587.33, d: 130 },
+        { f: 493.88, d: 220 }
       ]
     },
-    {
-      name: 'SPOOKY SKELETONS',
-      anim: 18, // SPOOKY
+    { // 6: SPOOKY SCARY SKELETONS
+      name: 'SPOOKY SCARY SKELETONS',
+      anim: 18, // SPOOKY BONES
       notes: [
-        { f: 587.33, d: 200 }, { f: 587.33, d: 200 }, { f: 880.00, d: 200 }, { f: 880.00, d: 200 },
-        { f: 783.99, d: 200 }, { f: 659.25, d: 200 }, { f: 587.33, d: 300 }
+        { f: 415.30, d: 176 }, { f: 0, d: 176 }, { f: 415.30, d: 352 },
+        { f: 392.00, d: 176 }, { f: 0, d: 176 }, { f: 392.00, d: 352 },
+        { f: 261.63, d: 352 }, { f: 311.13, d: 176 }, { f: 261.63, d: 352 }, { f: 0, d: 176 },
+        { f: 261.63, d: 352 }, { f: 311.13, d: 352 }, { f: 349.23, d: 352 }, { f: 293.66, d: 352 },
+        { f: 311.13, d: 352 }, { f: 261.63, d: 600 }, { f: 0, d: 200 },
+        { f: 415.30, d: 176 }, { f: 0, d: 176 }, { f: 415.30, d: 352 },
+        { f: 392.00, d: 176 }, { f: 0, d: 176 }, { f: 392.00, d: 352 },
+        { f: 261.63, d: 352 }, { f: 311.13, d: 176 }, { f: 261.63, d: 352 }, { f: 0, d: 176 },
+        { f: 261.63, d: 352 }, { f: 415.30, d: 176 }, { f: 415.30, d: 528 }, { f: 392.00, d: 352 },
+        { f: 392.00, d: 352 }, { f: 261.63, d: 705 }
       ]
     },
-    {
-      name: 'CYBER VISOR FUNK',
-      anim: 19, // CYBER
+    { // 7: DAFT PUNK DA FUNK
+      name: 'DAFT PUNK (DA FUNK 303)',
+      anim: 19, // CYBER VISOR
       notes: [
-        { f: 146.8, d: 180 }, { f: 146.8, d: 180 }, { f: 220.0, d: 180 }, { f: 293.6, d: 180 },
-        { f: 261.6, d: 180 }, { f: 220.0, d: 180 }, { f: 196.0, d: 240 }
+        { f: 392.00, d: 540 }, { f: 0, d: 135 }, { f: 349.23, d: 135 }, { f: 0, d: 90 },
+        { f: 392.00, d: 135 }, { f: 0, d: 90 },  { f: 466.16, d: 135 }, { f: 0, d: 90 },
+        { f: 293.66, d: 640 }, { f: 0, d: 135 }, { f: 261.63, d: 135 }, { f: 0, d: 90 },
+        { f: 293.66, d: 135 }, { f: 0, d: 90 },  { f: 349.23, d: 135 }, { f: 0, d: 90 },
+        { f: 233.08, d: 640 }, { f: 0, d: 135 }, { f: 220.00, d: 135 }, { f: 0, d: 90 },
+        { f: 233.08, d: 135 }, { f: 0, d: 90 },  { f: 293.66, d: 135 }, { f: 0, d: 90 },
+        { f: 196.00, d: 640 }, { f: 0, d: 135 }, { f: 220.00, d: 270 }, { f: 233.08, d: 270 },
+        { f: 392.00, d: 600 }
+      ]
+    },
+    { // 8: MORROWIND NEREVAR RISING
+      name: 'MORROWIND (NEREVAR RISING)',
+      anim: 17, // MORROWIND ASH
+      notes: [
+        { f: 261.63, d: 240 }, { f: 293.66, d: 240 }, { f: 311.13, d: 720 },
+        { f: 311.13, d: 240 }, { f: 349.23, d: 240 }, { f: 392.00, d: 720 },
+        { f: 392.00, d: 240 }, { f: 466.16, d: 240 }, { f: 349.23, d: 600 },
+        { f: 392.00, d: 136 }, { f: 349.23, d: 136 }, { f: 311.13, d: 240 },
+        { f: 293.66, d: 240 }, { f: 261.63, d: 720 },
+        { f: 523.25, d: 360 }, { f: 587.33, d: 90 },  { f: 622.25, d: 450 },
+        { f: 587.33, d: 450 }, { f: 523.25, d: 450 }, { f: 466.16, d: 450 },
+        { f: 415.30, d: 450 }, { f: 392.00, d: 450 }, { f: 349.23, d: 720 },
+        { f: 311.13, d: 240 }, { f: 293.66, d: 240 }, { f: 261.63, d: 900 }
+      ]
+    },
+    { // 9: HARRY POTTER HEDWIG'S THEME
+      name: 'HARRY POTTER (HEDWIG\'S WALTZ)',
+      anim: 24, // HARRY POTTER
+      notes: [
+        { f: 246.94, d: 260 }, { f: 329.63, d: 390 }, { f: 392.00, d: 200 }, { f: 369.99, d: 200 },
+        { f: 329.63, d: 390 }, { f: 493.88, d: 780 }, { f: 440.00, d: 580 }, { f: 369.99, d: 580 },
+        { f: 329.63, d: 390 }, { f: 392.00, d: 200 }, { f: 369.99, d: 200 }, { f: 311.13, d: 390 },
+        { f: 349.23, d: 390 }, { f: 246.94, d: 780 }, { f: 246.94, d: 260 }, { f: 329.63, d: 390 },
+        { f: 392.00, d: 200 }, { f: 369.99, d: 200 }, { f: 329.63, d: 390 }, { f: 493.88, d: 780 },
+        { f: 587.33, d: 520 }, { f: 554.37, d: 260 }, { f: 523.25, d: 520 }, { f: 415.30, d: 260 },
+        { f: 523.25, d: 390 }, { f: 493.88, d: 200 }, { f: 466.16, d: 200 }, { f: 246.94, d: 390 },
+        { f: 392.00, d: 390 }, { f: 329.63, d: 850 }
+      ]
+    },
+    { // 10: POKEMON THEME
+      name: 'POKÉMON (GOTTA CATCH \'EM ALL)',
+      anim: 25, // POKEMON POKEBALL
+      notes: [
+        { f: 440.00, d: 240 }, { f: 523.25, d: 240 }, { f: 587.33, d: 480 }, { f: 0, d: 140 },
+        { f: 440.00, d: 150 }, { f: 440.00, d: 150 }, { f: 523.25, d: 200 }, { f: 587.33, d: 200 },
+        { f: 587.33, d: 200 }, { f: 523.25, d: 440 }, { f: 0, d: 140 },
+        { f: 523.25, d: 180 }, { f: 587.33, d: 180 }, { f: 659.25, d: 180 }, { f: 698.46, d: 240 },
+        { f: 659.25, d: 180 }, { f: 587.33, d: 180 }, { f: 523.25, d: 480 }, { f: 0, d: 160 },
+        { f: 440.00, d: 240 }, { f: 523.25, d: 240 }, { f: 587.33, d: 480 }, { f: 0, d: 140 },
+        { f: 587.33, d: 200 }, { f: 587.33, d: 200 }, { f: 523.25, d: 200 }, { f: 440.00, d: 200 },
+        { f: 349.23, d: 440 }, { f: 349.23, d: 180 }, { f: 392.00, d: 180 }, { f: 440.00, d: 200 },
+        { f: 440.00, d: 200 }, { f: 392.00, d: 180 }, { f: 349.23, d: 180 }, { f: 440.00, d: 580 }
+      ]
+    },
+    { // 11: SAILOR MOON MOONLIGHT DENSETSU
+      name: 'SAILOR MOON (MOONLIGHT DENSETSU)',
+      anim: 23, // SAILOR MOON
+      notes: [
+        { f: 392.00, d: 214 }, { f: 523.25, d: 214 }, { f: 622.25, d: 214 }, { f: 783.99, d: 428 },
+        { f: 783.99, d: 214 }, { f: 698.46, d: 428 }, { f: 698.46, d: 214 }, { f: 622.25, d: 214 },
+        { f: 587.33, d: 428 }, { f: 698.46, d: 428 }, { f: 493.88, d: 214 }, { f: 587.33, d: 214 },
+        { f: 698.46, d: 214 }, { f: 830.61, d: 428 }, { f: 830.61, d: 214 }, { f: 932.33, d: 428 },
+        { f: 830.61, d: 214 }, { f: 783.99, d: 214 }, { f: 698.46, d: 214 }, { f: 622.25, d: 428 },
+        { f: 783.99, d: 428 }, { f: 392.00, d: 214 }, { f: 523.25, d: 214 }, { f: 622.25, d: 214 },
+        { f: 1046.50, d: 428 }, { f: 987.77, d: 428 }, { f: 932.33, d: 428 }, { f: 830.61, d: 428 },
+        { f: 783.99, d: 214 }, { f: 698.46, d: 214 }, { f: 783.99, d: 428 }, { f: 698.46, d: 428 },
+        { f: 622.25, d: 214 }, { f: 587.33, d: 428 }, { f: 523.25, d: 550 }
+      ]
+    },
+    { // 12: MEGA MAN 2 DR. WILY STAGE 1
+      name: 'MEGA MAN 2 (DR. WILY STAGE 1)',
+      anim: 9, // RADAR RIPPLE
+      notes: [
+        { f: 293.66, d: 110 }, { f: 293.66, d: 110 }, { f: 293.66, d: 110 }, { f: 293.66, d: 110 },
+        { f: 466.16, d: 180 }, { f: 440.00, d: 180 }, { f: 392.00, d: 180 }, { f: 349.23, d: 180 },
+        { f: 392.00, d: 180 }, { f: 440.00, d: 220 },
+        { f: 293.66, d: 110 }, { f: 293.66, d: 110 }, { f: 293.66, d: 110 }, { f: 293.66, d: 110 },
+        { f: 466.16, d: 180 }, { f: 440.00, d: 180 }, { f: 392.00, d: 180 }, { f: 349.23, d: 180 },
+        { f: 329.63, d: 180 }, { f: 293.66, d: 220 },
+        { f: 349.23, d: 140 }, { f: 392.00, d: 140 }, { f: 440.00, d: 140 }, { f: 587.33, d: 260 },
+        { f: 523.25, d: 180 }, { f: 466.16, d: 180 }, { f: 440.00, d: 180 }, { f: 392.00, d: 180 },
+        { f: 440.00, d: 260 }
+      ]
+    },
+    { // 13: EBAY CHAOS AUCTION
+      name: 'EBAY CHAOS AUCTION',
+      anim: 26, // EBAY AUCTION
+      notes: [
+        { f: 261.63, d: 110 }, { f: 329.63, d: 110 }, { f: 392.00, d: 110 }, { f: 523.25, d: 140 },
+        { f: 493.88, d: 110 }, { f: 392.00, d: 110 }, { f: 440.00, d: 110 }, { f: 493.88, d: 110 }, { f: 523.25, d: 220 },
+        { f: 587.33, d: 95 },  { f: 659.25, d: 95 },  { f: 698.46, d: 95 },  { f: 783.99, d: 130 },
+        { f: 523.25, d: 70 },  { f: 554.37, d: 70 },  { f: 587.33, d: 70 },  { f: 622.25, d: 70 },
+        { f: 659.25, d: 70 },  { f: 698.46, d: 70 },  { f: 739.99, d: 70 },  { f: 783.99, d: 70 },
+        { f: 830.61, d: 70 },  { f: 880.00, d: 70 },  { f: 987.77, d: 70 },  { f: 1046.50, d: 180 },
+        { f: 130.81, d: 80 },  { f: 0, d: 60 },       { f: 130.81, d: 80 },  { f: 0, d: 60 },       { f: 130.81, d: 120 },
+        { f: 1864.66, d: 90 }, { f: 2349.32, d: 260 }, { f: 0, d: 50 },      { f: 2093.00, d: 420 }
+      ]
+    },
+    { // 14: BELLA CIAO
+      name: 'BELLA CIAO (FOLK ANTHEM)',
+      anim: 5, // SOLAR PLASMA
+      notes: [
+        { f: 329.63, d: 150 }, { f: 440.00, d: 150 }, { f: 493.88, d: 150 }, { f: 523.25, d: 240 }, { f: 440.00, d: 240 },
+        { f: 329.63, d: 150 }, { f: 440.00, d: 150 }, { f: 493.88, d: 150 }, { f: 523.25, d: 240 }, { f: 440.00, d: 240 },
+        { f: 329.63, d: 140 }, { f: 440.00, d: 140 }, { f: 493.88, d: 140 }, { f: 523.25, d: 140 }, { f: 493.88, d: 140 },
+        { f: 440.00, d: 140 }, { f: 523.25, d: 140 }, { f: 493.88, d: 140 }, { f: 440.00, d: 140 }, { f: 659.25, d: 380 },
+        { f: 659.25, d: 180 }, { f: 659.25, d: 180 }, { f: 587.33, d: 140 }, { f: 659.25, d: 140 }, { f: 698.46, d: 240 },
+        { f: 698.46, d: 140 }, { f: 659.25, d: 140 }, { f: 587.33, d: 140 }, { f: 698.46, d: 140 }, { f: 659.25, d: 320 },
+        { f: 659.25, d: 140 }, { f: 587.33, d: 140 }, { f: 523.25, d: 140 }, { f: 493.88, d: 180 }, { f: 659.25, d: 180 },
+        { f: 493.88, d: 180 }, { f: 523.25, d: 180 }, { f: 440.00, d: 450 }
+      ]
+    },
+    { // 15: ODE TO JOY (BEETHOVEN)
+      name: 'ODE TO JOY (BEETHOVEN NO. 9)',
+      anim: 20, // CHROMA PRISMATIC
+      notes: [
+        { f: 329.63, d: 220 }, { f: 329.63, d: 220 }, { f: 349.23, d: 220 }, { f: 392.00, d: 220 },
+        { f: 392.00, d: 220 }, { f: 349.23, d: 220 }, { f: 329.63, d: 220 }, { f: 293.66, d: 220 },
+        { f: 261.63, d: 220 }, { f: 261.63, d: 220 }, { f: 293.66, d: 220 }, { f: 329.63, d: 220 },
+        { f: 329.63, d: 330 }, { f: 293.66, d: 110 }, { f: 293.66, d: 440 }, { f: 0, d: 110 },
+        { f: 329.63, d: 220 }, { f: 329.63, d: 220 }, { f: 349.23, d: 220 }, { f: 392.00, d: 220 },
+        { f: 392.00, d: 220 }, { f: 349.23, d: 220 }, { f: 329.63, d: 220 }, { f: 293.66, d: 220 },
+        { f: 261.63, d: 220 }, { f: 261.63, d: 220 }, { f: 293.66, d: 220 }, { f: 329.63, d: 220 },
+        { f: 293.66, d: 330 }, { f: 261.63, d: 110 }, { f: 261.63, d: 440 }
+      ]
+    },
+    { // 16: GREENSLEEVES
+      name: 'GREENSLEEVES (CELTIC BALLAD)',
+      anim: 27, // TERRA PLANET
+      notes: [
+        { f: 349.23, d: 180 }, { f: 415.30, d: 360 }, { f: 466.16, d: 180 }, { f: 523.25, d: 280 }, { f: 554.37, d: 100 },
+        { f: 523.25, d: 180 }, { f: 466.16, d: 360 }, { f: 392.00, d: 180 }, { f: 311.13, d: 280 }, { f: 349.23, d: 100 },
+        { f: 392.00, d: 180 }, { f: 415.30, d: 360 }, { f: 349.23, d: 180 }, { f: 349.23, d: 280 }, { f: 329.63, d: 100 },
+        { f: 349.23, d: 180 }, { f: 392.00, d: 360 }, { f: 329.63, d: 180 }, { f: 261.63, d: 450 }
+      ]
+    },
+    { // 17: SAKURA SAKURA
+      name: 'SAKURA SAKURA (JAPANESE FOLK)',
+      anim: 6, // DIAMOND STARS
+      notes: [
+        { f: 440.00, d: 260 }, { f: 440.00, d: 260 }, { f: 493.88, d: 520 },
+        { f: 440.00, d: 260 }, { f: 440.00, d: 260 }, { f: 493.88, d: 520 },
+        { f: 440.00, d: 260 }, { f: 493.88, d: 260 }, { f: 523.25, d: 260 }, { f: 493.88, d: 260 },
+        { f: 440.00, d: 260 }, { f: 493.88, d: 260 }, { f: 440.00, d: 260 }, { f: 349.23, d: 520 },
+        { f: 329.63, d: 260 }, { f: 261.63, d: 260 }, { f: 329.63, d: 260 }, { f: 349.23, d: 260 },
+        { f: 329.63, d: 260 }, { f: 329.63, d: 260 }, { f: 261.63, d: 260 }, { f: 246.94, d: 520 }
+      ]
+    },
+    { // 18: MO LI HUA (JASMINE FLOWER)
+      name: 'MO LI HUA (JASMINE FLOWER)',
+      anim: 4, // STELLAR AURORA
+      notes: [
+        { f: 329.63, d: 300 }, { f: 329.63, d: 150 }, { f: 392.00, d: 150 }, { f: 440.00, d: 300 }, { f: 523.25, d: 300 },
+        { f: 440.00, d: 150 }, { f: 392.00, d: 150 }, { f: 440.00, d: 300 }, { f: 392.00, d: 450 }, { f: 0, d: 150 },
+        { f: 392.00, d: 300 }, { f: 392.00, d: 150 }, { f: 440.00, d: 150 }, { f: 392.00, d: 300 }, { f: 329.63, d: 300 },
+        { f: 293.66, d: 300 }, { f: 329.63, d: 150 }, { f: 392.00, d: 150 }, { f: 329.63, d: 300 }, { f: 293.66, d: 450 }
+      ]
+    },
+    { // 19: DU LIEGST MIR IM HERZEN
+      name: 'DU LIEGST MIR IM HERZEN',
+      anim: 8, // SOLAR ORRERY
+      notes: [
+        { f: 493.88, d: 220 }, { f: 392.00, d: 220 }, { f: 293.66, d: 220 }, { f: 392.00, d: 440 }, { f: 369.99, d: 220 },
+        { f: 440.00, d: 220 }, { f: 369.99, d: 220 }, { f: 293.66, d: 220 }, { f: 369.99, d: 440 }, { f: 329.63, d: 220 },
+        { f: 293.66, d: 220 }, { f: 392.00, d: 220 }, { f: 493.88, d: 220 }, { f: 587.33, d: 440 }, { f: 523.25, d: 220 },
+        { f: 493.88, d: 220 }, { f: 392.00, d: 220 }, { f: 440.00, d: 220 }, { f: 392.00, d: 500 }
+      ]
+    },
+    { // 20: LA CUCARACHA
+      name: 'LA CUCARACHA (TRADITIONAL)',
+      anim: 22, // SACRED POLYGON
+      notes: [
+        { f: 261.63, d: 110 }, { f: 261.63, d: 110 }, { f: 261.63, d: 110 }, { f: 349.23, d: 320 }, { f: 440.00, d: 240 },
+        { f: 261.63, d: 110 }, { f: 261.63, d: 110 }, { f: 261.63, d: 110 }, { f: 349.23, d: 320 }, { f: 440.00, d: 240 },
+        { f: 349.23, d: 140 }, { f: 349.23, d: 110 }, { f: 329.63, d: 110 }, { f: 329.63, d: 110 }, { f: 293.66, d: 110 }, { f: 293.66, d: 110 }, { f: 261.63, d: 420 }
       ]
     }
   ];
+
+  // 14 Authentic Cosmic & Astromech Sound FX from firmware/src/audio.c
+  const COSMIC_SFX = [
+    { name: 'WARP DRIVE', anim: 1, notes: [
+      { f: 110.0, d: 60 }, { f: 146.83, d: 50 }, { f: 196.00, d: 45 }, { f: 261.63, d: 40 },
+      { f: 349.23, d: 35 }, { f: 466.16, d: 30 }, { f: 622.25, d: 25 }, { f: 830.61, d: 25 },
+      { f: 1108.73, d: 30 }, { f: 1479.98, d: 40 }, { f: 1975.53, d: 60 }, { f: 2489.02, d: 120 }
+    ]},
+    { name: 'PULSAR BEACON', anim: 9, notes: [
+      { f: 880.0, d: 40 }, { f: 0, d: 60 }, { f: 880.0, d: 40 }, { f: 0, d: 60 },
+      { f: 1174.66, d: 60 }, { f: 0, d: 80 }, { f: 880.0, d: 40 }, { f: 0, d: 60 }, { f: 1318.51, d: 100 }
+    ]},
+    { name: 'ALIEN SCANNER', anim: 2, notes: [
+      { f: 587.33, d: 35 }, { f: 880.00, d: 35 }, { f: 1174.66, d: 35 }, { f: 783.99, d: 35 },
+      { f: 1046.50, d: 35 }, { f: 1396.91, d: 35 }, { f: 932.33, d: 35 }, { f: 1244.51, d: 35 }, { f: 1661.22, d: 70 }
+    ]},
+    { name: 'LASER BLASTER', anim: 11, notes: [
+      { f: 1567.98, d: 25 }, { f: 1174.66, d: 25 }, { f: 880.00, d: 25 }, { f: 659.25, d: 25 },
+      { f: 493.88, d: 30 }, { f: 369.99, d: 35 }, { f: 277.18, d: 45 }, { f: 185.00, d: 60 }
+    ]},
+    { name: 'TRACTOR BEAM', anim: 8, notes: [
+      { f: 110.00, d: 90 }, { f: 130.81, d: 90 }, { f: 110.00, d: 90 }, { f: 130.81, d: 90 },
+      { f: 110.00, d: 90 }, { f: 146.83, d: 110 }, { f: 110.00, d: 140 }
+    ]},
+    { name: 'STARGATE PORTAL', anim: 10, notes: [
+      { f: 329.63, d: 90 }, { f: 493.88, d: 90 }, { f: 659.25, d: 100 }, { f: 880.00, d: 110 },
+      { f: 1108.73, d: 130 }, { f: 1318.51, d: 160 }, { f: 1661.22, d: 250 }
+    ]},
+    { name: 'SUPERNOVA RUMBLE', anim: 5, notes: [
+      { f: 65.41, d: 140 }, { f: 82.41, d: 120 }, { f: 110.00, d: 100 }, { f: 146.83, d: 80 },
+      { f: 98.00, d: 120 }, { f: 73.42, d: 160 }, { f: 55.00, d: 220 }, { f: 41.20, d: 350 }
+    ]},
+    { name: 'R2-D2 HAPPY CHIRP', anim: 4, notes: [
+      { f: 1046.50, d: 35 }, { f: 1318.51, d: 35 }, { f: 1567.98, d: 40 }, { f: 2093.00, d: 45 },
+      { f: 2793.83, d: 55 }, { f: 0, d: 20 },
+      { f: 3135.96, d: 30 }, { f: 2793.83, d: 30 }, { f: 3135.96, d: 30 }, { f: 3520.00, d: 85 }
+    ]},
+    { name: 'R2-D2 DROID CHATTER', anim: 7, notes: [
+      { f: 2200.00, d: 30 }, { f: 1640.00, d: 35 }, { f: 2480.00, d: 25 }, { f: 1860.00, d: 40 },
+      { f: 2920.00, d: 30 }, { f: 2100.00, d: 45 }, { f: 1480.00, d: 35 }, { f: 2600.00, d: 50 }, { f: 3300.00, d: 75 }
+    ]},
+    { name: 'R2-D2 PANIC SCREAM', anim: 14, notes: [
+      { f: 2793.83, d: 20 }, { f: 3520.00, d: 20 }, { f: 3135.96, d: 20 }, { f: 3951.07, d: 20 },
+      { f: 2793.83, d: 20 }, { f: 3520.00, d: 20 }, { f: 3135.96, d: 20 }, { f: 3951.07, d: 20 },
+      { f: 2637.02, d: 35 }, { f: 2093.00, d: 45 }, { f: 1567.98, d: 65 }
+    ]},
+    { name: 'CHA-CHING AUCTION', anim: 26, notes: [
+      { f: 1864.66, d: 80 }, { f: 2349.32, d: 220 }, { f: 0, d: 40 }, { f: 2093.00, d: 320 }
+    ]},
+    { name: 'POKÉCENTER HEAL', anim: 25, notes: [
+      { f: 493.88, d: 140 }, { f: 659.25, d: 140 }, { f: 830.61, d: 140 }, { f: 987.77, d: 220 },
+      { f: 830.61, d: 140 }, { f: 987.77, d: 380 }
+    ]},
+    { name: 'LUMOS WAND FLARE', anim: 24, notes: [
+      { f: 1046.50, d: 40 }, { f: 1318.51, d: 40 }, { f: 1567.98, d: 50 }, { f: 2093.00, d: 60 }, { f: 3135.96, d: 140 }
+    ]},
+    { name: 'EXPECTO PATRONUM', anim: 23, notes: [
+      { f: 220.00, d: 60 }, { f: 329.63, d: 60 }, { f: 440.00, d: 70 }, { f: 659.25, d: 80 },
+      { f: 880.00, d: 100 }, { f: 1318.51, d: 180 }
+    ]}
+  ];
+
+  function syncActiveEffectButtons(fxIdx) {
+    document.querySelectorAll('.fx-mode-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.fxId === String(fxIdx));
+    });
+  }
 
   function stopChiptunePlayback() {
     isChiptunePlaying = false;
@@ -200,32 +482,34 @@
       try { n.stop(); } catch (e) {}
     });
     activeAudioNodes = [];
+    document.querySelectorAll('.preset-btn, .sfx-btn').forEach(b => b.classList.remove('playing'));
     updateAudioStatusPill();
   }
 
-  function playChiptuneTrack(trackIdx) {
+  function playNoteSequence(notes, animIdx, onDone) {
     stopChiptunePlayback();
     initAudioContext();
-    if (trackIdx < 0 || trackIdx >= TRACKS.length) return;
+    if (!notes || !notes.length) return;
 
-    const track = TRACKS[trackIdx];
     isChiptunePlaying = true;
     updateAudioStatusPill();
 
-    if (track.anim !== undefined) {
-      currentAnimIdx = track.anim;
+    if (animIdx !== undefined) {
+      currentAnimIdx = animIdx;
+      syncActiveEffectButtons(animIdx);
     }
 
     let noteIdx = 0;
     function playNextNote() {
       if (!isChiptunePlaying) return;
-      if (noteIdx >= track.notes.length) {
+      if (noteIdx >= notes.length) {
         stopChiptunePlayback();
         renderOledScreen();
+        if (onDone) onDone();
         return;
       }
 
-      const note = track.notes[noteIdx];
+      const note = notes[noteIdx];
       if (note.f > 0) {
         playTone(note.f, note.d, 'retro');
       }
@@ -236,6 +520,24 @@
 
     playNextNote();
     renderOledScreen();
+  }
+
+  function playChiptuneTrack(trackIdx) {
+    if (trackIdx < 0 || trackIdx >= TRACKS.length) return;
+    const track = TRACKS[trackIdx];
+    playNoteSequence(track.notes, track.anim);
+    document.querySelectorAll('.preset-btn').forEach(b => {
+      b.classList.toggle('playing', parseInt(b.dataset.track, 10) === trackIdx);
+    });
+  }
+
+  function playCosmicSfx(sfxIdx) {
+    if (sfxIdx < 0 || sfxIdx >= COSMIC_SFX.length) return;
+    const sfx = COSMIC_SFX[sfxIdx];
+    playNoteSequence(sfx.notes, sfx.anim);
+    document.querySelectorAll('.sfx-btn').forEach(b => {
+      b.classList.toggle('playing', parseInt(b.dataset.sfx, 10) === sfxIdx);
+    });
   }
 
   // --- SIMULATOR HARDWARE STATE ---
@@ -249,6 +551,7 @@
   let isChiptuneSubMode = false;
   let selectedMusicIdx = 0; // Standby
   let activeTrackIdx = 3;   // ZELDA / Celestial
+  let activeSfxIdx = 0;     // WARP DRIVE
   let currentAnimIdx = 4;   // Start on STELLAR AURORA (Neutral, beautiful cosmic aurora)
   let encoderPos = 0;
   let encoderAngle = 0;
@@ -269,12 +572,13 @@
   ];
 
   const ANIM_NAMES = [
-    'RAINBOW SWIRL', 'CYAN PULSE', 'MATRIX RAIN', 'COSMIC BREATHE',
-    'STELLAR AURORA', 'SOLAR FLARE', 'QUANTUM SPARK', 'VOID WARP',
-    'SUPERNOVA', 'ARCANE FIRE', 'NEBULA DREAM', 'GALACTIC MARCH',
-    'GEOMETRIC BLOCKS', 'TRIFORCE HYMN', 'INFERNAL HELLFIRE', 'ECTO GROOVE',
-    'HALLOWEEN ORANGE', 'ASH MOUNTAIN', 'SPOOKY BONES', 'CYBER VISOR',
-    'STROBE SURGE', 'ARCANE CITADEL', 'COSMIC SPHERE', 'LUNAR GUARDIAN'
+    'COSMIC BREATHE', 'GALAXY VORTEX', 'OUROBOROS SNAKE', 'RAINBOW SWIRL',
+    'STELLAR AURORA', 'SOLAR PLASMA', 'DIAMOND STARS', 'VOICE HALO VU',
+    'SOLAR ORRERY', 'RADAR RIPPLE', 'SONIC EXPAND', 'STAR WARS DUEL',
+    'TETRIS BLOCKS', 'TRIFORCE HYMN', 'DOOM HELLFIRE', 'ECTO GROOVE',
+    'HALLOWEEN PUMPKIN', 'MORROWIND ASH', 'SPOOKY BONES', 'CYBER VISOR',
+    'CHROMA PRISMATIC', 'AETHER HOURGLASS', 'SACRED POLYGON', 'SAILOR MOON',
+    'HARRY POTTER', 'POKEMON POKEBALL', 'EBAY AUCTION', 'TERRA PLANET'
   ];
 
   // --- 43 CONCENTRIC WS2812B LED ENGINE ---
@@ -340,7 +644,7 @@
       return;
     } else if (currentState === STATE_PROCESSING) {
       const rot = (sec * 5) % (Math.PI * 2);
-      LED_NODES.forEach((n, idx) => {
+      LED_NODES.forEach((n) => {
         const diff = Math.sin((n.angle || 0) - rot);
         const b = Math.max(0, diff);
         n.r = Math.floor(255 * b);
@@ -350,7 +654,7 @@
       return;
     } else if (currentState === STATE_SPEAKING) {
       const wave = Math.sin(sec * 12);
-      LED_NODES.forEach((n, idx) => {
+      LED_NODES.forEach((n) => {
         n.r = Math.floor(160 + 60 * wave);
         n.g = 40;
         n.b = Math.floor(220 + 35 * wave);
@@ -359,128 +663,427 @@
     }
 
     switch (currentAnimIdx) {
-      case 4: // STELLAR AURORA (Neutral, magical, celestial flowing aurora)
-        LED_NODES.forEach((n, i) => {
+      case 0: { // COSMIC BREATHE
+        const bPulse = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(sec * 2.0));
+        LED_NODES.forEach((n) => {
+          if (n.ring === 0) {
+            n.r = Math.floor(255 * bPulse); n.g = Math.floor(230 * bPulse); n.b = 255;
+          } else {
+            n.r = Math.floor(20 * bPulse);
+            n.g = Math.floor(195 * bPulse);
+            n.b = Math.floor(255 * bPulse);
+          }
+        });
+        break;
+      }
+
+      case 1: { // GALAXY VORTEX
+        LED_NODES.forEach((n) => {
+          if (n.ring === 0) {
+            n.r = 255; n.g = 240; n.b = 180;
+          } else {
+            const speed = (4 - n.ring) * 1.8;
+            const arm = Math.sin((n.angle || 0) * 2 - sec * speed + n.ring * 0.9);
+            const v = Math.max(0.08, (arm + 1) * 0.5);
+            n.r = Math.floor(130 * v * (n.ring === 3 ? 1.2 : 0.6));
+            n.g = Math.floor(190 * v);
+            n.b = Math.floor(255 * v);
+          }
+        });
+        break;
+      }
+
+      case 2: { // OUROBOROS SNAKE
+        const head = Math.floor(sec * 18) % 43;
+        LED_NODES.forEach((n, idx) => {
+          const dist = (head - idx + 43) % 43;
+          if (dist === 0) {
+            n.r = 255; n.g = 255; n.b = 180;
+          } else if (dist < 14) {
+            const fade = 1 - dist / 14;
+            n.r = Math.floor(20 * fade);
+            n.g = Math.floor(255 * fade);
+            n.b = Math.floor(130 * fade);
+          } else {
+            n.r = 4; n.g = 18; n.b = 12;
+          }
+        });
+        break;
+      }
+
+      case 3: { // RAINBOW SWIRL
+        LED_NODES.forEach((n) => {
+          const hue = (sec * 65 + ((n.angle || 0) * 180) / Math.PI + n.ring * 45 + 360) % 360;
+          const rgb = hsvToRgb(hue, 1, 1);
+          n.r = rgb[0]; n.g = rgb[1]; n.b = rgb[2];
+        });
+        break;
+      }
+
+      case 4: { // STELLAR AURORA
+        LED_NODES.forEach((n) => {
           const wave1 = Math.sin(sec * 1.6 + (n.angle || 0) * 2 + n.ring * 0.8);
           const wave2 = Math.cos(sec * 1.2 - n.ring * 1.1);
           const blend = (wave1 + wave2 + 2) / 4;
           if (n.ring === 0) {
-            n.r = 255; n.g = 225; n.b = 100; // Warm gold center star
+            n.r = 255; n.g = 225; n.b = 100;
           } else {
-            // Elegant flowing teal, cyan, and deep celestial indigo
             n.r = Math.floor(20 + 80 * blend);
             n.g = Math.floor(160 + 90 * Math.sin(sec * 1.5 + n.ring));
             n.b = Math.floor(215 + 40 * Math.cos(sec * 1.3 + (n.angle || 0)));
           }
         });
         break;
+      }
 
-      case 1: // CYAN PULSE
-        const cPulse = 0.5 + 0.5 * Math.sin(sec * 2.5);
+      case 5: { // SOLAR PLASMA
         LED_NODES.forEach((n, i) => {
-          if (n.ring === 0) {
-            n.r = 255; n.g = 220; n.b = 80;
+          const heat = 0.5 + 0.5 * Math.sin(sec * 6 - n.ring * 1.3 + Math.cos(i + sec * 3));
+          n.r = 255;
+          n.g = Math.floor(40 + 185 * heat * (1 - n.ring * 0.18));
+          n.b = n.ring === 0 ? 120 : Math.floor(25 * heat);
+        });
+        break;
+      }
+
+      case 6: { // DIAMOND STARS
+        LED_NODES.forEach((n, i) => {
+          const twinkle = Math.sin(sec * 5.5 + i * 7.13) * Math.cos(sec * 3.1 - i * 3.7);
+          if (twinkle > 0.72) {
+            n.r = 255; n.g = 255; n.b = 255;
           } else {
-            n.r = Math.floor(10 + 20 * cPulse);
-            n.g = Math.floor(150 + 90 * cPulse);
-            n.b = Math.floor(220 + 35 * cPulse);
+            const base = Math.max(0.15, (twinkle + 1) * 0.35);
+            n.r = Math.floor(25 * base);
+            n.g = Math.floor(70 * base);
+            n.b = Math.floor(180 * base);
           }
         });
         break;
+      }
 
-      case 3: // COSMIC BREATHE
-        const bPulse = 0.5 + 0.5 * Math.sin(sec * 1.8);
-        LED_NODES.forEach((n, i) => {
-          n.r = Math.floor(90 + 90 * bPulse);
-          n.g = Math.floor(40 + 70 * bPulse);
-          n.b = Math.floor(190 + 65 * bPulse);
-        });
-        break;
-
-      case 14: // DOOM HELLFIRE
-        LED_NODES.forEach((n, i) => {
-          const flicker = Math.sin(sec * 14 + i * 1.5) * 0.3 + 0.7;
-          if (n.ring === 0) {
-            n.r = 255; n.g = Math.floor(220 * flicker); n.b = 100;
-          } else if (n.ring === 1) {
-            n.r = 255; n.g = Math.floor(130 * flicker); n.b = 10;
-          } else if (n.ring === 2) {
-            n.r = Math.floor(240 * flicker); n.g = Math.floor(40 * flicker); n.b = 0;
+      case 7: { // VOICE HALO VU
+        const vu = 0.5 + 0.5 * Math.sin(sec * 9) * Math.cos(sec * 4);
+        LED_NODES.forEach((n) => {
+          const active = (n.ring / 3) <= (0.25 + vu * 0.85);
+          if (active) {
+            n.r = n.ring === 3 ? 255 : 30;
+            n.g = n.ring === 3 ? 90 : 230;
+            n.b = n.ring === 1 ? 255 : 140;
           } else {
-            n.r = Math.floor(190 * flicker); n.g = 10; n.b = 0;
+            n.r = 8; n.g = 24; n.b = 38;
           }
         });
         break;
+      }
 
-      case 12: // TETRIS
+      case 8: { // SOLAR ORRERY
+        LED_NODES.forEach((n) => {
+          if (n.ring === 0) {
+            n.r = 255; n.g = 210; n.b = 40; // Sun
+          } else {
+            const pAngle = (sec * (4.2 - n.ring * 1.1)) % (Math.PI * 2);
+            const diff = Math.abs(Math.atan2(Math.sin((n.angle || 0) - pAngle), Math.cos((n.angle || 0) - pAngle)));
+            if (diff < 0.38) {
+              if (n.ring === 1) { n.r = 255; n.g = 120; n.b = 40; }
+              else if (n.ring === 2) { n.r = 40; n.g = 200; n.b = 255; }
+              else { n.r = 170; n.g = 110; n.b = 255; }
+            } else {
+              n.r = 10; n.g = 18; n.b = 36;
+            }
+          }
+        });
+        break;
+      }
+
+      case 9: { // RADAR RIPPLE
+        const sweepA = (sec * 3.6) % (Math.PI * 2);
+        LED_NODES.forEach((n) => {
+          if (n.ring === 0) {
+            n.r = 0; n.g = 255; n.b = 140;
+          } else {
+            const d = ((n.angle || 0) - sweepA + Math.PI * 4) % (Math.PI * 2);
+            const tail = Math.max(0, 1 - d / 1.8);
+            n.r = 0;
+            n.g = Math.floor(40 + 215 * tail);
+            n.b = Math.floor(30 + 130 * tail);
+          }
+        });
+        break;
+      }
+
+      case 10: { // SONIC EXPAND
+        const waveR = (sec * 3.8) % 4.0;
+        LED_NODES.forEach((n) => {
+          const dist = Math.abs(n.ring - waveR);
+          const v = Math.max(0.08, 1 - dist * 0.75);
+          n.r = Math.floor(56 * v);
+          n.g = Math.floor(189 * v);
+          n.b = Math.floor(255 * v);
+        });
+        break;
+      }
+
+      case 11: { // STAR WARS DUEL (Sith Crimson vs Jedi Cyan Clash)
+        const clash = Math.sin(sec * 8) > 0.78;
+        LED_NODES.forEach((n) => {
+          if (clash && n.ring <= 1) {
+            n.r = 255; n.g = 255; n.b = 255;
+          } else if (Math.sin((n.angle || 0) + sec * 2.2) >= 0) {
+            n.r = 255; n.g = 15; n.b = 15; // Sith Crimson
+          } else {
+            n.r = 15; n.g = 185; n.b = 255; // Jedi Cyan
+          }
+        });
+        break;
+      }
+
+      case 12: { // TETRIS BLOCKS
         const cycle = Math.floor(sec * 2.5) % 4;
         const tetrisColors = [
-          [0, 240, 240], [240, 240, 0], [160, 0, 240], [0, 240, 0]
+          [0, 240, 240], [240, 240, 0], [160, 0, 240], [0, 240, 60]
         ];
         LED_NODES.forEach((n, i) => {
-          const c = tetrisColors[(cycle + n.ring) % 4];
+          const c = tetrisColors[(cycle + n.ring + (i % 2)) % 4];
           n.r = c[0]; n.g = c[1]; n.b = c[2];
         });
         break;
+      }
 
-      case 11: // IMPERIAL MARCH
-        const sithPulse = 0.5 + 0.5 * Math.sin(sec * 4);
+      case 13: { // TRIFORCE HYMN
+        const zPulse = 0.55 + 0.45 * Math.sin(sec * 3.2);
         LED_NODES.forEach((n, i) => {
-          n.r = Math.floor(160 + 95 * sithPulse);
-          n.g = 10;
-          n.b = 10;
-        });
-        break;
-
-      case 13: // ZELDA
-        const zPulse = 0.5 + 0.5 * Math.sin(sec * 3);
-        LED_NODES.forEach((n, i) => {
-          if (n.ring === 0 || n.ring === 1) {
-            n.r = Math.floor(255 * zPulse); n.g = Math.floor(215 * zPulse); n.b = 0;
+          if (n.ring <= 1 || (i % 3 === 0)) {
+            n.r = Math.floor(255 * zPulse); n.g = Math.floor(215 * zPulse); n.b = 15;
           } else {
-            n.r = 10; n.g = Math.floor(180 + 70 * zPulse); n.b = 40;
+            n.r = 15; n.g = Math.floor(185 + 70 * zPulse); n.b = 50;
           }
         });
         break;
+      }
 
-      case 15: // GHOSTBUSTERS
-        const spark = Math.random() > 0.85;
+      case 14: { // DOOM HELLFIRE
         LED_NODES.forEach((n, i) => {
-          if (spark) {
-            n.r = 255; n.g = 255; n.b = 255;
+          const bfg = Math.sin(sec * 3.5) > 0.88 && n.ring <= 1;
+          const flicker = Math.sin(sec * 14 + i * 1.5) * 0.3 + 0.7;
+          if (bfg) {
+            n.r = 80; n.g = 255; n.b = 60; // BFG9000 plasma core flash
+          } else if (n.ring === 0) {
+            n.r = 255; n.g = Math.floor(220 * flicker); n.b = 80;
+          } else if (n.ring === 1) {
+            n.r = 255; n.g = Math.floor(120 * flicker); n.b = 10;
+          } else if (n.ring === 2) {
+            n.r = Math.floor(240 * flicker); n.g = Math.floor(35 * flicker); n.b = 0;
           } else {
-            n.r = 20; n.g = 240; n.b = 40;
+            n.r = Math.floor(195 * flicker); n.g = 8; n.b = 0;
           }
         });
         break;
+      }
 
-      case 2: // MATRIX RAIN
+      case 15: { // ECTO GROOVE (Ghostbusters Proton Streams & Slimer Green)
         LED_NODES.forEach((n, i) => {
-          const drop = (Math.sin(sec * 4 - n.ring * 1.5 + (n.angle || 0) * 2) + 1) / 2;
-          n.r = 0;
-          n.g = Math.floor(drop * 255);
-          n.b = Math.floor(drop * 60);
+          const stream = Math.sin((n.angle || 0) * 2 + sec * 7);
+          if (n.ring <= 1) {
+            n.r = 30; n.g = 255; n.b = 50; // Slimer Ectoplasm Core
+          } else if (stream > 0.55) {
+            n.r = 255; n.g = 70; n.b = 20; // Orange Proton Stream
+          } else if (stream < -0.55) {
+            n.r = 60; n.g = 170; n.b = 255; // Blue Proton Arc
+          } else {
+            n.r = 15; n.g = Math.floor(150 + 60 * Math.sin(sec * 5 + i)); n.b = 30;
+          }
         });
         break;
+      }
 
-      case 19: // DAFT PUNK
-        const sweep = (sec * 4) % (Math.PI * 2);
+      case 16: { // HALLOWEEN PUMPKIN
         LED_NODES.forEach((n, i) => {
-          const diff = Math.cos((n.angle || 0) - sweep);
-          const val = Math.max(0, diff);
-          n.r = Math.floor(255 * val);
-          n.g = Math.floor(30 * val);
-          n.b = Math.floor(30 * val);
+          const flicker = 0.65 + 0.35 * Math.sin(sec * 9 + i * 0.9);
+          if (n.ring <= 2) {
+            n.r = Math.floor(255 * flicker);
+            n.g = Math.floor(105 * flicker);
+            n.b = 5;
+          } else {
+            n.r = Math.floor(150 * flicker);
+            n.g = 20;
+            n.b = Math.floor(235 * flicker);
+          }
         });
         break;
+      }
 
-      default: // RAINBOW SWIRL
+      case 17: { // MORROWIND ASH (Red Mountain & Vivec Aurora)
         LED_NODES.forEach((n, i) => {
-          const hue = (sec * 60 + (n.angle || 0) * (180 / Math.PI) + n.ring * 40) % 360;
-          const rgb = hsvToRgb(hue, 1, 1);
+          if (n.ring <= 1) {
+            const pulse = 0.6 + 0.4 * Math.sin(sec * 3 + i);
+            n.r = Math.floor(255 * pulse); n.g = Math.floor(75 * pulse); n.b = 15;
+          } else {
+            const wave = 0.5 + 0.5 * Math.sin(sec * 2 + (n.angle || 0) * 2);
+            n.r = Math.floor(40 + 80 * (1 - wave));
+            n.g = Math.floor(170 * wave + 35);
+            n.b = Math.floor(195 * wave + 40);
+          }
+        });
+        break;
+      }
+
+      case 18: { // SPOOKY BONES
+        const beat = Math.floor(sec * 6) % 2;
+        LED_NODES.forEach((n, i) => {
+          if ((i + beat) % 3 === 0) {
+            n.r = 245; n.g = 245; n.b = 255; // Bone white strobe
+          } else if ((i + beat) % 3 === 1) {
+            n.r = 255; n.g = 115; n.b = 15; // Pumpkin orange
+          } else {
+            n.r = 140; n.g = 30; n.b = 220; // Crypt violet
+          }
+        });
+        break;
+      }
+
+      case 19: { // CYBER VISOR (Daft Punk Gold & Crimson Visor Sweep)
+        const sweep = Math.sin(sec * 3.8) * Math.PI;
+        LED_NODES.forEach((n) => {
+          if (n.ring === 0) {
+            n.r = 255; n.g = 200; n.b = 40;
+          } else {
+            const diff = Math.cos((n.angle || 0) - sweep);
+            const val = Math.max(0, diff);
+            n.r = Math.floor(255 * val);
+            n.g = Math.floor((n.ring === 2 ? 190 : 35) * val);
+            n.b = Math.floor(20 * val);
+          }
+        });
+        break;
+      }
+
+      case 20: { // CHROMA PRISMATIC
+        LED_NODES.forEach((n) => {
+          const hue = (n.ring * 85 + sec * 45) % 360;
+          const rgb = hsvToRgb(hue, 0.9, 1);
           n.r = rgb[0]; n.g = rgb[1]; n.b = rgb[2];
         });
         break;
+      }
+
+      case 21: { // AETHER HOURGLASS
+        const fillPhase = (sec * 0.7) % 3;
+        LED_NODES.forEach((n) => {
+          const lit = n.ring <= fillPhase;
+          n.r = lit ? 255 : 20;
+          n.g = lit ? 195 : 40;
+          n.b = lit ? 70 : 85;
+        });
+        break;
+      }
+
+      case 22: { // SACRED POLYGON (Triquetra 3x, Hexagram 6x, Dodecagram 12x)
+        LED_NODES.forEach((n) => {
+          if (n.ring === 0) {
+            n.r = 255; n.g = 230; n.b = 140;
+          } else {
+            const sym = n.ring === 1 ? 3 : (n.ring === 2 ? 6 : 12);
+            const dir = n.ring === 2 ? -1 : 1;
+            const v = 0.5 + 0.5 * Math.cos(((n.angle || 0) + sec * 1.6 * dir) * sym);
+            n.r = Math.floor(190 * v);
+            n.g = Math.floor(120 + 130 * v);
+            n.b = 255;
+          }
+        });
+        break;
+      }
+
+      case 23: { // SAILOR MOON (Moon Prism Pastel Pink, Gold & Cyan Spiral)
+        LED_NODES.forEach((n) => {
+          if (n.ring === 0) {
+            n.r = 255; n.g = 230; n.b = 90; // Golden Moon Crystal
+          } else {
+            const s = Math.sin((n.angle || 0) * 2 - sec * 3.5 + n.ring);
+            if (s > 0.25) {
+              n.r = 255; n.g = 105; n.b = 195; // Prism Pink
+            } else if (s < -0.25) {
+              n.r = 90; n.g = 215; n.b = 255;  // Mercury Cyan
+            } else {
+              n.r = 255; n.g = 215; n.b = 95;  // Crescent Gold
+            }
+          }
+        });
+        break;
+      }
+
+      case 24: { // HARRY POTTER (Hogwarts 4 Houses + Lumos Core Flash)
+        const lumos = Math.sin(sec * 2.8) > 0.65;
+        const houses = [
+          [220, 35, 35],  // Gryffindor Crimson
+          [25, 195, 75],  // Slytherin Emerald
+          [245, 200, 35], // Hufflepuff Gold
+          [35, 115, 245]  // Ravenclaw Sapphire
+        ];
+        LED_NODES.forEach((n) => {
+          if (n.ring <= 1 && lumos) {
+            n.r = 255; n.g = 255; n.b = 240; // Lumos Maxima!
+          } else {
+            const q = Math.floor((((n.angle || 0) + Math.PI + sec * 0.8) / (Math.PI / 2))) % 4;
+            const hc = houses[(q + 4) % 4];
+            n.r = hc[0]; n.g = hc[1]; n.b = hc[2];
+          }
+        });
+        break;
+      }
+
+      case 25: { // POKEMON POKEBALL (Red Top, White Bottom, Pulsing Center Button)
+        const catchPulse = 0.5 + 0.5 * Math.sin(sec * 7);
+        LED_NODES.forEach((n) => {
+          if (n.ring === 0) {
+            n.r = 255; n.g = Math.floor(80 + 175 * catchPulse); n.b = Math.floor(80 + 175 * catchPulse);
+          } else if (n.ring === 1) {
+            n.r = 220; n.g = 235; n.b = 255;
+          } else {
+            const sinA = Math.sin(n.angle || 0);
+            if (Math.abs(sinA) < 0.22) {
+              n.r = 15; n.g = 20; n.b = 30; // Equatorial belt
+            } else if (sinA < 0) {
+              n.r = 245; n.g = 25; n.b = 25; // Top Red Hemisphere
+            } else {
+              n.r = 235; n.g = 240; n.b = 250; // Bottom White Hemisphere
+            }
+          }
+        });
+        break;
+      }
+
+      case 26: { // EBAY AUCTION (4-Color Bidding Strobe & Golden Gavel Shockwave)
+        const ebayCols = [
+          [229, 50, 56],  // Red
+          [0, 100, 210],  // Blue
+          [245, 175, 2],  // Yellow
+          [134, 184, 23]  // Green
+        ];
+        const step = Math.floor(sec * 7);
+        LED_NODES.forEach((n, i) => {
+          if (n.ring === 0) {
+            n.r = 255; n.g = 215; n.b = 0;
+          } else {
+            const c = ebayCols[(i + step) % 4];
+            n.r = c[0]; n.g = c[1]; n.b = c[2];
+          }
+        });
+        break;
+      }
+
+      default: { // 27: TERRA PLANET
+        LED_NODES.forEach((n) => {
+          const continent = Math.sin((n.angle || 0) * 2 + sec * 1.4) + Math.cos(n.ring * 1.5 - sec);
+          if (n.ring === 3 && Math.abs(Math.sin(n.angle || 0)) > 0.86) {
+            n.r = 120; n.g = 255; n.b = 220; // Polar aurora
+          } else if (continent > 0.35) {
+            n.r = 25; n.g = 210; n.b = 95;   // Emerald landmass
+          } else {
+            n.r = 15; n.g = 115; n.b = 245;  // Deep azure ocean
+          }
+        });
+        break;
+      }
     }
   }
 
@@ -612,10 +1215,18 @@
       switch (currentModeIdx) {
         case 6: // CELESTIAL MUSIC
           oledCtx.fillText(`MUSIC: ${activeTrackIdx + 1}/${TRACKS.length} ${isChiptunePlaying ? '[PLAY]' : '[IDLE]'}`, 24, 80);
-          oledCtx.font = 'bold 24px "JetBrains Mono", monospace';
-          oledCtx.fillText(TRACKS[activeTrackIdx] ? TRACKS[activeTrackIdx].name : 'UNKNOWN', 24, 126);
+          oledCtx.font = 'bold 21px "JetBrains Mono", monospace';
+          oledCtx.fillText((TRACKS[activeTrackIdx] ? TRACKS[activeTrackIdx].name : 'UNKNOWN').slice(0, 26), 24, 126);
           oledCtx.font = 'bold 18px "JetBrains Mono", monospace';
-          oledCtx.fillText('MODE: SINGLE', 24, 168);
+          oledCtx.fillText('SW: JUKEBOX / STOP | 16kHz PIO1', 24, 168);
+          break;
+
+        case 7: // COSMIC SFX
+          oledCtx.fillText(`COSMIC SFX: ${activeSfxIdx + 1}/${COSMIC_SFX.length} ${isChiptunePlaying ? '[ACTIVE]' : '[READY]'}`, 24, 80);
+          oledCtx.font = 'bold 22px "JetBrains Mono", monospace';
+          oledCtx.fillText(COSMIC_SFX[activeSfxIdx] ? COSMIC_SFX[activeSfxIdx].name : 'WARP DRIVE', 24, 126);
+          oledCtx.font = 'bold 18px "JetBrains Mono", monospace';
+          oledCtx.fillText('SW: TRIGGER SFX | R2-D2 & SPELLS', 24, 168);
           break;
 
         case 5: // CORE FX
@@ -750,7 +1361,11 @@
         }
       } else if (currentModeIdx === 5) { // CORE FX
         currentAnimIdx = (currentAnimIdx + 1) % ANIM_NAMES.length;
+        syncActiveEffectButtons(currentAnimIdx);
         playConfirmChime();
+      } else if (currentModeIdx === 7) { // COSMIC SFX
+        playCosmicSfx(activeSfxIdx);
+        activeSfxIdx = (activeSfxIdx + 1) % COSMIC_SFX.length;
       } else {
         playConfirmChime();
       }
@@ -1481,19 +2096,51 @@
       });
     }
 
-    // Preset Buttons
+    // Preset Chiptune Buttons (21 Staff Melodies)
     document.querySelectorAll('.preset-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const trk = parseInt(btn.dataset.track, 10);
         if (!isNaN(trk)) {
-          activeTrackIdx = trk;
-          currentModeIdx = 6;
-          isChiptuneSubMode = false;
-          playChiptuneTrack(trk);
+          if (isChiptunePlaying && activeTrackIdx === trk && currentModeIdx === 6) {
+            stopChiptunePlayback();
+            playStopTone();
+          } else {
+            activeTrackIdx = trk;
+            currentModeIdx = 6;
+            isChiptuneSubMode = false;
+            playChiptuneTrack(trk);
+          }
           updateTelemetryUi();
+          renderOledScreen();
         }
       });
     });
+
+    // Cosmic & Astromech Sound FX Buttons (14 Staff SFX)
+    document.querySelectorAll('.sfx-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sfxIdx = parseInt(btn.dataset.sfx, 10);
+        if (!isNaN(sfxIdx)) {
+          activeSfxIdx = sfxIdx;
+          currentModeIdx = 7;
+          isChiptuneSubMode = false;
+          playCosmicSfx(sfxIdx);
+          updateTelemetryUi();
+          renderOledScreen();
+        }
+      });
+    });
+
+    // Stop Audio Button
+    const btnStopAudio = document.getElementById('btn-stop-audio');
+    if (btnStopAudio) {
+      btnStopAudio.addEventListener('click', () => {
+        stopChiptunePlayback();
+        playStopTone();
+        updateTelemetryUi();
+        renderOledScreen();
+      });
+    }
 
     // Technical Architecture Tab Switcher
     document.querySelectorAll('.tab-btn').forEach(btn => {

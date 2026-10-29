@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="simulator.css?v=1.2.4">
+  <link rel="stylesheet" href="simulator.css?v=1.2.5">
 </head>
 <body>
   <!-- Ambient Deep Space Starfield -->
@@ -41,28 +41,25 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           Explore Staff
         </a>
+        <a href="#system-overview" class="btn-pill">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          System &amp; Local LLM Flow
+        </a>
         <a href="#lighting-effects-drawer" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
           Lighting Effects
         </a>
         <a href="#preset-zelda" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          Music
+          21 Melodies &amp; SFX
         </a>
         <a href="#oracle-console" class="btn-pill" style="border-color: var(--violet-arcane); color: #e9d5ff; background: rgba(168, 85, 247, 0.14);">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Ask the Oracle
         </a>
-        <a href="#architecture" class="btn-pill">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
-          Technical Architecture
-        </a>
         <a href="#schematic" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4m-3.17-6.83l-2.83 2.83m-8 8l-2.83 2.83m0-13.66l2.83 2.83m8 8l2.83 2.83"/></svg>
           2D Pinout Map
-        </a>
-        <a href="halloween.html" class="btn-pill" style="border-color: #f97316; color: #f97316; background: rgba(249, 115, 22, 0.12);">
-          🎃 Halloween Edition
         </a>
         <a href="https://github.com/DerAndr/celestial_engine_project" target="_blank" rel="noopener" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -70,6 +67,155 @@
         </a>
       </div>
     </header>
+
+    <!-- DIY Maker & Halloween Prop Disclaimer -->
+    <aside class="prop-disclaimer-banner" aria-label="DIY Prop and Educational Project Disclaimer">
+      <div class="prop-disclaimer-icon">🎃</div>
+      <div class="prop-disclaimer-body">
+        <strong>DIY Maker &amp; Halloween Cosplay Prop Disclaimer:</strong>
+        Celestial Engine Mk.V is a personal open-source embedded hardware project built as an interactive Halloween / cosplay prop and RP2350 engineering testbed. The staff includes festive Halloween LED modes (<em>Pumpkin Jack</em>, <em>Haunted Ghost</em>, <em>Ghostbusters</em>) and 8-bit chiptunes strictly for non-commercial hobbyist demonstration.
+      </div>
+    </aside>
+
+    <!-- =====================================================================
+         PRIMARY ARCHITECTURE & LOCAL LLM STREAMING OVERVIEW (ON MAIN PAGE)
+         ===================================================================== -->
+    <section id="system-overview" class="glass-panel sys-overview-panel" aria-label="System Architecture and Local LLM Streaming Overview">
+      <div class="panel-header" style="flex-wrap: wrap; gap: 10px;">
+        <h2 class="panel-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="7" height="16" rx="1.5"/><rect x="15" y="4" width="7" height="16" rx="1.5"/><path d="M9 9h6M9 15h6"/></svg>
+          How the System Works: Staff ⇄ Smartphone &amp; Real-Time Audio/LLM Streaming
+        </h2>
+        <span class="badge cyan">PRIMARY CONFIGURATION • UDP PORT 5005</span>
+      </div>
+
+      <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 14px;">
+        In normal operation, the system requires only <strong>two devices</strong>: the physical <strong>Staff (Raspberry Pi Pico 2 W / RP2350)</strong> and your <strong>Android Smartphone</strong> acting as a mobile Wi-Fi hotspot (`10.169.248.1`). The staff itself runs bare-metal C/C++ firmware with zero OS overhead: it captures your voice at 16 kHz, streams raw PCM packets over UDP to the phone, and plays back the synthesized voice response, OLED text ticker, and synchronized 43-LED animations in real time.
+      </p>
+
+      <!-- PRIMARY DIAGRAM: STAFF <-> ANDROID PHONE -->
+      <div class="topology-diagram-box">
+        <div class="topology-diagram-title">
+          PRIMARY TOPOLOGY (DEFAULT): STAFF CONTROLLER ⇄ ANDROID SMARTPHONE HOTSPOT
+        </div>
+        <div class="topology-flow-grid">
+          <!-- Node 1: Physical Staff -->
+          <div class="topology-node-card staff-node">
+            <div class="topology-node-header">
+              <span class="badge cyan">NODE 1 • EMBEDDED PERIPHERAL</span>
+              <strong>Physical Staff (Pico 2 W / RP2350)</strong>
+            </div>
+            <ul class="topology-node-list">
+              <li><strong>Voice Input:</strong> Side <code>QUERY</code> button (`GP9`) + `INMP441` I2S Mic (`16 kHz` 16-bit mono PCM via `PIO0` DMA)</li>
+              <li><strong>Visuals:</strong> 43 Concentric `WS2812B` LEDs (`GP15` via `74AHCT125N`) + `1.3" SH1106` I2C OLED (`128×64`)</li>
+              <li><strong>Audio Output:</strong> `MAX98357A` I2S Class-D Amp (`GP16-18`) + `4Ω 3W` speaker (`64 KB` circular ring buffer)</li>
+              <li><strong>Offline Fallback:</strong> Plays 21 onboard 8-bit chiptunes, 14 cosmic/R2-D2 SFX, and 28 LED patterns standalone</li>
+            </ul>
+          </div>
+
+          <!-- Bidirectional UDP Link -->
+          <div class="topology-link-col">
+            <div class="topology-arrow-pill uplink">
+              <span>🎙️ 16 kHz PCM Voice Stream + PTT Events</span>
+              <code>UDP :5005 ➔</code>
+            </div>
+            <div class="topology-protocol-badge">
+              Wi-Fi 802.11n • Binary UDP v2<br>
+              <span>CRC-16-CCITT • 20 ms Frames</span>
+            </div>
+            <div class="topology-arrow-pill downlink">
+              <code>⬅ UDP :5005</code>
+              <span>🔊 16 kHz TTS Audio + OLED Text + LED ID</span>
+            </div>
+          </div>
+
+          <!-- Node 2: Android Smartphone -->
+          <div class="topology-node-card phone-node">
+            <div class="topology-node-header">
+              <span class="badge gold">NODE 2 • PRIMARY HOST &amp; GATEWAY</span>
+              <strong>Android Smartphone (`v1.1.2` App)</strong>
+            </div>
+            <ul class="topology-node-list">
+              <li><strong>Wi-Fi Hotspot Gateway:</strong> Hosts local subnet (`10.169.248.1:5005`) — zero router or external setup needed</li>
+              <li><strong>Speech-to-Text (STT):</strong> Transcribes incoming 16 kHz I2S microphone packets from the staff</li>
+              <li><strong>AI Oracle Engine:</strong> Runs persona prompt routing (On-Device / Cloud API / or forwarded to Local LLM server)</li>
+              <li><strong>Real-Time Audio &amp; HUD Streamer:</strong> Resamples TTS voice into `16 kHz` PCM chunks (`1024 B`) and streams them back to the staff</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOCAL LLMS & REAL-TIME STREAMING EXPLANATION -->
+      <div class="streaming-steps-grid">
+        <div class="streaming-step-card">
+          <div class="step-num">1. Push-to-Talk &amp; I2S DMA Capture</div>
+          <p>Holding the green side button (`GP9`) switches the staff into <code>LISTENING</code> state. Core 1 captures 32-bit I2S frames from the <strong>INMP441</strong> mic via `PIO0 SM1`, decimates them to 16-bit 16 kHz mono PCM, and sends 640-byte (20 ms) UDP packets to port <code>5005</code>.</p>
+        </div>
+        <div class="streaming-step-card">
+          <div class="step-num">2. STT &amp; Local LLM Inference</div>
+          <p>When the button is released, the host transcribes the speech (`Whisper.cpp` or Android STT) and feeds the prompt to the active persona. With local models (<strong>Ollama</strong> <code>qwen2.5:1.5b</code> / <code>gemma2:2b</code> or browser <strong>ONNX WebGPU</strong>), tokens are generated with zero cloud dependency.</p>
+        </div>
+        <div class="streaming-step-card">
+          <div class="step-num">3. Sentence-Chunked TTS &amp; UDP Pacing</div>
+          <p>As the LLM streams text, sentences are immediately sent to the neural TTS engine (<strong>Piper ONNX</strong> or Android TTS) and OLED text packets (`0x03`) + LED effect IDs (`0x01`) are dispatched so the staff reacts visually while audio is synthesized.</p>
+        </div>
+        <div class="streaming-step-card">
+          <div class="step-num">4. Zero-Stutter 64 KB Ring Buffer Playback</div>
+          <p>Downlink 16 kHz PCM frames (`0x04`, 1024 bytes = 32 ms per packet) arrive over UDP into the RP2350's <strong>64 KB circular ring buffer</strong> (`2.04 s` jitter cushion) and stream via DMA to the <strong>MAX98357A</strong> speaker while the 43 LEDs pulse to the voice envelope.</p>
+        </div>
+      </div>
+
+      <!-- OPTIONAL DIAGRAM: STAFF + ANDROID PHONE + RASPBERRY PI 5 LOCAL LLM NODE -->
+      <details class="optional-pi5-drawer">
+        <summary>
+          <span>⚡ <strong>Optional Expansion Topology:</strong> Staff ⇄ Android Smartphone ⇄ Wearable Raspberry Pi 5 (16 GB RAM Local LLM Co-Processor)</span>
+          <span class="badge">OPTIONAL OFFLINE AI NODE</span>
+        </summary>
+        <div class="optional-pi5-body">
+          <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 12px;">
+            For <strong>100% air-gapped field operation</strong> without cellular data or phone battery drain from heavy LLM weights, a wearable <strong>Raspberry Pi 5 (16 GB RAM + 1 TB NVMe SSD + X1209 UPS)</strong> joins the smartphone's Wi-Fi hotspot (`10.169.248.x`) as an optional local AI co-processor. You can either route requests through the Android app for full telemetry UI, or point the staff directly at the Pi 5 daemon (`celestial-brain.service`).
+          </p>
+
+          <div class="topology-flow-grid tri-node">
+            <!-- Node A: Staff -->
+            <div class="topology-node-card staff-node">
+              <div class="topology-node-header">
+                <span class="badge cyan">1 • STAFF HARDWARE</span>
+                <strong>Pico 2 W (RP2350)</strong>
+              </div>
+              <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 6px 0 0;">
+                Streams 16 kHz I2S mic audio (`INMP441`) and receives 16 kHz TTS audio (`MAX98357A`), OLED text (`SH1106`), and 43-LED effects over Wi-Fi UDP `:5005`.
+              </p>
+            </div>
+
+            <!-- Node B: Phone -->
+            <div class="topology-node-card phone-node">
+              <div class="topology-node-header">
+                <span class="badge gold">2 • MOBILE ROUTER &amp; UI</span>
+                <strong>Android Phone (`10.169.248.1`)</strong>
+              </div>
+              <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 6px 0 0;">
+                Provides the Wi-Fi hotspot linking the Staff and Pi 5, live 43-LED digital twin preview, persona selector, and manual spell/SFX overrides.
+              </p>
+            </div>
+
+            <!-- Node C: Pi 5 -->
+            <div class="topology-node-card pi5-node">
+              <div class="topology-node-header">
+                <span class="badge" style="border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.14);">3 • OPTIONAL LOCAL AI SERVER</span>
+                <strong>Wearable Raspberry Pi 5 (16 GB)</strong>
+              </div>
+              <ul class="topology-node-list" style="margin-top: 6px;">
+                <li><strong>Local STT:</strong> `Whisper.cpp` (`base` / `small` quantized)</li>
+                <li><strong>Local LLM:</strong> `Ollama` (`qwen2.5:0.5b`, `qwen2.5:1.5b`, `gemma4:e2b`)</li>
+                <li><strong>Local TTS:</strong> `Piper` C++ ONNX neural voice (`&lt;300 ms` latency)</li>
+                <li><strong>Power:</strong> Isolated `Geekworm X1209` 18650 UPS (separate from staff 5V rail)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
 
     <!-- =====================================================================
          PHYSICAL BUILD REPLICA, IC BREADBOARD CAD & ORACLE CONSOLE
@@ -214,7 +360,7 @@
         <div id="mic-recording-banner" class="mic-recording-banner" style="display: none;" role="status" aria-live="polite">
           <div class="mic-rec-header">
             <span class="mic-rec-dot"></span>
-            <strong id="mic-rec-status-title">REC • ЗАПИСЬ РЕЧИ С МИКРОФОНА INMP441 (16 kHz I2S)</strong>
+            <strong id="mic-rec-status-title">REC • RECORDING SPEECH FROM INMP441 MIC (16 kHz I2S)</strong>
             <div id="mic-level-bars" class="mic-level-bars" aria-hidden="true">
               <span></span><span></span><span></span><span></span><span></span><span></span>
               <span></span><span></span><span></span><span></span><span></span><span></span>
@@ -222,7 +368,7 @@
             <button type="button" id="mic-stop-send-btn" class="btn-icon-step mic-stop-btn">⏹ Stop &amp; Send</button>
           </div>
           <div id="mic-live-transcript" class="mic-live-transcript">
-            🎙️ Говорите в микрофон сейчас... / Speak your question into the microphone...
+            🎙️ Speak your question into the microphone...
           </div>
         </div>
 
@@ -309,52 +455,147 @@
             <canvas id="led-canvas" width="310" height="310" aria-label="43 Concentric WS2812B LEDs"></canvas>
           </div>
           <div class="led-caption">
-            Active Rune Mode: <span id="telem-anim">STELLAR AURORA</span> (24 Authentic Effects)
+            Active Rune Mode: <span id="telem-anim">STELLAR AURORA</span> (28 Authentic Effects)
           </div>
         </div>
 
-        <!-- Direct 24-Effect Selector Drawer -->
+        <!-- Direct 28-Effect Selector Drawer -->
         <details id="lighting-effects-drawer" class="fx-selector-drawer" open>
           <summary>
-            <span>✨ <strong>Select LED Effect Mode (24 Concentric Patterns)</strong></span>
+            <span>✨ <strong>Select LED Effect Mode (28 Concentric Patterns)</strong></span>
             <span id="active-fx-desc" style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--cyan-primary);">STELLAR AURORA — Flowing cyan, teal &amp; gold</span>
           </summary>
           <div id="replica-effects-grid" class="fx-grid"></div>
         </details>
 
-        <!-- One-Click Preset Showcase -->
+        <!-- 21 Chiptune Melodies + 14 Cosmic & R2-D2 Sound FX Showcase -->
         <div style="margin-top: 24px;">
-          <div class="panel-header" style="margin-bottom: 12px; padding-bottom: 8px;">
+          <div class="panel-header" style="margin-bottom: 12px; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
             <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">
-              Arcane Presets (Audio + Thematic LEDs)
+              🎵 21 Onboard 8-Bit Chiptune Melodies (Audio + Thematic LEDs)
             </span>
+            <button type="button" id="btn-stop-audio" class="btn-icon-step" style="font-size: 0.68rem; padding: 3px 9px;" title="Stop Chiptune / Sound FX">⏹ Stop Audio</button>
           </div>
           <div class="preset-grid">
             <button class="preset-btn zelda" data-track="3" id="preset-zelda">
-              <strong>TRIFORCE HYMN</strong>
-              <span>Arcane Fanfare</span>
+              <strong>ZELDA OVERWORLD</strong>
+              <span>Triforce Fanfare (LED #14)</span>
             </button>
             <button class="preset-btn tetris" data-track="1" id="preset-tetris">
-              <strong>KOROBEINIKI</strong>
-              <span>Folk 8-Bit (1861)</span>
-            </button>
-            <button class="preset-btn daft" data-track="7" id="preset-daft">
-              <strong>CYBER VISOR</strong>
-              <span>Retro Electro Funk</span>
+              <strong>TETRIS KOROBEINIKI</strong>
+              <span>1861 Folk 8-Bit (LED #12)</span>
             </button>
             <button class="preset-btn starwars" data-track="2" id="preset-starwars">
-              <strong>GALACTIC MARCH</strong>
-              <span>Space Citadel Theme</span>
-            </button>
-            <button class="preset-btn" data-track="4" id="preset-ghostbusters">
-              <strong>ECTO GROOVE</strong>
-              <span>Spectral Proton Pulse</span>
+              <strong>STAR WARS MARCH</strong>
+              <span>Darth Vader Theme (LED #13)</span>
             </button>
             <button class="preset-btn doom" data-track="0" id="preset-doom">
-              <strong>PHOBOS REALM</strong>
-              <span>8-Bit Heavy Synth</span>
+              <strong>DOOM E1M1</strong>
+              <span>At Doom's Gate (LED #11)</span>
+            </button>
+            <button class="preset-btn" data-track="4" id="preset-ghostbusters">
+              <strong>GHOSTBUSTERS</strong>
+              <span>Proton Pack Pulse (LED #15)</span>
+            </button>
+            <button class="preset-btn daft" data-track="7" id="preset-daft">
+              <strong>DAFT PUNK FUNK</strong>
+              <span>Cyber Visor Groove (LED #19)</span>
+            </button>
+            <button class="preset-btn" data-track="5" id="preset-mario">
+              <strong>SUPER MARIO BROS</strong>
+              <span>1-1 Overworld (LED #16)</span>
+            </button>
+            <button class="preset-btn" data-track="6" id="preset-spooky">
+              <strong>SPOOKY SKELETONS</strong>
+              <span>Halloween Pumpkin (LED #7)</span>
+            </button>
+            <button class="preset-btn" data-track="9" id="preset-potter">
+              <strong>HEDWIG'S THEME</strong>
+              <span>Harry Potter Spell (LED #24)</span>
+            </button>
+            <button class="preset-btn" data-track="10" id="preset-pokemon">
+              <strong>POKÉMON THEME</strong>
+              <span>Pokéball Capture (LED #25)</span>
+            </button>
+            <button class="preset-btn" data-track="11" id="preset-sailor">
+              <strong>SAILOR MOON</strong>
+              <span>Moonlight Densetsu (LED #23)</span>
+            </button>
+            <button class="preset-btn" data-track="8" id="preset-morrowind">
+              <strong>MORROWIND THEME</strong>
+              <span>Nerevar Rising (LED #20)</span>
             </button>
           </div>
+
+          <!-- Drawer for Remaining 9 World & Game Melodies (Tracks 12..20) -->
+          <details class="fx-selector-drawer" style="margin-top: 10px;">
+            <summary>
+              <span>🎼 <strong>More Staff Melodies (Tracks 13–21: Mega Man 2, eBay, Bella Ciao, Ode to Joy, World Folk)</strong></span>
+              <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--cyan-primary);">9 Tracks</span>
+            </summary>
+            <div class="preset-grid" style="margin-top: 10px;">
+              <button class="preset-btn" data-track="12">
+                <strong>MEGA MAN 2</strong>
+                <span>Dr. Wily Stage 1</span>
+              </button>
+              <button class="preset-btn" data-track="13">
+                <strong>EBAY AUCTION</strong>
+                <span>Sniping Frenzy (LED #26)</span>
+              </button>
+              <button class="preset-btn" data-track="14">
+                <strong>BELLA CIAO</strong>
+                <span>Italian Folk Anthem</span>
+              </button>
+              <button class="preset-btn" data-track="15">
+                <strong>ODE TO JOY</strong>
+                <span>Beethoven 9th</span>
+              </button>
+              <button class="preset-btn" data-track="16">
+                <strong>GREENSLEEVES</strong>
+                <span>16th-C English Ballad</span>
+              </button>
+              <button class="preset-btn" data-track="17">
+                <strong>SAKURA SAKURA</strong>
+                <span>Japanese Traditional</span>
+              </button>
+              <button class="preset-btn" data-track="18">
+                <strong>MO LI HUA</strong>
+                <span>Jasmine Flower</span>
+              </button>
+              <button class="preset-btn" data-track="19">
+                <strong>DU LIEGST MIR</strong>
+                <span>German Volkslied</span>
+              </button>
+              <button class="preset-btn" data-track="20">
+                <strong>LA CUCARACHA</strong>
+                <span>Mexican Folk Fiesta</span>
+              </button>
+            </div>
+          </details>
+
+          <!-- 14 Cosmic & R2-D2 Sound FX Bank (Firmware Parity) -->
+          <details class="fx-selector-drawer" style="margin-top: 10px;" open>
+            <summary>
+              <span>🛸 <strong>14 Cosmic, R2-D2 &amp; Spell Sound FX (Firmware <code>COSMIC_SFX</code> Bank)</strong></span>
+              <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--gold-accent);">Synced LEDs + Synth</span>
+            </summary>
+            <div class="sfx-grid">
+              <button type="button" class="sfx-btn" data-sfx="0">🚀 Warp Drive</button>
+              <button type="button" class="sfx-btn" data-sfx="1">📡 Pulsar Beacon</button>
+              <button type="button" class="sfx-btn" data-sfx="2">👽 Alien Scanner</button>
+              <button type="button" class="sfx-btn" data-sfx="3">🔫 Laser Blaster</button>
+              <button type="button" class="sfx-btn" data-sfx="4">🌀 Tractor Beam</button>
+              <button type="button" class="sfx-btn" data-sfx="5">⛩️ Stargate Portal</button>
+              <button type="button" class="sfx-btn" data-sfx="6">💥 Supernova</button>
+              <button type="button" class="sfx-btn" data-sfx="7">🤖 R2-D2 Happy</button>
+              <button type="button" class="sfx-btn" data-sfx="8">📟 R2-D2 Chatter</button>
+              <button type="button" class="sfx-btn" data-sfx="9">⚠️ R2-D2 Scream</button>
+              <button type="button" class="sfx-btn" data-sfx="10">🪙 Cha-Ching Bid</button>
+              <button type="button" class="sfx-btn" data-sfx="11">🔴 Pokécenter Heal</button>
+              <button type="button" class="sfx-btn" data-sfx="12">✨ Lumos Flare</button>
+              <button type="button" class="sfx-btn" data-sfx="13">🦌 Patronum</button>
+            </div>
+          </details>
 
           <!-- Legal & Fair Use Notice -->
           <div class="legal-disclaimer-box">
@@ -1121,7 +1362,7 @@
     </footer>
   </div>
 
-  <script src="simulator.js?v=1.2.4"></script>
-  <script type="module" src="twin/controls.js?v=1.2.4"></script>
+  <script src="simulator.js?v=1.2.5"></script>
+  <script type="module" src="twin/controls.js?v=1.2.5"></script>
 </body>
 </html>
