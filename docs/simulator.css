@@ -1905,6 +1905,47 @@ footer a:hover {
   border-top: 1px solid rgba(245, 158, 11, 0.22);
 }
 
+.nextgen-v2-drawer {
+  background: rgba(5, 8, 17, 0.82);
+  border: 1px solid rgba(168, 85, 247, 0.42);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.nextgen-v2-drawer > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.86rem;
+  color: #f8fafc;
+  background: linear-gradient(90deg, rgba(168, 85, 247, 0.14), rgba(56, 189, 248, 0.08));
+  transition: background var(--transition-fast);
+  outline: none;
+}
+
+.nextgen-v2-drawer > summary::-webkit-details-marker {
+  display: none;
+}
+
+.nextgen-v2-drawer > summary:hover {
+  background: linear-gradient(90deg, rgba(168, 85, 247, 0.22), rgba(56, 189, 248, 0.14));
+}
+
+.nextgen-v2-body {
+  padding: 16px 18px 18px;
+  border-top: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+.topology-node-card.nextgen-node {
+  border-color: rgba(168, 85, 247, 0.52);
+  box-shadow: inset 0 0 18px rgba(168, 85, 247, 0.07);
+}
+
 /* ==========================================================================
    EXPANDED 21 CHIPTUNES & 14 COSMIC / R2-D2 SOUND FX JUKEBOX
    ========================================================================== */

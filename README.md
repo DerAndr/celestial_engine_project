@@ -84,6 +84,40 @@ flowchart LR
    - The host paces `1024-byte` (`32 ms`) PCM packets over UDP back to the staff.
    - RP2350 **Core 0** pushes incoming audio into a lock-free **64 KB circular ring buffer** (`2.04 seconds` of buffer capacity), and **Core 1** streams the samples via DMA through `PIO1 SM0` to the `MAX98357A` Class-D amplifier without blocking LED or OLED updates.
 
+### 4. Next-Gen v2.0 Target Flow (2026 Best-Practice Roadmap — Planned Next Release)
+
+While **Mk.V (v1.2)** uses a classic 3-step sequential pipeline (`I2S Raw PCM` → `STT` → `LLM Text` → `TTS` over static UDP), the upcoming **v2.0 architecture** upgrades the stack to the **2026 Edge AI & Wearable Best-Practice Flow**:
+
+```mermaid
+flowchart LR
+    subgraph EDGE["Stage 1: Smart Staff Firmware v2.0 (RP2350)"]
+        VAD["Onboard CMSIS-DSP VAD\n& Full-Duplex Barge-In"]
+        CODEC["4:1 IMA-ADPCM / Opus Framing\n(64 kbps vs 256 kbps Raw PCM)"]
+        DISC["Zero-Config BLE 5.3 GATT\n+ mDNS (celestial.local)"]
+        SHADER["60 FPS Parameterized\nLED Spell Shader Engine"]
+        VAD --> CODEC
+    end
+
+    subgraph NPU["Stage 2: Native NPU & Realtime Audio Engine"]
+        OMNI["Direct Speech-to-Speech\n(Gemma 3n / 4 E2B on LiteRT-LM NPU\nor Gemini Live WebRTC)"]
+        FAST["Fast Offline Pipeline\nMoonshine ONNX + Kokoro-82M TTS\n(<180 ms First Audio Chunk)"]
+        TOOLS["Inline Hardware Tool Calling\nset_led_spell() • trigger_sfx()\nset_oled_mood()"]
+        OMNI --> TOOLS
+        FAST --> TOOLS
+    end
+
+    CODEC <== "Full-Duplex Audio (<300 ms Turn-Taking)\n+ Inline JSON Hardware Tool Calls" ==> NPU
+    DISC -. "Auto-Discovery (Zero Static IP)" .-> NPU
+```
+
+| Engineering Metric | Current Mk.V (`v1.2`) | Next-Gen Target (`v2.0` — 2026 Best Practice) |
+| :--- | :--- | :--- |
+| **Network Provisioning** | Static Hotspot / LAN IP (`10.169.248.1:5005`) | **Zero-Config `BLE 5.3 GATT` + `mDNS` (`celestial.local`)** |
+| **Wireless Audio Codec** | Uncompressed `16 kHz` 16-bit PCM (`256 kbps`) | **4:1 `IMA-ADPCM` / `Opus` (`64 kbps`) + Sequence Jitter Buffer** |
+| **Voice Interaction** | Half-Duplex Push-to-Talk (`GP9` button hold) | **Onboard `CMSIS-DSP` VAD + Full-Duplex Barge-In (Interruptible)** |
+| **AI Inference Pipeline** | Sequential `STT → LLM → TTS` (`1.4–2.5 s` latency) | **Native Audio-to-Audio (`Gemma 3n/4` NPU / `WebRTC`) + `Kokoro-82M` (`<300 ms`)** |
+| **Hardware Control** | Fixed LED/SFX IDs mapped per preset | **Inline LLM Function Calling (`set_led_spell`, `trigger_sfx`, `set_oled_mood`)** |
+
 ---
 
 ### Core Subsystems

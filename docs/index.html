@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="simulator.css?v=1.2.7">
+  <link rel="stylesheet" href="simulator.css?v=1.2.8">
 </head>
 <body>
   <!-- Ambient Deep Space Starfield -->
@@ -246,6 +246,94 @@
                 <li><strong>Local LLM:</strong> <code>Ollama</code> (<code>qwen2.5:0.5b</code>, <code>qwen2.5:1.5b</code>, <code>gemma4:e2b</code>)</li>
                 <li><strong>Local TTS:</strong> <code>Piper</code> C++ ONNX neural voice (<code>&lt;300 ms</code> latency)</li>
                 <li><strong>Isolated Power:</strong> <code>Geekworm X1209</code> 18650 UPS (separate from staff 5V rail)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- NEXT-GEN v2.0 ROADMAP: 2026 BEST-PRACTICE ARCHITECTURE (PLANNED NEXT VERSION) -->
+      <details class="nextgen-v2-drawer" open>
+        <summary>
+          <span>🚀 <strong>Next-Gen v2.0 Target Flow (2026 Best-Practice Roadmap):</strong> Full-Duplex Speech-to-Speech, On-Device NPU &amp; Zero-Config BLE/mDNS</span>
+          <span class="badge" style="border-color: #c084fc; color: #e9d5ff; background: rgba(168, 85, 247, 0.18);">PLANNED NEXT RELEASE • v2.0</span>
+        </summary>
+        <div class="nextgen-v2-body">
+          <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.58; margin-bottom: 14px;">
+            While <strong>Mk.V (v1.2)</strong> uses a classic 3-step sequential pipeline (<code>I2S Raw PCM</code> → <code>STT</code> → <code>LLM Text</code> → <code>TTS</code> over static UDP), the upcoming <strong>v2.0 release</strong> upgrades the stack to the <strong>2026 Edge AI &amp; Wearable Best-Practice Architecture</strong>: eliminating manual IP configuration, cutting wireless audio bandwidth by 4×, and replacing the sequential text waterfall with <strong>sub-300 ms Full-Duplex Audio-to-Audio &amp; NPU Function Calling</strong>.
+          </p>
+
+          <div class="topology-flow-grid tri-node">
+            <!-- Stage 1: Smart Edge Firmware -->
+            <div class="topology-node-card staff-node">
+              <div class="topology-node-header">
+                <span class="badge cyan">STAGE 1 • RP2350 EDGE DSP</span>
+                <strong class="topology-node-title">Smart Staff Firmware v2.0</strong>
+              </div>
+              <ul class="topology-node-list">
+                <li><strong>Zero-Config Pairing:</strong> <code>BLE 5.3 GATT</code> + <code>mDNS</code> (<code>celestial.local</code>) — no static hotspot IP needed</li>
+                <li><strong>Onboard VAD &amp; Barge-In:</strong> Cortex-M33 <code>CMSIS-DSP</code> Voice Activity Detection lets you interrupt the Oracle mid-sentence</li>
+                <li><strong>4:1 Audio Compression:</strong> <code>IMA-ADPCM</code> / <code>Opus</code> framing (<code>64 kbps</code> vs <code>256 kbps</code> raw PCM) with sequence jitter buffer</li>
+                <li><strong>60 FPS Shader Engine:</strong> Parameterized LED spell keyframes driven by real-time voice pitch &amp; energy</li>
+              </ul>
+            </div>
+
+            <!-- Connector 1: Full-Duplex Link -->
+            <div class="topology-link-col compact">
+              <div class="topology-arrow-pill uplink">
+                <span>🎙️ VAD-Gated ADPCM / Opus</span>
+                <code>Full-Duplex ➔</code>
+              </div>
+              <div class="topology-protocol-badge">
+                BLE Provision + Wi-Fi<br>
+                <span>Barge-In • &lt;15 ms Jitter</span>
+              </div>
+              <div class="topology-arrow-pill downlink">
+                <code>⬅ Stream + Tool Calls</code>
+                <span>🔊 Audio + JSON Spell Struct</span>
+              </div>
+            </div>
+
+            <!-- Stage 2: Native NPU / Multimodal Brain -->
+            <div class="topology-node-card nextgen-node">
+              <div class="topology-node-header">
+                <span class="badge" style="border-color: #c084fc; color: #e9d5ff; background: rgba(168, 85, 247, 0.16);">STAGE 2 • NATIVE NPU / OMNI ENGINE</span>
+                <strong class="topology-node-title">On-Device NPU &amp; Realtime Audio</strong>
+              </div>
+              <ul class="topology-node-list">
+                <li><strong>Direct Audio-to-Audio:</strong> Native multimodal models (<code>Gemma 3n / 4 E2B</code> via <code>LiteRT-LM</code> NPU or <code>Gemini Live WebRTC</code>) process speech tokens directly without STT delay</li>
+                <li><strong>Fast Offline Fallback:</strong> <code>Moonshine ONNX</code> STT + <code>Kokoro-82M</code> neural TTS (<code>&lt;180 ms</code> first-chunk audio)</li>
+                <li><strong>Hardware Tool Calling:</strong> Model emits structured JSON tool calls (<code>set_led_spell</code>, <code>trigger_sfx</code>, <code>set_oled_mood</code>) inline with audio</li>
+              </ul>
+            </div>
+
+            <!-- Connector 2: Edge / Cloud Mesh -->
+            <div class="topology-link-col compact">
+              <div class="topology-arrow-pill uplink">
+                <span>⚡ Auto-Routed Context</span>
+                <code>NPU ⇄ Pi 5 ⇄ Cloud</code>
+              </div>
+              <div class="topology-protocol-badge">
+                Hybrid Router<br>
+                <span>&lt;300 ms Voice-to-Voice</span>
+              </div>
+              <div class="topology-arrow-pill downlink">
+                <code>⬅ Unified Telemetry</code>
+                <span>📊 Web / Mobile Twin Sync</span>
+              </div>
+            </div>
+
+            <!-- Stage 3: v1.2 vs v2.0 Engineering Gains -->
+            <div class="topology-node-card phone-node">
+              <div class="topology-node-header">
+                <span class="badge gold">STAGE 3 • v2.0 TARGET METRICS</span>
+                <strong class="topology-node-title">Why This Matters (v1.2 → v2.0)</strong>
+              </div>
+              <ul class="topology-node-list">
+                <li><strong>End-to-End Latency:</strong> Drops from <code>1.4–2.5 s</code> (STT→LLM→TTS waterfall) to <code>&lt;300 ms</code> conversational turn-taking</li>
+                <li><strong>Hands-Free Conversation:</strong> Continuous duplex mode with acoustic echo cancellation &amp; instant barge-in</li>
+                <li><strong>Zero Network Setup:</strong> Turn on the staff and any phone/Pi 5 auto-discovers it over <code>BLE + mDNS</code></li>
+                <li><strong>4× Lower Wi-Fi Airtime:</strong> Compressed frames eliminate UDP packet loss in crowded convention halls</li>
               </ul>
             </div>
           </div>
