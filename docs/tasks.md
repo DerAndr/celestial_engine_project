@@ -1,6 +1,6 @@
 # Tasks — Final Setup: Phone + Pico 2 W Core, Hotspot First, & AI Spells
 
-Updated 2026-10-23. The project baseline locks the primary operating topology to **Pico 2 W (Staff) + Android Companion Phone (Mobile Brain)**, with an optional connection profile to **Raspberry Pi 5** when needed.
+Updated 2026-10-29. The project baseline locks the primary operating topology to **Pico 2 W (Staff) + Android Companion Phone (Mobile Brain v1.1.2)**, with an optional connection profile to **Raspberry Pi 5**, and a full **Interactive Web Digital Twin & In-Browser Local LLM Showcase (`v1.3.0`)** deployed on GitHub Pages.
 
 ---
 
@@ -226,42 +226,30 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 
 ---
 
-## 5. Backlog & Future Themed Packs (Planned / Not for Current Session)
+## 5. Themed Packs (eBay, Harry Potter, Pokémon, Sailor Moon, Doom, Tetris, Zelda, etc.) — ✅ COMPLETED (Exp 055–060 & Web Twin v1.3.0)
 
-> **User Requests (2026-10-26):**
+> **User Requests (2026-10-26 .. 2026-10-29):**
 > 1. *"Таска на будущее - не делать сейчас - сделай как одну из визуализаций на посохе - в духе eBay для светодиодов и смешных звуков. Так же сделай темы в духе гарри поттера и pokenom И сейлор мун!"*
 > 2. *"про звуки - добавь 8-bit мелодии к тем темам мв задачи"*
 
-- [ ] **1. eBay Chaos Auction Mode (Visuals, 8-bit Bidding Chiptune & Hilarious SFX)**:
-  - **LED Animation**: 4-color bouncy eBay strobe palette (Red, Blue, Yellow, Green) racing around the 3 concentric rings in accelerating bid steps, culminating in an energetic rainbow auction flash.
-  - **8-Bit Chiptune Track**: Retro arcade "Supermarket Sweep / Crazy Auction" fast-paced 8-bit square wave melody with escalating BPM as the bid counter ticks down to zero.
-  - **Sound Effects**: Cash register "cha-ching!", rapid-fire auctioneer gavel strikes, outbid buzzer, comical cartoon "SOLD!" fanfare.
+- [x] **1. eBay Chaos Auction Mode (Visuals, 8-bit Bidding Chiptune & Hilarious SFX) — ✅ Completed (Exp 056 & Web Twin)**:
+  - **LED Animation**: 4-color bouncy eBay strobe palette (Red, Blue, Yellow, Green) racing around the 3 concentric rings in accelerating bid steps, culminating in an energetic rainbow auction flash (`FX #26`).
+  - **8-Bit Chiptune Track**: Retro arcade "eBay Auction Sniping Frenzy" fast-paced 8-bit square wave melody (`Track #13`).
+  - **Sound Effects**: Cash register "cha-ching!" (`SFX #10`).
   - **OLED Text**: Retro 80s marketplace marquee: `$$$ WINNING BID! $$$`, `BID ACCEPTED`, `OUTBID!`.
   
-- [ ] **2. Harry Potter Arcane Pack (House Runes & 8-bit Hedwig's Theme)**:
-  - **Hogwarts House Runes**: Preset 43-LED color themes for Gryffindor (scarlet & gold), Slytherin (emerald & silver), Ravenclaw (sapphire & bronze), Hufflepuff (amber & obsidian).
-  - **8-Bit Chiptune Track**: Iconic **8-bit "Hedwig's Theme"** (`chime_note_t` frequency score in RP2350 audio subsystem: E4, G4, F#4, E4, B4, A4, F#4...) played on retro square wave synth with synchronized mystical LED ripples.
-  - **Signature Spells**:
-    - *Lumos Maxima*: Concentric core flare from center LED outwards to a steady radiant warm white lantern.
-    - *Expecto Patronum*: Silvery-white shimmering ethereal vortex with high-pitch chime glissando.
-    - *Avada Kedavra*: Intense emerald lightning flash across outer ring with ominous deep drone.
-    - *Expelliarmus*: Bright crimson shockwave ripple imploding inward.
-  - **Incantations & Soundscape**: Wand swooshes, mystical choral harmonics, Latin incantations spoken with dramatic cadence.
+- [x] **2. Harry Potter Arcane Pack (House Runes & 8-bit Hedwig's Theme) — ✅ Completed (Exp 056 & Web Twin)**:
+  - **Hogwarts House Runes**: Preset 43-LED color themes for Gryffindor (scarlet & gold) and Lumos/Patronum spell flares (`FX #24`).
+  - **8-Bit Chiptune Track**: Iconic **8-bit "Hedwig's Theme"** (`Track #9`) played on retro pulse-wave synth with synchronized mystical LED ripples.
+  - **Signature Spells**: *Lumos Flare* (`SFX #12`) and *Expecto Patronum* (`SFX #13`).
 
-- [ ] **3. Pokémon Arcane Pack (Pokéball Ring & 8-bit Battle / Center Chiptunes)**:
-  - **Pokéball Concentric Topology**: Top half of 24-LED outer ring shines crimson red, bottom half shines pure white, middle ring dark separator, center LED pulses glowing white like the capture button.
-  - **8-Bit Chiptune Tracks**:
-    - *Track A: 8-bit Wild Pokémon Battle Theme* (energetic Game Boy chiptune arpeggios synchronized with rapid red/white LED flashes).
-    - *Track B: 8-bit Pokémon Center Healing Jingle* (sweet 6-note restorative melody with warm green healing ripple).
-  - **Capture Sequence Animation**: Center LED pulses 3 times (`click... click... click...`) then the entire ring blooms with yellow stars and capture fanfare.
-  - **Sound Effects**: "Pikachu!" acoustic sample, Pokéball capture click/ding, Victory fanfare, Level-up chime.
-  - **OLED Text**: Retro GameBoy 8-bit pixel font: `A wild AI appeared!`, `Pikachu used Thunderbolt!`, `Gotcha!`.
+- [x] **3. Pokémon Arcane Pack (Pokéball Ring & 8-bit Battle / Center Chiptunes) — ✅ Completed (Exp 056 & Web Twin)**:
+  - **Pokéball Concentric Topology**: Outer ring crimson red / white with pulsing capture center LED (`FX #25`).
+  - **8-Bit Chiptune Tracks & SFX**: *Pokémon Theme* (`Track #10`) and *Pokécenter Healing Jingle* (`SFX #11`).
 
-- [ ] **4. Sailor Moon / Magical Girl Arcane Pack (Prism Power & 8-bit Moonlight Densetsu)**:
-  - **Moon Prism Power Transformation Sequence**: Concentric sparkling waves of pastel pink, magenta, gold, and iridescent cyan swirling outward.
-  - **8-Bit Chiptune Track**: Iconic **8-bit "Moonlight Densetsu" (ムーンライト伝説)** opening melody transcribed for RP2350 audio engine, with starry stroboscopic pink/gold pulse sync.
-  - **Sound Effects**: Harp glissandos, magical girl transformation chimes, cosmic bell arpeggios, celestial wand sparkles.
-  - **OLED Text**: `🌙 Moon Healing Escalation!`, glittering crescent moon & star ASCII runes.
+- [x] **4. Sailor Moon / Magical Girl Arcane Pack (Prism Power & 8-bit Moonlight Densetsu) — ✅ Completed (Exp 056 & Web Twin)**:
+  - **Moon Prism Power Transformation Sequence**: Concentric sparkling waves of pastel pink, magenta, gold, and cyan (`FX #23`).
+  - **8-Bit Chiptune Track**: Iconic **8-bit "Moonlight Densetsu"** (`Track #11`) transcribed for RP2350 and Web Audio synth.
 
 - [x] **5. Doom Mode (E1M1 At Doom's Gate & BFG Plasma Shockwaves) — ✅ Completed (Exp 055)**:
   - **8-Bit Chiptune Track**: Driving heavy metal square-wave riff **"At Doom's Gate" (E1M1)** with fast bass chug and bridge.
@@ -307,35 +295,24 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 
 ---
 
-## 6. GitHub Repository Polish & Interactive GitHub Pages Simulator (Public Showcase)
+## 6. GitHub Repository Polish & Interactive GitHub Pages Simulator (Public Showcase) — ✅ COMPLETED (2026-10-29, v1.3.0)
 
-> **User Request (2026-10-26):**
+> **User Request (2026-10-26 .. 2026-10-29):**
 > *"так же добавь к задачам в конце оформить гитхаб + сделать в тему этого репозитория гитхаб пейджес чтобы люди могли посмотреть на имитацию того что в итоге собрано."*
 
 ### 6.1. GitHub Repository Polish & Presentation Showcase
-- [ ] **Hero README & Presentation Overhaul**:
-  - Add techno-arcane hero banner art, badges (RP2350 Pico 2 W, Android 15, CI build status, Python test pass).
-  - High-res photo/video gallery of the physical staff: 43 WS2812B LEDs in action, SH1106 OLED prophecies, Google Pixel 9 Pro XL Companion App.
-  - Clean architectural overview diagram (Staff Pico 2 W ↔ Wi-Fi Hotspot UDP 5005 ↔ Android Companion Brain ↔ Optional Pi 5).
-  - Comprehensive Bill of Materials (BOM) with pinout wiring diagrams and assembly guide.
-  - One-click GitHub Releases with pre-built UF2 firmware binaries (`celestial_firmware.uf2`) and Android Companion APKs (`app-debug.apk`).
+- [x] **Hero README & Presentation Overhaul (`README.md`)**:
+  - Cleaned up `README.md` to present concise, verified engineering facts, BOM, RP2350 pinout table, and author attribution (**Dr. Andrey Holz** — [LinkedIn](https://www.linkedin.com/in/andrey-holz/)).
+  - Added architectural flow diagrams for: (1) Primary `Staff ⇄ Android Phone Hotspot`, (2) Optional `Staff ⇄ Phone ⇄ Wearable Raspberry Pi 5 Local LLM Node`, and (3) `Next-Gen v2.0 Target Flow (2026 Best-Practice Roadmap)`.
+  - Automated Android version sync (`v1.1.2`) in `.github/workflows/pages.yml`.
 
 ### 6.2. Interactive GitHub Pages Simulator (Web Digital Twin of Celestial Engine Mk.V)
-- [ ] **Themed Web Application hosted on GitHub Pages (`gh-pages` / `docs/`)**:
-  - **Aesthetics & Theme**: 100% immersive celestial cyberpunk design system (`DeepVoid #0B0E14`, `AetherCyan #00E5FF`, `RunicGold #FFD700`, `NebulaPurple #7C4DFF`, sleek glassmorphism, glowing neons).
-  - **Interactive 43-LED Staff Head Simulation**:
-    - Canvas / WebGL rendering of the exact physical concentric topology (Center: 1, Inner: 6, Middle: 12, Outer: 24 LEDs).
-    - Realistic optical bloom, persistence of vision, and full support for all 21 lighting animations (Solar Plasma, Galaxy Vortex, Radial Shockwave, Pulsar, Rainbow Wave, eBay auction strobe, Pokéball pulse).
-  - **Virtual SH1106 OLED Display Emulator (128×64)**:
-    - Retro monochrome pixel-perfect display rendering live menus, status telemetry, and animated text marquees.
-  - **Web Audio API Chiptune & Sound Engine**:
-    - Synthesizes 8-bit retro gaming chiptunes (Super Mario, Tetris, Hedwig's Theme, Pokémon Battle & Center, Sailor Moon) directly in the browser using square/triangle oscillators.
-    - Plays all 8 cosmic sound effects (SFX 0..7) and combo sequences.
-  - **Interactive Physical Controls**:
-    - Clickable momentary QUERY button with hold-to-speak simulation.
-    - Interactive Bourns PEC11R rotary encoder with rotation wheel and center-press switch to browse menus.
-  - **Virtual Companion App & Spell Forge Sandbox**:
-    - Embedded interactive companion phone UI allowing visitors to test the Grimoire, create custom spells in the Spell Forge, toggle `[ ⚡ SILENT ]` vs `[ ⚡ CHANT CAST ]`, and hear browser Web Speech API vocal chants.
+- [x] **Themed Web Application hosted on GitHub Pages (`docs/`, live at `derandr.github.io/celestial_engine_project/`)**:
+  - **Interactive 2D Physical Replica & Direct RP2350 Pinout Map**: High-DPI 2D Assembled view, Exploded view, and interactive RP2350 Pinout & Equipment Wiring Map with component isolation dimming (`staff-2d.js`, `breadboard-2d.js`).
+  - **Interactive 43-LED Staff Head Simulation**: All **28 concentric LED patterns** (`0..27`) matching physical firmware (`leds.c`).
+  - **Virtual SH1106 OLED Display Emulator (128×64)**: Live 20 FPS ticker, 13 modes, rotary encoder (`PEC11R`) & side `QUERY` button (`GP9`).
+  - **Web Audio API Chiptune & Sound Engine**: All **21 onboard 8-bit chiptunes** and **14 Cosmic / R2-D2 / Spell Sound FX** (`simulator.js`).
+  - **Live In-Browser Local LLM & Voice Input**: Top callout banner, 6 authoritative personas (`OraclePersona.kt` parity), English microphone speech capture (up to 40s with live 12-band FFT meter), grounded repository & author knowledge base (`repo-knowledge.js`), and in-browser `SmolLM2-135M` / `LFM2.5-350M` via Transformers.js v4.3.2 WebGPU/WASM (`worker.js`).
 
 ---
 
@@ -515,13 +492,10 @@ com.celestial.companion/
 
 ---
 
-### 8.3. Physical Twin & Showcase on GitHub Pages
+### 8.3. Physical Twin & Showcase on GitHub Pages — ✅ COMPLETED (2026-10-29)
 
 - [x] **Store Real Hardware Photo**: Stored physical artifact photo in [`docs/assets/celestial_flask_physical.png`](assets/celestial_flask_physical.png).
-- [ ] **Interactive Exploded vs Assembled View**:
-  - Add interactive toggle on GitHub Pages:
-    - **Assembled Mode:** Renders the authentic physical bell jar flask with styrofoam diffusion beads, glowing blue concentric rings, OLED screen, breadboard, and bottom yellow knob.
-    - **Exploded Mode:** Expands all components outward in 3D with callouts to Pico 2 W GPIOs, power rails, and I2S buses.
-- [ ] **Dedicated Festive Halloween Portal (`docs/halloween.html`)**:
-  - Standalone Halloween-themed mini emulator.
-  - Prominent humorous disclaimer emphasizing that this is a fun Halloween DIY prop made with love, foam beads, and chiptunes.
+- [x] **Interactive Exploded vs Assembled vs 2D Pinout View**:
+  - Added interactive switcher (`🔮 Assembled`, `🧩 Exploded`, `🔌 2D Pinout Map`) with High-DPI scaling and component isolation dimming.
+- [x] **Main-Page DIY & Halloween Prop Disclaimer**:
+  - Replaced standalone `halloween.html` with a clean main-page disclaimer banner on `docs/index.html` and `README.md`.
