@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.3';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.3';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.3';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.3';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.3';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.4';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.4';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.4';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.4';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.4';
 
 let oracleProvider = null;
 let staff2D = null;
@@ -432,7 +432,7 @@ export async function initTwinReplica() {
     });
   }
 
-  updateHotspotCard('dome');
+  updateHotspotCard('all');
   populateEffectsGrid();
   updateOracleUi();
 
@@ -452,12 +452,14 @@ export async function initTwinReplica() {
     });
   });
 
-  // Bind Hotspot Quick-Select Chips
+  // Bind Hotspot Quick-Select Chips (click again to return to 'all' full assembly)
   document.querySelectorAll('.hotspot-chip-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.hotspot;
-      twinState.update({ selectedHotspotId: id });
-      updateHotspotCard(id);
+      const cur = twinState.getState().selectedHotspotId;
+      const nextId = (cur === id && id !== 'all') ? 'all' : id;
+      twinState.update({ selectedHotspotId: nextId });
+      updateHotspotCard(nextId);
     });
   });
 
@@ -547,7 +549,7 @@ export async function initTwinReplica() {
     if (hudMicStatusPill) {
       hudMicStatusPill.textContent = isRec
         ? '🔴 ● REC — ЗАПИСЬ РЕЧИ (INMP441 MIC ACTIVE)'
-        : 'GP9 (Pin 12) / Green Side Button';
+        : 'GP9 (Pin 12) / Side PTT Button';
       hudMicStatusPill.style.color = isRec ? '#f87171' : '';
     }
     if (micBanner) {

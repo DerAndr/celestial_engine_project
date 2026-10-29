@@ -1052,7 +1052,7 @@
     },
     {
       id: 'query',
-      name: 'Green Side Query Button (PTT)',
+      name: 'Side Query Button (PTT)',
       chip: 'Compact Momentary Push-To-Talk',
       category: 'AI Voice Trigger',
       voltage: '3.3V Logic',
@@ -1061,7 +1061,7 @@
       asmX: -55, asmY: 20, asmZ: 15,
       w: 56, h: 40,
       color: '#22c55e',
-      desc: 'Small green momentary push-button mounted on the side of the enclosure. Hold to activate 16 kHz I2S microphone streaming; release to trigger Oracle response.',
+      desc: 'Momentary push-button mounted on the side of the enclosure. Hold to activate 16 kHz I2S microphone streaming; release to trigger Oracle response.',
       pins: [
         { mod: 'Pin 1', pico: 'GPIO 9 (Pin 12)', func: 'PTT Interrupt', note: 'Pull-up, Active LOW' },
         { mod: 'Pin 2', pico: 'GND (Pin 13)', func: 'Ground', note: 'Common ground' }
@@ -1089,7 +1089,7 @@
     },
     {
       id: 'mic',
-      name: 'INMP441 I2S Microphone (Yellow)',
+      name: 'INMP441 I2S Microphone',
       chip: 'Omnidirectional MEMS + Acoustic Capsule',
       category: 'Audio Input',
       voltage: '3.3V (Strict)',
@@ -1163,133 +1163,88 @@
 
 
   function renderSchematic(t) {
-
     if (!schematicCtx || !schematicCanvas) return;
-
     if (typeof window.__celestialRenderBreadboard2D === 'function') {
-
+      const cssW = schematicCanvas.clientWidth || (schematicCanvas.parentElement && schematicCanvas.parentElement.clientWidth) || 720;
+      const cssH = 460;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      const targetW = Math.round(cssW * dpr);
+      const targetH = Math.round(cssH * dpr);
+      if (schematicCanvas.width !== targetW || schematicCanvas.height !== targetH) {
+        schematicCanvas.width = targetW;
+        schematicCanvas.height = targetH;
+      }
+      schematicCtx.save();
+      schematicCtx.scale(dpr, dpr);
       schemHitBoxes = window.__celestialRenderBreadboard2D(
-
         schematicCtx,
-
-        schematicCanvas.width,
-
-        schematicCanvas.height,
-
+        cssW,
+        cssH,
         {
-
           circuitMode: schemCircuitMode,
-
           selectedId: selectedComponentId,
-
           ledNodes: LED_NODES,
-
+          staffState: currentState,
           timestamp: t
-
         }
-
       );
-
+      schematicCtx.restore();
     }
-
   }
 
-
-
-  function selectSchematicComponent(id) {
-
-    const comp = SCHEMATIC_COMPONENTS.find(c => c.id === id);
-
+  function selectSchematicComponent(id, keepOverviewHighlight = false) {
+    const comp = SCHEMATIC_COMPONENTS.find(c => c.id === id) || SCHEMATIC_COMPONENTS[0];
     if (!comp) return;
 
-
-
-    selectedComponentId = id;
-
+    selectedComponentId = keepOverviewHighlight ? 'pico' : id;
     const elTitle = document.getElementById('inspector-title');
-
     const elSub = document.getElementById('inspector-subtitle');
-
     const elDesc = document.getElementById('inspector-desc');
-
     const elTbody = document.getElementById('inspector-spec-tbody');
 
-
-
     if (elTitle) elTitle.textContent = comp.name;
-
     if (elSub) elSub.textContent = `${comp.chip} • ${comp.voltage}`;
-
     if (elDesc) elDesc.textContent = comp.desc;
 
-
-
     if (elTbody) {
-
       elTbody.innerHTML = '';
-
       comp.pins.forEach(pin => {
-
         const tr = document.createElement('tr');
-
         tr.innerHTML = `
-
           <td><strong>${pin.mod}</strong></td>
-
           <td style="color: #38bdf8;">${pin.pico}</td>
-
           <td>${pin.func}</td>
-
           <td style="color: var(--text-muted);">${pin.note}</td>
-
         `;
-
         elTbody.appendChild(tr);
-
       });
-
     }
-
   }
 
-
-
   function handleSchematicPointerDown(e) {
-
     if (!schematicCanvas) return;
-
     const rect = schematicCanvas.getBoundingClientRect();
+    const clientX = e.clientX || (e.touches && e.touches[0] && e.touches[0].clientX) || 0;
+    const clientY = e.clientY || (e.touches && e.touches[0] && e.touches[0].clientY) || 0;
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
 
-    const scaleX = schematicCanvas.width / rect.width;
-
-    const scaleY = schematicCanvas.height / rect.height;
-
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
-
-    const clickX = (clientX - rect.left) * scaleX;
-
-    const clickY = (clientY - rect.top) * scaleY;
-
-
-
+    let hitId = null;
     for (let i = schemHitBoxes.length - 1; i >= 0; i--) {
-
       const box = schemHitBoxes[i];
-
       if (clickX >= box.x && clickX <= box.x + box.w && clickY >= box.y && clickY <= box.y + box.h) {
-
-        selectSchematicComponent(box.id);
-
-        playTone(659.25, 20, 'sine');
-
+        hitId = box.id === 'wifi' ? 'pico' : box.id;
         break;
-
       }
-
     }
 
+    if (hitId) {
+      const nextId = (selectedComponentId === hitId && hitId !== 'pico') ? 'pico' : hitId;
+      selectSchematicComponent(nextId);
+      playTone(659.25, 20, 'sine');
+    } else {
+      selectSchematicComponent('pico');
+    }
   }
 
 
@@ -1463,9 +1418,7 @@
         btn.classList.add('active');
 
         if (circuitMap[mode]) {
-
-          selectSchematicComponent(circuitMap[mode]);
-
+          selectSchematicComponent(circuitMap[mode], true);
         }
 
       });

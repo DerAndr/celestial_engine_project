@@ -1,33 +1,40 @@
 /**
- * Celestial Engine Mk.V — Aesthetic 2D Physical Staff Replica & Exploded View Renderer
- * Renders a unified, cohesive hardware assembly (no floating detached parts in Assembled mode):
+ * Celestial Engine Mk.V — Crisp High-DPI 2D Physical Staff Replica & Exploded View Renderer
+ * Renders a unified, cohesive hardware assembly with High-DPI sharpness and component focus dimming:
  *  1. Clear Tapered Bell-Jar Dome (~65 × 95 mm, flush on enclosure collar)
  *  2. 43 Concentric WS2812B LEDs (3 verified rings: 7 Core + 12 Inner + 24 Outer)
  *  3. Velleman VTBB3 Breadboard + Raspberry Pi Pico 2 W (RP2350 + CYW43439) + SN74AHCT125N + 1000µF
- *  4. SH1106 1.3" 128×64 Blue I2C1 OLED Display (GP2 SDA, GP3 SCL)
+ *  4. 1.3" SH1106 128×64 I2C1 OLED Display (GP2 SDA, GP3 SCL)
  *  5. Bourns PEC11R Rotary Encoder on left wall (GP6/GP7/GP8)
- *  6. Small Green Side Momentary QUERY Button on left wall (GP9 Push-To-Talk)
- *  7. Integrated Yellow INMP441 I2S MEMS Microphone at the bottom acoustic port inside the enclosure (GP10/11/12)
+ *  6. Side Momentary QUERY Button on left wall (GP9 Push-To-Talk)
+ *  7. Integrated INMP441 I2S MEMS Microphone at the bottom acoustic port inside the enclosure (GP10/11/12)
  *  8. MAX98357A I2S Mono Class-D Amplifier + 4Ω 3W Speaker inside the enclosure (GP16/17/18)
  *  9. Turned Wooden Staff Shaft (~28 mm) joined directly into the bottom collar of the enclosure
  */
 
-import { FIRMWARE_EFFECTS, STAFF_STATE_NAMES } from '../state.js?v=1.2.2';
-import { renderFritzingBreadboard2D } from './breadboard-2d.js?v=1.2.2';
+import { FIRMWARE_EFFECTS, STAFF_STATE_NAMES } from '../state.js?v=1.2.4';
+import { renderFritzingBreadboard2D } from './breadboard-2d.js?v=1.2.4';
 
 export const HARDWARE_HOTSPOTS = [
+  {
+    id: 'all',
+    title: 'Celestial Engine Mk.V — Complete Staff Assembly',
+    badge: 'FULL ASSEMBLY',
+    summary: 'Click any component on the staff or select a chip above to isolate and highlight that hardware subsystem while dimming surrounding parts.',
+    specs: 'RP2350 Dual Cortex-M33 • 43 WS2812B LEDs • SH1106 I2C1 OLED • INMP441 + MAX98357A Full-Duplex I2S'
+  },
   {
     id: 'dome',
     title: 'Clear Tapered Bell-Jar Dome (~65 × 95 mm)',
     badge: 'OPTICAL ENCLOSURE',
-    summary: 'Transparent tapered acrylic bell-jar dome mounted flush on the upper collar of the main enclosure, protecting the 43-LED concentric star assembly.',
+    summary: 'Transparent tapered acrylic bell-jar dome mounted flush on the upper collar of the main enclosure, protecting the 43-LED concentric array.',
     specs: 'Dimensions: ~65 mm diameter × 95 mm height • Clear optical shell • M2.5 base coupling'
   },
   {
     id: 'leds',
     title: '43 Concentric WS2812B LED Rings (7 + 12 + 24)',
     badge: 'PIO0 SM0 • 800 kHz',
-    summary: 'Three concentric WS2812B rings from the AZ-Delivery 5-ring set (7-LED disc + 12-LED ring + 24-LED outer ring = 43 LEDs; 16-LED ring removed). Driven via SN74AHCT125N level shifter.',
+    summary: 'Three concentric WS2812B rings from the AZ-Delivery 5-ring set (7-LED disc + 12-LED ring + 24-LED outer ring = 43 LEDs). Driven via SN74AHCT125N level shifter.',
     specs: 'Data: GP15 (Pin 20) -> 74AHCT125N -> 470Ω -> DIN • Power: 5V VBUS + 1000 µF 16V cap'
   },
   {
@@ -39,9 +46,9 @@ export const HARDWARE_HOTSPOTS = [
   },
   {
     id: 'oled',
-    title: '1.3" SH1106 Blue I2C1 OLED Display (128×64)',
+    title: '1.3" SH1106 I2C1 OLED Display (128×64)',
     badge: 'I2C1 • GP2 / GP3',
-    summary: 'Blue 4-pin PCB module mounted in the lower-right window of the transparent enclosure. Displays active AI core, persona, LED effect, and 20 FPS telemetry.',
+    summary: '4-pin I2C OLED module mounted in the lower-right window of the transparent enclosure. Displays active AI core, persona, LED effect, and 20 FPS telemetry.',
     specs: 'SDA: GP2 (Pin 4) • SCL: GP3 (Pin 5) • Address: 0x3C @ 400 kHz • Logic: 3.3V (Pin 36)'
   },
   {
@@ -53,14 +60,14 @@ export const HARDWARE_HOTSPOTS = [
   },
   {
     id: 'query',
-    title: 'Small Green Side QUERY Button (Push-To-Talk)',
+    title: 'Side QUERY Button (Push-To-Talk)',
     badge: 'GP9 • PIN 12',
-    summary: 'Compact green momentary push-button mounted on the left side wall below the rotary encoder. Triggers 16 kHz I2S voice capture and Oracle queries.',
+    summary: 'Compact momentary push-button mounted on the left side wall below the rotary encoder. Triggers 16 kHz I2S voice capture and Oracle queries.',
     specs: 'Signal: GP9 (Pin 12) • Return: GND (Pin 13) • Internal Pull-Up (Active-LOW)'
   },
   {
     id: 'kinder_mic',
-    title: 'Integrated Yellow INMP441 I2S MEMS Microphone',
+    title: 'INMP441 I2S MEMS Microphone',
     badge: 'PIO0 SM1 • GP10/11/12',
     summary: 'Omnidirectional digital MEMS microphone integrated at the bottom acoustic port of the enclosure directly above the shaft collar.',
     specs: 'SCK: GP10 (Pin 14) • WS: GP11 (Pin 15) • SD: GP12 (Pin 16) • L/R->GND • 3.3V Only'
@@ -108,17 +115,32 @@ export class Staff2DRenderer {
     this.hitRegions = [];
     this.explodeProgress = 0;
     this.hoveredId = null;
+    this.logicalW = 460;
+    this.logicalH = 490;
 
     if (this.canvas) {
+      this._ensureHighDpi();
       this._bindPointerEvents();
     }
+  }
+
+  _ensureHighDpi() {
+    if (!this.canvas) return;
+    const dpr = Math.min((typeof window !== 'undefined' && window.devicePixelRatio) || 1, 2.5);
+    const targetW = Math.round(this.logicalW * dpr);
+    const targetH = Math.round(this.logicalH * dpr);
+    if (this.canvas.width !== targetW || this.canvas.height !== targetH) {
+      this.canvas.width = targetW;
+      this.canvas.height = targetH;
+    }
+    this.dpr = dpr;
   }
 
   _bindPointerEvents() {
     const getPos = (e) => {
       const rect = this.canvas.getBoundingClientRect();
-      const scaleX = this.canvas.width / rect.width;
-      const scaleY = this.canvas.height / rect.height;
+      const scaleX = this.logicalW / rect.width;
+      const scaleY = this.logicalH / rect.height;
       const clientX = e.clientX ?? (e.touches && e.touches[0] && e.touches[0].clientX) ?? 0;
       const clientY = e.clientY ?? (e.touches && e.touches[0] && e.touches[0].clientY) ?? 0;
       return {
@@ -132,11 +154,16 @@ export class Staff2DRenderer {
       for (let i = this.hitRegions.length - 1; i >= 0; i--) {
         const r = this.hitRegions[i];
         if (pos.x >= r.x && pos.x <= r.x + r.w && pos.y >= r.y && pos.y <= r.y + r.h) {
-          this.store.update({ selectedHotspotId: r.id });
-          if (this.onHotspotSelect) this.onHotspotSelect(r.id);
+          const curSel = this.store.getState().selectedHotspotId;
+          const nextId = (curSel === r.id && r.id !== 'all') ? 'all' : r.id;
+          this.store.update({ selectedHotspotId: nextId });
+          if (this.onHotspotSelect) this.onHotspotSelect(nextId);
           return;
         }
       }
+      // Clicking empty background resets to full assembly ('all')
+      this.store.update({ selectedHotspotId: 'all' });
+      if (this.onHotspotSelect) this.onHotspotSelect('all');
     };
 
     this.canvas.addEventListener('click', handleSelect);
@@ -161,28 +188,39 @@ export class Staff2DRenderer {
 
   render(t = 0) {
     if (!this.ctx || !this.canvas) return;
+    this._ensureHighDpi();
     const state = this.store.getState();
     const mode = state.viewMode2D || 'assembled';
 
     const targetExplode = mode === 'exploded' ? 1.0 : 0.0;
     this.explodeProgress += (targetExplode - this.explodeProgress) * 0.14;
 
+    this.ctx.save();
+    this.ctx.scale(this.dpr, this.dpr);
     if (mode === 'breadboard') {
       this.renderBreadboardCad(t, state);
     } else {
       this.renderPhysicalReplica(t, state, this.explodeProgress);
     }
+    this.ctx.restore();
   }
 
   renderPhysicalReplica(t, state, exp) {
     const ctx = this.ctx;
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+    const w = this.logicalW;
+    const h = this.logicalH;
+    const leds = this.store.ledNodes || [];
     this.hitRegions = [];
+
+    const activeFocus = this.hoveredId || state.selectedHotspotId || 'all';
+    const partAlpha = (id) => {
+      if (!activeFocus || activeFocus === 'all') return 1.0;
+      return activeFocus === id ? 1.0 : 0.24;
+    };
 
     ctx.clearRect(0, 0, w, h);
 
-    // 1. Deep Atmospheric Studio Backdrop with Soft Radial Aura
+    // 1. Deep Atmospheric Studio Backdrop
     const bgGrad = ctx.createRadialGradient(w * 0.5, h * 0.36, 16, w * 0.5, h * 0.5, w * 0.72);
     bgGrad.addColorStop(0, '#0f1b33');
     bgGrad.addColorStop(0.55, '#070c18');
@@ -190,7 +228,6 @@ export class Staff2DRenderer {
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
-    // Subtle blueprint grid
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.032)';
     ctx.lineWidth = 1;
     for (let x = 20; x < w; x += 24) {
@@ -202,7 +239,7 @@ export class Staff2DRenderer {
 
     const cx = Math.round(w / 2);
 
-    // Unified vertical coordinates (connected with zero air gaps when exp === 0!)
+    // Unified vertical coordinates (connected with zero air gaps when exp === 0)
     const domeTopY = Math.round(28 - exp * 16);
     const domeBaseY = Math.round(184 - exp * 12);
     const ringsCenterY = Math.round(112 - exp * 8);
@@ -217,8 +254,8 @@ export class Staff2DRenderer {
     // LAYER 1: TURNED WOODEN STAFF SHAFT (Directly joined to bottom of enclosure)
     // ========================================================================
     ctx.save();
+    ctx.globalAlpha = partAlpha('shaft');
     const shaftW = 40;
-    // Metallic / Brass Mounting Collar joining Enclosure to Wooden Shaft
     const collarGrad = ctx.createLinearGradient(cx - 26, shaftTopY - 4, cx + 26, shaftTopY - 4);
     collarGrad.addColorStop(0, '#334155');
     collarGrad.addColorStop(0.35, '#94a3b8');
@@ -233,7 +270,6 @@ export class Staff2DRenderer {
     ctx.fill();
     ctx.stroke();
 
-    // Warm Turned Hardwood Shaft
     const woodGrad = ctx.createLinearGradient(cx - shaftW / 2, shaftTopY, cx + shaftW / 2, shaftTopY);
     woodGrad.addColorStop(0, '#3e1f0d');
     woodGrad.addColorStop(0.22, '#7c3f1c');
@@ -241,14 +277,13 @@ export class Staff2DRenderer {
     woodGrad.addColorStop(0.75, '#783b19');
     woodGrad.addColorStop(1, '#2e1608');
     ctx.fillStyle = woodGrad;
-    ctx.strokeStyle = state.selectedHotspotId === 'shaft' ? '#38bdf8' : '#5c2d12';
-    ctx.lineWidth = state.selectedHotspotId === 'shaft' ? 2.2 : 1.3;
+    ctx.strokeStyle = activeFocus === 'shaft' ? '#38bdf8' : '#5c2d12';
+    ctx.lineWidth = activeFocus === 'shaft' ? 2.4 : 1.3;
     ctx.beginPath();
     ctx.roundRect(cx - shaftW / 2, shaftTopY + 7, shaftW, h - shaftTopY - 12, [2, 2, 8, 8]);
     ctx.fill();
     ctx.stroke();
 
-    // Subtle wood grain rings
     ctx.strokeStyle = 'rgba(46, 22, 8, 0.35)';
     ctx.lineWidth = 1;
     for (let wy = shaftTopY + 24; wy < h - 18; wy += 18) {
@@ -263,12 +298,13 @@ export class Staff2DRenderer {
     // ========================================================================
     // LAYER 2: CLEAR BELL-JAR DOME & 43 CONCENTRIC WS2812B RINGS (7 + 12 + 24)
     // ========================================================================
-    ctx.save();
     const domeBaseHalfW = 72;
     const domeTopHalfW = 52;
 
-    // Ambient optical aura behind the dome driven by live LED colors
-    const centerLed = state.ledNodes[0] || { r: 56, g: 189, b: 248 };
+    // 2A. Bell-Jar Glass Dome
+    ctx.save();
+    ctx.globalAlpha = Math.max(partAlpha('dome'), partAlpha('leds') * 0.65);
+    const centerLed = leds[0] || { r: 56, g: 189, b: 248 };
     const auraGrad = ctx.createRadialGradient(cx, ringsCenterY, 6, cx, ringsCenterY, 74);
     auraGrad.addColorStop(0, `rgba(${centerLed.r}, ${centerLed.g}, ${centerLed.b}, 0.32)`);
     auraGrad.addColorStop(0.55, 'rgba(56, 189, 248, 0.12)');
@@ -278,7 +314,6 @@ export class Staff2DRenderer {
     ctx.arc(cx, ringsCenterY, 74, 0, Math.PI * 2);
     ctx.fill();
 
-    // Bell-Jar Glass Dome Silhouette sitting flush on the enclosure top
     ctx.beginPath();
     ctx.moveTo(cx - domeBaseHalfW, domeBaseY);
     ctx.bezierCurveTo(
@@ -294,20 +329,17 @@ export class Staff2DRenderer {
     ctx.closePath();
 
     const glassFill = ctx.createLinearGradient(cx - domeBaseHalfW, domeTopY, cx + domeBaseHalfW, domeBaseY);
-    glassFill.addColorStop(0, 'rgba(186, 230, 253, 0.15)');
+    glassFill.addColorStop(0, 'rgba(186, 230, 253, 0.16)');
     glassFill.addColorStop(0.35, 'rgba(56, 189, 248, 0.05)');
     glassFill.addColorStop(0.75, 'rgba(15, 23, 42, 0.22)');
     glassFill.addColorStop(1, 'rgba(125, 211, 252, 0.18)');
     ctx.fillStyle = glassFill;
     ctx.fill();
 
-    ctx.lineWidth = state.selectedHotspotId === 'dome' ? 2.4 : 1.6;
-    ctx.strokeStyle = state.selectedHotspotId === 'dome'
-      ? '#38bdf8'
-      : 'rgba(186, 230, 253, 0.65)';
+    ctx.lineWidth = activeFocus === 'dome' ? 2.5 : 1.6;
+    ctx.strokeStyle = activeFocus === 'dome' ? '#38bdf8' : 'rgba(186, 230, 253, 0.65)';
     ctx.stroke();
 
-    // Left & right curved glass specular highlights
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
     ctx.lineWidth = 2.2;
     ctx.lineCap = 'round';
@@ -316,14 +348,6 @@ export class Staff2DRenderer {
     ctx.quadraticCurveTo(cx - domeBaseHalfW + 14, domeTopY + 42, cx - 22, domeTopY + 11);
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(125, 211, 252, 0.22)';
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.moveTo(cx + domeBaseHalfW - 10, domeBaseY - 16);
-    ctx.quadraticCurveTo(cx + domeBaseHalfW - 12, domeTopY + 48, cx + 26, domeTopY + 16);
-    ctx.stroke();
-
-    // Acrylic Dome Base Flange Ring (flush with enclosure top)
     const flangeGrad = ctx.createLinearGradient(cx - domeBaseHalfW - 4, domeBaseY - 6, cx + domeBaseHalfW + 4, domeBaseY);
     flangeGrad.addColorStop(0, 'rgba(148, 163, 184, 0.35)');
     flangeGrad.addColorStop(0.5, 'rgba(226, 232, 240, 0.65)');
@@ -335,18 +359,19 @@ export class Staff2DRenderer {
     ctx.roundRect(cx - domeBaseHalfW - 3, domeBaseY - 6, (domeBaseHalfW + 3) * 2, 7, 3);
     ctx.fill();
     ctx.stroke();
+    ctx.restore();
 
-    // --- 43 Concentric WS2812B LED Rings (24 Outer + 12 Middle + 7 Center) ---
-    // Dark matte circular PCB carrier plate
+    // 2B. 43 Concentric WS2812B LED Rings
+    ctx.save();
+    ctx.globalAlpha = partAlpha('leds');
     ctx.fillStyle = 'rgba(9, 13, 24, 0.92)';
-    ctx.strokeStyle = state.selectedHotspotId === 'leds' ? '#38bdf8' : 'rgba(148, 163, 184, 0.4)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = activeFocus === 'leds' ? '#38bdf8' : 'rgba(148, 163, 184, 0.45)';
+    ctx.lineWidth = activeFocus === 'leds' ? 2.2 : 1.5;
     ctx.beginPath();
     ctx.arc(cx, ringsCenterY, 52, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Concentric FR4 PCB ring tracks (Outer 24-LED r=44, Inner 12-LED r=28, Core 7-LED disc r=14)
     [44, 28, 14].forEach((r) => {
       ctx.strokeStyle = 'rgba(51, 65, 85, 0.85)';
       ctx.lineWidth = 6.5;
@@ -358,12 +383,11 @@ export class Staff2DRenderer {
     const ringPts = computeRingGeometry(cx, ringsCenterY, 44, 28, 14);
     for (let i = 0; i < ringPts.length; i++) {
       const pt = ringPts[i];
-      const c = state.ledNodes[i] || { r: 0, g: 180, b: 255 };
+      const c = leds[i] || { r: 56, g: 189, b: 248 };
       const r = Math.min(255, c.r + 35);
       const g = Math.min(255, c.g + 35);
       const b = Math.min(255, c.b + 35);
 
-      // Soft LED glow halo
       const halo = ctx.createRadialGradient(pt.x, pt.y, 0.5, pt.x, pt.y, 8);
       halo.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.95)`);
       halo.addColorStop(0.45, `rgba(${c.r}, ${c.g}, ${c.b}, 0.38)`);
@@ -373,7 +397,6 @@ export class Staff2DRenderer {
       ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
       ctx.fill();
 
-      // Crisp 5050 SMD LED package + bright emitter core
       ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, pt.ring === 0 ? 3.2 : 2.3, 0, Math.PI * 2);
@@ -381,11 +404,11 @@ export class Staff2DRenderer {
     }
     ctx.restore();
 
-    this.hitRegions.push({ id: 'leds', x: cx - 52, y: ringsCenterY - 52, w: 104, h: 104 });
     this.hitRegions.push({ id: 'dome', x: cx - domeBaseHalfW, y: domeTopY, w: domeBaseHalfW * 2, h: domeBaseY - domeTopY });
+    this.hitRegions.push({ id: 'leds', x: cx - 52, y: ringsCenterY - 52, w: 104, h: 104 });
 
     // ========================================================================
-    // LAYER 3: TRANSPARENT LOWER ENCLOSURE (Unified Housing for All Electronics)
+    // LAYER 3: TRANSPARENT LOWER ENCLOSURE SHELL
     // ========================================================================
     ctx.save();
     const encFill = ctx.createLinearGradient(boxLeft, boxY, boxRight, boxY + boxH);
@@ -400,51 +423,41 @@ export class Staff2DRenderer {
     ctx.fill();
     ctx.stroke();
 
-    // Inner polycarbonate bezel rim & 4 corner mounting bosses
     ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.roundRect(boxLeft + 5, boxY + 5, boxW - 10, boxH - 10, 12);
     ctx.stroke();
-
-    [
-      [boxLeft + 11, boxY + 11],
-      [boxRight - 11, boxY + 11],
-      [boxLeft + 11, boxY + boxH - 11],
-      [boxRight - 11, boxY + boxH - 11]
-    ].forEach(([bx, by]) => {
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
-      ctx.beginPath();
-      ctx.arc(bx, by, 3, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    ctx.restore();
 
     // --- BAY 1 (TOP OF ENCLOSURE): Velleman VTBB3 Breadboard + Pico 2 W + 74AHCT125N ---
     const bbX = boxLeft + 14;
     const bbY = boxY + 14;
-    const bbW = boxW - 28; // 138px
+    const bbW = boxW - 28;
     const bbH = 54;
+    const picoX = bbX + 7;
+    const picoY = bbY + 10;
+    const picoW = 92;
+    const picoH = 34;
+    const lsX = picoX + picoW + 5;
+    const lsY = picoY + 6;
 
+    ctx.save();
+    ctx.globalAlpha = partAlpha('pico');
     ctx.fillStyle = '#e2e8f0';
-    ctx.strokeStyle = state.selectedHotspotId === 'pico' ? '#38bdf8' : '#94a3b8';
-    ctx.lineWidth = state.selectedHotspotId === 'pico' ? 2 : 1.2;
+    ctx.strokeStyle = activeFocus === 'pico' ? '#38bdf8' : '#94a3b8';
+    ctx.lineWidth = activeFocus === 'pico' ? 2.4 : 1.2;
     ctx.beginPath();
     ctx.roundRect(bbX, bbY, bbW, bbH, 5);
     ctx.fill();
     ctx.stroke();
 
-    // Red (+) and Blue (-) power rail stripes on breadboard
     ctx.strokeStyle = 'rgba(239, 68, 68, 0.65)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(bbX + 5, bbY + 4); ctx.lineTo(bbX + bbW - 5, bbY + 4); ctx.stroke();
     ctx.strokeStyle = 'rgba(37, 99, 235, 0.65)';
     ctx.beginPath(); ctx.moveTo(bbX + 5, bbY + bbH - 4); ctx.lineTo(bbX + bbW - 5, bbY + bbH - 4); ctx.stroke();
 
-    // Green Raspberry Pi Pico 2 W PCB mounted on the breadboard
-    const picoX = bbX + 7;
-    const picoY = bbY + 10;
-    const picoW = 92;
-    const picoH = 34;
     ctx.fillStyle = '#0b6b3a';
     ctx.strokeStyle = '#064e2b';
     ctx.lineWidth = 1;
@@ -453,14 +466,12 @@ export class Staff2DRenderer {
     ctx.fill();
     ctx.stroke();
 
-    // Gold header pins along top & bottom of Pico 2 W
     ctx.fillStyle = '#facc15';
     for (let p = 0; p < 20; p++) {
       ctx.fillRect(picoX + 4 + p * 4.3, picoY + 1, 2, 2.5);
       ctx.fillRect(picoX + 4 + p * 4.3, picoY + picoH - 3.5, 2, 2.5);
     }
 
-    // Glowing green onboard LED
     ctx.fillStyle = '#4ade80';
     ctx.shadowColor = '#22c55e';
     ctx.shadowBlur = 7;
@@ -469,7 +480,6 @@ export class Staff2DRenderer {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // RP2350 chip + CYW43439 Wi-Fi shield
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(picoX + 30, picoY + 10, 14, 14);
     ctx.fillStyle = '#cbd5e1';
@@ -478,9 +488,6 @@ export class Staff2DRenderer {
     ctx.font = 'bold 5.5px "JetBrains Mono", monospace';
     ctx.fillText('Pico 2 W', picoX + 20, picoY + 29);
 
-    // SN74AHCT125N DIP-14 Level Shifter + 1000µF Capacitor on right side of breadboard
-    const lsX = picoX + picoW + 5;
-    const lsY = picoY + 6;
     ctx.fillStyle = '#1e293b';
     ctx.strokeStyle = '#94a3b8';
     ctx.lineWidth = 1;
@@ -490,18 +497,19 @@ export class Staff2DRenderer {
     ctx.font = '4.8px "JetBrains Mono", monospace';
     ctx.fillText('74AHCT', lsX + 3, lsY + 13);
 
-    // 1000µF Electrolytic Capacitor
     ctx.fillStyle = '#0284c7';
     ctx.strokeStyle = '#bae6fd';
     ctx.beginPath();
     ctx.arc(lsX + 12, picoY - 1, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-
+    ctx.restore();
     this.hitRegions.push({ id: 'pico', x: bbX, y: bbY, w: bbW, h: bbH });
 
-    // Subtle internal ribbon buses connecting breadboard to Dome, Speaker, OLED, and Integrated Mic
-    const drawInternalBus = (x1, y1, x2, y2, color) => {
+    // Internal buses (each dimmed unless its target or 'pico'/'all' is active)
+    const drawInternalBus = (x1, y1, x2, y2, color, targetId) => {
+      ctx.save();
+      ctx.globalAlpha = (activeFocus === 'all' || activeFocus === 'pico' || activeFocus === targetId) ? 0.85 : 0.16;
       ctx.strokeStyle = color;
       ctx.lineWidth = 1.8;
       ctx.beginPath();
@@ -510,11 +518,12 @@ export class Staff2DRenderer {
       ctx.lineTo(x2, (y1 + y2) / 2);
       ctx.lineTo(x2, y2);
       ctx.stroke();
+      ctx.restore();
     };
-    drawInternalBus(lsX + 12, bbY, cx, ringsCenterY + 50, 'rgba(16, 185, 129, 0.75)');
-    drawInternalBus(picoX + 26, bbY + bbH, boxLeft + 46, boxY + 78, 'rgba(236, 72, 153, 0.75)');
-    drawInternalBus(picoX + 70, bbY + bbH, cx + 42, boxY + 78, 'rgba(56, 189, 248, 0.75)');
-    drawInternalBus(cx, bbY + bbH, cx, boxY + 144, 'rgba(250, 204, 21, 0.75)');
+    drawInternalBus(lsX + 12, bbY, cx, ringsCenterY + 50, '#10b981', 'leds');
+    drawInternalBus(picoX + 26, bbY + bbH, boxLeft + 46, boxY + 78, '#ec4899', 'audio');
+    drawInternalBus(picoX + 70, bbY + bbH, cx + 42, boxY + 78, '#38bdf8', 'oled');
+    drawInternalBus(cx, bbY + bbH, cx, boxY + 144, '#facc15', 'kinder_mic');
 
     // --- BAY 2 (MIDDLE-LEFT OF ENCLOSURE): MAX98357A Amp + 4Ω 3W Speaker ---
     const audX = boxLeft + 14 - exp * 12;
@@ -522,15 +531,16 @@ export class Staff2DRenderer {
     const audW = 64;
     const audH = 54;
 
+    ctx.save();
+    ctx.globalAlpha = partAlpha('audio');
     ctx.fillStyle = '#191638';
-    ctx.strokeStyle = state.selectedHotspotId === 'audio' ? '#38bdf8' : 'rgba(236, 72, 153, 0.8)';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = activeFocus === 'audio' ? '#38bdf8' : 'rgba(236, 72, 153, 0.8)';
+    ctx.lineWidth = activeFocus === 'audio' ? 2.4 : 1.4;
     ctx.beginPath();
     ctx.roundRect(audX, audY, audW, audH, 6);
     ctx.fill();
     ctx.stroke();
 
-    // Speaker driver cone
     const spkCx = audX + 23;
     const spkCy = audY + 30;
     ctx.fillStyle = '#0f172a';
@@ -552,30 +562,30 @@ export class Staff2DRenderer {
     ctx.font = '5px "JetBrains Mono", monospace';
     ctx.fillText('3W', audX + 43, audY + 27);
     ctx.fillText('4Ω', audX + 43, audY + 36);
-
+    ctx.restore();
     this.hitRegions.push({ id: 'audio', x: audX, y: audY, w: audW, h: audH });
 
-    // --- BAY 3 (MIDDLE-RIGHT OF ENCLOSURE): SH1106 1.3" Blue I2C1 OLED ---
+    // --- BAY 3 (MIDDLE-RIGHT OF ENCLOSURE): SH1106 1.3" I2C1 OLED ---
     const oledX = cx + 4 + exp * 12;
     const oledY = boxY + 76;
     const oledW = 68;
     const oledH = 54;
 
+    ctx.save();
+    ctx.globalAlpha = partAlpha('oled');
     ctx.fillStyle = '#0f3c78';
-    ctx.strokeStyle = state.selectedHotspotId === 'oled' ? '#38bdf8' : '#60a5fa';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = activeFocus === 'oled' ? '#38bdf8' : '#60a5fa';
+    ctx.lineWidth = activeFocus === 'oled' ? 2.4 : 1.5;
     ctx.beginPath();
     ctx.roundRect(oledX, oledY, oledW, oledH, 5);
     ctx.fill();
     ctx.stroke();
 
-    // Top 4-pin I2C header (VCC GND SCL SDA)
     ctx.fillStyle = '#facc15';
     for (let ip = 0; ip < 4; ip++) {
       ctx.fillRect(oledX + 20 + ip * 7, oledY + 2, 2.5, 3.5);
     }
 
-    // Active OLED Screen
     ctx.fillStyle = '#020617';
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
     ctx.lineWidth = 0.8;
@@ -598,17 +608,18 @@ export class Staff2DRenderer {
     ctx.strokeRect(oledX + 8, oledY + 33, oledW - 16, 9);
     ctx.font = '4.8px "JetBrains Mono", monospace';
     ctx.fillText(`FX:${eff.name.slice(0, 8)}`, oledX + 10, oledY + 39.5);
-
+    ctx.restore();
     this.hitRegions.push({ id: 'oled', x: oledX, y: oledY, w: oledW, h: oledH });
 
-    // --- BAY 4 (INTEGRATED BOTTOM OF ENCLOSURE): Yellow INMP441 I2S Microphone ---
-    // Mounted right inside the lower center acoustic bay of the enclosure (not floating separately!)
+    // --- BAY 4 (INTEGRATED BOTTOM OF ENCLOSURE): INMP441 I2S Microphone ---
     const micW = 86;
     const micH = 34;
     const micX = cx - micW / 2;
-    const micY = boxY + 142; // 326..360 inside boxY..boxY+192 (ends at 376)
+    const micY = boxY + 142;
     const micCy = micY + micH / 2;
 
+    ctx.save();
+    ctx.globalAlpha = partAlpha('kinder_mic');
     if (state.staffState === 1) {
       for (let wv = 0; wv < 2; wv++) {
         const wavePhase = ((t * 0.003 + wv * 0.5) % 1);
@@ -625,14 +636,13 @@ export class Staff2DRenderer {
     micGrad.addColorStop(0.5, '#eab308');
     micGrad.addColorStop(1, '#ca8a04');
     ctx.fillStyle = micGrad;
-    ctx.strokeStyle = state.staffState === 1 ? '#ef4444' : (state.selectedHotspotId === 'kinder_mic' ? '#38bdf8' : '#854d0e');
-    ctx.lineWidth = state.staffState === 1 ? 2.2 : 1.5;
+    ctx.strokeStyle = state.staffState === 1 ? '#ef4444' : (activeFocus === 'kinder_mic' ? '#38bdf8' : '#854d0e');
+    ctx.lineWidth = (state.staffState === 1 || activeFocus === 'kinder_mic') ? 2.4 : 1.5;
     ctx.beginPath();
     ctx.roundRect(micX, micY, micW, micH, 10);
     ctx.fill();
     ctx.stroke();
 
-    // Circular MEMS acoustic mesh port on left-center of yellow INMP441 module
     const portCx = micX + 20;
     ctx.fillStyle = '#0f172a';
     ctx.strokeStyle = '#cbd5e1';
@@ -649,7 +659,6 @@ export class Staff2DRenderer {
       ctx.fill();
     });
 
-    // Clear INMP441 label on yellow housing
     ctx.fillStyle = '#1e293b';
     ctx.font = 'bold 6.5px "JetBrains Mono", monospace';
     ctx.textAlign = 'left';
@@ -658,15 +667,15 @@ export class Staff2DRenderer {
     ctx.font = '5.5px "JetBrains Mono", monospace';
     ctx.fillText(state.staffState === 1 ? '● REC 16kHz' : 'I2S GP10-12', micX + 34, micCy + 7);
     ctx.restore();
-
     this.hitRegions.push({ id: 'kinder_mic', x: micX, y: micY, w: micW, h: micH });
 
     // ========================================================================
-    // LAYER 4: LEFT-WALL CONTROLS (PEC11R ENCODER + SMALL GREEN QUERY BUTTON)
+    // LAYER 4: LEFT-WALL CONTROLS (PEC11R ENCODER + SIDE QUERY BUTTON)
     // ========================================================================
     const encX = boxLeft - 22 - exp * 14;
     const encY = boxY + 42;
     ctx.save();
+    ctx.globalAlpha = partAlpha('encoder');
     ctx.fillStyle = '#64748b';
     ctx.fillRect(boxLeft - 6 - exp * 14, encY - 6, 6, 12);
     const shaftMetal = ctx.createLinearGradient(encX, encY - 4, encX, encY + 4);
@@ -674,16 +683,18 @@ export class Staff2DRenderer {
     shaftMetal.addColorStop(0.5, '#94a3b8');
     shaftMetal.addColorStop(1, '#334155');
     ctx.fillStyle = shaftMetal;
-    ctx.strokeStyle = state.selectedHotspotId === 'encoder' ? '#38bdf8' : '#475569';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = activeFocus === 'encoder' ? '#38bdf8' : '#475569';
+    ctx.lineWidth = activeFocus === 'encoder' ? 2.2 : 1.4;
     ctx.beginPath();
     ctx.roundRect(encX, encY - 4, 18, 8, 2);
     ctx.fill();
     ctx.stroke();
+    ctx.restore();
 
-    // Small Green Side QUERY Button (GP9) mounted flush on left wall
     const qBtnX = boxLeft - 13 - exp * 14;
     const qBtnY = boxY + 104;
+    ctx.save();
+    ctx.globalAlpha = partAlpha('query');
     ctx.fillStyle = '#334155';
     ctx.fillRect(qBtnX + 7, qBtnY - 6, 6, 12);
     const greenGrad = ctx.createRadialGradient(qBtnX + 3, qBtnY - 2, 1, qBtnX + 3, qBtnY, 8);
@@ -691,8 +702,8 @@ export class Staff2DRenderer {
     greenGrad.addColorStop(0.6, '#22c55e');
     greenGrad.addColorStop(1, '#15803d');
     ctx.fillStyle = greenGrad;
-    ctx.strokeStyle = state.selectedHotspotId === 'query' ? '#ffffff' : '#166534';
-    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = activeFocus === 'query' ? '#38bdf8' : '#166534';
+    ctx.lineWidth = activeFocus === 'query' ? 2.2 : 1.4;
     if (state.staffState === 1) {
       ctx.shadowColor = '#ef4444';
       ctx.shadowBlur = 10;
@@ -713,23 +724,22 @@ export class Staff2DRenderer {
     ctx.save();
     ctx.font = '600 9px "JetBrains Mono", monospace';
     const callouts = [
-      // Left Column (top-to-bottom)
-      { id: 'dome', label: '① Clear Bell Dome', tx: 10, ty: domeTopY + 30, px: cx - 54, py: domeTopY + 30, align: 'left' },
+      { id: 'dome', label: '① Bell-Jar Dome', tx: 10, ty: domeTopY + 30, px: cx - 54, py: domeTopY + 30, align: 'left' },
       { id: 'leds', label: '② 43 LEDs (7+12+24)', tx: 10, ty: ringsCenterY, px: cx - 52, py: ringsCenterY, align: 'left' },
       { id: 'encoder', label: '⑤ PEC11R Encoder', tx: 10, ty: encY, px: encX, py: encY, align: 'left' },
-      { id: 'query', label: '⑥ Green Query Btn', tx: 10, ty: qBtnY, px: qBtnX - 2, py: qBtnY, align: 'left' },
+      { id: 'query', label: '⑥ Query Button', tx: 10, ty: qBtnY, px: qBtnX - 2, py: qBtnY, align: 'left' },
       { id: 'audio', label: '⑧ MAX98357A + 3W', tx: 10, ty: audY + 38, px: audX, py: audY + 38, align: 'left' },
-      { id: 'kinder_mic', label: '⑦ INMP441 Mic', tx: 10, ty: micCy, px: micX, py: micCy, align: 'left' },
-      // Right Column (top-to-bottom)
+      { id: 'kinder_mic', label: '⑦ INMP441 I2S Mic', tx: 10, ty: micCy, px: micX, py: micCy, align: 'left' },
       { id: 'pico', label: '③ Pico 2 W + VTBB3', tx: w - 10, ty: bbY + 26, px: bbX + bbW, py: bbY + 26, align: 'right' },
       { id: 'oled', label: '④ 1.3" SH1106 OLED', tx: w - 10, ty: oledY + 28, px: oledX + oledW, py: oledY + 28, align: 'right' },
       { id: 'shaft', label: '⑨ Wooden Shaft', tx: w - 10, ty: shaftTopY + 46, px: cx + 20, py: shaftTopY + 46, align: 'right' }
     ];
 
     callouts.forEach(c => {
-      const isSelected = state.selectedHotspotId === c.id || this.hoveredId === c.id;
-      ctx.strokeStyle = isSelected ? 'rgba(56, 189, 248, 0.9)' : 'rgba(148, 163, 184, 0.28)';
-      ctx.lineWidth = isSelected ? 1.5 : 1;
+      const isSelected = activeFocus === c.id;
+      ctx.globalAlpha = partAlpha(c.id);
+      ctx.strokeStyle = isSelected ? 'rgba(56, 189, 248, 0.95)' : 'rgba(148, 163, 184, 0.32)';
+      ctx.lineWidth = isSelected ? 1.6 : 1;
 
       const textW = ctx.measureText(c.label).width;
       const lineStartX = c.align === 'left' ? c.tx + textW + 6 : c.tx - textW - 6;
@@ -739,12 +749,12 @@ export class Staff2DRenderer {
       ctx.lineTo(c.px, c.py);
       ctx.stroke();
 
-      ctx.fillStyle = isSelected ? '#38bdf8' : 'rgba(148, 163, 184, 0.6)';
+      ctx.fillStyle = isSelected ? '#38bdf8' : 'rgba(148, 163, 184, 0.7)';
       ctx.beginPath();
-      ctx.arc(c.px, c.py, 2, 0, Math.PI * 2);
+      ctx.arc(c.px, c.py, 2.2, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = isSelected ? '#38bdf8' : '#cbd5e1';
+      ctx.fillStyle = isSelected ? '#38bdf8' : '#e2e8f0';
       ctx.textAlign = c.align;
       ctx.fillText(c.label, c.tx, c.ty);
 
@@ -754,13 +764,10 @@ export class Staff2DRenderer {
     ctx.restore();
   }
 
-  // ==========================================================================
-  // 2D DIRECT PINOUT MAP MODE (Inside top showcase when "2D Pinout Map" tab is clicked)
-  // ==========================================================================
   renderBreadboardCad(t, state) {
     const ctx = this.ctx;
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+    const w = this.logicalW;
+    const h = this.logicalH;
     this.hitRegions = [];
 
     const idMap = {
@@ -774,6 +781,7 @@ export class Staff2DRenderer {
       wifi: 'pico'
     };
     const reverseMap = {
+      all: 'pico',
       pico: 'pico',
       leds: 'leds',
       oled: 'oled',
@@ -786,7 +794,7 @@ export class Staff2DRenderer {
     const boxes = renderFritzingBreadboard2D(ctx, w, h, {
       circuitMode: 'all',
       selectedId: reverseMap[state.selectedHotspotId] || 'pico',
-      ledNodes: state.ledNodes,
+      ledNodes: this.store.ledNodes || [],
       staffState: state.staffState
     });
 

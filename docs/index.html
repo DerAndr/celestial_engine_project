@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="simulator.css?v=1.2.2">
+  <link rel="stylesheet" href="simulator.css?v=1.2.4">
 </head>
 <body>
   <!-- Ambient Deep Space Starfield -->
@@ -98,13 +98,14 @@
 
         <!-- Clickable Hardware Hotspot Chips -->
         <div class="hotspot-chip-row" aria-label="Hardware Region Inspector">
-          <button type="button" class="hotspot-chip-btn active" data-hotspot="dome">① Clear Bell Dome</button>
+          <button type="button" class="hotspot-chip-btn active" data-hotspot="all">✦ All Components</button>
+          <button type="button" class="hotspot-chip-btn" data-hotspot="dome">① Bell-Jar Dome</button>
           <button type="button" class="hotspot-chip-btn" data-hotspot="leds">② 43 LED Rings</button>
           <button type="button" class="hotspot-chip-btn" data-hotspot="pico">③ Pico 2 W + Breadboard</button>
-          <button type="button" class="hotspot-chip-btn" data-hotspot="oled">④ 1.3" Blue OLED</button>
+          <button type="button" class="hotspot-chip-btn" data-hotspot="oled">④ 1.3" SH1106 OLED</button>
           <button type="button" class="hotspot-chip-btn" data-hotspot="encoder">⑤ PEC11R Encoder</button>
-          <button type="button" class="hotspot-chip-btn" data-hotspot="query">⑥ Green Side Query Btn</button>
-          <button type="button" class="hotspot-chip-btn" data-hotspot="kinder_mic">⑦ Yellow INMP441 Mic</button>
+          <button type="button" class="hotspot-chip-btn" data-hotspot="query">⑥ Side Query Button</button>
+          <button type="button" class="hotspot-chip-btn" data-hotspot="kinder_mic">⑦ INMP441 I2S Mic</button>
           <button type="button" class="hotspot-chip-btn" data-hotspot="audio">⑧ MAX98357A Speaker</button>
           <button type="button" class="hotspot-chip-btn" data-hotspot="shaft">⑨ Wooden Shaft</button>
         </div>
@@ -423,14 +424,14 @@
           <!-- Query Button Unit -->
           <div class="query-button-unit">
             <div style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-muted);">
-              GREEN SIDE QUERY BTN
+              SIDE QUERY BUTTON (PTT)
             </div>
             <button id="big-query-btn" class="big-query-button" title="Press & Hold for Voice Inquiry">
               QUERY
               <span class="sub">SIDE PTT</span>
             </button>
             <span style="font-size: 0.65rem; color: var(--text-dim); font-family: var(--font-mono);">
-              <strong id="hud-mic-status-pill" style="font-weight: 500;">GP9 (Pin 12) / Green Side Button</strong>
+              <strong id="hud-mic-status-pill" style="font-weight: 500;">GP9 (Pin 12) / Side PTT Button</strong>
             </span>
           </div>
 
@@ -1120,7 +1121,7 @@
     </footer>
   </div>
 
-  <script src="simulator.js?v=1.2.2"></script>
-  <script type="module" src="twin/controls.js?v=1.2.3"></script>
+  <script src="simulator.js?v=1.2.4"></script>
+  <script type="module" src="twin/controls.js?v=1.2.4"></script>
 </body>
 </html>

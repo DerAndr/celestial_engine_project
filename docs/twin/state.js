@@ -85,7 +85,7 @@ class TwinStateStore {
       showcaseTab: 'explore', // 'explore' | 'effects' | 'music' | 'oracle' | 'engineering'
       viewMode2D: 'assembled', // 'assembled' | 'exploded' | 'breadboard'
       enable3D: false,
-      selectedHotspotId: 'dome',
+      selectedHotspotId: 'all',
       reducedMotion: typeof window !== 'undefined' && window.matchMedia
         ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
         : false,
