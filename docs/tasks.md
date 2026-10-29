@@ -339,41 +339,52 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 
 ---
 
-## 7. Future Task: Honest Offline Multilingual AI Pipeline (Focus on English)
+## 7. Future Task: Modern 2025/2026 Honest Offline Multilingual AI Pipeline (Focus on English)
 
 > **User Directive (2026-10-29):**
-> *"давай в задачи на будущее запишем честный offline многоязычный с фокусом на английский."*
-
-### 7.1. Motivation & Technical Rationale
-- **The Problem with Prior Offline Fallback**: Previous "offline mode" relied on acoustic energy/duration heuristics (guessing commands by packet size modulo-4) and static persona quotes (e.g. "Directive 42"). When real audio streamed from the staff with no internet, it could not transcribe arbitrary words or synthesize genuine contextual reasoning.
-- **The Core Objective**: Implement a **100% genuine, on-device neural AI pipeline (STT ➔ LLM ➔ TTS)** running completely offline with **zero cloud dependencies, zero external network calls, and zero fake pre-scripted fallbacks**. The pipeline must truly transcribe raw voice from the staff microphone, reason over it dynamically using local neural weights, and synthesize live speech return.
-- **Language Priority**: Primary development, tuning, and latency benchmarking focused strictly on **English (`[EN]`)**, with clean modular support for **German (`[DE]`)** and **Russian (`[RU]`)**.
+> *"давай в задачи на будущее запишем честный offline многоязычный с фокусом на английский."*  
+> *"проверь в интернете как сейчас делают такое на девайсе - мне кажется ты устаревший стек предложил"*
 
 ---
 
-### 7.2. End-to-End Pipeline Architecture
+### 7.1. Technology Shift: Legacy 2022/2023 vs Modern 2025/2026 Edge AI Stack
+
+| Pipeline Stage | ❌ Legacy 2022/2023 Stack (Sluggish, High RAM/CPU) | ⚡ Modern 2025/2026 State-of-the-Art Stack (Sub-Second, NPU/INT8) |
+|---|---|---|
+| **STT (Speech-to-Text)** | **OpenAI Whisper (whisper.cpp)**<br>Fixed 30-second window with zero-padding; wastes 90% compute on short 2s voice commands; heavy CPU draw. | **Moonshine (Useful Sensors, 2024/2025)**<br>Variable-length RoPE encoder-decoder. **5x faster than Whisper** for voice queries, ~26MB footprint, sub-80ms latency.<br>— *Alternative*: **SenseVoice-Small (FunASR/Sherpa-ONNX)** with 50x real-time speed & emotion detection. |
+| **LLM Engine (Brain)** | **Naive llama.cpp / Ollama on CPU**<br>Slow Time-To-First-Token (TTFT), poor mobile battery life, no NPU utilization. | **Meta ExecuTorch** or **Google LiteRT-LM (TFLite successor)**<br>Direct mobile NPU/GPU hardware acceleration (Qualcomm QNN, MediaTek NeuroPilot, Apple Metal, ARM KleidiAI). Runs **Llama 3.2 1B/3B Instruct**, **Gemma 2 2B / Gemma 3 1B**, or **Qwen 2.5 1.5B** at 45–80 tok/s. |
+| **TTS (Speech Synthesis)** | **Piper TTS (VITS 2022)** or **Android System TTS**<br>Robotic intonations, flat pitch, clipping artifacts, monotonic cadence. | **Kokoro-82M (Late 2024/2025)**<br>Ultra-compact 82M param model (~80MB in INT8 ONNX). Studio-grade 24 kHz natural speech (human breath, emotion, cadence comparable to ElevenLabs). RTF < 0.08 on mobile CPU/ONNX. Apache 2.0 license. |
+| **End-to-End Alternative** | Not viable locally in 2023. | **Mini-Omni2 / Llama-Omni (Speech-to-Speech)**<br>Direct audio-in ➔ audio-out parallel autoregression; bypasses text tokens with **~226ms glass-to-glass latency**. |
+
+---
+
+### 7.2. End-to-End Pipeline Architecture (Modern Stack)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
-│                           HONEST ON-DEVICE OFFLINE AI PIPELINE                               │
+│                   MODERN 2025/2026 ON-DEVICE OFFLINE AI VOICE PIPELINE                       │
 └─────────────────────────────────────────────────────────────────────────────────────────────┘
   1. Staff Microphone (INMP441 MEMS)
          │  16 kHz 16-bit Mono PCM streamed over Wi-Fi (UDP port 5005)
          ▼
-  2. Genuine On-Device Neural STT (Speech-to-Text)
-     ├── Android Mobile Host: Sherpa-ONNX / Whisper-tiny INT8 via Android NDK
-     └── Wearable SBC Host (Pi 5): Whisper.cpp (whisper-tiny.en / whisper-base quantized)
-         │  Verbatim transcript string (e.g., "Cast a flame wave into the dark")
+  2. Ultra-Fast Variable-Length STT (Speech-to-Text)
+     ├── Primary: Moonshine (Useful Sensors) INT8 ONNX (~27M params, ~26 MB footprint)
+     │   - Variable-length RoPE: No 30s zero padding, 5x faster than Whisper on short queries (<80ms)
+     └── Multilingual / Emotion: SenseVoice-Small via Sherpa-ONNX (50x RTF, detects laughter/whisper/events)
+         │  Verbatim transcript string (e.g. "Cast a solar flare into the darkness")
          ▼
-  3. Genuine On-Device Neural LLM (Local Brain & Reasoning)
-     ├── Android Mobile Host: MediaPipe GenAI / LiteRT (Gemma 2 2B / Gemma 3 1B / Qwen 2.5 1.5B)
-     └── Wearable SBC Host (Pi 5): llama.cpp / Ollama (llama3.2:1b, gemma2:2b, qwen2.5:1.5b)
-         │  Generates dynamic persona response + [SPELL: Flame Wave | ANIM: PLASMA | SOUNDS: ...]
+  3. Accelerated Edge LLM Core (Reasoning & Spell Synthesis)
+     ├── Android Host: Meta ExecuTorch (NPU/GPU) or Google LiteRT-LM
+     │   - Models: Llama 3.2 1B/3B Instruct, Gemma 2 2B / Gemma 3 1B, or Qwen 2.5 1.5B INT4
+     │   - Latency: TTFT ~120ms, throughput 50+ tokens/sec on mobile NPU
+     └── Wearable SBC Host (Pi 5): llama.cpp with ARM KleidiAI acceleration (Llama 3.2 1B Q4_K_M)
+         │  Generates dynamic persona prophecy + [SPELL: Solar Flare | ANIM: PLASMA | SOUNDS: ...]
          ▼
-  4. Genuine On-Device Neural / Local TTS (Text-to-Speech)
-     ├── Android Mobile Host: Android Offline System TTS (high-quality en-US/en-GB offline voice data)
-     └── Wearable SBC Host (Pi 5): Piper TTS C++ ONNX (en_GB-alan-medium, de_DE, ru_RU)
-         │  Generates 16 kHz 16-bit Mono PCM audio chunks
+  4. Ultra-Realistic Neural TTS (Speech Synthesis)
+     └── Kokoro-82M via ONNX Runtime Mobile / Sherpa-ONNX (INT8 ~80 MB)
+         - 82M params, studio-quality 24 kHz speech with natural cadence, breaths, and emotional warmth
+         - RTF < 0.08 (synthesizes 1 second of audio in under 80 ms on device CPU)
+         │  Generates 16 kHz Mono PCM audio chunks
          ▼
   5. Staff Speaker (MAX98357A I2S + 43 WS2812B LEDs)
      Spoken vocal playback synchronized with real-time concentric polar lighting effects
@@ -383,43 +394,34 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 
 ### 7.3. Actionable Milestone Breakdown
 
-#### Phase 1: Real On-Device Speech Recognition (Neural STT)
-- [ ] **Android Companion Integration (`sherpa-onnx` or `whisper.tflite`)**:
-  - Integrate `sherpa-onnx` Kotlin JNI bindings or LiteRT Whisper into `com.celestial.companion`.
-  - On-demand / bundled model storage in `context.filesDir/models/stt/`:
-    - **Primary Model**: `whisper-tiny.en` (~39 MB, quantized INT8, target < 300ms inference on modern ARM Cortex-X/A).
-    - **Multilingual Pack**: `sherpa-onnx-whisper-base` (~140 MB, EN/DE/RU support).
-  - Pipe incoming 16 kHz PCM buffers directly from `StaffUdpTransport` into the on-device acoustic decoder without network requests.
-- [ ] **Raspberry Pi 5 Standalone Integration (`whisper.cpp`)**:
-  - Keep `ggml-tiny.en.bin` pre-warmed in RAM/NVMe cache.
-  - Implement streaming VAD (Silero VAD or WebRTC VAD) in `tools/local_ai_engine.py` to trim silence before STT inference.
+#### Phase 1: Real On-Device STT — Moonshine & SenseVoice Integration
+- [ ] **Android Companion: Moonshine Integration**:
+  - Integrate `moonshine-onnx` or `useful-sensors/moonshine` via `onnxruntime-android`.
+  - Deploy quantized `moonshine-tiny.en.onnx` (~26 MB) to app internal storage.
+  - Test real-world voice queries from staff mic: benchmark transcription latency for 1.5s–3.0s voice queries (target < 100 ms).
+- [ ] **Multilingual Support via SenseVoice-Small (`sherpa-onnx`)**:
+  - Include quantized `sherpa-onnx-sense-voice-int8` (~120 MB) for seamless English (`[EN]`), German (`[DE]`), and Russian (`[RU]`).
+  - Capture acoustic event tags (`[laughter]`, `[applause]`, `[sigh]`) and pass them to the LLM for persona humor.
 
-#### Phase 2: Real On-Device Local LLM Inference (Neural Reasoning)
-- [ ] **Android Companion Integration (Google MediaPipe GenAI / LiteRT)**:
-  - Add `com.google.mediapipe:tasks-genai` to `app/build.gradle.kts`.
-  - Support mobile-optimized models:
-    - `gemma-2-2b-it-gpu-int4.bin` (Google official Android weights).
-    - `qwen2.5-1.5b-instruct-int4.bin` (ultra-fast reasoning & prompt obedience).
-  - Hook streaming token flow directly into `DashboardViewModel.kt`'s `AiProcessingPhase.STREAMING`.
-  - Retain the strict response constraints: 1–2 punchy sentences, max 20 words, no markdown/emojis, with `[SPELL: ...]` arcane tag generation.
-- [ ] **Raspberry Pi 5 Standalone Optimization (`llama.cpp` / Ollama)**:
-  - Benchmark `llama3.2:1b-instruct-q4_K_M` and `qwen2.5:1.5b` on BCM2712 4-core Cortex-A76 (target > 25 tokens/sec).
-  - Integrate interactive persona prompts and spell dispatch into `tools/ai_brain_server.py`.
+#### Phase 2: Edge LLM Engine — Meta ExecuTorch & Google LiteRT-LM
+- [ ] **Android Companion: ExecuTorch / LiteRT-LM Integration**:
+  - Add `org.pytorch.executorch:executorch-android` or Google `LiteRT-LM` dependency.
+  - Deploy **Llama 3.2 1B Instruct (INT4)** or **Qwen 2.5 1.5B Instruct (INT4)** (~800 MB–1.2 GB).
+  - Target: Time-To-First-Token (TTFT) < 150 ms on Snapdragon / Google Tensor NPU.
+  - Ensure strict system prompt compliance: 1–2 punchy sentences, max 20 words, with arcane `[SPELL: ...]` generation.
+- [ ] **Raspberry Pi 5 Optimization**:
+  - Build `llama.cpp` with ARMv8.2-A FP16 + DotProd + KleidiAI optimizations on Bookworm 64-bit.
+  - Target: > 30 tok/sec on 4-core BCM2712 CPU with NVMe model mmap.
 
-#### Phase 3: Real On-Device Speech Synthesis (Offline TTS)
-- [ ] **Android Companion Offline TTS**:
-  - Verify and pre-cache Android offline voice packages (`TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA` for `en-US`, `en-GB`, `de-DE`, `ru-RU`).
-  - Direct 16 kHz PCM frame capture from `TextToSpeech.synthesizeToFile()` or in-memory audio synthesis callback.
-  - Stream chunks via UDP `NET_MSG_RESP_AUDIO_CHUNK` to staff with pre-buffer pacing.
-- [ ] **Raspberry Pi 5 Piper TTS C++ ONNX**:
-  - Maintain low-latency streaming pipeline with `en_GB-alan-medium.onnx` and `en_US-lessac-medium.onnx`.
+#### Phase 3: Ultra-Realistic Neural TTS — Kokoro-82M via ONNX
+- [ ] **Android Companion: Kokoro-82M ONNX Runtime Pipeline**:
+  - Add `com.k2fsa.sherpa.onnx` or direct `onnxruntime-android` Kokoro-82M INT8 package (~80 MB).
+  - Bundle English voices (`af_heart`, `am_adam`, `bf_emma`, `bm_george`) and multi-dialect phonemizer.
+  - Stream audio chunks via UDP `NET_MSG_RESP_AUDIO_CHUNK` to staff with zero-delay burst buffer.
+- [ ] **Voice Quality Comparison**:
+  - Compare Kokoro-82M vs old Piper TTS vs Android System TTS on staff MAX98357A speaker; eliminate robotic artifacts.
 
-#### Phase 4: English-First Benchmarks & Latency Targets
-- [ ] **Target Latency Budget for English Voice Loop**:
-  - User releases QUERY button ➔ Staff speaker begins playing voice: **< 1.8 seconds total**.
-    - STT (Whisper Tiny EN): ~350 ms.
-    - LLM TTFT (Time-To-First-Token on 2B parameter model): ~400 ms.
-    - TTS first audio packet synthesis: ~250 ms.
-    - UDP network transfer & DAC buffer prime: ~30 ms.
-- [ ] **Multilingual Validation**:
-  - Switching OLED `[ LANGUAGE ]` menu to `[EN]`, `[DE]`, or `[RU]` automatically routes to matching offline STT dictionary, LLM system prompt, and TTS voice model.
+#### Phase 4: Long-Term Horizon — End-to-End Speech-to-Speech (Omni)
+- [ ] **Evaluate Mini-Omni2 / Llama-Omni on High-RAM Android**:
+  - Benchmark direct audio-to-audio streaming on 16 GB RAM devices (Google Pixel 9 Pro XL / Galaxy S24 Ultra).
+  - Target glass-to-glass conversational latency: **< 300 ms**.

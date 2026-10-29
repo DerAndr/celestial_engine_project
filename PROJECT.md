@@ -120,11 +120,11 @@ QUERY:
   - **English (Default):** *"Celestial Sphere online"*, *"System ready"*, *"Celestial anomaly detected"*
   - **Deutsch:** *"Himmelssphäre online"*, *"System bereit"*, *"Kosmische Anomalie erkannt"*
   - **Русский:** *"Небесная сфера в сети"*, *"Система готова"*, *"Обнаружена аномалия"*
-- **Full AI Voice Pipeline (Raspberry Pi 5 & Mobile Brain Roadmap):**
-  - **STT:** Multilingual Whisper / Sherpa-onnx targeted to language code received from staff (English primary).
-  - **LLM:** System prompt persona in selected language (Gemma 2B / Llama 1B local inference).
-  - **TTS:** Fast local Piper TTS or Android offline voice packs (`en_GB-alan-medium`, `de_DE-thorsten-medium`, `ru_RU-dmitri-medium`).
-  - **Future Roadmap**: See [Honest Offline Multilingual AI Pipeline (docs/tasks.md#7)](docs/tasks.md#7-future-task-honest-offline-multilingual-ai-pipeline-focus-on-english).
+- **Full AI Voice Pipeline (Raspberry Pi 5 & Mobile Brain 2025/2026 Roadmap):**
+  - **Modern STT:** Moonshine (Useful Sensors, 5x faster than Whisper) / SenseVoice-Small via Sherpa-ONNX (English primary).
+  - **Modern Edge LLM:** Meta ExecuTorch (NPU/GPU) or Google LiteRT-LM running Llama 3.2 1B/3B or Qwen 2.5 1.5B.
+  - **Modern TTS:** Kokoro-82M via ONNX Runtime Mobile (studio-quality natural human speech, <80ms RTF).
+  - **Future Roadmap**: See [Modern 2025/2026 Honest Offline AI Pipeline (docs/tasks.md#7)](docs/tasks.md#7-future-task-modern-20252026-honest-offline-multilingual-ai-pipeline-focus-on-english).
 
 ## Staff state machine
 Use one authoritative state machine for OLED, LEDs and interaction logic:
