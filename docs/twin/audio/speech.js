@@ -199,54 +199,46 @@ export function startVoiceDictation({
     });
   }
 
-  // 2. Start Web SpeechRecognition if available
+  // 2. Start Web SpeechRecognition if available (continuous mode up to 40s max duration)
+  const MAX_RECORDING_MS = 40000;
   if (SpeechRec) {
     try {
       rec = new SpeechRec();
       rec.lang = resolveLang();
       rec.interimResults = true;
-      rec.continuous = false;
+      rec.continuous = true;
       rec.maxAlternatives = 1;
 
       rec.onresult = (event) => {
-        let interim = '';
-        let finalStr = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        let fullText = '';
+        let hasFinalChunk = false;
+        for (let i = 0; i < event.results.length; i++) {
           const res = event.results[i];
           const txt = res?.[0]?.transcript || '';
+          fullText += txt + ' ';
           if (res.isFinal) {
-            finalStr += txt;
-          } else {
-            interim += txt;
+            hasFinalChunk = true;
           }
         }
-        const combined = (finalStr || interim).trim();
+        const combined = fullText.replace(/\s+/g, ' ').trim();
         if (combined) {
           latestTranscript = combined;
           hadVoiceEnergy = true;
-          if (onInterim) onInterim(combined, Boolean(finalStr));
-        }
-        if (finalStr.trim() && !finalized) {
-          finalized = true;
-          const clean = finalStr.trim();
-          if (onResult) onResult(clean, { fromInterim: false, hadVoiceEnergy: true });
-          finishSession(null);
+          if (onInterim) onInterim(combined, hasFinalChunk);
         }
       };
 
       rec.onerror = (event) => {
         const errCode = event?.error || 'speech-error';
-        // If user already spoke interim words, finish normally using interim transcript
-        if (latestTranscript.trim()) {
-          finishSession(null);
-          return;
-        }
-        // If SpeechRecognition fails with 'network' (common in Brave/Chromium) while getUserMedia is active,
-        // keep recording for up to 3.5s so the user sees the mic meter and can click Stop or auto-complete.
-        if (errCode === 'network' && mediaStream) {
-          if (onInterim) {
+        // Ignore non-fatal 'no-speech' or 'network' while recording within the 40s window so the user can keep speaking
+        if ((errCode === 'no-speech' || errCode === 'network') && !stopped && (Date.now() - startTime < MAX_RECORDING_MS)) {
+          if (errCode === 'network' && mediaStream && !latestTranscript && onInterim) {
             onInterim('Capturing voice via microphone (INMP441 stream)... click Stop & Send to submit', false);
           }
+          return;
+        }
+        if (latestTranscript.trim()) {
+          finishSession(null);
           return;
         }
         finishSession(errCode);
@@ -254,9 +246,15 @@ export function startVoiceDictation({
 
       rec.onend = () => {
         if (!stopped) {
-          // If SpeechRecognition ended immediately because of 'network' fallback while mediaStream is open, wait for user or autoStopTimer
-          if (mediaStream && !latestTranscript && (Date.now() - startTime < 1200)) {
-            return;
+          // Keep recognition active up to 40s until user clicks Stop & Send (or autoStopTimer fires)
+          if (Date.now() - startTime < MAX_RECORDING_MS - 500) {
+            try {
+              rec.start();
+              return;
+            } catch (_) {
+              // If restart is blocked (e.g. network SpeechRecognition disabled), keep mediaStream open until user clicks Stop & Send
+              if (mediaStream) return;
+            }
           }
           finishSession(null);
         }
@@ -269,18 +267,18 @@ export function startVoiceDictation({
       }
     }
   } else {
-    // Browser without Web SpeechRecognition (e.g. Firefox): keep getUserMedia live meter running for up to 5 seconds or until user clicks Stop
+    // Browser without Web SpeechRecognition (e.g. Firefox): keep getUserMedia live meter running for up to 40 seconds or until user clicks Stop
     if (onInterim) {
       onInterim('Microphone active — speak your question and click Stop & Send to submit...', false);
     }
   }
 
-  // Safety auto-stop after 10 seconds so mic never stays open indefinitely
+  // Safety auto-stop after 40 seconds (MAX_RECORDING_MS)
   autoStopTimer = setTimeout(() => {
     if (!stopped) {
       finishSession(null);
     }
-  }, 10000);
+  }, MAX_RECORDING_MS);
 
   return {
     stop: () => {

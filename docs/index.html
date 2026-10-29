@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="simulator.css?v=1.2.6">
+  <link rel="stylesheet" href="simulator.css?v=1.2.7">
 </head>
 <body>
   <!-- Ambient Deep Space Starfield -->
@@ -89,8 +89,8 @@
         <span class="badge cyan">PRIMARY CONFIGURATION • UDP PORT 5005</span>
       </div>
 
-      <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 14px;">
-        In normal operation, the system requires only <strong>two devices</strong>: the physical <strong>Staff (Raspberry Pi Pico 2 W / RP2350)</strong> and your <strong>Android Smartphone</strong> acting as a mobile Wi-Fi hotspot (`10.169.248.1`). The staff itself runs bare-metal C/C++ firmware with zero OS overhead: it captures your voice at 16 kHz, streams raw PCM packets over UDP to the phone, and plays back the synthesized voice response, OLED text ticker, and synchronized 43-LED animations in real time.
+      <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 6px;">
+        In normal operation, the system requires only <strong>two devices</strong>: the physical <strong>Staff (Raspberry Pi Pico 2 W / RP2350)</strong> and your <strong>Android Smartphone</strong> acting as a mobile Wi-Fi hotspot (<code>10.169.248.1</code>). The staff itself runs bare-metal C/C++ firmware with zero OS overhead: it captures your voice at 16 kHz, streams raw PCM packets over UDP to the phone, and plays back the synthesized voice response, OLED text ticker, and synchronized 43-LED animations in real time.
       </p>
 
       <!-- PRIMARY DIAGRAM: STAFF <-> ANDROID PHONE -->
@@ -103,12 +103,12 @@
           <div class="topology-node-card staff-node">
             <div class="topology-node-header">
               <span class="badge cyan">NODE 1 • EMBEDDED PERIPHERAL</span>
-              <strong>Physical Staff (Pico 2 W / RP2350)</strong>
+              <strong class="topology-node-title">Physical Staff (Pico 2 W / RP2350)</strong>
             </div>
             <ul class="topology-node-list">
-              <li><strong>Voice Input:</strong> Side <code>QUERY</code> button (`GP9`) + `INMP441` I2S Mic (`16 kHz` 16-bit mono PCM via `PIO0` DMA)</li>
-              <li><strong>Visuals:</strong> 43 Concentric `WS2812B` LEDs (`GP15` via `74AHCT125N`) + `1.3" SH1106` I2C OLED (`128×64`)</li>
-              <li><strong>Audio Output:</strong> `MAX98357A` I2S Class-D Amp (`GP16-18`) + `4Ω 3W` speaker (`64 KB` circular ring buffer)</li>
+              <li><strong>Voice Input:</strong> Side <code>QUERY</code> button (<code>GP9</code>) + <code>INMP441</code> I2S Mic (<code>16 kHz</code> 16-bit mono PCM via <code>PIO0</code> DMA)</li>
+              <li><strong>Visuals:</strong> 43 Concentric <code>WS2812B</code> LEDs (<code>GP15</code> via <code>74AHCT125N</code>) + <code>1.3" SH1106</code> I2C OLED (<code>128×64</code>)</li>
+              <li><strong>Audio Output:</strong> <code>MAX98357A</code> I2S Class-D Amp (<code>GP16–18</code>) + <code>4Ω 3W</code> speaker (<code>64 KB</code> circular ring buffer)</li>
               <li><strong>Offline Fallback:</strong> Plays 21 onboard 8-bit chiptunes, 14 cosmic/R2-D2 SFX, and 28 LED patterns standalone</li>
             </ul>
           </div>
@@ -133,13 +133,13 @@
           <div class="topology-node-card phone-node">
             <div class="topology-node-header">
               <span class="badge gold">NODE 2 • PRIMARY HOST &amp; GATEWAY</span>
-              <strong>Android Smartphone (`v1.1.2` App)</strong>
+              <strong class="topology-node-title">Android Smartphone (<code>v1.1.2</code> App)</strong>
             </div>
             <ul class="topology-node-list">
-              <li><strong>Wi-Fi Hotspot Gateway:</strong> Hosts local subnet (`10.169.248.1:5005`) — zero router or external setup needed</li>
+              <li><strong>Wi-Fi Hotspot Gateway:</strong> Hosts local subnet (<code>10.169.248.1:5005</code>) — zero external router setup needed</li>
               <li><strong>Speech-to-Text (STT):</strong> Transcribes incoming 16 kHz I2S microphone packets from the staff</li>
               <li><strong>AI Oracle Engine:</strong> Runs persona prompt routing (On-Device / Cloud API / or forwarded to Local LLM server)</li>
-              <li><strong>Real-Time Audio &amp; HUD Streamer:</strong> Resamples TTS voice into `16 kHz` PCM chunks (`1024 B`) and streams them back to the staff</li>
+              <li><strong>Real-Time Audio &amp; HUD Streamer:</strong> Resamples TTS voice into <code>16 kHz</code> PCM chunks (<code>1024 B</code>) and streams them back to the staff</li>
             </ul>
           </div>
         </div>
@@ -149,67 +149,103 @@
       <div class="streaming-steps-grid">
         <div class="streaming-step-card">
           <div class="step-num">1. Push-to-Talk &amp; I2S DMA Capture</div>
-          <p>Holding the green side button (`GP9`) switches the staff into <code>LISTENING</code> state. Core 1 captures 32-bit I2S frames from the <strong>INMP441</strong> mic via `PIO0 SM1`, decimates them to 16-bit 16 kHz mono PCM, and sends 640-byte (20 ms) UDP packets to port <code>5005</code>.</p>
+          <p>Holding the green side button (<code>GP9</code>) switches the staff into <code>LISTENING</code> state. Core 1 captures 32-bit I2S frames from the <strong>INMP441</strong> mic via <code>PIO0 SM1</code>, decimates them to 16-bit 16 kHz mono PCM, and sends 640-byte (20 ms) UDP packets to port <code>5005</code>.</p>
         </div>
         <div class="streaming-step-card">
           <div class="step-num">2. STT &amp; Local LLM Inference</div>
-          <p>When the button is released, the host transcribes the speech (`Whisper.cpp` or Android STT) and feeds the prompt to the active persona. With local models (<strong>Ollama</strong> <code>qwen2.5:1.5b</code> / <code>gemma2:2b</code> or browser <strong>ONNX WebGPU</strong>), tokens are generated with zero cloud dependency.</p>
+          <p>When the button is released, the host transcribes the speech (<code>Whisper.cpp</code> or Android STT) and feeds the prompt to the active persona. With local models (<strong>Ollama</strong> <code>qwen2.5:1.5b</code> / <code>gemma4:e2b</code> or browser <strong>ONNX WebGPU</strong>), tokens are generated with zero cloud dependency.</p>
         </div>
         <div class="streaming-step-card">
           <div class="step-num">3. Sentence-Chunked TTS &amp; UDP Pacing</div>
-          <p>As the LLM streams text, sentences are immediately sent to the neural TTS engine (<strong>Piper ONNX</strong> or Android TTS) and OLED text packets (`0x03`) + LED effect IDs (`0x01`) are dispatched so the staff reacts visually while audio is synthesized.</p>
+          <p>As the LLM streams text, sentences are immediately sent to the neural TTS engine (<strong>Piper ONNX</strong> or Android TTS) and OLED text packets (<code>0x03</code>) + LED effect IDs (<code>0x01</code>) are dispatched so the staff reacts visually while audio is synthesized.</p>
         </div>
         <div class="streaming-step-card">
           <div class="step-num">4. Zero-Stutter 64 KB Ring Buffer Playback</div>
-          <p>Downlink 16 kHz PCM frames (`0x04`, 1024 bytes = 32 ms per packet) arrive over UDP into the RP2350's <strong>64 KB circular ring buffer</strong> (`2.04 s` jitter cushion) and stream via DMA to the <strong>MAX98357A</strong> speaker while the 43 LEDs pulse to the voice envelope.</p>
+          <p>Downlink 16 kHz PCM frames (<code>0x04</code>, 1024 bytes = 32 ms per packet) arrive over UDP into the RP2350's <strong>64 KB circular ring buffer</strong> (<code>2.04 s</code> jitter cushion) and stream via DMA to the <strong>MAX98357A</strong> speaker while the 43 LEDs pulse to the voice envelope.</p>
         </div>
       </div>
 
       <!-- OPTIONAL DIAGRAM: STAFF + ANDROID PHONE + RASPBERRY PI 5 LOCAL LLM NODE -->
-      <details class="optional-pi5-drawer">
+      <details class="optional-pi5-drawer" open>
         <summary>
           <span>⚡ <strong>Optional Expansion Topology:</strong> Staff ⇄ Android Smartphone ⇄ Wearable Raspberry Pi 5 (16 GB RAM Local LLM Co-Processor)</span>
-          <span class="badge">OPTIONAL OFFLINE AI NODE</span>
+          <span class="badge gold">OPTIONAL OFFLINE AI NODE</span>
         </summary>
         <div class="optional-pi5-body">
-          <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 12px;">
-            For <strong>100% air-gapped field operation</strong> without cellular data or phone battery drain from heavy LLM weights, a wearable <strong>Raspberry Pi 5 (16 GB RAM + 1 TB NVMe SSD + X1209 UPS)</strong> joins the smartphone's Wi-Fi hotspot (`10.169.248.x`) as an optional local AI co-processor. You can either route requests through the Android app for full telemetry UI, or point the staff directly at the Pi 5 daemon (`celestial-brain.service`).
+          <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 14px;">
+            For <strong>100% air-gapped field operation</strong> without cellular data or phone battery drain from heavy LLM weights, a wearable <strong>Raspberry Pi 5 (16 GB RAM + 1 TB NVMe SSD + X1209 UPS)</strong> joins the smartphone's Wi-Fi hotspot (<code>10.169.248.x</code>) as an optional local AI co-processor. You can either route requests through the Android app for full telemetry UI, or point the staff directly at the Pi 5 daemon (<code>celestial-brain.service</code>).
           </p>
 
           <div class="topology-flow-grid tri-node">
-            <!-- Node A: Staff -->
+            <!-- Node 1: Staff -->
             <div class="topology-node-card staff-node">
               <div class="topology-node-header">
                 <span class="badge cyan">1 • STAFF HARDWARE</span>
-                <strong>Pico 2 W (RP2350)</strong>
+                <strong class="topology-node-title">Pico 2 W (RP2350)</strong>
               </div>
-              <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 6px 0 0;">
-                Streams 16 kHz I2S mic audio (`INMP441`) and receives 16 kHz TTS audio (`MAX98357A`), OLED text (`SH1106`), and 43-LED effects over Wi-Fi UDP `:5005`.
-              </p>
+              <ul class="topology-node-list">
+                <li><strong>Mic Uplink:</strong> Streams <code>16 kHz</code> PCM from <code>INMP441</code> over Wi-Fi UDP <code>:5005</code></li>
+                <li><strong>Audio Downlink:</strong> Plays <code>16 kHz</code> TTS via <code>MAX98357A</code> + <code>64 KB</code> DMA ring buffer</li>
+                <li><strong>Visual Sync:</strong> Renders <code>SH1106</code> OLED text &amp; 43-LED spell effects</li>
+              </ul>
             </div>
 
-            <!-- Node B: Phone -->
+            <!-- Connector 1: Staff <-> Phone -->
+            <div class="topology-link-col compact">
+              <div class="topology-arrow-pill uplink">
+                <span>🎙️ 16 kHz PCM Voice</span>
+                <code>UDP :5005 ➔</code>
+              </div>
+              <div class="topology-protocol-badge">
+                Hotspot WLAN<br>
+                <span>20 ms UDP Frames</span>
+              </div>
+              <div class="topology-arrow-pill downlink">
+                <code>⬅ UDP :5005</code>
+                <span>🔊 TTS + OLED + LEDs</span>
+              </div>
+            </div>
+
+            <!-- Node 2: Phone -->
             <div class="topology-node-card phone-node">
               <div class="topology-node-header">
                 <span class="badge gold">2 • MOBILE ROUTER &amp; UI</span>
-                <strong>Android Phone (`10.169.248.1`)</strong>
+                <strong class="topology-node-title">Android Phone (<code>10.169.248.1</code>)</strong>
               </div>
-              <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 6px 0 0;">
-                Provides the Wi-Fi hotspot linking the Staff and Pi 5, live 43-LED digital twin preview, persona selector, and manual spell/SFX overrides.
-              </p>
+              <ul class="topology-node-list">
+                <li><strong>Wi-Fi Hotspot Router:</strong> Bridges the Staff and Wearable Pi 5 on local LAN</li>
+                <li><strong>Live Digital Twin UI:</strong> Real-time 43-LED preview, OLED mirror &amp; diagnostics</li>
+                <li><strong>Control Deck:</strong> Switches personas, triggers spells/SFX &amp; forwards AI queries</li>
+              </ul>
             </div>
 
-            <!-- Node C: Pi 5 -->
+            <!-- Connector 2: Phone <-> Pi 5 -->
+            <div class="topology-link-col compact">
+              <div class="topology-arrow-pill uplink">
+                <span>📡 Audio / Prompt Relay</span>
+                <code>LAN :5005 / HTTP ➔</code>
+              </div>
+              <div class="topology-protocol-badge">
+                100% Offline LAN<br>
+                <span>Zero Cloud Traffic</span>
+              </div>
+              <div class="topology-arrow-pill downlink">
+                <code>⬅ Local AI Stream</code>
+                <span>🧠 LLM Text + Piper WAV</span>
+              </div>
+            </div>
+
+            <!-- Node 3: Pi 5 -->
             <div class="topology-node-card pi5-node">
               <div class="topology-node-header">
                 <span class="badge" style="border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.14);">3 • OPTIONAL LOCAL AI SERVER</span>
-                <strong>Wearable Raspberry Pi 5 (16 GB)</strong>
+                <strong class="topology-node-title">Wearable Raspberry Pi 5 (16 GB)</strong>
               </div>
-              <ul class="topology-node-list" style="margin-top: 6px;">
-                <li><strong>Local STT:</strong> `Whisper.cpp` (`base` / `small` quantized)</li>
-                <li><strong>Local LLM:</strong> `Ollama` (`qwen2.5:0.5b`, `qwen2.5:1.5b`, `gemma4:e2b`)</li>
-                <li><strong>Local TTS:</strong> `Piper` C++ ONNX neural voice (`&lt;300 ms` latency)</li>
-                <li><strong>Power:</strong> Isolated `Geekworm X1209` 18650 UPS (separate from staff 5V rail)</li>
+              <ul class="topology-node-list">
+                <li><strong>Local STT:</strong> <code>Whisper.cpp</code> (<code>base</code> / <code>small</code> quantized)</li>
+                <li><strong>Local LLM:</strong> <code>Ollama</code> (<code>qwen2.5:0.5b</code>, <code>qwen2.5:1.5b</code>, <code>gemma4:e2b</code>)</li>
+                <li><strong>Local TTS:</strong> <code>Piper</code> C++ ONNX neural voice (<code>&lt;300 ms</code> latency)</li>
+                <li><strong>Isolated Power:</strong> <code>Geekworm X1209</code> 18650 UPS (separate from staff 5V rail)</li>
               </ul>
             </div>
           </div>
@@ -371,7 +407,7 @@
         <div id="mic-recording-banner" class="mic-recording-banner" style="display: none;" role="status" aria-live="polite">
           <div class="mic-rec-header">
             <span class="mic-rec-dot"></span>
-            <strong id="mic-rec-status-title">REC • RECORDING SPEECH FROM INMP441 MIC (16 kHz I2S)</strong>
+            <strong id="mic-rec-status-title">REC (MAX 40s) • RECORDING SPEECH FROM INMP441 MIC (16 kHz I2S)</strong>
             <div id="mic-level-bars" class="mic-level-bars" aria-hidden="true">
               <span></span><span></span><span></span><span></span><span></span><span></span>
               <span></span><span></span><span></span><span></span><span></span><span></span>
@@ -379,7 +415,7 @@
             <button type="button" id="mic-stop-send-btn" class="btn-icon-step mic-stop-btn">⏹ Stop &amp; Send</button>
           </div>
           <div id="mic-live-transcript" class="mic-live-transcript">
-            🎙️ Speak your question into the microphone...
+            🎙️ Speak your question into the microphone (up to 40s)...
           </div>
         </div>
 
@@ -1373,7 +1409,7 @@
     </footer>
   </div>
 
-  <script src="simulator.js?v=1.2.6"></script>
-  <script type="module" src="twin/controls.js?v=1.2.6"></script>
+  <script src="simulator.js?v=1.2.7"></script>
+  <script type="module" src="twin/controls.js?v=1.2.7"></script>
 </body>
 </html>

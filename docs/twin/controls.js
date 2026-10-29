@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.6';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.6';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.6';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.6';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.6';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.7';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.7';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.7';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.7';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.7';
 
 let oracleProvider = null;
 let staff2D = null;
@@ -605,13 +605,23 @@ export async function initTwinReplica() {
     updateOracleUi();
     setMicRecordingUi(true, '🎙️ Listening to microphone... Speak your question (EN / RU)...');
 
-    // Fallback animated level bars until getUserMedia stream delivers real FFT samples
+    const recStartMs = Date.now();
+    const recTitleEl = document.getElementById('mic-rec-status-title');
+    if (recTitleEl) {
+      recTitleEl.textContent = 'REC (00s / 40s MAX) • RECORDING SPEECH FROM INMP441 MIC (16 kHz I2S)';
+    }
+
+    // Fallback animated level bars + live 40s timer counter
     simMeterInterval = setInterval(() => {
       if (!receivedRealAudioLevels) {
         const fakeBands = Array.from({ length: 12 }, (_, i) => 0.2 + 0.35 * Math.abs(Math.sin(Date.now() * 0.01 + i * 0.6)));
         updateMicBars(fakeBands);
       }
-    }, 80);
+      if (recTitleEl) {
+        const elapsedSec = Math.min(40, Math.floor((Date.now() - recStartMs) / 1000));
+        recTitleEl.textContent = `REC (${String(elapsedSec).padStart(2, '0')}s / 40s MAX) • RECORDING SPEECH FROM INMP441 MIC (16 kHz I2S)`;
+      }
+    }, 100);
 
     activeDictation = startVoiceDictation({
       lang: selectedLang,
