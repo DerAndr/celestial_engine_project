@@ -92,6 +92,9 @@ fun OracleTerminalScreen(
     var thinkingModeEnabled by remember { mutableStateOf(viewModel.gemmaEngine?.config?.enableThinking ?: true) }
     var showThinkingCard by remember { mutableStateOf(true) }
     var showHistoryDialog by remember { mutableStateOf(false) }
+    var showApiSettingsDialog by remember { mutableStateOf(false) }
+    var apiKeyInput by remember { mutableStateOf(viewModel.gemmaEngine?.config?.apiKey ?: "") }
+    var apiBaseInput by remember { mutableStateOf(viewModel.gemmaEngine?.config?.apiBase ?: "https://openrouter.ai/api/v1") }
     var isPersonaExpanded by remember { mutableStateOf(false) }
     var personaPromptInput by remember(currentPersona, currentLanguage, customSystemPrompt) {
         mutableStateOf(
@@ -555,8 +558,24 @@ fun OracleTerminalScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        IconButton(
+                            onClick = {
+                                apiKeyInput = viewModel.gemmaEngine?.config?.apiKey ?: ""
+                                apiBaseInput = viewModel.gemmaEngine?.config?.apiBase ?: "https://openrouter.ai/api/v1"
+                                showApiSettingsDialog = true
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "AI Settings",
+                                tint = AetherCyan,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
                         Text(
-                            text = if (thinkingModeEnabled) "CoT ON" else "CoT OFF",
+                            text = if (thinkingModeEnabled) "CoT" else "CoT OFF",
                             color = if (thinkingModeEnabled) RunicGold else TextMuted,
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
@@ -613,6 +632,102 @@ fun OracleTerminalScreen(
                     }
                 }
             }
+        }
+
+        // --- AI SETTINGS MODAL DIALOG ---
+        if (showApiSettingsDialog) {
+            AlertDialog(
+                onDismissRequest = { showApiSettingsDialog = false },
+                containerColor = CardSurface,
+                shape = RoundedCornerShape(16.dp),
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = null, tint = AetherCyan)
+                        Text(
+                            text = "AI BACKEND & API KEYS",
+                            color = AetherCyan,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                },
+                text = {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "For 100% offline edge operation, leave API Key blank (or select Gemma 4 E2B Edge). To connect cloud models (Gemini Flash, 31B), enter your API key below. Keys are stored strictly on your local device.",
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+
+                        OutlinedTextField(
+                            value = apiKeyInput,
+                            onValueChange = { apiKeyInput = it },
+                            label = { Text("OpenRouter / Gemini API Key", fontSize = 11.sp) },
+                            placeholder = { Text("sk-or-v1-... or AIzaSy...", fontSize = 11.sp, color = TextMuted) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AetherCyan,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = apiBaseInput,
+                            onValueChange = { apiBaseInput = it },
+                            label = { Text("API Base URL", fontSize = 11.sp) },
+                            placeholder = { Text("https://openrouter.ai/api/v1", fontSize = 11.sp, color = TextMuted) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AetherCyan,
+                                unfocusedBorderColor = CardBorder,
+                                focusedTextColor = TextPrimary,
+                                unfocusedTextColor = TextPrimary
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.updateApiSettings(apiKeyInput, apiBaseInput)
+                            showApiSettingsDialog = false
+                            Toast.makeText(context, "API settings saved securely to device", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AetherCyan)
+                    ) {
+                        Text("SAVE & APPLY", color = SpaceBlack, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+                },
+                dismissButton = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        TextButton(
+                            onClick = {
+                                apiKeyInput = ""
+                                viewModel.updateApiSettings("", apiBaseInput)
+                                showApiSettingsDialog = false
+                                Toast.makeText(context, "Key cleared — 100% Offline Edge Mode active", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Text("CLEAR (OFFLINE)", color = CrimsonRed, fontSize = 11.sp)
+                        }
+                        TextButton(
+                            onClick = { showApiSettingsDialog = false }
+                        ) {
+                            Text("CANCEL", color = TextMuted, fontSize = 11.sp)
+                        }
+                    }
+                }
+            )
         }
 
         // --- AI PERSONA & SYSTEM PROMPT EDITOR ---

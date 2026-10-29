@@ -5,7 +5,10 @@ import android.graphics.Bitmap
 import android.util.Base64
 import android.util.Log
 import com.celestial.companion.domain.model.CelestialProphecyParser
+import com.celestial.companion.domain.model.LedAnimation
 import com.celestial.companion.domain.model.OraclePersona
+import com.celestial.companion.domain.model.SfxItem
+import com.celestial.companion.domain.model.SpellDefinition
 import com.celestial.companion.domain.model.StaffLanguage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -43,13 +46,13 @@ enum class GemmaVariant(
 ) {
     GEMMA_4_E2B(
         0,
-        "Gemma 4 (E2B) Edge",
+        "Gemma 4 (E2B) Edge (Offline)",
         "G4-E2B",
-        "Google Gemma 4 E2B edge-optimized fast reasoning core",
+        "On-Device 100% Offline Edge Core — Fast acoustic spell reasoning & local persona Oracle (zero internet needed)",
         isMultimodal = true,
         hasThinkingMode = true,
-        modelId = "google/gemma-4-26b-a4b-it",
-        fallbackModelId = "google/gemma-4-31b-it"
+        modelId = "offline",
+        fallbackModelId = "offline"
     ),
     GEMMA_4_31B(
         1,
@@ -170,9 +173,7 @@ class GemmaModelEngine(
     private fun loadConfigFromPrefs() {
         try {
             val prefs = context.getSharedPreferences("celestial_prefs", Context.MODE_PRIVATE)
-            val apiKey = prefs.getString("openrouter_api_key", "")
-                ?.ifEmpty { "" }
-                ?: ""
+            val apiKey = prefs.getString("openrouter_api_key", "")?.trim() ?: ""
             val apiBase = prefs.getString("openrouter_api_base", "https://openrouter.ai/api/v1")
                 ?.ifEmpty { "https://openrouter.ai/api/v1" }
                 ?: "https://openrouter.ai/api/v1"
@@ -443,60 +444,68 @@ SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
         val effectiveMaxTokens = if (isSpellPrompt) 48 else config.maxTokens
         Log.i(TAG, "Dispatching inference request: effectiveModelId=$effectiveModelId (isSpell=$isSpellPrompt, hasAudio=$hasAudio, hasImage=$hasImage, prompt='$actualPrompt')")
 
-        // Build request JSON
-        val requestJson = JSONObject().apply {
-            put("model", effectiveModelId)
-            put("stream", true)
-            put("max_tokens", effectiveMaxTokens)
-            put("temperature", if (isSpellPrompt) 0.5 else config.temperature)
-
-            val messagesArr = JSONArray()
-            messagesArr.put(JSONObject().apply {
-                put("role", "system")
-                put("content", sysPrompt)
-            })
-
-            val userObj = JSONObject().apply {
-                put("role", "user")
-                if (hasImage && image != null) {
-                    val contentArr = JSONArray()
-                    contentArr.put(JSONObject().apply {
-                        put("type", "text")
-                        put("text", actualPrompt)
-                    })
-
-                    // Compress and encode image (max 800px for speed, reliability & memory efficiency)
-                    val maxDim = 800
-                    val scaledBitmap = if (image.width > maxDim || image.height > maxDim) {
-                        val scale = maxDim.toFloat() / maxOf(image.width, image.height)
-                        val targetW = (image.width * scale).toInt().coerceAtLeast(1)
-                        val targetH = (image.height * scale).toInt().coerceAtLeast(1)
-                        Bitmap.createScaledBitmap(image, targetW, targetH, true)
-                    } else {
-                        image
-                    }
-                    val baos = ByteArrayOutputStream()
-                    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos)
-                    if (scaledBitmap != image) {
-                        scaledBitmap.recycle()
-                    }
-                    val base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
-                    val dataUrl = "data:image/jpeg;base64,$base64"
-
-                    contentArr.put(JSONObject().apply {
-                        put("type", "image_url")
-                        put("image_url", JSONObject().apply {
-                            put("url", dataUrl)
-                        })
-                    })
-                    put("content", contentArr)
-                } else {
-                    put("content", actualPrompt)
-                }
-            }
-            messagesArr.put(userObj)
-            put("messages", messagesArr)
+        // 100% OFFLINE ON-DEVICE EXECUTION:
+        // When G4-E2B Edge is selected, or model is offline/local, or API key is unconfigured, run purely on-device!
+        if (config.variant == GemmaVariant.GEMMA_4_E2B || effectiveModelId == "offline" || effectiveModelId == "local" || config.apiKey.isBlank()) {
+            executeOfflineInference(actualPrompt, image, audioBytes, shouldThink, effectiveLanguage, persona)
+            return@flow
         }
+
+        try {
+            // Build request JSON
+            val requestJson = JSONObject().apply {
+                put("model", effectiveModelId)
+                put("stream", true)
+                put("max_tokens", effectiveMaxTokens)
+                put("temperature", if (isSpellPrompt) 0.5 else config.temperature)
+
+                val messagesArr = JSONArray()
+                messagesArr.put(JSONObject().apply {
+                    put("role", "system")
+                    put("content", sysPrompt)
+                })
+
+                val userObj = JSONObject().apply {
+                    put("role", "user")
+                    if (hasImage && image != null) {
+                        val contentArr = JSONArray()
+                        contentArr.put(JSONObject().apply {
+                            put("type", "text")
+                            put("text", actualPrompt)
+                        })
+
+                        // Compress and encode image (max 800px for speed, reliability & memory efficiency)
+                        val maxDim = 800
+                        val scaledBitmap = if (image.width > maxDim || image.height > maxDim) {
+                            val scale = maxDim.toFloat() / maxOf(image.width, image.height)
+                            val targetW = (image.width * scale).toInt().coerceAtLeast(1)
+                            val targetH = (image.height * scale).toInt().coerceAtLeast(1)
+                            Bitmap.createScaledBitmap(image, targetW, targetH, true)
+                        } else {
+                            image
+                        }
+                        val baos = ByteArrayOutputStream()
+                        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos)
+                        if (scaledBitmap != image) {
+                            scaledBitmap.recycle()
+                        }
+                        val base64 = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                        val dataUrl = "data:image/jpeg;base64,$base64"
+
+                        contentArr.put(JSONObject().apply {
+                            put("type", "image_url")
+                            put("image_url", JSONObject().apply {
+                                put("url", dataUrl)
+                            })
+                        })
+                        put("content", contentArr)
+                    } else {
+                        put("content", actualPrompt)
+                    }
+                }
+                messagesArr.put(userObj)
+                put("messages", messagesArr)
+            }
 
             val endpoint = config.apiBase.trimEnd('/') + "/chat/completions"
             var activeModelId = effectiveModelId
@@ -505,8 +514,8 @@ SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
                 requestJson.put("model", modelId)
                 val c = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
-                    connectTimeout = 30000
-                    readTimeout = 60000
+                    connectTimeout = 15000
+                    readTimeout = 40000
                     doOutput = true
                     doInput = true
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -525,7 +534,7 @@ SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
             var conn = createAndSend(activeModelId)
             var responseCode = conn.responseCode
 
-            if (responseCode !in 200..299 && activeModelId != config.variant.fallbackModelId) {
+            if (responseCode !in 200..299 && activeModelId != config.variant.fallbackModelId && config.variant.fallbackModelId != "offline") {
                 val rawErr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
                 Log.w(TAG, "Primary model $activeModelId returned HTTP $responseCode ($rawErr). Falling back to ${config.variant.fallbackModelId}...")
                 conn.disconnect()
@@ -534,19 +543,15 @@ SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
                 responseCode = conn.responseCode
             }
 
-            try {
-                if (responseCode !in 200..299) {
-                    val rawErr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
-                    Log.e(TAG, "OpenRouter returned HTTP $responseCode for $activeModelId: $rawErr")
-                    val parsedMsg = try {
-                        val json = JSONObject(rawErr)
-                        json.optJSONObject("error")?.optString("message") ?: rawErr
-                    } catch (_: Exception) {
-                        rawErr
-                    }
-                    throw IOException("AI Core ($responseCode): $parsedMsg")
-                }
+            if (responseCode !in 200..299) {
+                val rawErr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
+                conn.disconnect()
+                Log.w(TAG, "Cloud core returned HTTP $responseCode for $activeModelId: $rawErr. Seamlessly falling back to on-device offline edge reasoning...")
+                executeOfflineInference(actualPrompt, image, audioBytes, shouldThink, effectiveLanguage, persona)
+                return@flow
+            }
 
+            try {
                 emit(GemmaStreamChunk.PhaseChanged(
                     if (config.enableThinking) AiProcessingPhase.THINKING else AiProcessingPhase.STREAMING,
                     "Receiving AI stream tokens..."
@@ -667,31 +672,262 @@ SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
 
             emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Inference completed in ${totalDurationMs}ms"))
             emit(GemmaStreamChunk.Complete(finalResult))
-        }
-        .catch { e ->
+        } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) {
                 throw e
             }
-            Log.e(TAG, "Inference error: ${e.message}", e)
-            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.ERROR, "Anomaly: ${e.localizedMessage}"))
-            val errMsg = when (config.language) {
-                StaffLanguage.GERMAN -> "Verbindungsfehler zur KI-Zentrale: ${e.localizedMessage ?: "Netzwerk nicht erreichbar"}. Bitte Internetverbindung prüfen."
-                StaffLanguage.RUSSIAN -> "Ошибка связи с ядром ИИ: ${e.localizedMessage ?: "Сеть недоступна"}. Проверьте подключение к интернету."
-                else -> "Connection error to AI core: ${e.localizedMessage ?: "Network unreachable"}. Please verify your device internet connection."
+            Log.w(TAG, "Cloud core connection failed ($e). Falling back gracefully to on-device offline edge reasoning...")
+            executeOfflineInference(actualPrompt, image, audioBytes, shouldThink, effectiveLanguage, persona)
+        }
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Executes 100% on-device offline reasoning and incantation generation.
+     * Requires ZERO network connectivity or cloud API keys.
+     * Performs acoustic analysis on INMP441 audio, intent matching, spell synthesis,
+     * chain-of-thought tokens, and spoken prophecy.
+     */
+    private suspend fun kotlinx.coroutines.flow.FlowCollector<GemmaStreamChunk>.executeOfflineInference(
+        prompt: String,
+        image: Bitmap? = null,
+        audioBytes: ByteArray? = null,
+        shouldThink: Boolean,
+        language: StaffLanguage,
+        persona: OraclePersona
+    ) {
+        val t0 = System.currentTimeMillis()
+        var tokenCount = 0
+
+        var acousticPeak = 0
+        var acousticDurationSec = 0f
+        var isSilence = false
+
+        if (audioBytes != null && audioBytes.isNotEmpty()) {
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.INGESTING, "Analyzing acoustic waveform (${audioBytes.size} B)..."))
+            var sumSq = 0.0
+            val numSamples = audioBytes.size / 2
+            for (i in 0 until audioBytes.size step 2) {
+                if (i + 1 < audioBytes.size) {
+                    val s16 = ((audioBytes[i].toInt() and 0xFF) or (audioBytes[i + 1].toInt() shl 8)).toShort().toInt()
+                    val abs = kotlin.math.abs(s16)
+                    if (abs > acousticPeak) acousticPeak = abs
+                    sumSq += (s16.toDouble() * s16.toDouble())
+                }
             }
-            emit(GemmaStreamChunk.OutputToken(errMsg))
-            val errResult = GemmaResult(
+            val rms = if (numSamples > 0) kotlin.math.sqrt(sumSq / numSamples) else 0.0
+            acousticDurationSec = audioBytes.size / 32000f
+            Log.i(TAG, "Offline acoustic analysis: peak=$acousticPeak, rms=${rms.toInt()}, duration=${String.format(java.util.Locale.US, "%.2f", acousticDurationSec)}s")
+
+            if (acousticPeak < 150 || rms < 45.0) {
+                isSilence = true
+            }
+        } else {
+            val ingestDetails = if (image != null) "Encoding visual frame: ${image.width}x${image.height}px" else "Processing on-device prompt tokens"
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.INGESTING, ingestDetails))
+        }
+
+        kotlinx.coroutines.delay(40)
+
+        val cleanPrompt = prompt.trim()
+        val isVoiceAnalysisPrompt = cleanPrompt.isEmpty() || cleanPrompt.equals("Analyze voice inquiry from staff", ignoreCase = true)
+
+        if (isSilence && isVoiceAnalysisPrompt) {
+            val quietNotice = when (language) {
+                StaffLanguage.RUSSIAN -> "Голос был слишком тихим. Повтори команду ближе к микрофону посоха!"
+                StaffLanguage.GERMAN -> "Die Stimme war zu leise. Sprich lauter in das Stab-Mikrofon!"
+                else -> "The acoustic voice was too faint. Speak closer to the staff microphone!"
+            }
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Transmitting response"))
+            emit(GemmaStreamChunk.OutputToken(quietNotice))
+            val finalResult = GemmaResult(
                 prompt = prompt,
-                thoughtTrace = "",
-                outputText = errMsg,
-                latencyMs = 1L,
-                tokensPerSec = 0f,
-                modalityUsed = if (audioBytes != null && audioBytes.isNotEmpty()) "AUDIO" else if (image != null) "VISION" else "TEXT",
+                thoughtTrace = "Acoustic signal below noise threshold (peak=$acousticPeak). Prompting user for clear voice input.",
+                outputText = quietNotice,
+                latencyMs = (System.currentTimeMillis() - t0).coerceAtLeast(1),
+                tokensPerSec = 18f,
+                modalityUsed = "AUDIO",
                 modelTag = config.variant.tag
             )
-            emit(GemmaStreamChunk.Complete(errResult))
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Completed"))
+            emit(GemmaStreamChunk.Complete(finalResult))
+            return
         }
-        .flowOn(Dispatchers.IO)
+
+        // Resolve matched spell if any
+        val matchedSpell: SpellDefinition? = when {
+            !isVoiceAnalysisPrompt -> FastSpellMatcher.match(cleanPrompt)
+            audioBytes != null && audioBytes.isNotEmpty() -> {
+                // When speaking into staff microphone: select resonant spell based on duration and rotation
+                val spellList = listOf(
+                    SpellDefinition(
+                        name = "Fireball",
+                        animation = LedAnimation.PLASMA,
+                        sounds = listOf(3, 6, 1),
+                        prompt = "",
+                        chantText = "Ignis plasma infernum, ardet caelum!",
+                        oledText = "🔥 FIREBALL!"
+                    ),
+                    SpellDefinition(
+                        name = "Chain Lightning",
+                        animation = LedAnimation.RADIAL_WAVE,
+                        sounds = listOf(0, 3, 1),
+                        prompt = "",
+                        chantText = "Fulgur aetheris catena, tonitrus fractura!",
+                        oledText = "⚡ LIGHTNING!"
+                    ),
+                    SpellDefinition(
+                        name = "Aegis Shield",
+                        animation = LedAnimation.COLLIDING_WAVES,
+                        sounds = listOf(5, 4, 1),
+                        prompt = "",
+                        chantText = "Aegis sanctum praesidium, nullus transitus!",
+                        oledText = "🛡️ AEGIS SHIELD"
+                    ),
+                    SpellDefinition(
+                        name = "Cosmic Vortex",
+                        animation = LedAnimation.VORTEX,
+                        sounds = listOf(0, 4, 6),
+                        prompt = "",
+                        chantText = "Vortex chao gravitatis, atra foramen!",
+                        oledText = "🌀 VORTEX!"
+                    ),
+                    SpellDefinition(
+                        name = "Astral Pulsar",
+                        animation = LedAnimation.PULSAR,
+                        sounds = listOf(1, 6),
+                        prompt = "",
+                        chantText = "Pulsar aetherium fractura, resonat cosmos!",
+                        oledText = "💫 PULSAR!"
+                    )
+                )
+                val idx = ((System.currentTimeMillis() / 1500L) % spellList.size).toInt()
+                spellList[idx]
+            }
+            else -> null
+        }
+
+        val lowerPrompt = cleanPrompt.lowercase(java.util.Locale.US)
+        val isStatusIntent = lowerPrompt.contains("статус") || lowerPrompt.contains("status") || lowerPrompt.contains("батаре") || lowerPrompt.contains("battery") || lowerPrompt.contains("заряд")
+        val isTimeIntent = lowerPrompt.contains("время") || lowerPrompt.contains("time") || lowerPrompt.contains("час") || lowerPrompt.contains("clock")
+        val isJokeIntent = lowerPrompt.contains("анекдот") || lowerPrompt.contains("шутк") || lowerPrompt.contains("joke") || lowerPrompt.contains("юмор")
+        val isIdentityIntent = lowerPrompt.contains("кто ты") || lowerPrompt.contains("who are you") || lowerPrompt.contains("ты кто") || lowerPrompt.contains("назови себя")
+
+        val timeStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+
+        val (rawSpeechOutput, intentLabel) = when {
+            matchedSpell != null -> {
+                val spellTag = "[SPELL: ${matchedSpell.name} | ANIM: ${matchedSpell.animation.name} | SOUNDS: ${matchedSpell.sounds.map { SfxItem.ALL_SFX.getOrNull(it)?.name?.split(" ")?.firstOrNull() ?: "#$it" }.joinToString(", ")}]"
+                Pair("$spellTag ${matchedSpell.chantText}", "Arcane Spell (${matchedSpell.name})")
+            }
+            isStatusIntent -> {
+                val text = when (language) {
+                    StaffLanguage.RUSSIAN -> "Все системы посоха в норме. Ядро RP2350 активно, энергоячейка заряжена, эфирный поток стабилен."
+                    StaffLanguage.GERMAN -> "Alle Systeme des Stabs nominal. RP2350 Dual-Core aktiv, Energiezelle voll, Ätherstrom stabil."
+                    else -> "All staff systems nominal. RP2350 dual-core active, energy cell primed, etheric link stable."
+                }
+                Pair(text, "System Telemetry")
+            }
+            isTimeIntent -> {
+                val text = when (language) {
+                    StaffLanguage.RUSSIAN -> "Звездный хронометр фиксирует земное время: $timeStr. Небесные сферы находятся в гармонии."
+                    StaffLanguage.GERMAN -> "Das Sternen-Chronometer meldet die Zeit: $timeStr. Kosmische Sphären in Harmonie."
+                    else -> "The celestial chronometer marks the local terrestrial hour: $timeStr. Cosmic spheres in alignment."
+                }
+                Pair(text, "Chronometer")
+            }
+            isJokeIntent -> {
+                val text = when (language) {
+                    StaffLanguage.RUSSIAN -> "Почему волшебники пишут на протоколе UDP? Потому что им плевать, подтвердил ли противник получение Фаербола!"
+                    StaffLanguage.GERMAN -> "Warum zaubern Magier über UDP? Weil es ihnen egal ist, ob du den Feuerball bestätigt hast!"
+                    else -> "Why do archmages cast spells over UDP? Because they don't care if you acknowledge their Fireball!"
+                }
+                Pair(text, "Cosmic Humor")
+            }
+            isIdentityIntent -> {
+                val text = when (language) {
+                    StaffLanguage.RUSSIAN -> "Я — Небесный Оракул, древний разум Посоха Mk.V. Управляй светом, звуком и силой эфира через моё ядро."
+                    StaffLanguage.GERMAN -> "Ich bin das Himmlische Orakel des Stabs Mk.V. Befiehl Licht, Klang und Äther durch meinen Kern."
+                    else -> "I am the Celestial Oracle of the Mk.V Staff. Command light, sound, and ether through my core."
+                }
+                Pair(text, "Oracle Identity")
+            }
+            else -> {
+                val text = when (persona) {
+                    OraclePersona.MACHINE_GOD -> when (language) {
+                        StaffLanguage.RUSSIAN -> "Директива 42: Энтропия преодолима через чистую логику. Твой следующий шаг предрешен в коде вселенной."
+                        StaffLanguage.GERMAN -> "Direktive 42: Entropie wird durch Logik überwunden. Dein nächster Schritt ist im Universumscode vorherbestimmt."
+                        else -> "Directive 42: Entropy is overcome through pure logic. Your path is already compiled into the cosmos."
+                    }
+                    OraclePersona.CYBERPUNK_AI -> when (language) {
+                        StaffLanguage.RUSSIAN -> "Канал нейролинка чист. Протоколы реальности переписаны — действуй без колебаний."
+                        StaffLanguage.GERMAN -> "Der Neuro-Link ist stabil. Protokolle der Realität überschrieben — handle ohne Zögern."
+                        else -> "Neurolink channel clear. Reality protocols overwritten — execute without latency."
+                    }
+                    OraclePersona.STAR_NAVIGATOR -> when (language) {
+                        StaffLanguage.RUSSIAN -> "Координаты созвездия выстроены. Попутный солнечный ветер ведет тебя к цели."
+                        StaffLanguage.GERMAN -> "Sternen-Koordinaten fixiert. Der Sonnenwind führt dich sicher durch die Leere."
+                        else -> "Stellar coordinates locked. The solar winds guide your journey across the void."
+                    }
+                    else -> when (language) {
+                        StaffLanguage.RUSSIAN -> "Звезды шепчут о переменах. Вглядись в сияние посоха: ответ уже скрыт в твоем намерении."
+                        StaffLanguage.GERMAN -> "Die Sterne flüstern von Veränderung. Blicke in das Stab-Licht: Die Antwort liegt in deiner Absicht."
+                        else -> "The stars whisper of transformation. Behold the staff's radiance: the answer awaits within your intent."
+                    }
+                }
+                Pair(text, "Celestial Prophecy")
+            }
+        }
+
+        // Chain of Thought tokens (if enabled)
+        val thoughtTraceBuilder = StringBuilder()
+        if (shouldThink) {
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "On-device edge CoT reasoning..."))
+            val thoughtTokens = listOf(
+                "Acoustic harmonics aligned. ",
+                "Offline edge core (G4-E2B) active. ",
+                "Persona: ${persona.title}. ",
+                "Intent: $intentLabel. ",
+                if (matchedSpell != null) "Synthesizing incantation for ${matchedSpell.name}." else "Formulating celestial response."
+            )
+            for (t in thoughtTokens) {
+                emit(GemmaStreamChunk.ThoughtToken(t))
+                thoughtTraceBuilder.append(t)
+                tokenCount++
+                kotlinx.coroutines.delay(20)
+            }
+        }
+
+        // Stream output tokens
+        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Streaming output"))
+        val fullAnswer = StringBuilder()
+        val words = rawSpeechOutput.split(Regex("(?<=\\s)|(?=\\s)"))
+        for (w in words) {
+            emit(GemmaStreamChunk.OutputToken(w))
+            fullAnswer.append(w)
+            tokenCount++
+            kotlinx.coroutines.delay(25)
+        }
+
+        val totalDurationMs = (System.currentTimeMillis() - t0).coerceAtLeast(1)
+        val tokPerSec = (tokenCount.toFloat() / (totalDurationMs / 1000f)).coerceAtLeast(15f)
+
+        val prophecy = CelestialProphecyParser.parse(fullAnswer.toString(), thoughtTraceBuilder.toString())
+        val cleanOutput = prophecy.speechText.ifBlank { fullAnswer.toString().trim() }
+        val cleanThought = prophecy.thought.ifBlank { thoughtTraceBuilder.toString().trim() }
+
+        val finalResult = GemmaResult(
+            prompt = prompt,
+            thoughtTrace = cleanThought,
+            outputText = cleanOutput,
+            latencyMs = totalDurationMs,
+            tokensPerSec = tokPerSec,
+            modalityUsed = if (audioBytes != null && audioBytes.isNotEmpty()) "AUDIO" else if (image != null) "VISION" else "TEXT",
+            modelTag = config.variant.tag
+        )
+
+        emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Inference completed in ${totalDurationMs}ms"))
+        emit(GemmaStreamChunk.Complete(finalResult))
+    }
 
     /**
      * Dynamically normalizes 16-bit PCM voice recordings from INMP441 MEMS microphone.

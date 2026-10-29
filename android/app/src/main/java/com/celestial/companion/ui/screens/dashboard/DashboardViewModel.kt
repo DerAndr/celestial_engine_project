@@ -347,6 +347,13 @@ class DashboardViewModel(
         }
     }
 
+    fun updateApiSettings(apiKey: String, apiBase: String) {
+        gemmaEngine?.let { engine ->
+            val updatedConfig = engine.config.copy(apiKey = apiKey.trim(), apiBase = apiBase.trim())
+            engine.saveConfigToPrefs(updatedConfig)
+        }
+    }
+
     fun setStaffHost(hostType: Int) {
         viewModelScope.launch {
             repository.executeCommand(StaffCommand.SetHost(hostType))
