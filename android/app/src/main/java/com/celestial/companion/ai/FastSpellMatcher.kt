@@ -178,14 +178,31 @@ object FastSpellMatcher {
         "cast", "spell", "magic", "incantation", "conjure", "invoke"
     )
 
+    private fun textMatchesKeyword(lowerText: String, words: Set<String>, kw: String): Boolean {
+        val kwLower = kw.lowercase().trim()
+        if (kwLower.isEmpty()) return false
+        if (kwLower.contains(' ')) {
+            // Multi-word phrase like "огненный шар", "black hole", "цепная молния"
+            return lowerText.contains(kwLower)
+        }
+        if (kwLower.length <= 4) {
+            // Short keywords (e.g. "ice", "fire", "лед", "гром", "щит", "утка", "снег")
+            // MUST match whole word! Never match inside "voice", "след", "огромный"
+            return words.contains(kwLower)
+        }
+        // Longer keywords (>4 chars): match whole word or prefix of word (for declensions/suffixes)
+        return words.contains(kwLower) || words.any { it.startsWith(kwLower) }
+    }
+
     /**
      * Checks if the text has spell-casting intent.
      */
     fun isSpellIntent(text: String): Boolean {
         val lower = text.lowercase().trim()
         if (lower.isEmpty()) return false
-        if (SPELL_INTENT_WORDS.any { lower.contains(it) }) return true
-        return FAST_SPELLS.any { fs -> fs.keywords.any { lower.contains(it) } }
+        val words = lower.split(Regex("[\\s,.:;!?\"'()\\[\\]{}]+")).filter { it.isNotBlank() }.toSet()
+        if (SPELL_INTENT_WORDS.any { textMatchesKeyword(lower, words, it) }) return true
+        return FAST_SPELLS.any { fs -> fs.keywords.any { textMatchesKeyword(lower, words, it) } }
     }
 
     /**
@@ -195,11 +212,12 @@ object FastSpellMatcher {
     fun match(text: String, customSpells: List<SpellDefinition> = emptyList()): SpellDefinition? {
         val lower = text.lowercase().trim()
         if (lower.isEmpty()) return null
+        val words = lower.split(Regex("[\\s,.:;!?\"'()\\[\\]{}]+")).filter { it.isNotBlank() }.toSet()
 
         // 1. Check user custom spells first
         for (custom in customSpells) {
             val nameLower = custom.name.lowercase().trim()
-            if (nameLower.isNotEmpty() && lower.contains(nameLower)) {
+            if (nameLower.isNotEmpty() && textMatchesKeyword(lower, words, nameLower)) {
                 return custom
             }
         }
@@ -207,8 +225,7 @@ object FastSpellMatcher {
         // 2. Check built-in fast spells
         for (fs in FAST_SPELLS) {
             for (kw in fs.keywords) {
-                // Word boundary or substring check
-                if (lower.contains(kw)) {
+                if (textMatchesKeyword(lower, words, kw)) {
                     return fs.definition
                 }
             }

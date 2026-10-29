@@ -588,6 +588,14 @@ class DashboardViewModel(
                                         tokensPerSec = chunk.result.tokensPerSec,
                                         isStreaming = false
                                     )
+                                } else if (msg.id == userMsgId && msg.text.startsWith("🎤 [Processing")) {
+                                    val promptText = chunk.result.prompt.trim()
+                                    val fallback = if (promptText.isNotBlank() && !promptText.startsWith("Analyze voice")) {
+                                        "🎤 \"$promptText\""
+                                    } else {
+                                        "🎤 [Voice Query]"
+                                    }
+                                    msg.copy(text = fallback)
                                 } else msg
                             }
 

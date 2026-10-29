@@ -598,7 +598,7 @@ class StaffRepository(
                                             lastAiResponseText = chunk.result.outputText,
                                             state = StaffState.SPEAKING
                                         )
-                                        broadcastAiResponse(chunk.result.outputText, activeStaffIp)
+                                        broadcastAiResponse(chunk.result.outputText, activeStaffIp, skipVisualEffects = liveSpellTriggered, customReqId = effectiveReqId)
                                         delay(1200)
                                         _telemetry.value = _telemetry.value.copy(
                                             state = StaffState.IDLE
