@@ -637,7 +637,7 @@
         case 1: // AI MODEL
           oledCtx.fillText('AI REASONING CORE', 24, 80);
           oledCtx.font = 'bold 24px "JetBrains Mono", monospace';
-          oledCtx.fillText('ACTIVE: GEMMA 4 (E2B)', 24, 126);
+          oledCtx.fillText('ACTIVE: GEMINI 2.5 FLASH', 24, 126);
           oledCtx.font = 'bold 18px "JetBrains Mono", monospace';
           oledCtx.fillText('HOST  : PHONE BRAIN (UDP)', 24, 168);
           break;
@@ -932,11 +932,11 @@
       x: -210, y: -90, z: 30,
       w: 72, h: 72,
       color: '#10b981',
-      desc: '3 Concentric optical rings (1 Center + 6 Ring 1 + 12 Ring 2 + 24 Ring 3). Driven by RP2350 PIO state machine at 800 kHz. 470µF buffer cap across rails.',
+      desc: '3 Concentric optical rings (1 Center + 6 Ring 1 + 12 Ring 2 + 24 Ring 3). Driven by RP2350 PIO0 SM1 at 800 kHz with 18% brightness cap.',
       pins: [
-        { mod: 'DIN', pico: 'GPIO 13 (Pin 17)', func: 'PIO WS2812B Driver', note: 'Zero-jitter timing' },
-        { mod: '5V VCC', pico: 'VBUS (Pin 40)', func: '5V Clean Rail', note: 'External capacitor fitted' },
-        { mod: 'GND', pico: 'GND (Pin 18)', func: 'Common Ground', note: 'Common ground' }
+        { mod: 'DIN', pico: 'GPIO 15 (Pin 20)', func: 'PIO0 SM1 WS2812B Driver', note: 'DMA paced timing' },
+        { mod: '5V VCC', pico: 'VBUS (Pin 40)', func: '5V Clean Rail', note: '1000µF capacitor fitted' },
+        { mod: 'GND', pico: 'GND (Pin 18/23)', func: 'Common Ground', note: 'Star ground reference' }
       ]
     },
     {
@@ -948,12 +948,12 @@
       x: -60, y: -160, z: 40,
       w: 80, h: 44,
       color: '#ffb833',
-      desc: 'Cybernetic HUD with 11 system modes, 20 FPS marquee ticker, Jukebox track selection, and hardware telemetry. 400 kHz Fast-Mode I2C.',
+      desc: 'Cybernetic HUD with 13 system modes, 20 FPS marquee ticker, Jukebox track selection, and hardware telemetry. 400 kHz Fast-Mode I2C1.',
       pins: [
-        { mod: 'SDA', pico: 'GPIO 14 (Pin 19)', func: 'I2C1 SDA', note: '400 kHz Fast-Mode' },
-        { mod: 'SCL', pico: 'GPIO 15 (Pin 20)', func: 'I2C1 SCL', note: 'Internal pull-ups' },
+        { mod: 'SDA', pico: 'GPIO 2 (Pin 4)', func: 'I2C1 SDA', note: '400 kHz Fast-Mode' },
+        { mod: 'SCL', pico: 'GPIO 3 (Pin 5)', func: 'I2C1 SCL', note: 'Onboard pull-ups to 3V3' },
         { mod: 'VCC', pico: '3V3 (Pin 36)', func: '3.3V Rail', note: 'Do NOT connect to 5V' },
-        { mod: 'GND', pico: 'GND (Pin 23)', func: 'Ground', note: 'Common ground' }
+        { mod: 'GND', pico: 'GND (Pin 3)', func: 'Ground', note: 'Common ground' }
       ]
     },
     {
@@ -967,10 +967,10 @@
       color: '#06b6d4',
       desc: 'Tactile quadrature encoder for rotating modes, adjusting volume, choosing chiptunes, and center push-button switch.',
       pins: [
-        { mod: 'CLK (A)', pico: 'GPIO 10 (Pin 14)', func: 'Quadrature A', note: 'GPIO IRQ fall/rise' },
-        { mod: 'DT (B)', pico: 'GPIO 11 (Pin 15)', func: 'Quadrature B', note: 'Direction decode' },
-        { mod: 'SW (Switch)', pico: 'GPIO 12 (Pin 16)', func: 'Encoder Button', note: 'Pull-up, Active LOW' },
-        { mod: 'GND', pico: 'GND (Pin 13)', func: 'Ground', note: 'Common ground' }
+        { mod: 'CLK (A)', pico: 'GPIO 6 (Pin 9)', func: 'Quadrature A', note: 'GPIO IRQ fall/rise (Pull-up)' },
+        { mod: 'DT (B)', pico: 'GPIO 7 (Pin 10)', func: 'Quadrature B', note: 'Direction decode (Pull-up)' },
+        { mod: 'SW (Switch)', pico: 'GPIO 8 (Pin 11)', func: 'Encoder Button', note: 'Mode confirm / Zoom click' },
+        { mod: 'GND', pico: 'GND (Pin 8)', func: 'Ground', note: 'Common ground' }
       ]
     },
     {
@@ -984,8 +984,8 @@
       color: '#3b82f6',
       desc: 'Main inquiry button. Hold to activate 16 kHz I2S microphone streaming to Android Companion / Pi 5. Release to synthesize response.',
       pins: [
-        { mod: 'Pin 1', pico: 'GPIO 20 (Pin 26)', func: 'PTT Interrupt', note: 'Pull-up, Active LOW' },
-        { mod: 'Pin 2', pico: 'GND (Pin 28)', func: 'Ground', note: 'Common ground' }
+        { mod: 'Pin 1', pico: 'GPIO 9 (Pin 12)', func: 'PTT Interrupt', note: 'Pull-up, Active LOW' },
+        { mod: 'Pin 2', pico: 'GND (Pin 13)', func: 'Ground', note: 'Common ground' }
       ]
     },
     {
@@ -997,13 +997,13 @@
       x: -140, y: 130, z: 30,
       w: 70, h: 46,
       color: '#ec4899',
-      desc: 'Class-D audio amplifier driving 4Ω 3W speaker. Powered by RP2350 PIO1 I2S DMA at 16 kHz 16-bit mono.',
+      desc: 'Class-D audio amplifier driving 4Ω 3W speaker. Powered by RP2350 PIO1 SM0 I2S DMA at 16 kHz 16-bit mono with auto sleep.',
       pins: [
-        { mod: 'BCLK', pico: 'GPIO 0 (Pin 1)', func: 'PIO1 Bit Clock', note: '512 kHz clock' },
-        { mod: 'LRC', pico: 'GPIO 1 (Pin 2)', func: 'PIO1 Word Select', note: '16 kHz frame sync' },
-        { mod: 'DIN', pico: 'GPIO 2 (Pin 4)', func: 'PIO1 Audio Data', note: 'PCM stream' },
-        { mod: 'VIN', pico: 'VBUS (Pin 40)', func: '5V Power Rail', note: 'High-current capable' },
-        { mod: 'GND', pico: 'GND (Pin 3)', func: 'Power Ground', note: 'Star ground' }
+        { mod: 'BCLK', pico: 'GPIO 16 (Pin 21)', func: 'PIO1 Bit Clock', note: '512 kHz clock' },
+        { mod: 'LRC', pico: 'GPIO 17 (Pin 22)', func: 'PIO1 Word Select', note: '16 kHz frame sync' },
+        { mod: 'DIN', pico: 'GPIO 18 (Pin 24)', func: 'PIO1 Audio Data', note: '16-bit PCM stream' },
+        { mod: 'VIN', pico: 'VBUS (Pin 40)', func: '5V Power Rail', note: '1000µF capacitor fitted' },
+        { mod: 'GND', pico: 'GND (Pin 23)', func: 'Power Ground', note: 'Star ground' }
       ]
     },
     {
@@ -1015,13 +1015,13 @@
       x: -180, y: 20, z: 20,
       w: 64, h: 44,
       color: '#8b5cf6',
-      desc: 'High-sensitivity digital microphone. Sampled via RP2350 PIO0 DMA into double buffers, streamed over UDP to smartphone / SBC.',
+      desc: 'High-sensitivity digital microphone. Sampled via RP2350 PIO0 SM0 DMA into double buffers, streamed over UDP to smartphone / SBC.',
       pins: [
-        { mod: 'SCK (BCLK)', pico: 'GPIO 16 (Pin 21)', func: 'PIO0 Bit Clock', note: '512 kHz clock' },
-        { mod: 'WS (LRC)', pico: 'GPIO 17 (Pin 22)', func: 'PIO0 Word Select', note: '16 kHz frame' },
-        { mod: 'SD (Data)', pico: 'GPIO 18 (Pin 24)', func: 'PIO0 Audio Data', note: '24/16-bit PCM in' },
-        { mod: 'VDD', pico: '3V3 (Pin 36)', func: '3.3V Clean Rail', note: 'Filter cap recommended' },
-        { mod: 'GND/L/R', pico: 'GND (Pin 23)', func: 'Ground (Left Ch)', note: 'Common ground' }
+        { mod: 'SCK (BCLK)', pico: 'GPIO 10 (Pin 14)', func: 'PIO0 Bit Clock', note: '512 kHz clock' },
+        { mod: 'WS (LRC)', pico: 'GPIO 11 (Pin 15)', func: 'PIO0 Word Select', note: '16 kHz frame' },
+        { mod: 'SD (Data)', pico: 'GPIO 12 (Pin 16)', func: 'PIO0 Audio Data', note: '16-bit PCM In (Left Ch tied to GND)' },
+        { mod: 'VDD', pico: '3V3 (Pin 36)', func: '3.3V Clean Rail', note: 'Clean regulated supply' },
+        { mod: 'GND/L/R', pico: 'GND (Pin 18)', func: 'Ground (Left Ch)', note: 'Common ground' }
       ]
     },
     {
@@ -1033,11 +1033,11 @@
       x: 180, y: 150, z: 45,
       w: 86, h: 54,
       color: '#34d399',
-      desc: 'Primary AI Brain over local Wi-Fi Hotspot (10.169.248.64 -> 10.169.248.193). Hosts Gemma 4 Multimodal vision, Arcane Grimoire, and Spell Forge.',
+      desc: 'Primary AI Brain over local Wi-Fi Hotspot (10.169.248.1 -> 10.169.248.64:5005). Hosts Gemini 2.5 Flash default voice reasoning, Gemma 4 options, Arcane Grimoire, and Spell Forge (<20ms).',
       pins: [
-        { mod: 'Hotspot IP', pico: 'CYW43439 Wi-Fi', func: '10.169.248.64', note: 'Pico static IP' },
+        { mod: 'Hotspot Gateway', pico: '10.169.248.1', func: 'Wi-Fi AP Router', note: 'Phone Hotspot' },
         { mod: 'UDP Socket', pico: 'Port 5005', func: 'Binary UDP v2', note: 'Zero-latency (<20ms)' },
-        { mod: 'Audio Stream', pico: 'UDP 0x03', func: '16 kHz Mono Float/PCM', note: 'Google TTS response' }
+        { mod: 'Audio Stream', pico: 'UDP 0x03', func: 'Gemini 2.5 Flash / Google TTS', note: 'Cloud streaming' }
       ]
     },
     {
@@ -1051,7 +1051,7 @@
       color: '#f59e0b',
       desc: '100% Offline Edge Brain daemon (celestial-brain.service). Runs Whisper.cpp, Ollama (Llama 3.2 1B & Gemma 2B), and Piper C++ TTS.',
       pins: [
-        { mod: 'Service IP', pico: 'CYW43439 Wi-Fi', func: '10.169.248.193', note: 'Pi 5 static IP' },
+        { mod: 'Service IP', pico: 'CYW43439 Wi-Fi', func: '10.169.248.50', note: 'Pi 5 static IP' },
         { mod: 'Daemon', pico: 'Port 5005', func: 'UDP Server', note: 'Failover redundancy' },
         { mod: 'Offline TTS', pico: 'Piper ONNX', func: '16 kHz WAV Stream', note: '<300ms inference' }
       ]
@@ -1059,12 +1059,12 @@
   ];
 
   const SCHEMATIC_WIRES = [
-    { from: 'pico', to: 'leds', color: '#10b981', label: 'GPIO 13 (DIN)' },
-    { from: 'pico', to: 'oled', color: '#ffb833', label: 'I2C1 (GPIO 14, 15)' },
-    { from: 'pico', to: 'encoder', color: '#06b6d4', label: 'GPIO 10, 11, 12' },
-    { from: 'pico', to: 'query', color: '#3b82f6', label: 'GPIO 20' },
-    { from: 'pico', to: 'amp', color: '#ec4899', label: 'I2S Out (GPIO 0, 1, 2)' },
-    { from: 'pico', to: 'mic', color: '#8b5cf6', label: 'I2S In (GPIO 16, 17, 18)' },
+    { from: 'pico', to: 'leds', color: '#10b981', label: 'GPIO 15 (DIN)' },
+    { from: 'pico', to: 'oled', color: '#ffb833', label: 'I2C1 (GPIO 2, 3)' },
+    { from: 'pico', to: 'encoder', color: '#06b6d4', label: 'GPIO 6, 7, 8' },
+    { from: 'pico', to: 'query', color: '#3b82f6', label: 'GPIO 9' },
+    { from: 'pico', to: 'amp', color: '#ec4899', label: 'I2S Out (GPIO 16, 17, 18)' },
+    { from: 'pico', to: 'mic', color: '#8b5cf6', label: 'I2S In (GPIO 10, 11, 12)' },
     { from: 'pico', to: 'phone', color: '#34d399', label: 'Wi-Fi UDP 5005', isWireless: true },
     { from: 'pico', to: 'pi5', color: '#f59e0b', label: 'Wi-Fi UDP 5005', isWireless: true }
   ];

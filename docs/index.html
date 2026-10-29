@@ -20,16 +20,17 @@
     <header class="hero-header">
       <div class="badge-row">
         <span class="badge cyan">Pico 2 W (RP2350)</span>
+        <span class="badge emerald">Pixel 9 Pro XL Brain</span>
         <span class="badge gold">Wearable Pi 5 16GB</span>
-        <span class="badge violet">Android 15 Compose</span>
-        <span class="badge emerald">Release v1.1.1</span>
-        <span class="badge fire">Gemma 4 AI Brain</span>
-        <span class="badge" style="background: rgba(168, 85, 247, 0.16); border-color: #a855f7; color: #d8b4fe;">Antigravity &amp; Gemini 3.8 Flash</span>
+        <span class="badge violet">Android 15 Compose v1.1.2</span>
+        <span class="badge emerald">Release v1.1.0</span>
+        <span class="badge fire">Gemini 2.5 Flash Default</span>
+        <span class="badge" style="background: rgba(168, 85, 247, 0.16); border-color: #a855f7; color: #d8b4fe;">Antigravity &amp; Gemini 2.5 Flash</span>
       </div>
 
       <h1 class="hero-title">CELESTIAL ENGINE Mk.V</h1>
       <p class="hero-subtitle">
-        Autonomous Interactive AI Staff & Wearable Edge Compute System. Experience the live digital twin with 43 concentric LEDs, cybernetic OLED HUD, and retro arcade chiptune synthesis.
+        Autonomous Interactive AI Staff & Wearable Edge Compute Ecosystem. Experience the live digital twin with 43 concentric LEDs, cybernetic OLED HUD, sample-accurate chiptune synthesis, and dual-brain neural reasoning.
       </p>
 
       <div class="quick-links">
@@ -47,7 +48,7 @@
         </a>
         <a href="#releases" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Download Binaries (v1.1.1)
+          Download Binaries (v1.1.0)
         </a>
         <a href="https://github.com/DerAndr/celestial_engine_project" target="_blank" rel="noopener" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -432,27 +433,27 @@
             Sequence Flow: Voice Inquiry & Real-Time Multimodal Dispatch
           </div>
           <pre class="code-card">
-<code>[USER] (Presses Query Button on Staff)
+<code>[USER] (Presses Query Button GP9 on Staff)
    │
    ▼
-[Pico 2 W / RP2350]
-   ├── Samples INMP441 MEMS Mic via PIO0 SM0 DMA Ring Buffer (16 kHz, 16-bit)
-   └── Encapsulates into UDP packets (Opcode 0x03) ──► (Port 5005 / Hotspot)
+[Pico 2 W / RP2350 (10.169.248.64:5005)]
+   ├── Samples INMP441 MEMS Mic via PIO0 SM0 DMA Ring Buffer (16 kHz, 16-bit Mono, GP10/11/12)
+   └── Encapsulates into UDP packets (Opcode 0x03) ──► (Port 5005 / Hotspot Gateway 10.169.248.1)
                                                              │
                                                              ▼
                                                 [Google Pixel 9 Pro XL]
-                                                   ├── Companion Android App receives stream
-                                                   ├── Whisper.cpp / Google Cloud STT converts to text
-                                                   ├── Gemma 4 Multimodal AI infers arcane intent
-                                                   ├── Generates TTS speech audio & spell animation command
+                                                   ├── Companion App receives UDP audio stream
+                                                   ├── Spell Forge: Deterministic keyword routing (<20ms latency)
+                                                   ├── Gemini 2.5 Flash (Default) / Gemma 4 streams reasoning
+                                                   ├── Generates Cloud Neural TTS stream & RGB spell commands
                                                    │
    ◄── Transmits Spell Command (0x02) & PCM Stream (0x03) ───┘
    │
    ▼
 [Pico 2 W]
-   ├── Feeds PCM to MAX98357A I2S Amplifier (PIO0 SM1 DMA) ──► 3W Neodymium Speaker
-   ├── Dispatches 43-LED concentric animations on Core 1 ──► WS2812B Rings
-   └── Updates SH1106 OLED HUD (128x64) with Oracle text response</code>
+   ├── Feeds PCM to MAX98357A I2S Amplifier (PIO1 SM0 DMA, GP16/17/18) ──► 3W Speaker
+   ├── Dispatches 43-LED concentric animations on GP15 PIO0 SM1 ──► WS2812B Rings
+   └── Updates SH1106 OLED HUD (128x64 on I2C1 GP2/GP3) with Oracle response</code>
           </pre>
         </div>
       </div>
@@ -475,9 +476,9 @@
                 <span class="badge cyan">PIO0 SM0</span>
               </div>
               <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 18px; line-height: 1.6;">
-                <li><strong>SCK (Clock):</strong> GPIO 8 (Pico Pin 11)</li>
-                <li><strong>WS (Word Select):</strong> GPIO 9 (Pico Pin 12)</li>
-                <li><strong>SD (Serial Data):</strong> GPIO 10 (Pico Pin 14)</li>
+                <li><strong>SCK (Bit Clock):</strong> GPIO 10 (Pico Pin 14) — 512 kHz clock</li>
+                <li><strong>WS (Word Select):</strong> GPIO 11 (Pico Pin 15) — 16 kHz frame sync</li>
+                <li><strong>SD (Serial Data):</strong> GPIO 12 (Pico Pin 16) — 16-bit PCM In</li>
                 <li><strong>Format:</strong> 16 kHz, 16-bit Mono PCM (Left Channel)</li>
                 <li><strong>DMA Double-Buffering:</strong> 2x 256-sample ping-pong buffers with zero CPU overhead.</li>
               </ul>
@@ -487,14 +488,14 @@
             <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: 10px; padding: 16px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <strong style="color: var(--gold-accent); font-size: 0.9rem;">2. Speaker Output (MAX98357A)</strong>
-                <span class="badge gold">PIO0 SM1</span>
+                <span class="badge gold">PIO1 SM0</span>
               </div>
               <ul style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 18px; line-height: 1.6;">
-                <li><strong>DIN (Serial Data):</strong> GPIO 0 (Pico Pin 1)</li>
-                <li><strong>BCLK (Bit Clock):</strong> GPIO 1 (Pico Pin 2)</li>
-                <li><strong>LRC / WS (Word Select):</strong> GPIO 2 (Pico Pin 4)</li>
-                <li><strong>Power:</strong> 3.2W Class-D into 4Ω neodymium speaker (5V VBUS rail)</li>
-                <li><strong>DMA Streamer:</strong> 16-bit signed PCM fed directly into 32-bit I2S serializer.</li>
+                <li><strong>BCLK (Bit Clock):</strong> GPIO 16 (Pico Pin 21) — 512 kHz clock</li>
+                <li><strong>LRC / WS (Word Select):</strong> GPIO 17 (Pico Pin 22) — 16 kHz frame sync</li>
+                <li><strong>DIN (Serial Data):</strong> GPIO 18 (Pico Pin 24) — 16-bit PCM Out</li>
+                <li><strong>Power &amp; Gain:</strong> 3.2W Class-D into 4Ω neodymium speaker (5V VBUS rail, default 9dB)</li>
+                <li><strong>DMA Streamer:</strong> 16-bit signed PCM with automatic hardware clock shutdown on silence.</li>
               </ul>
             </div>
           </div>
@@ -534,100 +535,108 @@
             </thead>
             <tbody>
               <tr>
-                <td><strong>Pin 1</strong></td>
-                <td><code>GPIO 0</code></td>
-                <td>MAX98357A I2S DAC</td>
-                <td>DIN (Data Input)</td>
-                <td>3.3V Logic</td>
-                <td>Direct connection</td>
-              </tr>
-              <tr>
-                <td><strong>Pin 2</strong></td>
-                <td><code>GPIO 1</code></td>
-                <td>MAX98357A I2S DAC</td>
-                <td>BCLK (Bit Clock)</td>
-                <td>3.3V Logic</td>
-                <td>Direct connection</td>
-              </tr>
-              <tr>
                 <td><strong>Pin 4</strong></td>
                 <td><code>GPIO 2</code></td>
-                <td>MAX98357A I2S DAC</td>
-                <td>LRC / WS (Word Select)</td>
+                <td>SH1106 1.3" OLED</td>
+                <td>I2C1 SDA</td>
                 <td>3.3V Logic</td>
-                <td>Direct connection</td>
+                <td>128×64 Cybernetic Display Data (400 kHz Fast-Mode)</td>
               </tr>
               <tr>
-                <td><strong>Pin 6</strong></td>
-                <td><code>GPIO 4</code></td>
+                <td><strong>Pin 5</strong></td>
+                <td><code>GPIO 3</code></td>
                 <td>SH1106 1.3" OLED</td>
-                <td>I2C0 SDA</td>
+                <td>I2C1 SCL</td>
                 <td>3.3V Logic</td>
-                <td>Onboard pull-up to 3V3</td>
+                <td>128×64 Cybernetic Display Clock (400 kHz Fast-Mode)</td>
               </tr>
               <tr>
-                <td><strong>Pin 7</strong></td>
-                <td><code>GPIO 5</code></td>
-                <td>SH1106 1.3" OLED</td>
-                <td>I2C0 SCL</td>
+                <td><strong>Pin 9</strong></td>
+                <td><code>GPIO 6</code></td>
+                <td>Bourns PEC11R Rotary</td>
+                <td>CLK / Channel A</td>
                 <td>3.3V Logic</td>
-                <td>Onboard pull-up to 3V3</td>
+                <td>Quadrature Decoder A (Internal pull-up)</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 10</strong></td>
+                <td><code>GPIO 7</code></td>
+                <td>Bourns PEC11R Rotary</td>
+                <td>DT / Channel B</td>
+                <td>3.3V Logic</td>
+                <td>Quadrature Decoder B (Internal pull-up)</td>
               </tr>
               <tr>
                 <td><strong>Pin 11</strong></td>
                 <td><code>GPIO 8</code></td>
-                <td>INMP441 MEMS Mic</td>
-                <td>SCK (Serial Clock)</td>
+                <td>Bourns PEC11R Rotary</td>
+                <td>SW / Push Button</td>
                 <td>3.3V Logic</td>
-                <td>Direct connection</td>
+                <td>Mode confirm / Cosmos zoom click (Pull-up)</td>
               </tr>
               <tr>
                 <td><strong>Pin 12</strong></td>
                 <td><code>GPIO 9</code></td>
-                <td>INMP441 MEMS Mic</td>
-                <td>WS (Word Select)</td>
+                <td>Push-to-Talk Switch</td>
+                <td>SW / Query Button</td>
                 <td>3.3V Logic</td>
-                <td>Direct connection</td>
+                <td>Momentary NO contact (Active-low trigger)</td>
               </tr>
               <tr>
                 <td><strong>Pin 14</strong></td>
                 <td><code>GPIO 10</code></td>
                 <td>INMP441 MEMS Mic</td>
-                <td>SD (Serial Data Out)</td>
+                <td>SCK (Bit Clock)</td>
                 <td>3.3V Logic</td>
-                <td>Mic L/R pin tied to GND</td>
+                <td>PIO0 SM0 (512 kHz Bit Clock, 16 kHz Mono)</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 15</strong></td>
+                <td><code>GPIO 11</code></td>
+                <td>INMP441 MEMS Mic</td>
+                <td>WS (Word Select)</td>
+                <td>3.3V Logic</td>
+                <td>PIO0 SM0 (16 kHz Frame Sync)</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 16</strong></td>
+                <td><code>GPIO 12</code></td>
+                <td>INMP441 MEMS Mic</td>
+                <td>SD (Serial Data In)</td>
+                <td>3.3V Logic</td>
+                <td>PIO0 SM0 DMA Double-Buffer (Left Channel tied to GND)</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 20</strong></td>
+                <td><code>GPIO 15</code></td>
+                <td>WS2812B Rings (43 LEDs)</td>
+                <td>DIN (Data In)</td>
+                <td>3.3V Logic / 5V Rail</td>
+                <td>PIO0 SM1 DMA (1 Center + 6 Ring 1 + 12 Ring 2 + 24 Ring 3, 18% cap)</td>
               </tr>
               <tr>
                 <td><strong>Pin 21</strong></td>
                 <td><code>GPIO 16</code></td>
-                <td>WS2812B Rings (43 LEDs)</td>
-                <td>DIN (Data In)</td>
+                <td>MAX98357A I2S DAC</td>
+                <td>BCLK (Bit Clock)</td>
                 <td>3.3V Logic / 5V Rail</td>
-                <td>330Ω inline series resistor</td>
+                <td>PIO1 SM0 (512 kHz Bit Clock, Hardware sleep during silence)</td>
+              </tr>
+              <tr>
+                <td><strong>Pin 22</strong></td>
+                <td><code>GPIO 17</code></td>
+                <td>MAX98357A I2S DAC</td>
+                <td>LRC / WS (Word Select)</td>
+                <td>3.3V Logic / 5V Rail</td>
+                <td>PIO1 SM0 (16 kHz Frame Sync)</td>
               </tr>
               <tr>
                 <td><strong>Pin 24</strong></td>
                 <td><code>GPIO 18</code></td>
-                <td>Bourns PEC11R Rotary</td>
-                <td>CLK / Channel A</td>
-                <td>3.3V Logic</td>
-                <td>Internal pull-up enabled</td>
-              </tr>
-              <tr>
-                <td><strong>Pin 25</strong></td>
-                <td><code>GPIO 19</code></td>
-                <td>Bourns PEC11R Rotary</td>
-                <td>DT / Channel B</td>
-                <td>3.3V Logic</td>
-                <td>Internal pull-up enabled</td>
-              </tr>
-              <tr>
-                <td><strong>Pin 26</strong></td>
-                <td><code>GPIO 20</code></td>
-                <td>Push-to-Talk Switch</td>
-                <td>SW / Query Button</td>
-                <td>3.3V Logic</td>
-                <td>Active-low debounce</td>
+                <td>MAX98357A I2S DAC</td>
+                <td>DIN (Data Input)</td>
+                <td>3.3V Logic / 5V Rail</td>
+                <td>PIO1 SM0 DMA PCM stream into 3.2W Class-D Amp</td>
               </tr>
               <tr>
                 <td><strong>Pin 36</strong></td>
@@ -635,15 +644,15 @@
                 <td>OLED, INMP441, Sensors</td>
                 <td>Main 3.3V Supply</td>
                 <td>3.3V @ up to 300mA</td>
-                <td>Clean regulated rail</td>
+                <td>Clean regulated logic rail</td>
               </tr>
               <tr>
                 <td><strong>Pin 40</strong></td>
                 <td><code>VBUS</code></td>
                 <td>MAX98357A, 43 WS2812B LEDs</td>
                 <td>Main 5.0V Power Bus</td>
-                <td>5.0V Boost Converter</td>
-                <td>1000µF electrolytic cap</td>
+                <td>5.0V USB / Boost Bus</td>
+                <td>1000µF electrolytic cap fitted</td>
               </tr>
               <tr>
                 <td><strong>Pins 3,8,13,18,23,28,38</strong></td>
@@ -651,7 +660,7 @@
                 <td>Common Star Ground</td>
                 <td>System Ground</td>
                 <td>0V Reference</td>
-                <td>Shared common ground</td>
+                <td>Unified star ground</td>
               </tr>
             </tbody>
           </table>
@@ -676,12 +685,12 @@
                 <span class="badge emerald">Android 15 Compose</span>
               </div>
               <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px;">
-                Primary interactive companion. Features the <strong>Eye of the Oracle</strong> camera for real-time computer vision, Gemma 4 multimodal AI reasoning, Arcane Grimoire spellbook, and Google Cloud neural TTS playback.
+                Primary interactive companion host. Features the <strong>Eye of the Oracle</strong> camera for real-time computer vision, <strong>Gemini 2.5 Flash</strong> default voice reasoning, Arcane Grimoire, <strong>Spell Forge (&lt;20ms latency)</strong>, and Google Cloud neural TTS playback.
               </p>
               <ul style="font-size: 0.8rem; color: var(--text-muted); padding-left: 18px; line-height: 1.6;">
-                <li>Operates as local Wi-Fi Hotspot router (zero external router required).</li>
-                <li>Instant touch screen UI for selecting spells, visual tuning, and live telemetry.</li>
-                <li>Dispatches commands to Pico 2 W in &lt; 18ms.</li>
+                <li>Operates as local Wi-Fi Hotspot router (10.169.248.1) directly servicing Pico 2 W at 10.169.248.64:5005.</li>
+                <li>Spell Forge fast-path dispatches deterministic hardware spells in &lt; 18ms.</li>
+                <li>Multi-turn Gemini 2.5 Flash cloud streaming with Gemma on-device multimodal options.</li>
               </ul>
             </div>
 
@@ -718,7 +727,7 @@
     <section id="releases" class="releases-showcase-section">
       <div class="section-heading">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Official Release Artifacts (v1.1.1)
+        Official Release Artifacts (v1.1.0 / v1.1.2)
       </div>
 
       <div class="release-cards-grid">
@@ -740,7 +749,7 @@
             <li>Controls: Bourns PEC11R Encoder + 1.3" OLED</li>
             <li>Fix: Instant early stop & seamless track switching</li>
           </ul>
-          <a href="https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.1-release/celestial_firmware.uf2" class="btn-download" id="download-uf2">
+          <a href="https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.0-release/celestial_firmware.uf2" class="btn-download" id="download-uf2">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Download Firmware (.UF2)
           </a>
@@ -751,7 +760,7 @@
           <div class="release-card-header">
             <div>
               <h3 class="release-title">Android Companion App</h3>
-              <span class="badge emerald">celestial_companion_v1.1.0.apk</span>
+              <span class="badge emerald">celestial_companion_v1.1.2.apk</span>
             </div>
             <span class="badge">Android 15</span>
           </div>
@@ -764,7 +773,7 @@
             <li>Network: Zero-Latency UDP socket routing</li>
             <li>Spells: Remote hardware dispatch (<20ms latency)</li>
           </ul>
-          <a href="https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.1-release/celestial_companion_v1.1.0.apk" class="btn-download emerald" id="download-apk">
+          <a href="https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.0-release/celestial_companion_v1.1.2.apk" class="btn-download emerald" id="download-apk">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Download Companion (.APK)
           </a>
