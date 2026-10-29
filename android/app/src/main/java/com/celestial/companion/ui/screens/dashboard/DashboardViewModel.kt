@@ -52,7 +52,7 @@ class DashboardViewModel(
     private val _currentLanguage = MutableStateFlow(gemmaEngine?.config?.language ?: StaffLanguage.ENGLISH)
     val currentLanguage: StateFlow<StaffLanguage> = _currentLanguage.asStateFlow()
 
-    private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMMA_4_E2B)
+    private val _selectedModelVariant = MutableStateFlow(gemmaEngine?.config?.variant ?: GemmaVariant.GEMINI_FLASH)
     val selectedModelVariant: StateFlow<GemmaVariant> = _selectedModelVariant.asStateFlow()
 
     // Real-Time Processing Monitoring State

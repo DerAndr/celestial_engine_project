@@ -41,21 +41,31 @@ enum class GemmaVariant(
     val description: String,
     val isMultimodal: Boolean,
     val hasThinkingMode: Boolean,
-    val modelId: String = "google/gemma-4-31b-it",
+    val modelId: String = "google/gemini-2.5-flash",
     val fallbackModelId: String = "google/gemini-2.5-flash"
 ) {
-    GEMMA_4_E2B(
+    GEMINI_FLASH(
         0,
-        "Gemma 4 (E2B) Edge (Offline)",
-        "G4-E2B",
-        "On-Device 100% Offline Edge Core — Fast acoustic spell reasoning & local persona Oracle (zero internet needed)",
+        "Gemini 2.5 Flash",
+        "G2.5-FL",
+        "Ultra-fast high-concurrency Gemini multimodal vision & speech core (Default)",
         isMultimodal = true,
         hasThinkingMode = true,
-        modelId = "offline",
-        fallbackModelId = "offline"
+        modelId = "google/gemini-2.5-flash",
+        fallbackModelId = "google/gemini-2.5-flash"
+    ),
+    GEMMA_4_E2B(
+        1,
+        "Gemma 4 (E2B) Edge",
+        "G4-E2B",
+        "Google Gemma 4 instruction-tuned multimodal core",
+        isMultimodal = true,
+        hasThinkingMode = true,
+        modelId = "google/gemma-4-e2b-it",
+        fallbackModelId = "google/gemini-2.5-flash"
     ),
     GEMMA_4_31B(
-        1,
+        2,
         "Gemma 4 (31B) Multimodal",
         "G4-31B",
         "Google Gemma 4 31B instruction-tuned multimodal vision & reasoning core",
@@ -65,7 +75,7 @@ enum class GemmaVariant(
         fallbackModelId = "google/gemini-2.5-flash"
     ),
     GEMMA_4_26B(
-        2,
+        3,
         "Gemma 4 Think (26B A4B)",
         "G4-26B",
         "Google Gemma 4 26B Mixture-of-Experts with native CoT reasoning",
@@ -75,7 +85,7 @@ enum class GemmaVariant(
         fallbackModelId = "google/gemini-2.5-flash"
     ),
     GEMMA_3_27B(
-        3,
+        4,
         "Gemma 3 27B Vision",
         "G3-27B",
         "Google Gemma 3 27B multimodal instruction tuned model",
@@ -83,16 +93,6 @@ enum class GemmaVariant(
         hasThinkingMode = true,
         modelId = "google/gemma-3-27b-it",
         fallbackModelId = "google/gemini-2.5-flash"
-    ),
-    GEMINI_FLASH(
-        4,
-        "Gemini 2.5 Flash",
-        "G2.5-FL",
-        "Ultra-fast high-concurrency Gemini multimodal vision core",
-        isMultimodal = true,
-        hasThinkingMode = true,
-        modelId = "google/gemini-2.5-flash",
-        fallbackModelId = "google/gemma-3-27b-it"
     ),
     PI5_OFFLOAD(
         5,
@@ -113,7 +113,7 @@ enum class GemmaVariant(
 }
 
 data class GemmaConfig(
-    val variant: GemmaVariant = GemmaVariant.GEMMA_4_E2B,
+    val variant: GemmaVariant = GemmaVariant.GEMINI_FLASH,
     val enableThinking: Boolean = true,
     val language: StaffLanguage = StaffLanguage.ENGLISH,
     val temperature: Float = 0.7f,
@@ -182,8 +182,11 @@ class GemmaModelEngine(
             val customPrompt = prefs.getString("oracle_custom_prompt", "") ?: ""
             val langCode = prefs.getString("oracle_language", StaffLanguage.ENGLISH.name) ?: StaffLanguage.ENGLISH.name
             val language = try { StaffLanguage.valueOf(langCode) } catch (_: Exception) { StaffLanguage.ENGLISH }
+            val variantName = prefs.getString("selected_model_variant", GemmaVariant.GEMINI_FLASH.name) ?: GemmaVariant.GEMINI_FLASH.name
+            val variant = try { GemmaVariant.valueOf(variantName) } catch (_: Exception) { GemmaVariant.GEMINI_FLASH }
 
             config = config.copy(
+                variant = variant,
                 apiKey = apiKey,
                 apiBase = apiBase,
                 personaId = personaId,
@@ -205,6 +208,7 @@ class GemmaModelEngine(
                 .putString("oracle_persona_id", newConfig.personaId)
                 .putString("oracle_custom_prompt", newConfig.customSystemPrompt)
                 .putString("oracle_language", newConfig.language.name)
+                .putString("selected_model_variant", newConfig.variant.name)
                 .apply()
         } catch (e: Exception) {
             Log.w(TAG, "Could not save prefs: ${e.message}")
@@ -238,10 +242,9 @@ class GemmaModelEngine(
         if (audioBytes.isEmpty()) return@withContext ""
         val normalizedBytes = normalizePcm16(audioBytes)
 
-        // If no API key is configured or offline model is selected, classify voice on-device!
-        if (config.apiKey.isBlank() || config.variant == GemmaVariant.GEMMA_4_E2B || config.variant.modelId == "offline") {
-            Log.i(TAG, "No API key configured or offline model active; performing on-device acoustic recognition.")
-            return@withContext classifyOfflineSpeech(normalizedBytes, audioBytes.size)
+        if (config.apiKey.isBlank()) {
+            Log.w(TAG, "transcribeAudio: OpenRouter API key is not configured; cannot transcribe speech.")
+            return@withContext ""
         }
 
         val wavBytes = pcm16ToWav(normalizedBytes)
@@ -277,8 +280,8 @@ class GemmaModelEngine(
         try {
             val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
-                connectTimeout = 5000
-                readTimeout = 8000
+                connectTimeout = 6000
+                readTimeout = 10000
                 doOutput = true
                 doInput = true
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -312,9 +315,7 @@ class GemmaModelEngine(
             Log.w(TAG, "Audio transcription network error: ${e.message}")
         }
 
-        // On cloud error (e.g. 401, timeout, or no internet on phone), fall back to offline classification
-        Log.i(TAG, "Cloud transcription unavailable; falling back to on-device acoustic recognition.")
-        return@withContext classifyOfflineSpeech(normalizedBytes, audioBytes.size)
+        return@withContext ""
     }
 
     /**
@@ -471,13 +472,34 @@ class GemmaModelEngine(
                 transcribeAudio(audioBytes)
             } catch (e: Exception) {
                 Log.w(TAG, "Audio transcription exception: ${e.message}")
-                classifyOfflineSpeech(audioBytes, audioBytes.size)
+                ""
             }
             if (transcribed.isNotBlank()) {
                 Log.i(TAG, "Transcribed staff voice input: '$transcribed'")
                 emit(GemmaStreamChunk.ThoughtToken("Acoustic voice received: \"$transcribed\"\n\n"))
                 actualPrompt = transcribed
             } else {
+                if (config.apiKey.isBlank()) {
+                    val keyPrompt = when (config.language) {
+                        StaffLanguage.RUSSIAN -> "Требуется API-ключ OpenRouter. Введите ключ в настройках терминала (иконка ⚙️) или передайте через adb."
+                        StaffLanguage.GERMAN -> "OpenRouter API-Schlüssel erforderlich. Bitte in den Einstellungen eingeben."
+                        else -> "OpenRouter API key required. Please configure it in settings."
+                    }
+                    emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "API Key Required"))
+                    emit(GemmaStreamChunk.OutputToken(keyPrompt))
+                    val res = GemmaResult(
+                        prompt = "[Voice Query]",
+                        thoughtTrace = "Missing OpenRouter API key.",
+                        outputText = keyPrompt,
+                        latencyMs = (System.currentTimeMillis() - t0).coerceAtLeast(1),
+                        tokensPerSec = 0f,
+                        modalityUsed = "AUDIO",
+                        modelTag = config.variant.tag
+                    )
+                    emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Completed"))
+                    emit(GemmaStreamChunk.Complete(res))
+                    return@flow
+                }
                 Log.w(TAG, "Audio transcription returned empty text! Audio is ambient silence.")
                 val quietNotice = when (config.language) {
                     StaffLanguage.RUSSIAN -> "Голос был слишком тихим. Повтори команду ближе к микрофону посоха!"
@@ -583,10 +605,25 @@ SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
         val effectiveMaxTokens = if (isSpellPrompt) 48 else config.maxTokens
         Log.i(TAG, "Dispatching inference request: effectiveModelId=$effectiveModelId (isSpell=$isSpellPrompt, hasAudio=$hasAudio, hasImage=$hasImage, prompt='$actualPrompt')")
 
-        // 100% OFFLINE ON-DEVICE EXECUTION:
-        // When G4-E2B Edge is selected, or model is offline/local, or API key is unconfigured, run purely on-device!
-        if (config.variant == GemmaVariant.GEMMA_4_E2B || effectiveModelId == "offline" || effectiveModelId == "local" || config.apiKey.isBlank()) {
-            executeOfflineInference(actualPrompt, image, audioBytes, shouldThink, effectiveLanguage, persona)
+        if (config.apiKey.isBlank() && effectiveModelId != "local") {
+            val keyPrompt = when (effectiveLanguage) {
+                StaffLanguage.RUSSIAN -> "Требуется API-ключ OpenRouter. Введите ключ в настройках (⚙️ в терминале) или передайте через adb: adb shell am start -n com.celestial.companion/.MainActivity --es openrouter_key \"<твой_ключ>\"."
+                StaffLanguage.GERMAN -> "OpenRouter API-Schlüssel erforderlich. Bitte in den Einstellungen eingeben."
+                else -> "OpenRouter API key required. Configure it in Terminal settings (⚙️)."
+            }
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "API Key Required"))
+            emit(GemmaStreamChunk.OutputToken(keyPrompt))
+            val res = GemmaResult(
+                prompt = actualPrompt,
+                thoughtTrace = "Missing OpenRouter API key. Cloud reasoning paused.",
+                outputText = keyPrompt,
+                latencyMs = (System.currentTimeMillis() - t0).coerceAtLeast(1),
+                tokensPerSec = 0f,
+                modalityUsed = modality,
+                modelTag = config.variant.tag
+            )
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Completed"))
+            emit(GemmaStreamChunk.Complete(res))
             return@flow
         }
 
@@ -685,8 +722,21 @@ SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
             if (responseCode !in 200..299) {
                 val rawErr = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: "HTTP $responseCode"
                 conn.disconnect()
-                Log.w(TAG, "Cloud core returned HTTP $responseCode for $activeModelId: $rawErr. Seamlessly falling back to on-device offline edge reasoning...")
-                executeOfflineInference(actualPrompt, image, audioBytes, shouldThink, effectiveLanguage, persona)
+                Log.e(TAG, "Cloud core returned HTTP $responseCode for $activeModelId: $rawErr")
+                val errMsg = "Ошибка AI Cloud (HTTP $responseCode): $rawErr"
+                emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.ERROR, "HTTP $responseCode"))
+                emit(GemmaStreamChunk.OutputToken(errMsg))
+                val res = GemmaResult(
+                    prompt = actualPrompt,
+                    thoughtTrace = "Cloud request failed with HTTP $responseCode: $rawErr",
+                    outputText = errMsg,
+                    latencyMs = (System.currentTimeMillis() - t0).coerceAtLeast(1),
+                    tokensPerSec = 0f,
+                    modalityUsed = modality,
+                    modelTag = config.variant.tag
+                )
+                emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Error"))
+                emit(GemmaStreamChunk.Complete(res))
                 return@flow
             }
 
@@ -815,8 +865,21 @@ SPELL CASTING (explicit request to cast a spell, weave magic, attack, shield):
             if (e is kotlinx.coroutines.CancellationException) {
                 throw e
             }
-            Log.w(TAG, "Cloud core connection failed ($e). Falling back gracefully to on-device offline edge reasoning...")
-            executeOfflineInference(actualPrompt, image, audioBytes, shouldThink, effectiveLanguage, persona)
+            Log.e(TAG, "Cloud core connection failed ($e).", e)
+            val errMsg = "Сбой соединения с AI (${e.message ?: "Network error"})"
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.ERROR, "Network Error"))
+            emit(GemmaStreamChunk.OutputToken(errMsg))
+            val res = GemmaResult(
+                prompt = actualPrompt,
+                thoughtTrace = "Network exception: ${e.message}",
+                outputText = errMsg,
+                latencyMs = (System.currentTimeMillis() - t0).coerceAtLeast(1),
+                tokensPerSec = 0f,
+                modalityUsed = modality,
+                modelTag = config.variant.tag
+            )
+            emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Error"))
+            emit(GemmaStreamChunk.Complete(res))
         }
     }.flowOn(Dispatchers.IO)
 

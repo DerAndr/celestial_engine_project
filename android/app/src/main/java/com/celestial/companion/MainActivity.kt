@@ -36,6 +36,8 @@ class MainActivity : ComponentActivity() {
         val app = application as CelestialApp
         val repository = app.staffRepository
 
+        handleKeyIntent(intent, app)
+
         val permissions = mutableListOf(
             android.Manifest.permission.CAMERA,
             android.Manifest.permission.RECORD_AUDIO
@@ -63,6 +65,26 @@ class MainActivity : ComponentActivity() {
             CelestialCompanionTheme {
                 MainAppScaffold(viewModel = viewModel)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val app = application as CelestialApp
+        handleKeyIntent(intent, app)
+    }
+
+    private fun handleKeyIntent(intent: android.content.Intent?, app: CelestialApp) {
+        if (intent == null) return
+        val newKey = intent.getStringExtra("openrouter_key") ?: intent.getStringExtra("api_key")
+        if (!newKey.isNullOrBlank()) {
+            val key = newKey.trim()
+            val prefs = getSharedPreferences("celestial_prefs", MODE_PRIVATE)
+            prefs.edit().putString("openrouter_api_key", key).apply()
+            app.gemmaEngine.config = app.gemmaEngine.config.copy(apiKey = key)
+            android.util.Log.i("MainActivity", "Configured OpenRouter API key via Intent")
+            android.widget.Toast.makeText(this, "API-ключ OpenRouter успешно сохранен", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 }
