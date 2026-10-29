@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="simulator.css?v=1.2.8">
+  <link rel="stylesheet" href="simulator.css?v=1.2.9">
 </head>
 <body>
   <!-- Ambient Deep Space Starfield -->
@@ -481,12 +481,7 @@
         <form id="oracle-query-form" class="oracle-input-form">
           <label for="oracle-question-input" class="sr-only">Ask the Oracle a question</label>
           <input type="text" id="oracle-question-input" maxlength="200" placeholder="Ask the staff a question (e.g., How is your hardware wired? What awaits tomorrow?)" autocomplete="off">
-          <select id="oracle-mic-lang" class="mic-lang-select" title="Speech recognition language (EN / RU)">
-            <option value="auto">🌐 EN/RU</option>
-            <option value="ru-RU">🇷🇺 RU</option>
-            <option value="en-US">🇺🇸 EN</option>
-          </select>
-          <button type="button" id="oracle-mic-btn" class="btn-icon-step mic-speak-btn" title="Click to record voice question via microphone">🎙️ Speak</button>
+          <button type="button" id="oracle-mic-btn" class="btn-icon-step mic-speak-btn" title="Click to record voice question via microphone (English)">🎙️ Speak</button>
           <button type="submit" id="oracle-send-btn" class="btn-pill primary">Ask Oracle</button>
           <button type="button" id="oracle-cancel-btn" class="btn-icon-step" style="display: none; border-color: #ef4444; color: #ef4444;">✕ Cancel</button>
         </form>
@@ -1497,7 +1492,7 @@
     </footer>
   </div>
 
-  <script src="simulator.js?v=1.2.7"></script>
-  <script type="module" src="twin/controls.js?v=1.2.7"></script>
+  <script src="simulator.js?v=1.2.9"></script>
+  <script type="module" src="twin/controls.js?v=1.2.9"></script>
 </body>
 </html>

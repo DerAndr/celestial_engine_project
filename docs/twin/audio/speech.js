@@ -1,7 +1,7 @@
 /**
  * Celestial Engine Mk.V — Browser TTS, Speech Recognition & Live Microphone Level Monitor
  * Provides:
- *  - Persona-tuned Web SpeechSynthesis output (EN/RU auto-voice selection)
+ *  - Persona-tuned Web SpeechSynthesis output (en-US voice selection)
  *  - Interim + Final Web SpeechRecognition dictation
  *  - Real-time Web Audio API microphone level meter (getUserMedia + AnalyserNode)
  *    so the user always sees a clear visual indicator and live voice waveform when speaking.
@@ -33,13 +33,11 @@ export function speakOracleText(text, personaId = 'machine_god', onComplete) {
   try {
     window.speechSynthesis.cancel();
     const msg = new SpeechSynthesisUtterance(text);
-    const hasCyrillic = /[а-яё]/i.test(text);
-    msg.lang = hasCyrillic ? 'ru-RU' : 'en-US';
+    msg.lang = 'en-US';
 
     const voices = window.speechSynthesis.getVoices();
     if (voices && voices.length > 0) {
-      const targetPrefix = hasCyrillic ? 'ru' : 'en';
-      const matchedVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith(targetPrefix));
+      const matchedVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('en'));
       if (matchedVoice) {
         msg.voice = matchedVoice;
       }
@@ -94,9 +92,6 @@ export function startVoiceDictation({
   const SpeechRec = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
   function resolveLang() {
-    if (lang && lang !== 'auto') return lang;
-    const navLang = (typeof navigator !== 'undefined' && navigator.language) ? navigator.language : 'en-US';
-    if (navLang.toLowerCase().startsWith('ru')) return 'ru-RU';
     return 'en-US';
   }
 

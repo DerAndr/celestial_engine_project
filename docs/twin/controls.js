@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.7';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.7';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.7';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.7';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.7';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.9';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.9';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.9';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.9';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.9';
 
 let oracleProvider = null;
 let staff2D = null;
@@ -528,7 +528,6 @@ export async function initTwinReplica() {
   // Unified Browser Voice Input & Live Microphone Recording Indicator
   const micDictateBtn = document.getElementById('oracle-mic-btn');
   const micStopSendBtn = document.getElementById('mic-stop-send-btn');
-  const micLangSelect = document.getElementById('oracle-mic-lang');
   const micBanner = document.getElementById('mic-recording-banner');
   const micLiveTranscript = document.getElementById('mic-live-transcript');
   const micLevelBarsContainer = document.getElementById('mic-level-bars');
@@ -591,7 +590,7 @@ export async function initTwinReplica() {
       oracleProvider.initLocalModel(mKey);
     }
 
-    const selectedLang = micLangSelect ? micLangSelect.value : 'auto';
+    const selectedLang = 'en-US';
     let receivedRealAudioLevels = false;
 
     twinState.update({
@@ -603,7 +602,7 @@ export async function initTwinReplica() {
       window.__celestialSyncLegacyState(STAFF_STATES.LISTENING);
     }
     updateOracleUi();
-    setMicRecordingUi(true, '🎙️ Listening to microphone... Speak your question (EN / RU)...');
+    setMicRecordingUi(true, '🎙️ Listening to microphone... Speak your question...');
 
     const recStartMs = Date.now();
     const recTitleEl = document.getElementById('mic-rec-status-title');
