@@ -223,12 +223,16 @@ Built-in Wi-Fi with heartbeat, live upload, cloud AI and acknowledged response s
 ### P10 — Pi 5 deployment & feature synchronization [ACTIVE TASK]
 Offline local AI baseline (Whisper + Ollama + Piper on NVMe) verified in Exp 041. Active task: synchronize Pi 5 Python server (`tools/ai_brain_server.py`, `tools/local_ai_engine.py`) with canonical release v1.1.0 (6 AI Personas, concise <25 words constraint, [SPELL: ...] hardware dispatch, default English, and wearable field networking). See docs/tasks.md.
 
-
 ### P11 — Portable operation
 Integrate/test Pi 5 portable power separately. Do not confuse it with staff power.
 
-### P12 — Mechanical integration
-Only after electronics are reliable: soldered board, connectors as actually needed, strain relief, mounting, instrument pod, celestial-core structure, decorative controls and finish.
+### P12 — Mechanical integration & Halloween Physical Flask Prototype [COMPLETED / DOCUMENTED]
+Assembled physical artifact built inside a transparent bell flask: 43 concentric WS2812B LEDs housed in upper bell dome packed with styrofoam beads (ethereal light diffuser), Pico 2 W on white breadboard with DuPont harness, angled 1.3" SH1106 OLED ("TURN: TUNE | OK"), and bottom yellow Bourns rotary encoder knob. Documented with photographic proof and interactive web emulator in [docs/halloween.html](docs/halloween.html).
+
+### P13 — SOTA Architectural Modernization & Modular Refactoring [PLANNED ROADMAP]
+Architecture modernization plan documented in [docs/tasks.md](docs/tasks.md#8-sota-architectural-refactoring--modular-modernization-plan):
+- Firmware modularization: decomposing `main.c` (134KB) and `audio.c` (97KB) into discrete modules (`drivers/`, `audio/`, `net/`, `core/`).
+- Android Companion MVI stack: Moonshine STT on-device fast path, unified `AiModelEngine` (Gemini 2.5 Flash cloud default vs on-device Gemma / ExecuTorch), and Kokoro-82M TTS.
 
 ## Initial protocol vocabulary
 Keep it simple initially:

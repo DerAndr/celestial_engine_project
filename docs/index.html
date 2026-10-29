@@ -21,19 +21,23 @@
       <div class="badge-row">
         <span class="badge cyan">Pico 2 W (RP2350)</span>
         <span class="badge emerald">Pixel 9 Pro XL Brain</span>
+        <span class="badge" style="background: rgba(16, 185, 129, 0.18); border-color: #10b981; color: #6ee7b7; font-weight: 700;">Target Local LLM: Gemma 4 E2B</span>
         <span class="badge gold">Wearable Pi 5 16GB</span>
         <span class="badge violet">Android 15 Compose v1.1.2</span>
-        <span class="badge emerald">Release v1.1.0</span>
-        <span class="badge fire">Gemini 2.5 Flash Default</span>
+        <span class="badge emerald">Release v1.2.0</span>
+        <a href="halloween.html" class="badge" style="background: rgba(249, 115, 22, 0.18); border-color: #f97316; color: #fed7aa; text-decoration: none; font-weight: 700;">🎃 Halloween Flask Edition</a>
         <span class="badge" style="background: rgba(168, 85, 247, 0.16); border-color: #a855f7; color: #d8b4fe;">Antigravity &amp; Gemini 2.5 Flash</span>
       </div>
 
       <h1 class="hero-title">CELESTIAL ENGINE Mk.V</h1>
       <p class="hero-subtitle">
-        Autonomous Interactive AI Staff & Wearable Edge Compute Ecosystem. Experience the live digital twin with 43 concentric LEDs, cybernetic OLED HUD, sample-accurate chiptune synthesis, and dual-brain neural reasoning.
+        Autonomous Interactive AI Staff & Wearable Edge Compute Ecosystem. Experience the live digital twin with 43 concentric LEDs, cybernetic OLED HUD, sample-accurate chiptune synthesis, and dual-brain neural reasoning powered by on-device Gemma 4 E2B & Gemini.
       </p>
 
       <div class="quick-links">
+        <a href="halloween.html" class="btn-pill" style="border-color: #f97316; color: #f97316; background: rgba(249, 115, 22, 0.12);">
+          🎃 Halloween Edition (Physical Flask)
+        </a>
         <a href="#simulator" class="btn-pill primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           Live Simulator
@@ -241,6 +245,8 @@
               <span>🖱️ Drag to rotate • Wheel to zoom • Click component</span>
             </div>
             <div class="schematic-btn-group">
+              <button id="schem-btn-mode-exp" class="schematic-tool-btn active" title="Exploded 3D blueprint component view">🧩 Exploded View</button>
+              <button id="schem-btn-mode-asm" class="schematic-tool-btn" title="Assembled physical flask view">🔮 Assembled Flask</button>
               <button id="schem-btn-orbit" class="schematic-tool-btn" title="Toggle Auto-Orbit">⏸ Pause</button>
               <button id="schem-btn-reset" class="schematic-tool-btn" title="Reset Camera View">⟲ Reset</button>
               <button id="schem-btn-top" class="schematic-tool-btn" title="Top-Down Orthographic View">📐 Top View</button>
@@ -711,6 +717,53 @@
             </div>
           </div>
 
+          <!-- Target Local LLM: Gemma 4 E2B Section -->
+          <div style="margin-top: 24px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(56, 189, 248, 0.08)); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 22px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 24px;">🧠</span>
+                <h4 style="color: #6ee7b7; font-family: var(--font-display); font-size: 1.15rem; margin: 0;">
+                  Target Local LLM Architecture: Gemma 4 E2B (Edge-to-Brain)
+                </h4>
+              </div>
+              <span class="badge" style="background: rgba(16, 185, 129, 0.2); border-color: #10b981; color: #a7f3d0; font-weight: 700;">Zero-Cloud Autonomy</span>
+            </div>
+            
+            <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 14px;">
+              <strong>Gemma 4 E2B (Edge-to-Brain)</strong> is our designated target architecture for on-device reasoning across both the primary mobile brain (Google Pixel 9 Pro XL) and the wearable Raspberry Pi 5. Designed specifically for low-latency physical AI and wearable cybernetics, Gemma 4 E2B delivers desktop-class comprehension entirely offline without cellular network dependencies.
+            </p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px;">
+              <div style="background: rgba(10, 16, 28, 0.6); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 8px; padding: 12px;">
+                <div style="color: #38bdf8; font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">⚡ Sub-50ms TTFT</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+                  Accelerated via LiteRT / ExecuTorch utilizing the Tensor G4 Edge TPU and ARM NEON on Pi 5. Instant conversational turnarounds.
+                </div>
+              </div>
+
+              <div style="background: rgba(10, 16, 28, 0.6); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 8px; padding: 12px;">
+                <div style="color: #10b981; font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">🎙️ Direct I2S Stream Ingestion</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+                  Processes 16 kHz raw PCM audio chunks streamed from the staff's INMP441 microphone with on-device Moonshine STT transcription.
+                </div>
+              </div>
+
+              <div style="background: rgba(10, 16, 28, 0.6); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 8px; padding: 12px;">
+                <div style="color: #f59e0b; font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">⚔️ Spell Forge Fast-Path (&lt;20ms)</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+                  Hardware keyword matching executes optical runes and audio instantly while Gemma 4 E2B continues generative reasoning in parallel.
+                </div>
+              </div>
+
+              <div style="background: rgba(10, 16, 28, 0.6); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 8px; padding: 12px;">
+                <div style="color: #a855f7; font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">🛰️ Hybrid Seamless Failover</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+                  Uses on-device Gemma 4 E2B as default offline brain; seamlessly falls over to Gemini 2.5/3.8 Flash cloud streaming when broadband is available.
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div style="margin-top: 20px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 10px; padding: 16px;">
             <div style="font-weight: 600; color: var(--cyan-primary); font-size: 0.9rem; margin-bottom: 6px;">
               ⚡ Autonomous Fail-Safe Core (Pico 2 W Firmware)
@@ -727,7 +780,7 @@
     <section id="releases" class="releases-showcase-section">
       <div class="section-heading">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Official Release Artifacts (v1.1.0 / v1.1.2)
+        Official Release Artifacts (v1.2.0 SOTA &amp; Physical Flask Edition)
       </div>
 
       <div class="release-cards-grid">
@@ -749,7 +802,7 @@
             <li>Controls: Bourns PEC11R Encoder + 1.3" OLED</li>
             <li>Fix: Instant early stop & seamless track switching</li>
           </ul>
-          <a href="https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.0-release/celestial_firmware.uf2" class="btn-download" id="download-uf2">
+          <a href="https://github.com/DerAndr/celestial_engine_project/releases/download/v1.2.0-release/celestial_firmware.uf2" class="btn-download" id="download-uf2">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Download Firmware (.UF2)
           </a>
@@ -760,7 +813,7 @@
           <div class="release-card-header">
             <div>
               <h3 class="release-title">Android Companion App</h3>
-              <span class="badge emerald">celestial_companion_v1.1.2.apk</span>
+              <span class="badge emerald">celestial_companion_v1.1.0.apk</span>
             </div>
             <span class="badge">Android 15</span>
           </div>
@@ -773,7 +826,7 @@
             <li>Network: Zero-Latency UDP socket routing</li>
             <li>Spells: Remote hardware dispatch (<20ms latency)</li>
           </ul>
-          <a href="https://github.com/DerAndr/celestial_engine_project/releases/download/v1.1.0-release/celestial_companion_v1.1.2.apk" class="btn-download emerald" id="download-apk">
+          <a href="https://github.com/DerAndr/celestial_engine_project/releases/download/v1.2.0-release/celestial_companion_v1.1.0.apk" class="btn-download emerald" id="download-apk">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Download Companion (.APK)
           </a>

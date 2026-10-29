@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎃 Celestial Engine Mk.V — Cyber-Arcane Halloween Edition</title>
+  <meta name="description" content="A fun, lighthearted Halloween DIY prop built inside a transparent bell flask with glowing foam beads, 43 concentric LEDs, OLED display, 8-bit chiptune synthesis, and dual-brain AI.">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Creepster&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #07090e;
+      --bg-card: rgba(15, 20, 32, 0.78);
+      --bg-card-hover: rgba(24, 30, 48, 0.88);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(249, 115, 22, 0.35);
+      
+      --pumpkin-orange: #f97316;
+      --pumpkin-glow: rgba(249, 115, 22, 0.4);
+      --ember-gold: #ffaa00;
+      --ember-glow: rgba(255, 170, 0, 0.3);
+      --spectral-purple: #a855f7;
+      --spectral-glow: rgba(168, 85, 247, 0.35);
+      --cyan-arcane: #38bdf8;
+      --cyan-glow: rgba(56, 189, 248, 0.35);
+      --slime-green: #10b981;
+      --blood-red: #ef4444;
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --oled-blue: #38bdf8;
+      --oled-bg: #020617;
+      
+      --font-main: 'Outfit', sans-serif;
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-spooky: 'Creepster', cursive;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+      line-height: 1.6;
+    }
+
+    canvas#spooky-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app-wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px 20px 60px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    /* TOP NAV */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text-main);
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: radial-gradient(circle, #f97316 0%, #1e1b4b 100%);
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      border: 1px solid var(--pumpkin-glow);
+      box-shadow: 0 0 20px var(--pumpkin-glow);
+    }
+
+    .brand-text h1 {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffffff 30%, #f97316 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-text span {
+      font-size: 0.75rem;
+      color: var(--pumpkin-orange);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .nav-buttons {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .nav-btn.primary {
+      color: #07090e;
+      background: linear-gradient(135deg, #f97316, #ea580c);
+      border-color: var(--pumpkin-orange);
+      box-shadow: 0 0 16px var(--pumpkin-glow);
+    }
+
+    /* DISCLAIMER BANNER */
+    .halloween-disclaimer-banner {
+      background: linear-gradient(135deg, rgba(249, 115, 22, 0.12), rgba(168, 85, 247, 0.12));
+      border: 2px solid rgba(249, 115, 22, 0.4);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(249, 115, 22, 0.08);
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .disclaimer-icon {
+      font-size: 44px;
+      line-height: 1;
+      flex-shrink: 0;
+      animation: floatPumpkin 2.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes floatPumpkin {
+      0% { transform: translateY(0) rotate(-4deg); }
+      100% { transform: translateY(-8px) rotate(4deg); }
+    }
+
+    .disclaimer-content h2 {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      color: var(--pumpkin-orange);
+      margin-bottom: 8px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .disclaimer-content p {
+      font-size: 0.95rem;
+      color: #e2e8f0;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .disclaimer-content .en-quote {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      border-left: 3px solid var(--spectral-purple);
+      padding-left: 14px;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
+    /* MAIN SHOWCASE GRID */
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+
+    @media (max-width: 1080px) {
+      .showcase-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* PHYSICAL PHOTO CARD */
+    .photo-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fff;
+    }
+
+    .badge-pill {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    .badge-pill.orange {
+      background: rgba(249, 115, 22, 0.15);
+      border: 1px solid var(--pumpkin-orange);
+      color: var(--pumpkin-orange);
+    }
+
+    .badge-pill.purple {
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid var(--spectral-purple);
+      color: #d8b4fe;
+    }
+
+    .badge-pill.cyan {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid var(--cyan-arcane);
+      color: var(--cyan-arcane);
+    }
+
+    .photo-container {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 2px solid rgba(249, 115, 22, 0.3);
+      box-shadow: 0 0 25px rgba(249, 115, 22, 0.15);
+      background: #000;
+    }
+
+    .photo-container img {
+      width: 100%;
+      height: auto;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .photo-container:hover img {
+      transform: scale(1.02);
+    }
+
+    .photo-overlay-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(7, 9, 14, 0.95), transparent);
+      padding: 24px 16px 12px 16px;
+      font-size: 0.8rem;
+      color: #e2e8f0;
+      line-height: 1.4;
+    }
+
+    .callout-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .callout-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+    }
+
+    .callout-item span.dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* DIGITAL TWIN / EMULATOR STAGE */
+    .emulator-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+    }
+
+    .emulator-stage {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 24px;
+      align-items: center;
+    }
+
+    @media (max-width: 820px) {
+      .emulator-stage {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* FLASK CANVAS HOUSING */
+    .flask-canvas-box {
+      background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+      border: 2px solid rgba(56, 189, 248, 0.3);
+      border-radius: 20px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.15), inset 0 0 20px rgba(0, 0, 0, 0.8);
+    }
+
+    canvas#flask-canvas {
+      width: 300px;
+      height: 380px;
+      display: block;
+    }
+
+    /* CONTROLS COLUMN */
+    .controls-column {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* OLED MINI HUD */
+    .mini-oled {
+      background: var(--oled-bg);
+      border: 3px solid #1e293b;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-family: var(--font-mono);
+      color: var(--oled-blue);
+      box-shadow: inset 0 0 15px rgba(56, 189, 248, 0.2), 0 4px 15px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .oled-top-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      border-bottom: 1px dashed rgba(56, 189, 248, 0.3);
+      padding-bottom: 4px;
+    }
+
+    .oled-center-text {
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-align: center;
+      padding: 6px 0;
+      color: #fff;
+      text-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    .oled-bottom-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      border-top: 1px dashed rgba(56, 189, 248, 0.3);
+      padding-top: 4px;
+      color: var(--text-muted);
+    }
+
+    /* ROTARY KNOB & PTT BUTTON */
+    .hardware-interact-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      gap: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .knob-control-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .yellow-knob {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #facc15 0%, #ca8a04 70%, #854d0e 100%);
+      border: 3px solid #713f12;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7), inset 0 2px 5px rgba(255, 255, 255, 0.4);
+      position: relative;
+      cursor: grab;
+      user-select: none;
+      transition: transform 0.08s ease;
+    }
+
+    .yellow-knob:active {
+      cursor: grabbing;
+      transform: scale(0.96);
+    }
+
+    .yellow-knob::before {
+      content: '';
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 16px;
+      background: #451a03;
+      border-radius: 2px;
+    }
+
+    .knob-label {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--ember-gold);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .query-ptt-btn {
+      padding: 14px 22px;
+      border-radius: 12px;
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%);
+      border: 2px solid #f87171;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+
+    .query-ptt-btn:active {
+      transform: scale(0.95);
+      background: linear-gradient(135deg, #b91c1c 0%, #7f1d1d 100%);
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.7);
+    }
+
+    .query-ptt-btn span.sub {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 400;
+      opacity: 0.85;
+    }
+
+    /* CHIPTUNE HALLOWEEN JUKEBOX */
+    .jukebox-box {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .jukebox-title {
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .music-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
+    }
+
+    .music-btn {
+      padding: 10px 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      color: #e2e8f0;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      text-align: center;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .music-btn:hover {
+      background: rgba(249, 115, 22, 0.15);
+      border-color: var(--pumpkin-orange);
+      color: #fff;
+    }
+
+    .music-btn.active {
+      background: linear-gradient(135deg, rgba(249, 115, 22, 0.3), rgba(168, 85, 247, 0.3));
+      border-color: var(--pumpkin-orange);
+      color: #fff;
+      box-shadow: 0 0 14px var(--pumpkin-glow);
+    }
+
+    .music-btn span.tag {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+    }
+
+    /* VIEW TOGGLE */
+    .view-toggle-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 10px 16px;
+    }
+
+    .toggle-group {
+      display: flex;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    .toggle-btn {
+      padding: 6px 14px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .toggle-btn.active {
+      background: var(--pumpkin-orange);
+      color: #07090e;
+      font-weight: 700;
+      box-shadow: 0 0 10px var(--pumpkin-glow);
+    }
+
+    /* FOOTER */
+    footer.halloween-footer {
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 24px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    footer a {
+      color: var(--pumpkin-orange);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient Ghostly Particles Canvas -->
+  <canvas id="spooky-canvas"></canvas>
+
+  <div class="app-wrapper">
+    <!-- Top Navigation -->
+    <header class="top-nav">
+      <a href="index.html" class="brand-link">
+        <div class="brand-icon">🎃</div>
+        <div class="brand-text">
+          <h1>Celestial Engine Mk.V</h1>
+          <span>Halloween Edition // Flask Artifact</span>
+        </div>
+      </a>
+
+      <nav class="nav-buttons">
+        <a href="index.html" class="nav-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Full Digital Twin
+        </a>
+        <a href="interactive_map.html" class="nav-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+          Pinout &amp; Rails Map
+        </a>
+        <a href="https://github.com/DerAndr/celestial_engine_project" target="_blank" rel="noopener" class="nav-btn primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </nav>
+    </header>
+
+    <!-- Prominent Halloween Disclaimer Banner (User Directive) -->
+    <section class="halloween-disclaimer-banner" aria-label="Halloween Disclaimer">
+      <div class="disclaimer-icon">🎃</div>
+      <div class="disclaimer-content">
+        <h2>Halloween DIY Prop // Not a Serious Production Device!</h2>
+        <p>
+          <strong>Please Note:</strong> This is a fun, lighthearted DIY prop crafted especially for <strong>Halloween</strong>!
+          A cyber-arcane artifact housed inside a transparent plastic bell jar packed with colorful glowing styrofoam diffuser beads. Inside, you can openly see the solderless breadboard with the Raspberry Pi Pico 2 W, a vibrant rainbow bundle of DuPont jumper wires, a cybernetic OLED screen, and a large tactile yellow rotary knob at the base.
+          <br><br>
+          <strong>Please do not judge or evaluate this project as an industrial enterprise device or commercial hardware!</strong>
+          It is an eclectic mix of arcane fantasy, 8-bit DOOM E1M1 chiptune synthesis, foam beads, exposed wires, wearable Raspberry Pi 5 in a backpack, and on-device Gemma 4 E2B / Gemini intelligence — built purely for maker curiosity, Halloween retro-futuristic vibes, and pure geeky fun! 👻
+        </p>
+      </div>
+    </section>
+
+    <!-- Main Showcase: Real Physical Build vs Interactive Digital Twin -->
+    <main class="showcase-grid">
+      
+      <!-- Left Column: The Real Physical Flask -->
+      <article class="photo-card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>📷</span> Real Physical Artifact
+          </h2>
+          <span class="badge-pill orange">Physical Build</span>
+        </div>
+
+        <div class="photo-container">
+          <img src="assets/celestial_flask_physical.png" alt="Celestial Engine Mk.V - Physical Halloween Flask Build" id="real-flask-photo">
+          <div class="photo-overlay-caption">
+            <strong>Celestial Flask Build:</strong> Transparent bell dome with styrofoam bead light diffuser, 43 concentric LEDs (cyan/purple cosmic vortex), Pico 2 W on breadboard, 1.3" OLED display, and bottom yellow rotary knob.
+          </div>
+        </div>
+
+        <div class="callout-list">
+          <div class="callout-item">
+            <span class="dot" style="background: #38bdf8;"></span>
+            <div><strong>Top Bell Dome:</strong> 43 WS2812B LEDs packed in pastel styrofoam beads (ethereal light diffuser)</div>
+          </div>
+          <div class="callout-item">
+            <span class="dot" style="background: #10b981;"></span>
+            <div><strong>Center Compartment:</strong> Raspberry Pi Pico 2 W on solderless breadboard with DuPont harness</div>
+          </div>
+          <div class="callout-item">
+            <span class="dot" style="background: #ffb833;"></span>
+            <div><strong>Cybernetic OLED:</strong> SH1106 1.3" display in lower-right displaying "TURN: TUNE | OK"</div>
+          </div>
+          <div class="callout-item">
+            <span class="dot" style="background: #facc15;"></span>
+            <div><strong>Tactile Yellow Knob:</strong> Bourns PEC11R rotary encoder mounted through the base</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Right Column: Interactive Digital Twin & Halloween Emulator -->
+      <article class="emulator-card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span>🔮</span> Interactive Halloween Digital Twin
+          </h2>
+          <div class="toggle-group">
+            <button id="toggle-assembled" class="toggle-btn active" title="Assembled physical flask view">Assembled</button>
+            <button id="toggle-exploded" class="toggle-btn" title="Exploded 3D blueprint component view">Exploded View</button>
+          </div>
+        </div>
+
+        <!-- Emulator Canvas + Controls Stage -->
+        <div class="emulator-stage">
+          
+          <!-- Flask Visualizer Canvas -->
+          <div class="flask-canvas-box">
+            <canvas id="flask-canvas" width="300" height="380" aria-label="Interactive Halloween Flask"></canvas>
+            <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-dim); margin-top: 8px;">
+              <span id="flask-mode-label">ASSEMBLED FLASK // 43 WS2812B</span>
+            </div>
+          </div>
+
+          <!-- Interactive Controls & OLED HUD -->
+          <div class="controls-column">
+            
+            <!-- Mini OLED Display -->
+            <div class="mini-oled" aria-label="SH1106 OLED Simulation">
+              <div class="oled-top-row">
+                <span>HALLOWEEN ORACLE</span>
+                <span id="oled-clock">00:00:00</span>
+              </div>
+              <div class="oled-center-text" id="oled-main-text">
+                TURN: TUNE | OK
+              </div>
+              <div class="oled-bottom-row">
+                <span id="oled-track-label">DOOM E1M1 HELLFIRE</span>
+                <span id="oled-state-label">STATE: IDLE</span>
+              </div>
+            </div>
+
+            <!-- Rotary Knob & Query Button -->
+            <div class="hardware-interact-row">
+              <div class="knob-control-unit">
+                <div class="yellow-knob" id="yellow-knob" title="Turn encoder knob or click"></div>
+                <span class="knob-label">Yellow Knob</span>
+              </div>
+
+              <button class="query-ptt-btn" id="query-btn">
+                <span>QUERY // ORACLE</span>
+                <span class="sub">Click for spooky prophecy</span>
+              </button>
+            </div>
+
+            <!-- 8-Bit Chiptune Jukebox -->
+            <div class="jukebox-box">
+              <div class="jukebox-title">
+                <span>8-Bit Halloween Chiptunes</span>
+                <span id="music-status-pill" style="color: var(--slime-green);">○ READY</span>
+              </div>
+              <div class="music-grid">
+                <button class="music-btn active" data-track="0">
+                  <strong>DOOM E1M1</strong>
+                  <span class="tag">Hellfire Synth</span>
+                </button>
+                <button class="music-btn" data-track="1">
+                  <strong>KOROBEINIKI</strong>
+                  <span class="tag">Tetris 1861</span>
+                </button>
+                <button class="music-btn" data-track="2">
+                  <strong>IMPERIAL</strong>
+                  <span class="tag">Galactic March</span>
+                </button>
+                <button class="music-btn" data-track="3">
+                  <strong>ZELDA HYMN</strong>
+                  <span class="tag">Triforce Fanfare</span>
+                </button>
+                <button class="music-btn" data-track="4">
+                  <strong>ECTO GROOVE</strong>
+                  <span class="tag">Ghostbusters</span>
+                </button>
+                <button class="music-btn" data-track="7">
+                  <strong>DAFT FUNK</strong>
+                  <span class="tag">Cyber Visor</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Exploded View Spec Inspector (Shows when exploded) -->
+        <div id="exploded-spec-card" style="display: none; background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+          <strong style="color: var(--cyan-arcane);">Exploded Component Layout:</strong>
+          Acrylic Bell Dome (Diffuser Aura) ➔ 43 WS2812B Concentric Rings (GP15) ➔ Clear Acrylic Jar Body ➔ Pico 2 W Breadboard Core ➔ OLED SH1106 (I2C1 GP2/GP3) ➔ INMP441 Mic (GP10/11/12) ➔ MAX98357A Amp (GP16/17/18) ➔ Yellow PEC11R Encoder (GP6/7/8).
+        </div>
+
+      </article>
+    </main>
+
+    <!-- Footer -->
+    <footer class="halloween-footer">
+      <div>
+        🎃 <strong>Celestial Engine Mk.V (Halloween Edition)</strong> • Built by: <a href="https://github.com/DerAndr" target="_blank" rel="noopener">@DerAndr</a> • MIT License
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-dim); max-width: 800px; margin: 0 auto;">
+        Created as a celebratory demonstration of physical maker hardware, retro chiptune audio, and edge AI for Halloween. All melodic themes and trademarks belong to their respective copyright holders (Nintendo, id Software, Disney/Lucasfilm, Columbia Pictures).
+      </div>
+    </footer>
+  </div>
+
+  <script src="halloween.js"></script>
+</body>
+</html>

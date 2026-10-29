@@ -425,3 +425,103 @@ Updated 2026-10-23. The project baseline locks the primary operating topology to
 - [ ] **Evaluate Mini-Omni2 / Llama-Omni on High-RAM Android**:
   - Benchmark direct audio-to-audio streaming on 16 GB RAM devices (Google Pixel 9 Pro XL / Galaxy S24 Ultra).
   - Target glass-to-glass conversational latency: **< 300 ms**.
+
+---
+
+## 8. SOTA Architectural Refactoring & Modular Modernization Plan
+
+> **Goal:** Transform the project codebase from a rapid Halloween prototyping baseline (monolithic C files and interconnected Android ViewModel handlers) into a pristine, modular, modern State-of-the-Art (2025/2026) edge computing architecture.
+> **Philosophy:** Respect the physical reality (a joyful, festive Halloween cyber-flask with foam beads and chiptunes), while enforcing enterprise-grade engineering rigor under the hood.
+
+### 8.1. Firmware Decomposition (Raspberry Pi Pico 2 W / RP2350)
+
+Currently, `firmware/src/main.c` (~134 KB) and `firmware/src/audio.c` (~97 KB) handle multiple overlapping responsibilities (UI rendering, state dispatch, DMA management, UDP packet parsing, and chiptune synthesis).
+
+```
+firmware/src/ (Target Refactored Layout)
+├── drivers/                   # Hardware Abstraction Layer (HAL)
+│   ├── sh1106_i2c.c/h         # I2C1 400kHz OLED driver (GP2/GP3)
+│   ├── inmp441_pio.c/h        # PIO0 SM0 I2S RX driver (GP10/11/12)
+│   ├── max98357a_pio.c/h      # PIO1 SM0 I2S TX driver (GP16/17/18) with auto-sleep
+│   ├── ws2812_pio.c/h         # PIO0 SM1 WS2812B driver (GP15) with 18% safety cap
+│   ├── pec11r_encoder.c/h     # Quadrature IRQ decoder (GP6/GP7) + Click SW (GP8)
+│   └── query_button.c/h       # Debounced PTT active-low button (GP9)
+├── net/                       # Zero-Latency Networking
+│   ├── udp_transport.c/h      # CYW43 Wi-Fi socket, non-blocking receive on port 5005
+│   ├── packet_codec.c/h       # FNV-1a authenticated UDP v2 binary serialization
+│   └── watchdog_net.c/h       # 1000ms packet loss detector & autonomous failover trigger
+├── audio/                     # Audio Processing & Synthesizer
+│   ├── chiptune_core1.c/h     # Core 1 dedicated 16 kHz square-wave synth (24 tracks)
+│   ├── pcm_streamer.c/h       # Ring buffer DMA feeder with hardware silence muting
+│   └── track_catalog.c/h      # Note arrays, ADSR envelope definitions & track metadata
+├── core/                      # Application Logic & FSM
+│   ├── staff_fsm.c/h          # Central state machine (BOOT, IDLE, LISTENING, SPEAKING, STANDALONE)
+│   ├── menu_system.c/h        # Cybernetic HUD menus (13 modes, scrolling ticker)
+│   └── event_queue.c/h        # Lock-free inter-core event queue (Core 0 <-> Core 1)
+└── main.c                     # Minimal entry point: hardware_init(), core1_launch(), event_loop()
+```
+
+- [ ] **Task 8.1.1: Driver Isolation**:
+  - Extract `sh1106_i2c` and `ws2812_pio` into self-contained modules with strict unit interfaces and no references to application state.
+  - Extract `inmp441_pio` and `max98357a_pio` into discrete, clock-separated drivers.
+- [ ] **Task 8.1.2: Core 1 Dedicated Chiptune Sandbox**:
+  - Ensure Core 1 handles 100% of Web-Audio-style chiptune calculations in autonomous standalone mode without causing timer jitter on Core 0 network loops.
+- [ ] **Task 8.1.3: Hardware Watchdog & Power Guard**:
+  - Enable RP2350 hardware watchdog (8s timeout) alongside the 1000ms network timeout to guarantee zero freeze if a breadboard wire vibrates loose.
+
+---
+
+### 8.2. Android Companion Modernization (MVI & State-of-the-Art 2025/2026 AI)
+
+Modernize [`android/`](android/) by isolating the UDP networking, deterministic Spell Forge, and AI inference engines into clean, testable layers.
+
+```
+com.celestial.companion/
+├── core/
+│   ├── transport/             # Network Infrastructure
+│   │   ├── StaffUdpTransport.kt    # DatagramSocket bound to hotspot interface (port 5005)
+│   │   ├── UdpPacketCodec.kt       # Binary protocol framing & FNV-1a integrity
+│   │   └── HeartbeatMonitor.kt     # Keepalive, latency tracking & auto-reconnect
+│   └── service/
+│       └── StaffBrainService.kt    # Foreground service keeping UDP socket active during screen off
+├── domain/
+│   ├── model/                 # State & Data Models
+│   │   ├── StaffState.kt           # Current operating mode, battery, volume, rune colors
+│   │   └── SpellDefinition.kt      # Keyword triggers, RGB signatures, duration
+│   └── spells/
+│       └── SpellForge.kt           # Sub-20ms regex/acoustic deterministic spell compiler
+├── ai/
+│   ├── engine/
+│   │   ├── AiModelEngine.kt        # Unified interface: generateSpeechResponse(audioChunk)
+│   │   ├── CloudGeminiEngine.kt    # Gemini 2.5 Flash cloud streaming via OpenRouter (Default)
+│   │   └── OfflineSotaEngine.kt    # Moonshine STT + LiteRT/ExecuTorch LLM + Kokoro-82M TTS
+│   └── tts/
+│       ├── CloudTtsStreamer.kt     # Google Cloud TTS float PCM chunker
+│       └── KokoroTtsStreamer.kt    # On-device Kokoro-82M INT8 ONNX synthesizer
+└── ui/                        # Presentation (Jetpack Compose + Material 3)
+    ├── screens/
+    │   ├── dashboard/              # 33 Hz 43-LED visualizer, status chips, quick cast
+    │   ├── cosmos/                 # Multi-scale Keplerian astronomy viewport
+    │   └── terminal/               # Bounded Oracle log console & model switcher
+    └── theme/                      # Cyber-Arcane dark mode palette & glowing shaders
+```
+
+- [ ] **Task 8.2.1: Spell Forge Decoupling**:
+  - Isolate `SpellForge` into a pure Kotlin component with comprehensive unit tests for instant sub-20ms spell trigger matching.
+- [ ] **Task 8.2.2: Dual Engine Provider**:
+  - Implement seamless runtime switching between `CloudGeminiEngine` (ultra-fast Gemini 2.5 Flash cloud) and `OfflineSotaEngine` (Moonshine + Kokoro-82M).
+- [ ] **Task 8.2.3: Zero-Recomposition Canvas Optimization**:
+  - Use `drawWithCache` and `drawBehind` in `ConcentricRingsVisualizer` to eliminate unnecessary Compose layout passes during 33 Hz UDP packet bursts.
+
+---
+
+### 8.3. Physical Twin & Showcase on GitHub Pages
+
+- [x] **Store Real Hardware Photo**: Stored physical artifact photo in [`docs/assets/celestial_flask_physical.png`](assets/celestial_flask_physical.png).
+- [ ] **Interactive Exploded vs Assembled View**:
+  - Add interactive toggle on GitHub Pages:
+    - **Assembled Mode:** Renders the authentic physical bell jar flask with styrofoam diffusion beads, glowing blue concentric rings, OLED screen, breadboard, and bottom yellow knob.
+    - **Exploded Mode:** Expands all components outward in 3D with callouts to Pico 2 W GPIOs, power rails, and I2S buses.
+- [ ] **Dedicated Festive Halloween Portal (`docs/halloween.html`)**:
+  - Standalone Halloween-themed mini emulator.
+  - Prominent humorous disclaimer emphasizing that this is a fun Halloween DIY prop made with love, foam beads, and chiptunes.

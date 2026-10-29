@@ -803,6 +803,14 @@ header.hero-header {
   color: var(--text-primary);
 }
 
+.schematic-tool-btn.active {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: var(--cyan-primary);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
 .schematic-legend {
   position: absolute;
   bottom: 12px;

@@ -905,6 +905,8 @@
   let lastMouseY = 0;
   let autoOrbitSchem = true;
   let selectedComponentId = 'pico';
+  let schemMode = 'exploded'; // 'exploded' or 'assembled'
+  let schemModeProgress = 0.0; // 0.0 = exploded, 1.0 = assembled
 
   const SCHEMATIC_COMPONENTS = [
     {
@@ -914,6 +916,8 @@
       category: 'MCU Central Node',
       voltage: '3.3V Logic (5V VBUS In)',
       x: 0, y: 0, z: 0,
+      expX: 0, expY: 0, expZ: 0,
+      asmX: 0, asmY: 20, asmZ: 0,
       w: 80, h: 48,
       color: '#38bdf8',
       desc: 'Central controller node running baremetal C firmware. Controls dual PIO I2S audio channels, hardware watchdog (8s), CYW43 Wi-Fi binary UDP stack, and 43-LED ring animations.',
@@ -930,6 +934,8 @@
       category: 'Optical Headpiece',
       voltage: '5V Rail (3.3V Logic Safe)',
       x: -210, y: -90, z: 30,
+      expX: -210, expY: -90, expZ: 30,
+      asmX: 0, asmY: -115, asmZ: 0,
       w: 72, h: 72,
       color: '#10b981',
       desc: '3 Concentric optical rings (1 Center + 6 Ring 1 + 12 Ring 2 + 24 Ring 3). Driven by RP2350 PIO0 SM1 at 800 kHz with 18% brightness cap.',
@@ -946,6 +952,8 @@
       category: 'Cybernetic Display',
       voltage: '3.3V (Strict)',
       x: -60, y: -160, z: 40,
+      expX: -60, expY: -160, expZ: 40,
+      asmX: 42, asmY: 55, asmZ: 15,
       w: 80, h: 44,
       color: '#ffb833',
       desc: 'Cybernetic HUD with 13 system modes, 20 FPS marquee ticker, Jukebox track selection, and hardware telemetry. 400 kHz Fast-Mode I2C1.',
@@ -963,6 +971,8 @@
       category: 'Tactile Navigation',
       voltage: '3.3V Logic',
       x: 180, y: -100, z: 25,
+      expX: 180, expY: -100, expZ: 25,
+      asmX: 0, asmY: 120, asmZ: 0,
       w: 64, h: 46,
       color: '#06b6d4',
       desc: 'Tactile quadrature encoder for rotating modes, adjusting volume, choosing chiptunes, and center push-button switch.',
@@ -980,6 +990,8 @@
       category: 'AI Voice Trigger',
       voltage: '3.3V Logic',
       x: 210, y: 10, z: 15,
+      expX: 210, expY: 10, expZ: 15,
+      asmX: 45, asmY: -10, asmZ: 15,
       w: 56, h: 40,
       color: '#3b82f6',
       desc: 'Main inquiry button. Hold to activate 16 kHz I2S microphone streaming to Android Companion / Pi 5. Release to synthesize response.',
@@ -995,6 +1007,8 @@
       category: 'Audio Output',
       voltage: '5V Power / 3.3V Logic',
       x: -140, y: 130, z: 30,
+      expX: -140, expY: 130, expZ: 30,
+      asmX: -45, asmY: 45, asmZ: 15,
       w: 70, h: 46,
       color: '#ec4899',
       desc: 'Class-D audio amplifier driving 4Ω 3W speaker. Powered by RP2350 PIO1 SM0 I2S DMA at 16 kHz 16-bit mono with auto sleep.',
@@ -1013,6 +1027,8 @@
       category: 'Audio Input',
       voltage: '3.3V (Strict)',
       x: -180, y: 20, z: 20,
+      expX: -180, expY: 20, expZ: 20,
+      asmX: -45, asmY: -25, asmZ: 15,
       w: 64, h: 44,
       color: '#8b5cf6',
       desc: 'High-sensitivity digital microphone. Sampled via RP2350 PIO0 SM0 DMA into double buffers, streamed over UDP to smartphone / SBC.',
@@ -1031,6 +1047,8 @@
       category: 'Mobile AI Companion',
       voltage: 'Wireless Wi-Fi UDP 5005',
       x: 180, y: 150, z: 45,
+      expX: 180, expY: 150, expZ: 45,
+      asmX: 160, asmY: 130, asmZ: 45,
       w: 86, h: 54,
       color: '#34d399',
       desc: 'Primary AI Brain over local Wi-Fi Hotspot (10.169.248.1 -> 10.169.248.64:5005). Hosts Gemini 2.5 Flash default voice reasoning, Gemma 4 options, Arcane Grimoire, and Spell Forge (<20ms).',
@@ -1047,6 +1065,8 @@
       category: 'Autonomous Edge AI',
       voltage: 'Wireless Wi-Fi UDP 5005',
       x: 30, y: 180, z: 35,
+      expX: 30, expY: 180, expZ: 35,
+      asmX: -160, asmY: 130, asmZ: 45,
       w: 82, h: 50,
       color: '#f59e0b',
       desc: '100% Offline Edge Brain daemon (celestial-brain.service). Runs Whisper.cpp, Ollama (Llama 3.2 1B & Gemma 2B), and Piper C++ TTS.',
@@ -1106,6 +1126,17 @@
 
     schematicCtx.clearRect(0, 0, w, h);
 
+    // Smooth transition between exploded and assembled modes
+    const targetProgress = (schemMode === 'assembled') ? 1.0 : 0.0;
+    schemModeProgress += (targetProgress - schemModeProgress) * 0.07;
+
+    // Interpolate component positions
+    SCHEMATIC_COMPONENTS.forEach(comp => {
+      comp.x = comp.expX + (comp.asmX - comp.expX) * schemModeProgress;
+      comp.y = comp.expY + (comp.asmY - comp.expY) * schemModeProgress;
+      comp.z = comp.expZ + (comp.asmZ - comp.expZ) * schemModeProgress;
+    });
+
     if (autoOrbitSchem && !isDraggingSchem) {
       schemRotY += 0.003;
     }
@@ -1120,6 +1151,42 @@
       schematicCtx.moveTo(p1.x, p1.y);
       schematicCtx.lineTo(p2.x, p2.y);
       schematicCtx.stroke();
+    }
+
+    // Physical Acrylic Flask Chassis (Assembled / Transition Mode)
+    if (schemModeProgress > 0.04) {
+      const pTop = project3D(0, -115, 0, cx, cy);
+      const pMid = project3D(0, 10, 0, cx, cy);
+      const pBase = project3D(0, 115, 0, cx, cy);
+      const flaskScale = pMid.scale;
+      const glassAlpha = schemModeProgress * 0.45;
+
+      schematicCtx.save();
+      // Glass body outline & ambient blue glow
+      schematicCtx.strokeStyle = `rgba(56, 189, 248, ${glassAlpha})`;
+      schematicCtx.lineWidth = 2 * flaskScale;
+      schematicCtx.fillStyle = `rgba(56, 189, 248, ${glassAlpha * 0.12})`;
+
+      // Dome outline at top
+      schematicCtx.beginPath();
+      schematicCtx.arc(pTop.x, pTop.y, 65 * flaskScale, Math.PI, 0, false);
+      schematicCtx.lineTo(pBase.x + 65 * flaskScale, pBase.y);
+      schematicCtx.arc(pBase.x, pBase.y, 65 * flaskScale, 0, Math.PI, false);
+      schematicCtx.lineTo(pTop.x - 65 * flaskScale, pTop.y);
+      schematicCtx.closePath();
+      schematicCtx.fill();
+      schematicCtx.stroke();
+
+      // Yellow Rotary Knob at base
+      const pKnob = project3D(0, 125, 0, cx, cy);
+      schematicCtx.fillStyle = `rgba(250, 204, 21, ${schemModeProgress * 0.95})`;
+      schematicCtx.shadowColor = '#facc15';
+      schematicCtx.shadowBlur = 10 * flaskScale;
+      schematicCtx.beginPath();
+      schematicCtx.arc(pKnob.x, pKnob.y, 16 * flaskScale, 0, Math.PI * 2);
+      schematicCtx.fill();
+      schematicCtx.shadowBlur = 0;
+      schematicCtx.restore();
     }
 
     // Draw wires with animated packet pulses
@@ -1353,6 +1420,21 @@
     }
 
     // 3D Schematic Toolbar Buttons
+    const btnModeExp = document.getElementById('schem-btn-mode-exp');
+    const btnModeAsm = document.getElementById('schem-btn-mode-asm');
+    if (btnModeExp && btnModeAsm) {
+      btnModeExp.addEventListener('click', () => {
+        schemMode = 'exploded';
+        btnModeExp.classList.add('active');
+        btnModeAsm.classList.remove('active');
+      });
+      btnModeAsm.addEventListener('click', () => {
+        schemMode = 'assembled';
+        btnModeAsm.classList.add('active');
+        btnModeExp.classList.remove('active');
+      });
+    }
+
     const btnResetView = document.getElementById('schem-btn-reset');
     if (btnResetView) {
       btnResetView.addEventListener('click', () => {
