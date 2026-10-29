@@ -12,7 +12,6 @@
 </p>
 <p align="center">
   <a href="https://github.com/DerAndr/celestial_engine_project/actions"><img src="https://img.shields.io/badge/CI-Tests%20Passing-3DDC84?style=flat-square&logo=githubactions&logoColor=white" alt="CI"></a>
-  <a href="android/"><img src="https://img.shields.io/badge/Default%20AI-Gemini%202.5%20Flash-8A2BE2?style=flat-square&logo=google&logoColor=white" alt="AI Model"></a>
   <a href="android/"><img src="https://img.shields.io/badge/Spell%20Forge-%3C20ms%20Latency-00E5FF?style=flat-square&logo=fastlane&logoColor=white" alt="Fast Path"></a>
   <a href="docs/hardware/inventory.md"><img src="https://img.shields.io/badge/NVMe-Lexar%20NM790%201TB-006699?style=flat-square&logo=fastlane&logoColor=white" alt="NVMe"></a>
   <img src="https://img.shields.io/badge/Engineered%20With-Antigravity%20%26%20Gemini%202.5%20Flash-9333EA?style=flat-square&logo=google&logoColor=white" alt="Antigravity & Gemini 2.5 Flash">
