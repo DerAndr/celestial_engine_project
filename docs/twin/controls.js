@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.9';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.9';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.9';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.9';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.9';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.1';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.1';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.1';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.1';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.1';
 
 let oracleProvider = null;
 let staff2D = null;
@@ -22,7 +22,43 @@ let userManuallyUnloadedAi = false;
 
 function setSafeText(id, text) {
   const el = document.getElementById(id);
-  if (el) el.textContent = text;
+  if (!el) return;
+  const str = String(text ?? '');
+  if (id === 'oracle-response-text' && /https?:\/\/[^\s)]+/i.test(str)) {
+    el.textContent = '';
+    const urlRegex = /(https?:\/\/[^\s)]+)/gi;
+    let lastIndex = 0;
+    let match;
+    while ((match = urlRegex.exec(str)) !== null) {
+      if (match.index > lastIndex) {
+        el.appendChild(document.createTextNode(str.slice(lastIndex, match.index)));
+      }
+      let rawUrl = match[0];
+      let trailing = '';
+      while (/[.,!?;:]$/.test(rawUrl)) {
+        trailing = rawUrl.slice(-1) + trailing;
+        rawUrl = rawUrl.slice(0, -1);
+      }
+      const a = document.createElement('a');
+      a.href = rawUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.style.color = '#38bdf8';
+      a.style.textDecoration = 'underline';
+      a.style.fontWeight = '700';
+      a.textContent = rawUrl;
+      el.appendChild(a);
+      if (trailing) {
+        el.appendChild(document.createTextNode(trailing));
+      }
+      lastIndex = urlRegex.lastIndex;
+    }
+    if (lastIndex < str.length) {
+      el.appendChild(document.createTextNode(str.slice(lastIndex)));
+    }
+    return;
+  }
+  el.textContent = str;
 }
 
 function updateHotspotCard(hotspotId) {

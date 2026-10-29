@@ -3,7 +3,7 @@
  * Uses @huggingface/transformers v4.3.2 via jsDelivr.
  */
 
-import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.2.6';
+import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.3.1';
 
 const TRANSFORMERS_CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js';
 
@@ -36,33 +36,51 @@ let loadedDevice = null;
 let cancelledRequests = new Set();
 let isGenerating = false;
 
+const CREATOR_LINKEDIN_URL = 'https://www.linkedin.com/in/andrey-holz/';
+
 /**
  * Clean and constrain output to 1-2 sentences, <= 25 words, no Markdown or emojis,
- * matching the Android OraclePersona contract.
+ * matching the Android OraclePersona contract while preserving full URLs and titles ("Dr.").
  */
-function sanitizeAndConstrainOutput(rawText) {
+function sanitizeAndConstrainOutput(rawText, matchedTopics = []) {
   if (!rawText) return '';
   let text = String(rawText)
     .replace(/<\|[^>]+?\|>/g, '')
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    // Convert markdown links [label](https://...) to plain URL
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, '$2')
+    // Replace small-LLM bracketed link placeholders like [link to LinkedIn profile] with the real LinkedIn URL
+    .replace(/\[[^\]]*(?:linkedin|link|url|profile|contact)[^\]]*\]/gi, CREATOR_LINKEDIN_URL)
     .replace(/[*_`#~>]/g, '')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Split sentences only on sentence-ending punctuation followed by whitespace (avoid splitting URLs or "Dr.")
-  const sentenceParts = text.split(/(?<=[.!?])\s+(?=[A-ZА-ЯЁ0-9])/);
+  // Protect abbreviations like "Dr.", "Mr.", "Prof.", "Mk." before splitting sentences
+  const protectedText = text.replace(/\b(Dr|Mr|Mrs|Ms|Prof|Mk|St|vs)\.\s+/gi, '$1\u0000 ');
+  const sentenceParts = protectedText.split(/(?<=[.!?])\s+(?=[A-ZА-ЯЁ0-9])/);
   if (sentenceParts && sentenceParts.length > 0) {
-    text = sentenceParts.slice(0, 2).join(' ').trim();
+    text = sentenceParts.slice(0, 2).join(' ').replace(/\u0000/g, '.').trim();
+  } else {
+    text = protectedText.replace(/\u0000/g, '.').trim();
   }
 
   const words = text.split(/\s+/).filter(Boolean);
   if (words.length > 25) {
     text = words.slice(0, 25).join(' ').replace(/[,;:\-–—]+$/, '');
-    if (!/[.!?]$/.test(text)) {
-      text += '.';
-    }
-  } else if (text && !/[.!?]$/.test(text)) {
+  }
+
+  // Strip any dangling title at the very end caused by token or word-limit truncation (e.g. "... Dr.")
+  text = text.replace(/\s+\b(?:Dr|Mr|Mrs|Ms|Prof)\.?$/i, '').trim();
+
+  // Guarantee the LinkedIn URL is never lost when answering about the creator / Dr. Andrey Holz
+  const isCreatorTopic = Array.isArray(matchedTopics) && matchedTopics.includes('creator_author');
+  if ((isCreatorTopic || /\b(andrey|holz|linkedin)\b/i.test(text)) && !text.includes('linkedin.com/in/andrey-holz')) {
+    text = text.replace(/[,;:\-–—.]+$/, '');
+    text = `${text}. LinkedIn: ${CREATOR_LINKEDIN_URL}`;
+  }
+
+  if (text && !/[.!?/]$/.test(text)) {
     text += '.';
   }
 
@@ -253,7 +271,7 @@ self.addEventListener('message', async (event) => {
       const repoKnowledge = retrieveRepoKnowledge(userQuestion);
       const baseSystemPrompt = systemPrompt || 'You are the Oracle of the Celestial Engine Mk.V staff. Respond in 1-2 short sentences under 25 words without markdown or emojis.';
 
-      const creatorFact = 'Creator fact: This project (Celestial Engine Mk.V) was created by Dr. Andrey Holz (LinkedIn: https://www.linkedin.com/in/andrey-holz/ ).';
+      const creatorFact = 'Creator fact: This project (Celestial Engine Mk.V) was created by Dr. Andrey Holz (LinkedIn: https://www.linkedin.com/in/andrey-holz/ ). Always write the exact full URL https://www.linkedin.com/in/andrey-holz/ and never write [link].';
 
       // Inject hardware/repo context when the user's question asks about hardware/repo/creator topics,
       // while keeping general creative questions natural and always knowing Dr. Andrey Holz is the creator.
@@ -295,7 +313,7 @@ self.addEventListener('message', async (event) => {
         rawReply = out[0].generated_text;
       }
 
-      const cleanText = sanitizeAndConstrainOutput(rawReply);
+      const cleanText = sanitizeAndConstrainOutput(rawReply, repoKnowledge.matchedTopics);
       const elapsedMs = Math.round(performance.now() - startMs);
 
       self.postMessage({

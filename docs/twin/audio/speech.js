@@ -32,7 +32,10 @@ export function speakOracleText(text, personaId = 'machine_god', onComplete) {
 
   try {
     window.speechSynthesis.cancel();
-    const msg = new SpeechSynthesisUtterance(text);
+    const spokenText = String(text)
+      .replace(/https?:\/\/(?:www\.)?linkedin\.com\/in\/andrey-holz\/?/gi, 'LinkedIn dot com, Andrey Holz')
+      .replace(/https?:\/\/[^\s)]+/gi, 'link');
+    const msg = new SpeechSynthesisUtterance(spokenText);
     msg.lang = 'en-US';
 
     const voices = window.speechSynthesis.getVoices();
