@@ -3,7 +3,7 @@
 Embedded RP2350 controller, full-duplex I2S audio node, 43-LED concentric WS2812B display, and wireless UDP voice/telemetry system with Android and Raspberry Pi 5 host backends.
 
 - **Web Simulator & Pinout Explorer:** [derandr.github.io/celestial_engine_project](https://derandr.github.io/celestial_engine_project/)
-- **Latest Release:** [v1.2.0](https://github.com/DerAndr/celestial_engine_project/releases/latest) (`celestial_firmware.uf2` + `celestial_companion_v1.1.2.apk`)
+- **Latest Release:** [v1.3.0](https://github.com/DerAndr/celestial_engine_project/releases/latest) (`celestial_firmware.uf2` + `celestial_companion_v1.1.2.apk`)
 - **Hardware Documentation:** [Inventory & BOM](docs/hardware/inventory.md) • [Pinout & Wiring](docs/wiring/pinout.md) • [UDP Protocol v2](docs/protocol.md)
 - **Author:** Created by **Dr. Andrey Holz** — [LinkedIn](https://www.linkedin.com/in/andrey-holz/) • [GitHub (@DerAndr)](https://github.com/DerAndr)
 
