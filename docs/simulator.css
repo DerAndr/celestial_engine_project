@@ -2024,3 +2024,136 @@ footer a:hover {
   font-weight: 500;
 }
 
+/* ==========================================================================
+   PROMINENT TOP LIVE LOCAL LLM CALLOUT BANNER
+   ========================================================================== */
+
+.live-llm-hero-banner {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.22) 0%, rgba(56, 189, 248, 0.18) 55%, rgba(16, 185, 129, 0.16) 100%);
+  border: 2px solid rgba(56, 189, 248, 0.65);
+  border-radius: 16px;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 22px;
+  box-shadow: 0 0 32px rgba(56, 189, 248, 0.18), inset 0 0 24px rgba(168, 85, 247, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+@media (max-width: 960px) {
+  .live-llm-hero-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.live-llm-banner-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.live-llm-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.live-llm-pulse-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.22);
+  border: 1px solid #10b981;
+  color: #6ee7b7;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.live-llm-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981;
+  animation: pulseDot 1.4s infinite ease-in-out;
+}
+
+.live-llm-banner-title {
+  font-family: var(--font-display);
+  font-size: 1.32rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.live-llm-banner-desc {
+  font-size: 0.88rem;
+  color: #e2e8f0;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.live-llm-banner-desc strong {
+  color: #38bdf8;
+}
+
+.live-llm-banner-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+  min-width: 255px;
+}
+
+.btn-llm-cta {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.18s ease;
+  text-align: center;
+}
+
+.btn-llm-cta.primary {
+  background: linear-gradient(135deg, #38bdf8, #818cf8);
+  color: #050811;
+  border-color: #7dd3fc;
+  box-shadow: 0 4px 18px rgba(56, 189, 248, 0.38);
+}
+
+.btn-llm-cta.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(56, 189, 248, 0.55);
+  filter: brightness(1.07);
+}
+
+.btn-llm-cta.voice {
+  background: rgba(16, 185, 129, 0.2);
+  color: #a7f3d0;
+  border-color: #10b981;
+}
+
+.btn-llm-cta.voice:hover {
+  background: rgba(16, 185, 129, 0.34);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+

@@ -748,6 +748,45 @@ export async function initTwinReplica() {
     });
   }
 
+  // Top Hero Banner Quick-Action Buttons
+  const bannerConnectLlmBtn = document.getElementById('banner-btn-connect-llm');
+  if (bannerConnectLlmBtn) {
+    bannerConnectLlmBtn.addEventListener('click', () => {
+      const consoleEl = document.getElementById('oracle-console');
+      if (consoleEl) consoleEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const drawer = document.querySelector('.local-ai-optin-drawer');
+      if (drawer) drawer.open = true;
+      const inputEl = document.getElementById('oracle-question-input');
+      if (inputEl) {
+        setTimeout(() => inputEl.focus(), 350);
+      }
+      const st = twinState.getState();
+      if (!oracleProvider.isLocalModelReady() && st.aiStatus !== 'loading') {
+        userManuallyUnloadedAi = false;
+        const modelKey = st.selectedModelKey || 'smollm2-135m';
+        twinState.update({
+          aiStatus: 'loading',
+          aiProgressPct: 2,
+          aiProgressText: `Initializing ${modelKey} worker...`,
+          aiErrorText: ''
+        });
+        updateOracleUi();
+        oracleProvider.initLocalModel(modelKey);
+      }
+    });
+  }
+
+  const bannerSpeakNowBtn = document.getElementById('banner-btn-speak-now');
+  if (bannerSpeakNowBtn) {
+    bannerSpeakNowBtn.addEventListener('click', () => {
+      const consoleEl = document.getElementById('oracle-console');
+      if (consoleEl) consoleEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (!activeDictation) {
+        startVoiceCaptureSession();
+      }
+    });
+  }
+
   const unloadAiBtn = document.getElementById('btn-unload-ai');
   if (unloadAiBtn) {
     unloadAiBtn.addEventListener('click', () => {
