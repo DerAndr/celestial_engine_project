@@ -54,16 +54,16 @@ Celestial Engine Mk.V operates as a high-speed, decentralized edge ecosystem. Th
 
 ```mermaid
 flowchart TB
-    subgraph MobileBrain["  PRIMARY HOST: ANDROID COMPANION (Pixel 9 Pro XL)  "]
+    subgraph MobileBrain["PRIMARY HOST: ANDROID COMPANION (Pixel 9 Pro XL)"]
         direction TB
-        Phone["Google Pixel 9 Pro XL\n(Hotspot AP Gateway 10.169.248.1 • UDP Port 5005)"]
+        Phone["Google Pixel 9 Pro XL<br/>Hotspot AP Gateway 10.169.248.1 • UDP Port 5005"]
         
-        subgraph MobileServices["Companion Brain Engine (v1.1.2)"]
-            Forge["Arcane Grimoire & Spell Forge\n(<20ms Deterministic Packet Routing)"]
-            Gemini["Default AI: Gemini 2.5 Flash\n(OpenRouter Multi-Turn Streaming)"]
-            Gemma["On-Device / Vision Options:\nGemma 4 (E2B / 31B / Think 26B) • Gemma 3 (27B)"]
-            CloudTTS["Google Cloud Neural TTS Streamer\n(16 kHz Mono Float/PCM chunks)"]
-            Twin["Live 43-LED Digital Twin (33 Hz)\nCosmos Multi-Scale Zoom Viewport"]
+        subgraph MobileServices["Companion Brain Engine v1.1.2"]
+            Forge["Arcane Grimoire and Spell Forge<br/>Sub-20ms Fast-Path Routing"]
+            Gemini["Default AI: Gemini 2.5 Flash<br/>OpenRouter Multi-Turn Streaming"]
+            Gemma["On-Device and Vision Options:<br/>Gemma 4 (E2B / 31B / Think 26B) • Gemma 3 (27B)"]
+            CloudTTS["Google Cloud Neural TTS Streamer<br/>16 kHz Mono Float/PCM chunks"]
+            Twin["Live 43-LED Digital Twin (33 Hz)<br/>Cosmos Multi-Scale Zoom Viewport"]
         end
         
         Phone --> Forge
@@ -75,26 +75,26 @@ flowchart TB
         Phone --> Twin
     end
 
-    subgraph StaffNode["  EMBEDDED CONTROLLER: CELESTIAL STAFF (RP2350 Node)  "]
+    subgraph StaffNode["EMBEDDED CONTROLLER: CELESTIAL STAFF (RP2350 Node)"]
         direction TB
-        Pico["Raspberry Pi Pico 2 W\n(RP2350 Dual M33 @ 150 MHz • 10.169.248.64:5005)"]
+        Pico["Raspberry Pi Pico 2 W<br/>RP2350 Dual M33 @ 150 MHz • 10.169.248.64:5005"]
         
-        subgraph PhysicalInputs["Physical Inputs & Navigation"]
-            Mic["INMP441 MEMS Microphone\n(16 kHz Mono I2S • PIO0 SM0 DMA • GP10/11/12)"]
-            Enc["Bourns PEC11R Rotary Encoder\n(Quadrature GP6/GP7 + Push Switch GP8)"]
-            Btn["Query PTT Button\n(Momentary NO • Active-Low GP9)"]
+        subgraph PhysicalInputs["Physical Inputs and Navigation"]
+            Mic["INMP441 MEMS Microphone<br/>16 kHz Mono I2S • PIO0 SM0 DMA • GP10/11/12"]
+            Enc["Bourns PEC11R Rotary Encoder<br/>Quadrature GP6/GP7 + Push Switch GP8"]
+            Btn["Query PTT Button<br/>Momentary NO • Active-Low GP9"]
         end
         
-        subgraph PhysicalOutputs["Actuators & Optical Headpiece"]
-            OLED["SH1106 1.3'' I2C1 OLED (128x64)\n(Cybernetic HUD • Pictograms • GP2/GP3)"]
-            Amp["MAX98357A 3.2W Class-D Amp\n(16 kHz I2S Mono • PIO1 SM0 DMA • GP16/17/18)"]
-            Rings["43x WS2812B Concentric LED Rings\n(1 Center • 6 Inner • 12 Mid • 24 Outer • GP15)"]
+        subgraph PhysicalOutputs["Actuators and Optical Headpiece"]
+            OLED["SH1106 1.3-inch I2C1 OLED 128x64<br/>Cybernetic HUD • Pictograms • GP2/GP3"]
+            Amp["MAX98357A 3.2W Class-D Amp<br/>16 kHz I2S Mono • PIO1 SM0 DMA • GP16/17/18"]
+            Rings["43x WS2812B Concentric LED Rings<br/>1 Center • 6 Inner • 12 Mid • 24 Outer • GP15"]
         end
         
-        subgraph StandaloneCore["Autonomous Fallback Engine (Watchdog >1000ms)"]
-            Chiptune["Core 1 16 kHz Chiptune Synth\n(24 Iconic 8-bit Tracks • ADSR Envelopes)"]
-            RuneAnim["21 Hardware LED Animations\n(Stellar Aurora • Daft Punk • Hellfire)"]
-            FlashProphecy["Flash-Stored Audio Prophecies\n(English • Deutsch • Russian)"]
+        subgraph StandaloneCore["Autonomous Fallback Engine (Watchdog 1000ms Timeout)"]
+            Chiptune["Core 1 16 kHz Chiptune Synth<br/>24 Iconic 8-bit Tracks • ADSR Envelopes"]
+            RuneAnim["21 Hardware LED Animations<br/>Stellar Aurora • Daft Punk • Hellfire"]
+            FlashProphecy["Flash-Stored Audio Prophecies<br/>English • Deutsch • Russian"]
         end
 
         Mic --> Pico
@@ -106,12 +106,12 @@ flowchart TB
         Pico -.->|Wi-Fi Lost| StandaloneCore
     end
 
-    subgraph WearableNode["  SECONDARY WEARABLE SBC (Raspberry Pi 5 16GB)  "]
+    subgraph WearableNode["SECONDARY WEARABLE SBC (Raspberry Pi 5 16GB)"]
         direction TB
-        Pi5["Raspberry Pi 5 (Quad A76 @ 2.4 GHz • 10.169.248.50:5005)\nPimoroni Base + Lexar NM790 1TB NVMe (PCIe Gen 3)"]
+        Pi5["Raspberry Pi 5 (Quad A76 @ 2.4 GHz • 10.169.248.50:5005)<br/>Pimoroni Base + Lexar NM790 1TB NVMe PCIe Gen 3"]
         
         subgraph Pi5Services["100% Offline Edge AI Daemon"]
-            Daemon["celestial-brain.service (UDP 5005)\nai_brain_server.py + State Machine"]
+            Daemon["celestial-brain.service (UDP 5005)<br/>ai_brain_server.py + State Machine"]
             Whisper["Whisper.cpp (ARM NEON SIMD)"]
             Ollama["Ollama Local LLM (Llama 3.2 1B / Gemma 2B)"]
             Piper["Piper C++ Neural TTS (ONNX)"]
@@ -123,8 +123,8 @@ flowchart TB
         Pi5 --- Daemon
     end
 
-    MobileBrain <===>|Wi-Fi 802.11n / UDP v2 (Port 5005)\nFNV-1a Auth • Acknowledged Telemetry & Audio| StaffNode
-    WearableNode <.-.->|Selectable Host via OLED [04] AI CORE\n< PHONE > | < PI 5 > | < AUTO >| StaffNode
+    MobileBrain <==>|"Wi-Fi 802.11n / UDP v2 (Port 5005)<br/>FNV-1a Auth • Acknowledged Telemetry & Audio"| StaffNode
+    WearableNode <-.->|"Selectable Host via OLED AI Core<br/>PHONE or PI 5 or AUTO"| StaffNode
 ```
 
 ---
