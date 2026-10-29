@@ -6,7 +6,6 @@
   <a href="firmware/"><img src="https://img.shields.io/badge/Platform-RP2350%20(Pico%202%20W)-C51A4A?style=flat-square&logo=raspberrypi&logoColor=white" alt="Platform"></a>
   <a href="android/"><img src="https://img.shields.io/badge/Primary%20Brain-Pixel%209%20Pro%20XL%20(v1.1.2)-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Mobile Brain"></a>
   <a href="https://github.com/DerAndr/celestial_engine_project/releases/tag/v1.1.0-release"><img src="https://img.shields.io/badge/Release-v1.1.0--Canonical-3DDC84?style=flat-square&logo=github&logoColor=white" alt="Release"></a>
-  <a href="https://derandr.github.io/celestial_engine_project/"><img src="https://img.shields.io/badge/Live%20Simulator-Online-00E5FF?style=flat-square&logo=html5&logoColor=white" alt="Simulator"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License"></a>
 </p>
 <p align="center">
