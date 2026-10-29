@@ -123,7 +123,7 @@ flowchart TB
         Pi5 --- Daemon
     end
 
-    MobileBrain <==>|"Wi-Fi 802.11n / UDP v2 (Port 5005)<br/>FNV-1a Auth • Acknowledged Telemetry & Audio"| StaffNode
+    MobileBrain <-->|"Wi-Fi 802.11n / UDP v2 Port 5005<br/>FNV-1a Auth • Acknowledged Telemetry and Audio"| StaffNode
     WearableNode <-.->|"Selectable Host via OLED AI Core<br/>PHONE or PI 5 or AUTO"| StaffNode
 ```
 
