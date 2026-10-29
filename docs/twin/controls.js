@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.5';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.5';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.5';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.5';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.5';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.2.6';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.2.6';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.2.6';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.2.6';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.2.6';
 
 let oracleProvider = null;
 let staff2D = null;
@@ -65,15 +65,15 @@ function updateOracleUi() {
   }
   setSafeText('custom-prompt-counter', `${(state.customPrompt || '').length} / ${MAX_CUSTOM_PROMPT_LENGTH}`);
 
-  // Update Mode Badge (Scripted vs Local AI)
+  // Update Mode Badge (Pre-Recorded vs Live Local LLM)
   const modePill = document.getElementById('oracle-mode-pill');
   if (modePill) {
     if (state.oracleMode === 'local-ai' && state.aiStatus === 'ready') {
       const mInfo = MODEL_INFO[state.selectedModelKey] || MODEL_INFO['smollm2-135m'];
-      modePill.textContent = `⚡ LOCAL AI (${mInfo.key.toUpperCase()})`;
+      modePill.textContent = `🧠 LIVE LOCAL LLM ACTIVE (${mInfo.key.toUpperCase()})`;
       modePill.className = 'badge emerald';
     } else {
-      modePill.textContent = '📜 SCRIPTED DEMO MODE (INSTANT • OFFLINE)';
+      modePill.textContent = '📜 PRE-RECORDED DEMO ANSWERS (OR CONNECT LOCAL LLM BELOW)';
       modePill.className = 'badge gold';
     }
   }
@@ -83,10 +83,10 @@ function updateOracleUi() {
   const srcLabel = document.getElementById('oracle-response-source');
   if (srcLabel) {
     if (state.lastResponseSource === 'local-ai') {
-      srcLabel.textContent = `Generated in-browser by Local AI (${state.selectedModelKey}) • ${state.lastLatencyMs} ms • <= 25 words`;
+      srcLabel.textContent = `Generated live by in-browser Local LLM (${state.selectedModelKey}) • ${state.lastLatencyMs} ms`;
       srcLabel.style.color = '#34d399';
     } else {
-      srcLabel.textContent = `Scripted Demo Response (${persona.titleEn} preset bank) • Enable Local AI below for live neural generation`;
+      srcLabel.textContent = `Pre-recorded answer (${persona.titleEn} preset) • Click "Ask Oracle" or load Local AI below to chat live with an LLM`;
       srcLabel.style.color = '#fbbf24';
     }
   }

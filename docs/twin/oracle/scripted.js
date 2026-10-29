@@ -4,7 +4,7 @@
  * Clearly labeled as Scripted Demo Output.
  */
 
-import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.2.1';
+import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.2.6';
 
 const SCRIPTED_BANKS = {
   machine_god: {

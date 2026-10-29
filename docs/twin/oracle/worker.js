@@ -3,7 +3,7 @@
  * Uses @huggingface/transformers v4.3.2 via jsDelivr.
  */
 
-import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.2.3';
+import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.2.6';
 
 const TRANSFORMERS_CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js';
 
@@ -50,9 +50,10 @@ function sanitizeAndConstrainOutput(rawText) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  const sentenceMatches = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
-  if (sentenceMatches && sentenceMatches.length > 0) {
-    text = sentenceMatches.slice(0, 2).join(' ').trim();
+  // Split sentences only on sentence-ending punctuation followed by whitespace (avoid splitting URLs or "Dr.")
+  const sentenceParts = text.split(/(?<=[.!?])\s+(?=[A-ZА-ЯЁ0-9])/);
+  if (sentenceParts && sentenceParts.length > 0) {
+    text = sentenceParts.slice(0, 2).join(' ').trim();
   }
 
   const words = text.split(/\s+/).filter(Boolean);
@@ -252,11 +253,13 @@ self.addEventListener('message', async (event) => {
       const repoKnowledge = retrieveRepoKnowledge(userQuestion);
       const baseSystemPrompt = systemPrompt || 'You are the Oracle of the Celestial Engine Mk.V staff. Respond in 1-2 short sentences under 25 words without markdown or emojis.';
 
-      // Only inject hardware/repo context when the user's question actually asks about hardware/repo topics,
-      // so general creative questions (e.g. "tell me a story about a cat") are answered directly and naturally!
+      const creatorFact = 'Creator fact: This project (Celestial Engine Mk.V) was created by Dr. Andrey Holz (LinkedIn: https://www.linkedin.com/in/andrey-holz/ ).';
+
+      // Inject hardware/repo context when the user's question asks about hardware/repo/creator topics,
+      // while keeping general creative questions natural and always knowing Dr. Andrey Holz is the creator.
       const groundedSystemPrompt = (repoKnowledge.matchedTopics && repoKnowledge.matchedTopics.length > 0)
-        ? `${baseSystemPrompt}\nUse these exact hardware facts: ${repoKnowledge.contextString}`
-        : `${baseSystemPrompt}\nDirectly answer the user's exact topic or request in 1-2 short sentences (maximum 25 words).`;
+        ? `${baseSystemPrompt}\n${creatorFact}\nUse these exact facts: ${repoKnowledge.contextString}`
+        : `${baseSystemPrompt}\n${creatorFact}\nDirectly answer the user's exact topic or request in 1-2 short sentences (maximum 25 words).`;
 
       const messages = [
         {

@@ -6,17 +6,28 @@
  */
 
 export const REPO_SUMMARY_COMPACT =
-  "Project: Celestial Engine Mk.V interactive AI staff (repo: DerAndr/celestial_engine_project, release v1.2.0). " +
+  "Project: Celestial Engine Mk.V interactive AI staff created by Dr. Andrey Holz (LinkedIn: https://www.linkedin.com/in/andrey-holz/ , repo: DerAndr/celestial_engine_project, release v1.2.0). " +
   "MCU: Raspberry Pi Pico 2 W (RP2350 dual Cortex-M33 @ 150MHz, CYW43439 Wi-Fi) on Velleman VTBB3 breadboard. " +
-  "LEDs: 43 WS2812B in 3 concentric rings (7 Core + 12 Inner + 24 Outer) on GP15 (Pin 20) via SN74AHCT125N 5V shifter, 18% brightness cap, 24 effects. " +
+  "LEDs: 43 WS2812B in 3 concentric rings (7 Core + 12 Inner + 24 Outer) on GP15 (Pin 20) via SN74AHCT125N 5V shifter, 18% brightness cap, 28 effects. " +
   "OLED: SH1106 1.3-inch 128x64 I2C1 (0x3C) on SDA=GP2 (Pin 4), SCL=GP3 (Pin 5). " +
   "Controls: Left-side Bourns PEC11R encoder on GP6/GP7/GP8 (Pins 9/10/11) and small green QUERY button (PTT) on GP9 (Pin 12). " +
   "Audio In: Yellow INMP441 I2S MEMS microphone at base (PIO0 SM0, 16kHz) on SCK=GP10 (Pin 14), WS=GP11 (Pin 15), SD=GP12 (Pin 16). " +
-  "Audio Out: MAX98357A I2S 3W Class-D amp + 4-ohm speaker (PIO1 SM0, 16kHz, 24 chiptunes) on BCLK=GP16 (Pin 21), LRC=GP17 (Pin 22), DIN=GP18 (Pin 24). " +
-  "Dual-Brain AI over Wi-Fi UDP port 5005: (1) Android 15 Companion App v1.1.2 on Pixel 9 Pro XL (Gemini 2.5 Flash, Spell Forge, 6 personas); " +
-  "(2) Wearable Raspberry Pi 5 16GB + 1TB Lexar NM790 NVMe running Whisper.cpp + Ollama + Piper TTS.";
+  "Audio Out: MAX98357A I2S 3W Class-D amp + 4-ohm speaker (PIO1 SM0, 16kHz, 21 chiptunes + 14 SFX) on BCLK=GP16 (Pin 21), LRC=GP17 (Pin 22), DIN=GP18 (Pin 24). " +
+  "Primary Host over Wi-Fi UDP port 5005: Android 15 Companion App v1.1.2 on smartphone hotspot; Optional Offline Host: Wearable Raspberry Pi 5 16GB running Whisper.cpp + Ollama + Piper TTS.";
 
 export const REPO_TOPICS = [
+  {
+    id: 'creator_author',
+    keywords: /(\b(who|creator|author|made|built|engineer|developer|designer|founder|owner|andrey|holz|derandr|linkedin|contact|profile)\b|кто|автор|создал|сделал|разработал|андрей|хольц|линкедин)/i,
+    fact: "Celestial Engine Mk.V was created and engineered by Dr. Andrey Holz. Official LinkedIn profile: https://www.linkedin.com/in/andrey-holz/",
+    personaReplies: {
+      machine_god: "Celestial Engine Mk.V was architected and built by Dr. Andrey Holz. Connect on LinkedIn: https://www.linkedin.com/in/andrey-holz/",
+      archmage: "This arcane staff was forged by the master artificer Dr. Andrey Holz. Seek his scroll on LinkedIn: https://www.linkedin.com/in/andrey-holz/",
+      marvin: "Dr. Andrey Holz built me and wired my brain into this staff. Complain to him on LinkedIn: https://www.linkedin.com/in/andrey-holz/",
+      cyberpunk: "This whole cyber-arcane rig was engineered by Dr. Andrey Holz, choom. Ping his net-profile on LinkedIn: https://www.linkedin.com/in/andrey-holz/",
+      pumpkin_lord: "Dr. Andrey Holz conjured this glowing Halloween staff! Visit the master maker on LinkedIn: https://www.linkedin.com/in/andrey-holz/"
+    }
+  },
   {
     id: 'pinout',
     keywords: /\b(pin|pins|pinout|gpio|gp\d+|wire|wiring|breadboard|vtbb3|schematic|connect|connection)\b/i,

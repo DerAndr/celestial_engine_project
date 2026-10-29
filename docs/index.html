@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="simulator.css?v=1.2.5">
+  <link rel="stylesheet" href="simulator.css?v=1.2.6">
 </head>
 <body>
   <!-- Ambient Deep Space Starfield -->
@@ -274,10 +274,21 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             Ask the Celestial Oracle
           </h2>
-          <span id="oracle-mode-pill" class="badge gold">📜 SCRIPTED DEMO MODE (INSTANT • OFFLINE)</span>
+          <span id="oracle-mode-pill" class="badge gold">📜 PRE-RECORDED DEMO ANSWERS (OR CONNECT LOCAL LLM BELOW)</span>
         </div>
 
-        <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); margin-top: -10px; margin-bottom: 10px;">
+        <!-- Clear 2-Mode Quick Instruction Box -->
+        <div class="oracle-quick-guide">
+          <div>
+            <strong>How this chat works (2 modes):</strong>
+            1) <strong>Pre-Recorded Demo:</strong> Ready immediately with built-in answers about the staff hardware, pinout, and creator (<a href="https://www.linkedin.com/in/andrey-holz/" target="_blank" rel="noopener">Dr. Andrey Holz — LinkedIn</a>).
+          </div>
+          <div>
+            2) <strong>Connect Live Local LLM:</strong> Type any question (or click <code>🎙️ Speak</code>) and press <strong>Ask Oracle</strong> — or open <strong>Enable Local Browser AI</strong> below — to download a compact neural LLM (<code>SmolLM2</code> / <code>LFM2.5</code>) right into your browser and chat with the staff on any topic!
+          </div>
+        </div>
+
+        <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; margin-bottom: 8px;">
           SELECT PERSONA (PARITY WITH ANDROID <code>OraclePersona.kt</code> — INSTANT SWITCH, NO RE-DOWNLOAD):
         </div>
 
@@ -375,9 +386,9 @@
         <!-- Quick Sample Inquiry Chips -->
         <div class="sample-chips-row">
           <span style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted);">TRY:</span>
+          <button type="button" class="sample-prompt-chip" data-prompt="Who created this project and what is his LinkedIn?">Who created this project?</button>
           <button type="button" class="sample-prompt-chip" data-prompt="How is your hardware wired inside the dome?">How is your hardware wired?</button>
           <button type="button" class="sample-prompt-chip" data-prompt="What does the future hold for my project?">What does the future hold?</button>
-          <button type="button" class="sample-prompt-chip" data-prompt="What is the ultimate meaning of life and the cosmos?">Meaning of the cosmos?</button>
           <label style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); cursor: pointer;">
             <input type="checkbox" id="oracle-tts-toggle" checked>
             🔊 Browser TTS Voice
@@ -394,7 +405,7 @@
             Celestial Engine Mk.V initialized. Select a persona and enter an inquiry.
           </p>
           <div id="oracle-response-source" class="oracle-response-meta">
-            Scripted Demo Response (Machine God preset bank) • Enable Local AI below for live neural generation
+            Pre-recorded answer (Machine God preset) • Click "Ask Oracle" or load Local AI below to chat live with an LLM
           </div>
         </div>
 
@@ -1348,7 +1359,7 @@
     <!-- Footer -->
     <footer class="showcase-footer">
       <div>
-        CELESTIAL ENGINE Mk.V • Created by <a href="https://github.com/DerAndr" target="_blank" rel="noopener">@DerAndr</a> • Released under the MIT License
+        CELESTIAL ENGINE Mk.V • Created by <strong>Dr. Andrey Holz</strong> (<a href="https://www.linkedin.com/in/andrey-holz/" target="_blank" rel="noopener">LinkedIn</a> • <a href="https://github.com/DerAndr" target="_blank" rel="noopener">@DerAndr</a>) • Released under the MIT License
       </div>
       <div style="margin-top: 6px; color: #c084fc; font-family: var(--font-mono); font-size: 0.8rem;">
 
@@ -1362,7 +1373,7 @@
     </footer>
   </div>
 
-  <script src="simulator.js?v=1.2.5"></script>
-  <script type="module" src="twin/controls.js?v=1.2.5"></script>
+  <script src="simulator.js?v=1.2.6"></script>
+  <script type="module" src="twin/controls.js?v=1.2.6"></script>
 </body>
 </html>

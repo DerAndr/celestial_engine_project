@@ -5,6 +5,7 @@ Embedded RP2350 controller, full-duplex I2S audio node, 43-LED concentric WS2812
 - **Web Simulator & Pinout Explorer:** [derandr.github.io/celestial_engine_project](https://derandr.github.io/celestial_engine_project/)
 - **Latest Release:** [v1.2.0](https://github.com/DerAndr/celestial_engine_project/releases/latest) (`celestial_firmware.uf2` + `celestial_companion_v1.1.2.apk`)
 - **Hardware Documentation:** [Inventory & BOM](docs/hardware/inventory.md) • [Pinout & Wiring](docs/wiring/pinout.md) • [UDP Protocol v2](docs/protocol.md)
+- **Author:** Created by **Dr. Andrey Holz** — [LinkedIn](https://www.linkedin.com/in/andrey-holz/) • [GitHub (@DerAndr)](https://github.com/DerAndr)
 
 ---
 
@@ -206,6 +207,6 @@ sudo journalctl -u celestial-brain.service -f
 
 All monophonic 8-bit chiptune sequences included in the standalone synthesizer are simplified educational demonstrations for microcontroller research under Fair Use (17 U.S.C. § 107). All original musical compositions and trademarks belong to their respective owners. *"Korobeiniki"* (1861) is in the Public Domain.
 
-## License
+## Author & License
 
-Released under the [MIT License](LICENSE). © 2026 Andrey Holz.
+Created by **Dr. Andrey Holz** ([LinkedIn](https://www.linkedin.com/in/andrey-holz/)). Released under the [MIT License](LICENSE). © 2026 Dr. Andrey Holz.
