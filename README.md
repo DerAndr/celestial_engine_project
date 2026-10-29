@@ -13,7 +13,7 @@
 </p>
 
 **Autonomous Interactive AI Staff & Wearable Edge Compute Ecosystem**  
-*Embedded RP2350 M33 controller • 43-LED concentric WS2812B headpiece • Duplex I2S audio • Primary Mobile Brain (Google Pixel 9 Pro XL with Gemma 4 E2B Flash & Grimoire/Spell Forge <20ms) • Secondary Wearable SBC (Raspberry Pi 5 16GB NVMe offline AI) • 100% Autonomous Standalone Fallback • Engineered with Google Antigravity & Gemini 3.8 Flash.*
+*Embedded RP2350 M33 controller • 43-LED concentric WS2812B headpiece • Duplex I2S audio • Primary Mobile Brain (Google Pixel 9 Pro XL with Gemma 4 E2B & Grimoire/Spell Forge <20ms) • Secondary Wearable SBC (Raspberry Pi 5 16GB NVMe offline AI) • 100% Autonomous Standalone Fallback • Engineered with Google Antigravity & Gemini 3.8 Flash.*
 
 [🎮 Live Web Simulator](https://derandr.github.io/celestial_engine_project/) • [📦 Official Releases (v1.1.0)](https://github.com/DerAndr/celestial_engine_project/releases/tag/v1.1.0-release) • [🗺️ Pinout Map](https://derandr.github.io/celestial_engine_project/interactive_map.html) • [Architecture](#-system-architecture) • [Concentric Rings](#-43-led-concentric-headpiece) • [Android App](#-native-android-companion) • [Quick Start](#-developer-quick-start)
 
