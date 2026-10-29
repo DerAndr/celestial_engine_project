@@ -78,270 +78,6 @@
     </aside>
 
     <!-- =====================================================================
-         PRIMARY ARCHITECTURE & LOCAL LLM STREAMING OVERVIEW (ON MAIN PAGE)
-         ===================================================================== -->
-    <section id="system-overview" class="glass-panel sys-overview-panel" aria-label="System Architecture and Local LLM Streaming Overview">
-      <div class="panel-header" style="flex-wrap: wrap; gap: 10px;">
-        <h2 class="panel-title">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="7" height="16" rx="1.5"/><rect x="15" y="4" width="7" height="16" rx="1.5"/><path d="M9 9h6M9 15h6"/></svg>
-          How the System Works: Staff ⇄ Smartphone &amp; Real-Time Audio/LLM Streaming
-        </h2>
-        <span class="badge cyan">PRIMARY CONFIGURATION • UDP PORT 5005</span>
-      </div>
-
-      <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 6px;">
-        In normal operation, the system requires only <strong>two devices</strong>: the physical <strong>Staff (Raspberry Pi Pico 2 W / RP2350)</strong> and your <strong>Android Smartphone</strong> acting as a mobile Wi-Fi hotspot (<code>10.169.248.1</code>). The staff itself runs bare-metal C/C++ firmware with zero OS overhead: it captures your voice at 16 kHz, streams raw PCM packets over UDP to the phone, and plays back the synthesized voice response, OLED text ticker, and synchronized 43-LED animations in real time.
-      </p>
-
-      <!-- PRIMARY DIAGRAM: STAFF <-> ANDROID PHONE -->
-      <div class="topology-diagram-box">
-        <div class="topology-diagram-title">
-          PRIMARY TOPOLOGY (DEFAULT): STAFF CONTROLLER ⇄ ANDROID SMARTPHONE HOTSPOT
-        </div>
-        <div class="topology-flow-grid">
-          <!-- Node 1: Physical Staff -->
-          <div class="topology-node-card staff-node">
-            <div class="topology-node-header">
-              <span class="badge cyan">NODE 1 • EMBEDDED PERIPHERAL</span>
-              <strong class="topology-node-title">Physical Staff (Pico 2 W / RP2350)</strong>
-            </div>
-            <ul class="topology-node-list">
-              <li><strong>Voice Input:</strong> Side <code>QUERY</code> button (<code>GP9</code>) + <code>INMP441</code> I2S Mic (<code>16 kHz</code> 16-bit mono PCM via <code>PIO0</code> DMA)</li>
-              <li><strong>Visuals:</strong> 43 Concentric <code>WS2812B</code> LEDs (<code>GP15</code> via <code>74AHCT125N</code>) + <code>1.3" SH1106</code> I2C OLED (<code>128×64</code>)</li>
-              <li><strong>Audio Output:</strong> <code>MAX98357A</code> I2S Class-D Amp (<code>GP16–18</code>) + <code>4Ω 3W</code> speaker (<code>64 KB</code> circular ring buffer)</li>
-              <li><strong>Offline Fallback:</strong> Plays 21 onboard 8-bit chiptunes, 14 cosmic/R2-D2 SFX, and 28 LED patterns standalone</li>
-            </ul>
-          </div>
-
-          <!-- Bidirectional UDP Link -->
-          <div class="topology-link-col">
-            <div class="topology-arrow-pill uplink">
-              <span>🎙️ 16 kHz PCM Voice Stream + PTT Events</span>
-              <code>UDP :5005 ➔</code>
-            </div>
-            <div class="topology-protocol-badge">
-              Wi-Fi 802.11n • Binary UDP v2<br>
-              <span>CRC-16-CCITT • 20 ms Frames</span>
-            </div>
-            <div class="topology-arrow-pill downlink">
-              <code>⬅ UDP :5005</code>
-              <span>🔊 16 kHz TTS Audio + OLED Text + LED ID</span>
-            </div>
-          </div>
-
-          <!-- Node 2: Android Smartphone -->
-          <div class="topology-node-card phone-node">
-            <div class="topology-node-header">
-              <span class="badge gold">NODE 2 • PRIMARY HOST &amp; GATEWAY</span>
-              <strong class="topology-node-title">Android Smartphone (<code>v1.1.2</code> App)</strong>
-            </div>
-            <ul class="topology-node-list">
-              <li><strong>Wi-Fi Hotspot Gateway:</strong> Hosts local subnet (<code>10.169.248.1:5005</code>) — zero external router setup needed</li>
-              <li><strong>Speech-to-Text (STT):</strong> Transcribes incoming 16 kHz I2S microphone packets from the staff</li>
-              <li><strong>AI Oracle Engine:</strong> Runs persona prompt routing (On-Device / Cloud API / or forwarded to Local LLM server)</li>
-              <li><strong>Real-Time Audio &amp; HUD Streamer:</strong> Resamples TTS voice into <code>16 kHz</code> PCM chunks (<code>1024 B</code>) and streams them back to the staff</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <!-- LOCAL LLMS & REAL-TIME STREAMING EXPLANATION -->
-      <div class="streaming-steps-grid">
-        <div class="streaming-step-card">
-          <div class="step-num">1. Push-to-Talk &amp; I2S DMA Capture</div>
-          <p>Holding the green side button (<code>GP9</code>) switches the staff into <code>LISTENING</code> state. Core 1 captures 32-bit I2S frames from the <strong>INMP441</strong> mic via <code>PIO0 SM1</code>, decimates them to 16-bit 16 kHz mono PCM, and sends 640-byte (20 ms) UDP packets to port <code>5005</code>.</p>
-        </div>
-        <div class="streaming-step-card">
-          <div class="step-num">2. STT &amp; Local LLM Inference</div>
-          <p>When the button is released, the host transcribes the speech (<code>Whisper.cpp</code> or Android STT) and feeds the prompt to the active persona. With local models (<strong>Ollama</strong> <code>qwen2.5:1.5b</code> / <code>gemma4:e2b</code> or browser <strong>ONNX WebGPU</strong>), tokens are generated with zero cloud dependency.</p>
-        </div>
-        <div class="streaming-step-card">
-          <div class="step-num">3. Sentence-Chunked TTS &amp; UDP Pacing</div>
-          <p>As the LLM streams text, sentences are immediately sent to the neural TTS engine (<strong>Piper ONNX</strong> or Android TTS) and OLED text packets (<code>0x03</code>) + LED effect IDs (<code>0x01</code>) are dispatched so the staff reacts visually while audio is synthesized.</p>
-        </div>
-        <div class="streaming-step-card">
-          <div class="step-num">4. Zero-Stutter 64 KB Ring Buffer Playback</div>
-          <p>Downlink 16 kHz PCM frames (<code>0x04</code>, 1024 bytes = 32 ms per packet) arrive over UDP into the RP2350's <strong>64 KB circular ring buffer</strong> (<code>2.04 s</code> jitter cushion) and stream via DMA to the <strong>MAX98357A</strong> speaker while the 43 LEDs pulse to the voice envelope.</p>
-        </div>
-      </div>
-
-      <!-- OPTIONAL DIAGRAM: STAFF + ANDROID PHONE + RASPBERRY PI 5 LOCAL LLM NODE -->
-      <details class="optional-pi5-drawer" open>
-        <summary>
-          <span>⚡ <strong>Optional Expansion Topology:</strong> Staff ⇄ Android Smartphone ⇄ Wearable Raspberry Pi 5 (16 GB RAM Local LLM Co-Processor)</span>
-          <span class="badge gold">OPTIONAL OFFLINE AI NODE</span>
-        </summary>
-        <div class="optional-pi5-body">
-          <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 14px;">
-            For <strong>100% air-gapped field operation</strong> without cellular data or phone battery drain from heavy LLM weights, a wearable <strong>Raspberry Pi 5 (16 GB RAM + 1 TB NVMe SSD + X1209 UPS)</strong> joins the smartphone's Wi-Fi hotspot (<code>10.169.248.x</code>) as an optional local AI co-processor. You can either route requests through the Android app for full telemetry UI, or point the staff directly at the Pi 5 daemon (<code>celestial-brain.service</code>).
-          </p>
-
-          <div class="topology-flow-grid tri-node">
-            <!-- Node 1: Staff -->
-            <div class="topology-node-card staff-node">
-              <div class="topology-node-header">
-                <span class="badge cyan">1 • STAFF HARDWARE</span>
-                <strong class="topology-node-title">Pico 2 W (RP2350)</strong>
-              </div>
-              <ul class="topology-node-list">
-                <li><strong>Mic Uplink:</strong> Streams <code>16 kHz</code> PCM from <code>INMP441</code> over Wi-Fi UDP <code>:5005</code></li>
-                <li><strong>Audio Downlink:</strong> Plays <code>16 kHz</code> TTS via <code>MAX98357A</code> + <code>64 KB</code> DMA ring buffer</li>
-                <li><strong>Visual Sync:</strong> Renders <code>SH1106</code> OLED text &amp; 43-LED spell effects</li>
-              </ul>
-            </div>
-
-            <!-- Connector 1: Staff <-> Phone -->
-            <div class="topology-link-col compact">
-              <div class="topology-arrow-pill uplink">
-                <span>🎙️ 16 kHz PCM Voice</span>
-                <code>UDP :5005 ➔</code>
-              </div>
-              <div class="topology-protocol-badge">
-                Hotspot WLAN<br>
-                <span>20 ms UDP Frames</span>
-              </div>
-              <div class="topology-arrow-pill downlink">
-                <code>⬅ UDP :5005</code>
-                <span>🔊 TTS + OLED + LEDs</span>
-              </div>
-            </div>
-
-            <!-- Node 2: Phone -->
-            <div class="topology-node-card phone-node">
-              <div class="topology-node-header">
-                <span class="badge gold">2 • MOBILE ROUTER &amp; UI</span>
-                <strong class="topology-node-title">Android Phone (<code>10.169.248.1</code>)</strong>
-              </div>
-              <ul class="topology-node-list">
-                <li><strong>Wi-Fi Hotspot Router:</strong> Bridges the Staff and Wearable Pi 5 on local LAN</li>
-                <li><strong>Live Digital Twin UI:</strong> Real-time 43-LED preview, OLED mirror &amp; diagnostics</li>
-                <li><strong>Control Deck:</strong> Switches personas, triggers spells/SFX &amp; forwards AI queries</li>
-              </ul>
-            </div>
-
-            <!-- Connector 2: Phone <-> Pi 5 -->
-            <div class="topology-link-col compact">
-              <div class="topology-arrow-pill uplink">
-                <span>📡 Audio / Prompt Relay</span>
-                <code>LAN :5005 / HTTP ➔</code>
-              </div>
-              <div class="topology-protocol-badge">
-                100% Offline LAN<br>
-                <span>Zero Cloud Traffic</span>
-              </div>
-              <div class="topology-arrow-pill downlink">
-                <code>⬅ Local AI Stream</code>
-                <span>🧠 LLM Text + Piper WAV</span>
-              </div>
-            </div>
-
-            <!-- Node 3: Pi 5 -->
-            <div class="topology-node-card pi5-node">
-              <div class="topology-node-header">
-                <span class="badge" style="border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.14);">3 • OPTIONAL LOCAL AI SERVER</span>
-                <strong class="topology-node-title">Wearable Raspberry Pi 5 (16 GB)</strong>
-              </div>
-              <ul class="topology-node-list">
-                <li><strong>Local STT:</strong> <code>Whisper.cpp</code> (<code>base</code> / <code>small</code> quantized)</li>
-                <li><strong>Local LLM:</strong> <code>Ollama</code> (<code>qwen2.5:0.5b</code>, <code>qwen2.5:1.5b</code>, <code>gemma4:e2b</code>)</li>
-                <li><strong>Local TTS:</strong> <code>Piper</code> C++ ONNX neural voice (<code>&lt;300 ms</code> latency)</li>
-                <li><strong>Isolated Power:</strong> <code>Geekworm X1209</code> 18650 UPS (separate from staff 5V rail)</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </details>
-
-      <!-- NEXT-GEN v2.0 ROADMAP: 2026 BEST-PRACTICE ARCHITECTURE (PLANNED NEXT VERSION) -->
-      <details class="nextgen-v2-drawer" open>
-        <summary>
-          <span>🚀 <strong>Next-Gen v2.0 Target Flow (2026 Best-Practice Roadmap):</strong> Full-Duplex Speech-to-Speech, On-Device NPU &amp; Zero-Config BLE/mDNS</span>
-          <span class="badge" style="border-color: #c084fc; color: #e9d5ff; background: rgba(168, 85, 247, 0.18);">PLANNED NEXT RELEASE • v2.0</span>
-        </summary>
-        <div class="nextgen-v2-body">
-          <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.58; margin-bottom: 14px;">
-            While <strong>Mk.V (v1.2)</strong> uses a classic 3-step sequential pipeline (<code>I2S Raw PCM</code> → <code>STT</code> → <code>LLM Text</code> → <code>TTS</code> over static UDP), the upcoming <strong>v2.0 release</strong> upgrades the stack to the <strong>2026 Edge AI &amp; Wearable Best-Practice Architecture</strong>: eliminating manual IP configuration, cutting wireless audio bandwidth by 4×, and replacing the sequential text waterfall with <strong>sub-300 ms Full-Duplex Audio-to-Audio &amp; NPU Function Calling</strong>.
-          </p>
-
-          <div class="topology-flow-grid tri-node">
-            <!-- Stage 1: Smart Edge Firmware -->
-            <div class="topology-node-card staff-node">
-              <div class="topology-node-header">
-                <span class="badge cyan">STAGE 1 • RP2350 EDGE DSP</span>
-                <strong class="topology-node-title">Smart Staff Firmware v2.0</strong>
-              </div>
-              <ul class="topology-node-list">
-                <li><strong>Zero-Config Pairing:</strong> <code>BLE 5.3 GATT</code> + <code>mDNS</code> (<code>celestial.local</code>) — no static hotspot IP needed</li>
-                <li><strong>Onboard VAD &amp; Barge-In:</strong> Cortex-M33 <code>CMSIS-DSP</code> Voice Activity Detection lets you interrupt the Oracle mid-sentence</li>
-                <li><strong>4:1 Audio Compression:</strong> <code>IMA-ADPCM</code> / <code>Opus</code> framing (<code>64 kbps</code> vs <code>256 kbps</code> raw PCM) with sequence jitter buffer</li>
-                <li><strong>60 FPS Shader Engine:</strong> Parameterized LED spell keyframes driven by real-time voice pitch &amp; energy</li>
-              </ul>
-            </div>
-
-            <!-- Connector 1: Full-Duplex Link -->
-            <div class="topology-link-col compact">
-              <div class="topology-arrow-pill uplink">
-                <span>🎙️ VAD-Gated ADPCM / Opus</span>
-                <code>Full-Duplex ➔</code>
-              </div>
-              <div class="topology-protocol-badge">
-                BLE Provision + Wi-Fi<br>
-                <span>Barge-In • &lt;15 ms Jitter</span>
-              </div>
-              <div class="topology-arrow-pill downlink">
-                <code>⬅ Stream + Tool Calls</code>
-                <span>🔊 Audio + JSON Spell Struct</span>
-              </div>
-            </div>
-
-            <!-- Stage 2: Native NPU / Multimodal Brain -->
-            <div class="topology-node-card nextgen-node">
-              <div class="topology-node-header">
-                <span class="badge" style="border-color: #c084fc; color: #e9d5ff; background: rgba(168, 85, 247, 0.16);">STAGE 2 • NATIVE NPU / OMNI ENGINE</span>
-                <strong class="topology-node-title">On-Device NPU &amp; Realtime Audio</strong>
-              </div>
-              <ul class="topology-node-list">
-                <li><strong>Direct Audio-to-Audio:</strong> Native multimodal models (<code>Gemma 3n / 4 E2B</code> via <code>LiteRT-LM</code> NPU or <code>Gemini Live WebRTC</code>) process speech tokens directly without STT delay</li>
-                <li><strong>Fast Offline Fallback:</strong> <code>Moonshine ONNX</code> STT + <code>Kokoro-82M</code> neural TTS (<code>&lt;180 ms</code> first-chunk audio)</li>
-                <li><strong>Hardware Tool Calling:</strong> Model emits structured JSON tool calls (<code>set_led_spell</code>, <code>trigger_sfx</code>, <code>set_oled_mood</code>) inline with audio</li>
-              </ul>
-            </div>
-
-            <!-- Connector 2: Edge / Cloud Mesh -->
-            <div class="topology-link-col compact">
-              <div class="topology-arrow-pill uplink">
-                <span>⚡ Auto-Routed Context</span>
-                <code>NPU ⇄ Pi 5 ⇄ Cloud</code>
-              </div>
-              <div class="topology-protocol-badge">
-                Hybrid Router<br>
-                <span>&lt;300 ms Voice-to-Voice</span>
-              </div>
-              <div class="topology-arrow-pill downlink">
-                <code>⬅ Unified Telemetry</code>
-                <span>📊 Web / Mobile Twin Sync</span>
-              </div>
-            </div>
-
-            <!-- Stage 3: v1.2 vs v2.0 Engineering Gains -->
-            <div class="topology-node-card phone-node">
-              <div class="topology-node-header">
-                <span class="badge gold">STAGE 3 • v2.0 TARGET METRICS</span>
-                <strong class="topology-node-title">Why This Matters (v1.2 → v2.0)</strong>
-              </div>
-              <ul class="topology-node-list">
-                <li><strong>End-to-End Latency:</strong> Drops from <code>1.4–2.5 s</code> (STT→LLM→TTS waterfall) to <code>&lt;300 ms</code> conversational turn-taking</li>
-                <li><strong>Hands-Free Conversation:</strong> Continuous duplex mode with acoustic echo cancellation &amp; instant barge-in</li>
-                <li><strong>Zero Network Setup:</strong> Turn on the staff and any phone/Pi 5 auto-discovers it over <code>BLE + mDNS</code></li>
-                <li><strong>4× Lower Wi-Fi Airtime:</strong> Compressed frames eliminate UDP packet loss in crowded convention halls</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </details>
-    </section>
-
-    <!-- =====================================================================
          PHYSICAL BUILD REPLICA, IC BREADBOARD CAD & ORACLE CONSOLE
          ===================================================================== -->
     <section id="replica-showcase" class="replica-showcase-grid" aria-label="Interactive Physical Staff Replica and Oracle Console">
@@ -837,6 +573,270 @@
       </section>
 
     </main>
+
+    <!-- =====================================================================
+         PRIMARY ARCHITECTURE & LOCAL LLM STREAMING OVERVIEW
+         ===================================================================== -->
+    <section id="system-overview" class="glass-panel sys-overview-panel" aria-label="System Architecture and Local LLM Streaming Overview">
+      <div class="panel-header" style="flex-wrap: wrap; gap: 10px;">
+        <h2 class="panel-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="7" height="16" rx="1.5"/><rect x="15" y="4" width="7" height="16" rx="1.5"/><path d="M9 9h6M9 15h6"/></svg>
+          How the System Works: Staff ⇄ Smartphone &amp; Real-Time Audio/LLM Streaming
+        </h2>
+        <span class="badge cyan">PRIMARY CONFIGURATION • UDP PORT 5005</span>
+      </div>
+
+      <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 6px;">
+        In normal operation, the system requires only <strong>two devices</strong>: the physical <strong>Staff (Raspberry Pi Pico 2 W / RP2350)</strong> and your <strong>Android Smartphone</strong> acting as a mobile Wi-Fi hotspot (<code>10.169.248.1</code>). The staff itself runs bare-metal C/C++ firmware with zero OS overhead: it captures your voice at 16 kHz, streams raw PCM packets over UDP to the phone, and plays back the synthesized voice response, OLED text ticker, and synchronized 43-LED animations in real time.
+      </p>
+
+      <!-- PRIMARY DIAGRAM: STAFF <-> ANDROID PHONE -->
+      <div class="topology-diagram-box">
+        <div class="topology-diagram-title">
+          PRIMARY TOPOLOGY (DEFAULT): STAFF CONTROLLER ⇄ ANDROID SMARTPHONE HOTSPOT
+        </div>
+        <div class="topology-flow-grid">
+          <!-- Node 1: Physical Staff -->
+          <div class="topology-node-card staff-node">
+            <div class="topology-node-header">
+              <span class="badge cyan">NODE 1 • EMBEDDED PERIPHERAL</span>
+              <strong class="topology-node-title">Physical Staff (Pico 2 W / RP2350)</strong>
+            </div>
+            <ul class="topology-node-list">
+              <li><strong>Voice Input:</strong> Side <code>QUERY</code> button (<code>GP9</code>) + <code>INMP441</code> I2S Mic (<code>16 kHz</code> 16-bit mono PCM via <code>PIO0</code> DMA)</li>
+              <li><strong>Visuals:</strong> 43 Concentric <code>WS2812B</code> LEDs (<code>GP15</code> via <code>74AHCT125N</code>) + <code>1.3" SH1106</code> I2C OLED (<code>128×64</code>)</li>
+              <li><strong>Audio Output:</strong> <code>MAX98357A</code> I2S Class-D Amp (<code>GP16–18</code>) + <code>4Ω 3W</code> speaker (<code>64 KB</code> circular ring buffer)</li>
+              <li><strong>Offline Fallback:</strong> Plays 21 onboard 8-bit chiptunes, 14 cosmic/R2-D2 SFX, and 28 LED patterns standalone</li>
+            </ul>
+          </div>
+
+          <!-- Bidirectional UDP Link -->
+          <div class="topology-link-col">
+            <div class="topology-arrow-pill uplink">
+              <span>🎙️ 16 kHz PCM Voice Stream + PTT Events</span>
+              <code>UDP :5005 ➔</code>
+            </div>
+            <div class="topology-protocol-badge">
+              Wi-Fi 802.11n • Binary UDP v2<br>
+              <span>CRC-16-CCITT • 20 ms Frames</span>
+            </div>
+            <div class="topology-arrow-pill downlink">
+              <code>⬅ UDP :5005</code>
+              <span>🔊 16 kHz TTS Audio + OLED Text + LED ID</span>
+            </div>
+          </div>
+
+          <!-- Node 2: Android Smartphone -->
+          <div class="topology-node-card phone-node">
+            <div class="topology-node-header">
+              <span class="badge gold">NODE 2 • PRIMARY HOST &amp; GATEWAY</span>
+              <strong class="topology-node-title">Android Smartphone (<code>v1.1.2</code> App)</strong>
+            </div>
+            <ul class="topology-node-list">
+              <li><strong>Wi-Fi Hotspot Gateway:</strong> Hosts local subnet (<code>10.169.248.1:5005</code>) — zero external router setup needed</li>
+              <li><strong>Speech-to-Text (STT):</strong> Transcribes incoming 16 kHz I2S microphone packets from the staff</li>
+              <li><strong>AI Oracle Engine:</strong> Runs persona prompt routing (On-Device / Cloud API / or forwarded to Local LLM server)</li>
+              <li><strong>Real-Time Audio &amp; HUD Streamer:</strong> Resamples TTS voice into <code>16 kHz</code> PCM chunks (<code>1024 B</code>) and streams them back to the staff</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOCAL LLMS & REAL-TIME STREAMING EXPLANATION -->
+      <div class="streaming-steps-grid">
+        <div class="streaming-step-card">
+          <div class="step-num">1. Push-to-Talk &amp; I2S DMA Capture</div>
+          <p>Holding the green side button (<code>GP9</code>) switches the staff into <code>LISTENING</code> state. Core 1 captures 32-bit I2S frames from the <strong>INMP441</strong> mic via <code>PIO0 SM1</code>, decimates them to 16-bit 16 kHz mono PCM, and sends 640-byte (20 ms) UDP packets to port <code>5005</code>.</p>
+        </div>
+        <div class="streaming-step-card">
+          <div class="step-num">2. STT &amp; Local LLM Inference</div>
+          <p>When the button is released, the host transcribes the speech (<code>Whisper.cpp</code> or Android STT) and feeds the prompt to the active persona. With local models (<strong>Ollama</strong> <code>qwen2.5:1.5b</code> / <code>gemma4:e2b</code> or browser <strong>ONNX WebGPU</strong>), tokens are generated with zero cloud dependency.</p>
+        </div>
+        <div class="streaming-step-card">
+          <div class="step-num">3. Sentence-Chunked TTS &amp; UDP Pacing</div>
+          <p>As the LLM streams text, sentences are immediately sent to the neural TTS engine (<strong>Piper ONNX</strong> or Android TTS) and OLED text packets (<code>0x03</code>) + LED effect IDs (<code>0x01</code>) are dispatched so the staff reacts visually while audio is synthesized.</p>
+        </div>
+        <div class="streaming-step-card">
+          <div class="step-num">4. Zero-Stutter 64 KB Ring Buffer Playback</div>
+          <p>Downlink 16 kHz PCM frames (<code>0x04</code>, 1024 bytes = 32 ms per packet) arrive over UDP into the RP2350's <strong>64 KB circular ring buffer</strong> (<code>2.04 s</code> jitter cushion) and stream via DMA to the <strong>MAX98357A</strong> speaker while the 43 LEDs pulse to the voice envelope.</p>
+        </div>
+      </div>
+
+      <!-- OPTIONAL DIAGRAM: STAFF + ANDROID PHONE + RASPBERRY PI 5 LOCAL LLM NODE -->
+      <details class="optional-pi5-drawer" open>
+        <summary>
+          <span>⚡ <strong>Optional Expansion Topology:</strong> Staff ⇄ Android Smartphone ⇄ Wearable Raspberry Pi 5 (16 GB RAM Local LLM Co-Processor)</span>
+          <span class="badge gold">OPTIONAL OFFLINE AI NODE</span>
+        </summary>
+        <div class="optional-pi5-body">
+          <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 14px;">
+            For <strong>100% air-gapped field operation</strong> without cellular data or phone battery drain from heavy LLM weights, a wearable <strong>Raspberry Pi 5 (16 GB RAM + 1 TB NVMe SSD + X1209 UPS)</strong> joins the smartphone's Wi-Fi hotspot (<code>10.169.248.x</code>) as an optional local AI co-processor. You can either route requests through the Android app for full telemetry UI, or point the staff directly at the Pi 5 daemon (<code>celestial-brain.service</code>).
+          </p>
+
+          <div class="topology-flow-grid tri-node">
+            <!-- Node 1: Staff -->
+            <div class="topology-node-card staff-node">
+              <div class="topology-node-header">
+                <span class="badge cyan">1 • STAFF HARDWARE</span>
+                <strong class="topology-node-title">Pico 2 W (RP2350)</strong>
+              </div>
+              <ul class="topology-node-list">
+                <li><strong>Mic Uplink:</strong> Streams <code>16 kHz</code> PCM from <code>INMP441</code> over Wi-Fi UDP <code>:5005</code></li>
+                <li><strong>Audio Downlink:</strong> Plays <code>16 kHz</code> TTS via <code>MAX98357A</code> + <code>64 KB</code> DMA ring buffer</li>
+                <li><strong>Visual Sync:</strong> Renders <code>SH1106</code> OLED text &amp; 43-LED spell effects</li>
+              </ul>
+            </div>
+
+            <!-- Connector 1: Staff <-> Phone -->
+            <div class="topology-link-col compact">
+              <div class="topology-arrow-pill uplink">
+                <span>🎙️ 16 kHz PCM Voice</span>
+                <code>UDP :5005 ➔</code>
+              </div>
+              <div class="topology-protocol-badge">
+                Hotspot WLAN<br>
+                <span>20 ms UDP Frames</span>
+              </div>
+              <div class="topology-arrow-pill downlink">
+                <code>⬅ UDP :5005</code>
+                <span>🔊 TTS + OLED + LEDs</span>
+              </div>
+            </div>
+
+            <!-- Node 2: Phone -->
+            <div class="topology-node-card phone-node">
+              <div class="topology-node-header">
+                <span class="badge gold">2 • MOBILE ROUTER &amp; UI</span>
+                <strong class="topology-node-title">Android Phone (<code>10.169.248.1</code>)</strong>
+              </div>
+              <ul class="topology-node-list">
+                <li><strong>Wi-Fi Hotspot Router:</strong> Bridges the Staff and Wearable Pi 5 on local LAN</li>
+                <li><strong>Live Digital Twin UI:</strong> Real-time 43-LED preview, OLED mirror &amp; diagnostics</li>
+                <li><strong>Control Deck:</strong> Switches personas, triggers spells/SFX &amp; forwards AI queries</li>
+              </ul>
+            </div>
+
+            <!-- Connector 2: Phone <-> Pi 5 -->
+            <div class="topology-link-col compact">
+              <div class="topology-arrow-pill uplink">
+                <span>📡 Audio / Prompt Relay</span>
+                <code>LAN :5005 / HTTP ➔</code>
+              </div>
+              <div class="topology-protocol-badge">
+                100% Offline LAN<br>
+                <span>Zero Cloud Traffic</span>
+              </div>
+              <div class="topology-arrow-pill downlink">
+                <code>⬅ Local AI Stream</code>
+                <span>🧠 LLM Text + Piper WAV</span>
+              </div>
+            </div>
+
+            <!-- Node 3: Pi 5 -->
+            <div class="topology-node-card pi5-node">
+              <div class="topology-node-header">
+                <span class="badge" style="border-color: #f59e0b; color: #fbbf24; background: rgba(245, 158, 11, 0.14);">3 • OPTIONAL LOCAL AI SERVER</span>
+                <strong class="topology-node-title">Wearable Raspberry Pi 5 (16 GB)</strong>
+              </div>
+              <ul class="topology-node-list">
+                <li><strong>Local STT:</strong> <code>Whisper.cpp</code> (<code>base</code> / <code>small</code> quantized)</li>
+                <li><strong>Local LLM:</strong> <code>Ollama</code> (<code>qwen2.5:0.5b</code>, <code>qwen2.5:1.5b</code>, <code>gemma4:e2b</code>)</li>
+                <li><strong>Local TTS:</strong> <code>Piper</code> C++ ONNX neural voice (<code>&lt;300 ms</code> latency)</li>
+                <li><strong>Isolated Power:</strong> <code>Geekworm X1209</code> 18650 UPS (separate from staff 5V rail)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- NEXT-GEN v2.0 ROADMAP: 2026 BEST-PRACTICE ARCHITECTURE (PLANNED NEXT VERSION) -->
+      <details class="nextgen-v2-drawer" open>
+        <summary>
+          <span>🚀 <strong>Next-Gen v2.0 Target Flow (2026 Best-Practice Roadmap):</strong> Full-Duplex Speech-to-Speech, On-Device NPU &amp; Zero-Config BLE/mDNS</span>
+          <span class="badge" style="border-color: #c084fc; color: #e9d5ff; background: rgba(168, 85, 247, 0.18);">PLANNED NEXT RELEASE • v2.0</span>
+        </summary>
+        <div class="nextgen-v2-body">
+          <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.58; margin-bottom: 14px;">
+            While <strong>Mk.V (v1.2)</strong> uses a classic 3-step sequential pipeline (<code>I2S Raw PCM</code> → <code>STT</code> → <code>LLM Text</code> → <code>TTS</code> over static UDP), the upcoming <strong>v2.0 release</strong> upgrades the stack to the <strong>2026 Edge AI &amp; Wearable Best-Practice Architecture</strong>: eliminating manual IP configuration, cutting wireless audio bandwidth by 4×, and replacing the sequential text waterfall with <strong>sub-300 ms Full-Duplex Audio-to-Audio &amp; NPU Function Calling</strong>.
+          </p>
+
+          <div class="topology-flow-grid tri-node">
+            <!-- Stage 1: Smart Edge Firmware -->
+            <div class="topology-node-card staff-node">
+              <div class="topology-node-header">
+                <span class="badge cyan">STAGE 1 • RP2350 EDGE DSP</span>
+                <strong class="topology-node-title">Smart Staff Firmware v2.0</strong>
+              </div>
+              <ul class="topology-node-list">
+                <li><strong>Zero-Config Pairing:</strong> <code>BLE 5.3 GATT</code> + <code>mDNS</code> (<code>celestial.local</code>) — no static hotspot IP needed</li>
+                <li><strong>Onboard VAD &amp; Barge-In:</strong> Cortex-M33 <code>CMSIS-DSP</code> Voice Activity Detection lets you interrupt the Oracle mid-sentence</li>
+                <li><strong>4:1 Audio Compression:</strong> <code>IMA-ADPCM</code> / <code>Opus</code> framing (<code>64 kbps</code> vs <code>256 kbps</code> raw PCM) with sequence jitter buffer</li>
+                <li><strong>60 FPS Shader Engine:</strong> Parameterized LED spell keyframes driven by real-time voice pitch &amp; energy</li>
+              </ul>
+            </div>
+
+            <!-- Connector 1: Full-Duplex Link -->
+            <div class="topology-link-col compact">
+              <div class="topology-arrow-pill uplink">
+                <span>🎙️ VAD-Gated ADPCM / Opus</span>
+                <code>Full-Duplex ➔</code>
+              </div>
+              <div class="topology-protocol-badge">
+                BLE Provision + Wi-Fi<br>
+                <span>Barge-In • &lt;15 ms Jitter</span>
+              </div>
+              <div class="topology-arrow-pill downlink">
+                <code>⬅ Stream + Tool Calls</code>
+                <span>🔊 Audio + JSON Spell Struct</span>
+              </div>
+            </div>
+
+            <!-- Stage 2: Native NPU / Multimodal Brain -->
+            <div class="topology-node-card nextgen-node">
+              <div class="topology-node-header">
+                <span class="badge" style="border-color: #c084fc; color: #e9d5ff; background: rgba(168, 85, 247, 0.16);">STAGE 2 • NATIVE NPU / OMNI ENGINE</span>
+                <strong class="topology-node-title">On-Device NPU &amp; Realtime Audio</strong>
+              </div>
+              <ul class="topology-node-list">
+                <li><strong>Direct Audio-to-Audio:</strong> Native multimodal models (<code>Gemma 3n / 4 E2B</code> via <code>LiteRT-LM</code> NPU or <code>Gemini Live WebRTC</code>) process speech tokens directly without STT delay</li>
+                <li><strong>Fast Offline Fallback:</strong> <code>Moonshine ONNX</code> STT + <code>Kokoro-82M</code> neural TTS (<code>&lt;180 ms</code> first-chunk audio)</li>
+                <li><strong>Hardware Tool Calling:</strong> Model emits structured JSON tool calls (<code>set_led_spell</code>, <code>trigger_sfx</code>, <code>set_oled_mood</code>) inline with audio</li>
+              </ul>
+            </div>
+
+            <!-- Connector 2: Edge / Cloud Mesh -->
+            <div class="topology-link-col compact">
+              <div class="topology-arrow-pill uplink">
+                <span>⚡ Auto-Routed Context</span>
+                <code>NPU ⇄ Pi 5 ⇄ Cloud</code>
+              </div>
+              <div class="topology-protocol-badge">
+                Hybrid Router<br>
+                <span>&lt;300 ms Voice-to-Voice</span>
+              </div>
+              <div class="topology-arrow-pill downlink">
+                <code>⬅ Unified Telemetry</code>
+                <span>📊 Web / Mobile Twin Sync</span>
+              </div>
+            </div>
+
+            <!-- Stage 3: v1.2 vs v2.0 Engineering Gains -->
+            <div class="topology-node-card phone-node">
+              <div class="topology-node-header">
+                <span class="badge gold">STAGE 3 • v2.0 TARGET METRICS</span>
+                <strong class="topology-node-title">Why This Matters (v1.2 → v2.0)</strong>
+              </div>
+              <ul class="topology-node-list">
+                <li><strong>End-to-End Latency:</strong> Drops from <code>1.4–2.5 s</code> (STT→LLM→TTS waterfall) to <code>&lt;300 ms</code> conversational turn-taking</li>
+                <li><strong>Hands-Free Conversation:</strong> Continuous duplex mode with acoustic echo cancellation &amp; instant barge-in</li>
+                <li><strong>Zero Network Setup:</strong> Turn on the staff and any phone/Pi 5 auto-discovers it over <code>BLE + mDNS</code></li>
+                <li><strong>4× Lower Wi-Fi Airtime:</strong> Compressed frames eliminate UDP packet loss in crowded convention halls</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
 
     <!-- =====================================================================
          INTERACTIVE 3D HARDWARE SCHEMATIC & WIRING EXPLORER
