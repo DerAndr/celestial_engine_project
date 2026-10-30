@@ -53,7 +53,7 @@ export class LocalLlmClient {
 
   ensureWorker() {
     if (this.worker) return;
-    const workerUrl = new URL('./worker.js?v=1.3.2', import.meta.url);
+    const workerUrl = new URL('./worker.js?v=1.3.3', import.meta.url);
     this.worker = new Worker(workerUrl, { type: 'module' });
 
     this.worker.addEventListener('message', (e) => {

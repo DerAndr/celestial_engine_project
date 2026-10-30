@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.2';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.2';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.2';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.2';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.2';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.3';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.3';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.3';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.3';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.3';
 
 let oracleProvider = null;
 let staff2D = null;
@@ -230,6 +230,7 @@ export async function submitOracleQuery(questionText) {
   }
   updateOracleUi();
 
+  window.__celestialIsLocalLlmGenerating = Boolean(useLocalAi);
   try {
     const res = await oracleProvider.generate({
       requestId: reqId,
@@ -247,6 +248,7 @@ export async function submitOracleQuery(questionText) {
         }
       }
     });
+    window.__celestialIsLocalLlmGenerating = false;
 
     // Ignore stale response if another request started in the meantime
     if (reqId !== twinState.getState().activeRequestId) return;
@@ -285,6 +287,7 @@ export async function submitOracleQuery(questionText) {
       }, 1200);
     }
   } catch (err) {
+    window.__celestialIsLocalLlmGenerating = false;
     if (err && err.message === 'CANCELLED') return;
 
     // Seamless fallback to Scripted Mode so simulator never stays stuck in PROCESSING

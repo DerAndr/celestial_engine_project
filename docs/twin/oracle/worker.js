@@ -3,7 +3,7 @@
  * Uses @huggingface/transformers v4.3.2 via jsDelivr.
  */
 
-import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.3.2';
+import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.3.3';
 
 const TRANSFORMERS_CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js';
 
@@ -32,10 +32,13 @@ export const MODEL_CATALOG = {
 
 let pipelineInstance = null;
 let TextStreamerClass = null;
+let InterruptableStoppingCriteriaClass = null;
+let StoppingCriteriaListClass = null;
 let loadedModelKey = null;
 let loadedDevice = null;
 let cancelledRequests = new Set();
 let isGenerating = false;
+const isMobileWorker = /Android|iPhone|iPad|iPod|Mobile/i.test((typeof navigator !== 'undefined' && navigator.userAgent) || '');
 
 const CREATOR_LINKEDIN_URL = 'https://www.linkedin.com/in/andrey-holz/';
 
@@ -96,7 +99,7 @@ async function checkWebGpuAdapter() {
     return { ok: false, reason: 'navigator.gpu not present' };
   }
   try {
-    const adapter = await navigator.gpu.requestAdapter();
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
     if (!adapter) {
       return { ok: false, reason: 'No WebGPU adapter returned' };
     }
@@ -173,9 +176,11 @@ self.addEventListener('message', async (event) => {
         status: `Loading Transformers.js v4.3.2 (${device.toUpperCase()}, ${dtype})...`
       });
 
-      const { pipeline, env, TextStreamer } = await import(TRANSFORMERS_CDN);
+      const { pipeline, env, TextStreamer, InterruptableStoppingCriteria, StoppingCriteriaList } = await import(TRANSFORMERS_CDN);
       env.allowLocalModels = false;
       TextStreamerClass = TextStreamer || null;
+      InterruptableStoppingCriteriaClass = InterruptableStoppingCriteria || null;
+      StoppingCriteriaListClass = StoppingCriteriaList || null;
 
       const fileBytes = new Map();
       try {
@@ -296,12 +301,23 @@ self.addEventListener('message', async (event) => {
 
       const startMs = performance.now();
       let streamedRaw = '';
+      let mobileStopper = null;
+      let stoppingCriteriaList = undefined;
+      if (isMobileWorker && InterruptableStoppingCriteriaClass && StoppingCriteriaListClass) {
+        mobileStopper = new InterruptableStoppingCriteriaClass();
+        stoppingCriteriaList = new StoppingCriteriaListClass();
+        stoppingCriteriaList.push(mobileStopper);
+      }
+
       const streamer = (TextStreamerClass && pipelineInstance.tokenizer)
         ? new TextStreamerClass(pipelineInstance.tokenizer, {
             skip_prompt: true,
             skip_special_tokens: true,
             callback_function: (tokenText) => {
-              if (cancelledRequests.has(requestId)) return;
+              if (cancelledRequests.has(requestId)) {
+                if (mobileStopper) mobileStopper.interrupt();
+                return;
+              }
               streamedRaw += tokenText;
               const partialClean = cleanStreamFragment(streamedRaw);
               if (partialClean) {
@@ -313,19 +329,35 @@ self.addEventListener('message', async (event) => {
                   modelKey: loadedModelKey,
                   device: loadedDevice
                 });
+                // Mobile-only smart sentence completion: stop after >= 14 words once a full sentence ends
+                if (isMobileWorker && mobileStopper) {
+                  const wordCount = partialClean.split(/\s+/).filter(Boolean).length;
+                  if (wordCount >= 14 && /[.!?]$/.test(partialClean) && !/\b(?:Dr|Mr|Mrs|Ms|Prof|Mk|St|vs)\.$/i.test(partialClean)) {
+                    mobileStopper.interrupt();
+                  }
+                }
               }
             }
           })
         : undefined;
 
-      const out = await pipelineInstance(messages, {
-        max_new_tokens: maxNewTokens,
-        temperature,
-        top_p: 0.9,
-        repetition_penalty: 1.1,
-        do_sample: loadedDevice === 'webgpu',
-        ...(streamer ? { streamer } : {})
-      });
+      const genOptions = isMobileWorker
+        ? {
+            max_new_tokens: 46,
+            do_sample: false,
+            ...(streamer ? { streamer } : {}),
+            ...(stoppingCriteriaList ? { stopping_criteria: stoppingCriteriaList } : {})
+          }
+        : {
+            max_new_tokens: maxNewTokens,
+            temperature,
+            top_p: 0.9,
+            repetition_penalty: 1.1,
+            do_sample: loadedDevice === 'webgpu',
+            ...(streamer ? { streamer } : {})
+          };
+
+      const out = await pipelineInstance(messages, genOptions);
 
       if (cancelledRequests.has(requestId)) {
         cancelledRequests.delete(requestId);

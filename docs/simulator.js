@@ -1867,8 +1867,10 @@
   // --- MAIN LOOP ANIMATION ---
 
   let lastMarqueeTime = 0;
+  let lastMobileLlmThrottleTime = 0;
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test((typeof navigator !== 'undefined' && navigator.userAgent) || '');
 
 
 
@@ -1880,6 +1882,15 @@
 
       return;
 
+    }
+
+    // Mobile-only optimization: yield mobile GPU/CPU to WebGPU/WASM Local LLM worker while generating
+    if (isMobileDevice && window.__celestialIsLocalLlmGenerating) {
+      if (t - lastMobileLlmThrottleTime < 600) {
+        requestAnimationFrame(animate);
+        return;
+      }
+      lastMobileLlmThrottleTime = t;
     }
 
 
