@@ -53,7 +53,7 @@ export class LocalLlmClient {
 
   ensureWorker() {
     if (this.worker) return;
-    const workerUrl = new URL('./worker.js?v=1.3.3', import.meta.url);
+    const workerUrl = new URL('./worker.js?v=1.3.4', import.meta.url);
     this.worker = new Worker(workerUrl, { type: 'module' });
 
     this.worker.addEventListener('message', (e) => {
@@ -127,7 +127,7 @@ export class LocalLlmClient {
     this.worker.postMessage({ type: 'INIT', modelKey });
   }
 
-  generate({ requestId, systemPrompt, question, maxNewTokens = 100, onStream }) {
+  generate({ requestId, systemPrompt, question, maxNewTokens = 40, onStream }) {
     if (!this.worker || !this.isReady) {
       return Promise.reject(new Error('Local AI model is not ready.'));
     }

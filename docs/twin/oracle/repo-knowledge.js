@@ -18,8 +18,8 @@ export const REPO_SUMMARY_COMPACT =
 export const REPO_TOPICS = [
   {
     id: 'creator_author',
-    keywords: /(\b(who|creator|author|made|built|engineer|developer|designer|founder|owner|andrey|holz|derandr|linkedin|contact|profile)\b|кто|автор|создал|сделал|разработал|андрей|хольц|линкедин)/i,
-    fact: "Celestial Engine Mk.V was created and engineered by Dr. Andrey Holz. Official LinkedIn profile: https://www.linkedin.com/in/andrey-holz/",
+    keywords: /(\b(who|creator|created|author|made|built|engineer|developer|designer|founder|owner|andrey|holz|derandr|linkedin|contact|profile)\b|кто|автор|создал|сделал|разработал|андрей|хольц|линкедин)/i,
+    fact: "Celestial Engine Mk.V (hardware staff, RP2350 firmware, Android app, Pi 5 server, and Digital Twin) was created by Dr. Andrey Holz, an expert in Machine Learning and Applied Mathematics (GitHub: @DerAndr, Official LinkedIn: https://www.linkedin.com/in/andrey-holz/ ). State ONLY these exact facts; never invent age, university, or unstated biography.",
     personaReplies: {
       machine_god: "Celestial Engine Mk.V was architected and built by Dr. Andrey Holz. Connect on LinkedIn: https://www.linkedin.com/in/andrey-holz/",
       archmage: "This arcane staff was forged by the master artificer Dr. Andrey Holz. Seek his scroll on LinkedIn: https://www.linkedin.com/in/andrey-holz/",

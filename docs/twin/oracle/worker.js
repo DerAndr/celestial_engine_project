@@ -3,7 +3,7 @@
  * Uses @huggingface/transformers v4.3.2 via jsDelivr.
  */
 
-import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.3.3';
+import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.3.4';
 
 const TRANSFORMERS_CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js';
 
@@ -56,8 +56,8 @@ function cleanStreamFragment(rawText) {
 }
 
 /**
- * Clean and constrain output (up to ~100 tokens / 4 sentences) without Markdown or emojis,
- * while preserving full URLs and titles ("Dr.").
+ * Clean and constrain output to 1-2 sentences (<= 34 words, ~40 tokens) without Markdown or emojis,
+ * while preserving full URLs and titles ("Dr.") and stripping any hallucinated biography filler.
  */
 function sanitizeAndConstrainOutput(rawText, matchedTopics = []) {
   if (!rawText) return '';
@@ -65,23 +65,32 @@ function sanitizeAndConstrainOutput(rawText, matchedTopics = []) {
 
   // Protect abbreviations like "Dr.", "Mr.", "Prof.", "Mk." before splitting sentences
   const protectedText = text.replace(/\b(Dr|Mr|Mrs|Ms|Prof|Mk|St|vs)\.\s+/gi, '$1\u0000 ');
-  const sentenceParts = protectedText.split(/(?<=[.!?])\s+(?=[A-ZА-ЯЁ0-9])/);
-  if (sentenceParts && sentenceParts.length > 0) {
-    text = sentenceParts.slice(0, 4).join(' ').replace(/\u0000/g, '.').trim();
+  let sentenceParts = protectedText
+    .split(/(?<=[.!?])\s+(?=[A-ZА-ЯЁ0-9])/)
+    .map(s => s.replace(/\u0000/g, '.').trim())
+    .filter(Boolean);
+
+  // Filter out small-LLM hallucinated biography filler (fake age, fake university, etc.)
+  sentenceParts = sentenceParts.filter(
+    s => !/\b\d+-year-old\b|\buniversity\b|\bmoscow\b|\bborn in\b|\bgraduated\b/i.test(s)
+  );
+
+  if (sentenceParts.length > 0) {
+    text = sentenceParts.slice(0, 2).join(' ').trim();
   } else {
     text = protectedText.replace(/\u0000/g, '.').trim();
   }
 
   const words = text.split(/\s+/).filter(Boolean);
-  if (words.length > 90) {
-    text = words.slice(0, 90).join(' ').replace(/[,;:\-–—]+$/, '');
+  if (words.length > 34) {
+    text = words.slice(0, 34).join(' ').replace(/[,;:\-–—]+$/, '');
   }
 
   // Strip any dangling title at the very end caused by token or word-limit truncation (e.g. "... Dr.")
   text = text.replace(/\s+\b(?:Dr|Mr|Mrs|Ms|Prof)\.?$/i, '').trim();
 
   // Guarantee the LinkedIn URL is never lost when answering about the creator / Dr. Andrey Holz
-  const isCreatorTopic = Array.isArray(matchedTopics) && matchedTopics.includes('creator_author');
+  const isCreatorTopic = Array.isArray(matchedTopics) && matchedTopics.some(t => (t.id || t) === 'creator_author');
   if ((isCreatorTopic || /\b(andrey|holz|linkedin)\b/i.test(text)) && !text.includes('linkedin.com/in/andrey-holz')) {
     text = text.replace(/[,;:\-–—.]+$/, '');
     text = `${text}. LinkedIn: ${CREATOR_LINKEDIN_URL}`;
@@ -162,8 +171,10 @@ self.addEventListener('message', async (event) => {
       });
 
       const gpuCheck = await checkWebGpuAdapter();
-      const useWebgpu = gpuCheck.ok;
-      if (!useWebgpu && spec.key === 'lfm2.5-350m') {
+      // On mobile browsers, SmolLM2-135M runs significantly faster on CPU WASM SIMD (q4)
+      // than mobile WebGPU (q4f16), which suffers from GPU⇄CPU buffer sync stalls on mobile GPUs.
+      const useWebgpu = isMobileWorker && spec.key === 'smollm2-135m' ? false : gpuCheck.ok;
+      if (!gpuCheck.ok && spec.key === 'lfm2.5-350m') {
         throw new Error(`WebGPU is unavailable (${gpuCheck.reason}). LFM2.5-350M requires WebGPU. Please use SmolLM2-135M.`);
       }
 
@@ -178,6 +189,9 @@ self.addEventListener('message', async (event) => {
 
       const { pipeline, env, TextStreamer, InterruptableStoppingCriteria, StoppingCriteriaList } = await import(TRANSFORMERS_CDN);
       env.allowLocalModels = false;
+      if (env && env.backends && env.backends.onnx && env.backends.onnx.wasm) {
+        env.backends.onnx.wasm.simd = true;
+      }
       TextStreamerClass = TextStreamer || null;
       InterruptableStoppingCriteriaClass = InterruptableStoppingCriteria || null;
       StoppingCriteriaListClass = StoppingCriteriaList || null;
@@ -274,14 +288,14 @@ self.addEventListener('message', async (event) => {
     }
 
     isGenerating = true;
-    const { systemPrompt, question, temperature = 0.6, maxNewTokens = 100 } = msg;
+    const { systemPrompt, question, temperature = 0.5, maxNewTokens = 40 } = msg;
 
     try {
       const userQuestion = (question || '').trim() || 'Give me a brief oracle status report.';
       const repoKnowledge = retrieveRepoKnowledge(userQuestion);
       const baseSystemPrompt = systemPrompt || 'You are the Oracle of the Celestial Engine Mk.V staff. Respond concisely in 1-2 sentences without markdown or emojis.';
 
-      const creatorFact = 'Creator fact: Celestial Engine Mk.V was created by Dr. Andrey Holz (LinkedIn: https://www.linkedin.com/in/andrey-holz/ ).';
+      const creatorFact = 'Creator fact: Celestial Engine Mk.V and this app were created by Dr. Andrey Holz, an expert in Machine Learning and Applied Mathematics (LinkedIn: https://www.linkedin.com/in/andrey-holz/ ). State ONLY provided facts and never invent age or university.';
 
       // Compact system prompt for fast mobile prefill
       const groundedSystemPrompt = (repoKnowledge.matchedTopics && repoKnowledge.matchedTopics.length > 0 && repoKnowledge.contextString)
@@ -301,13 +315,17 @@ self.addEventListener('message', async (event) => {
 
       const startMs = performance.now();
       let streamedRaw = '';
-      let mobileStopper = null;
+      let stopper = null;
       let stoppingCriteriaList = undefined;
-      if (isMobileWorker && InterruptableStoppingCriteriaClass && StoppingCriteriaListClass) {
-        mobileStopper = new InterruptableStoppingCriteriaClass();
+      if (InterruptableStoppingCriteriaClass && StoppingCriteriaListClass) {
+        stopper = new InterruptableStoppingCriteriaClass();
         stoppingCriteriaList = new StoppingCriteriaListClass();
-        stoppingCriteriaList.push(mobileStopper);
+        stoppingCriteriaList.push(stopper);
       }
+
+      const isCreatorTopic = Array.isArray(repoKnowledge.matchedTopics) &&
+        repoKnowledge.matchedTopics.some(t => (t.id || t) === 'creator_author');
+      const minStopWords = isCreatorTopic ? 7 : 12;
 
       const streamer = (TextStreamerClass && pipelineInstance.tokenizer)
         ? new TextStreamerClass(pipelineInstance.tokenizer, {
@@ -315,7 +333,7 @@ self.addEventListener('message', async (event) => {
             skip_special_tokens: true,
             callback_function: (tokenText) => {
               if (cancelledRequests.has(requestId)) {
-                if (mobileStopper) mobileStopper.interrupt();
+                if (stopper) stopper.interrupt();
                 return;
               }
               streamedRaw += tokenText;
@@ -329,11 +347,11 @@ self.addEventListener('message', async (event) => {
                   modelKey: loadedModelKey,
                   device: loadedDevice
                 });
-                // Mobile-only smart sentence completion: stop after >= 14 words once a full sentence ends
-                if (isMobileWorker && mobileStopper) {
+                // Stop cleanly once a complete sentence is finished so 135M never rambles or hallucinates
+                if (stopper && (isMobileWorker || isCreatorTopic)) {
                   const wordCount = partialClean.split(/\s+/).filter(Boolean).length;
-                  if (wordCount >= 14 && /[.!?]$/.test(partialClean) && !/\b(?:Dr|Mr|Mrs|Ms|Prof|Mk|St|vs)\.$/i.test(partialClean)) {
-                    mobileStopper.interrupt();
+                  if (wordCount >= minStopWords && /[.!?]$/.test(partialClean) && !/\b(?:Dr|Mr|Mrs|Ms|Prof|Mk|St|vs)\.$/i.test(partialClean)) {
+                    stopper.interrupt();
                   }
                 }
               }
@@ -343,7 +361,7 @@ self.addEventListener('message', async (event) => {
 
       const genOptions = isMobileWorker
         ? {
-            max_new_tokens: 46,
+            max_new_tokens: 40,
             do_sample: false,
             ...(streamer ? { streamer } : {}),
             ...(stoppingCriteriaList ? { stopping_criteria: stoppingCriteriaList } : {})
@@ -354,7 +372,8 @@ self.addEventListener('message', async (event) => {
             top_p: 0.9,
             repetition_penalty: 1.1,
             do_sample: loadedDevice === 'webgpu',
-            ...(streamer ? { streamer } : {})
+            ...(streamer ? { streamer } : {}),
+            ...(stoppingCriteriaList ? { stopping_criteria: stoppingCriteriaList } : {})
           };
 
       const out = await pipelineInstance(messages, genOptions);
