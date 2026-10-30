@@ -43,27 +43,27 @@ In standard operation, only **two devices** are required: the physical **Staff (
 ```mermaid
 flowchart LR
     subgraph STAFF["1. Physical Staff (Pico 2 W / RP2350)"]
-        MIC["INMP441 I2S Mic\n(GP10-12 • 16 kHz PCM)"]
-        PTT["Side QUERY Button\n(GP9 • Push-to-Talk)"]
-        MCU["RP2350 Dual Cortex-M33\nCore 0: Wi-Fi UDP + OLED\nCore 1: PIO I2S + 43 LEDs"]
-        SPK["MAX98357A I2S Amp + 3W Spkr\n(GP16-18 • 64 KB Ring Buffer)"]
-        HUD["1.3\" SH1106 I2C OLED\n+ 43 WS2812B Rings (GP15)"]
+        MIC["INMP441 I2S Mic (GP10-12, 16 kHz PCM)"]
+        PTT["Side QUERY Button (GP9, Push-to-Talk)"]
+        MCU["RP2350 Dual Cortex-M33 (Core 0: Wi-Fi + OLED, Core 1: I2S + LEDs)"]
+        SPK["MAX98357A I2S Amp + 3W Spkr (GP16-18, 64 KB Ring Buffer)"]
+        HUD["1.3-inch SH1106 I2C OLED + 43 WS2812B Rings (GP15)"]
         MIC --> MCU
         PTT --> MCU
         MCU --> SPK
         MCU --> HUD
     end
 
-    subgraph PHONE["2. Android Smartphone (Primary Host • UDP :5005)"]
-        HOTSPOT["Wi-Fi Hotspot Gateway\nBinary UDP v2 (:5005)"]
-        STT["Speech-to-Text (STT)\n16 kHz PCM Stream Decoder"]
-        LLM["Oracle & Spell Engine\nLocal Gemma 4 E2B + OpenRouter API"]
-        TTS["16 kHz TTS Pacer\n(1024 B / 32 ms UDP Chunks)"]
+    subgraph PHONE["2. Android Smartphone (Primary Host, UDP :5005)"]
+        HOTSPOT["Wi-Fi Hotspot Gateway (Binary UDP v2 :5005)"]
+        STT["Speech-to-Text (16 kHz PCM Stream Decoder)"]
+        LLM["Oracle & Spell Engine (Local Gemma 4 E2B + OpenRouter API)"]
+        TTS["16 kHz TTS Pacer (1024 B / 32 ms UDP Chunks)"]
         HOTSPOT --> STT --> LLM --> TTS --> HOTSPOT
     end
 
-    MCU -- "UDP :5005 Uplink\n16 kHz Mono PCM (640 B / 20 ms) + PTT" --> HOTSPOT
-    HOTSPOT -- "UDP :5005 Downlink\n16 kHz TTS Audio + OLED Text + [SPELL] LED/SFX ID" --> MCU
+    MCU -- "UDP :5005 Uplink (16 kHz Mono PCM + PTT)" --> HOTSPOT
+    HOTSPOT -- "UDP :5005 Downlink (16 kHz TTS + OLED Text + SPELL LED/SFX ID)" --> MCU
 ```
 
 ### 2. Optional Expansion Architecture: Staff ⇄ Android Phone ⇄ Wearable Raspberry Pi 5 (Local LLMs)
@@ -72,18 +72,18 @@ For **100% offline air-gapped operation** using local open-weight LLMs without d
 
 ```mermaid
 flowchart LR
-    STAFF["1. Physical Staff\nPico 2 W (RP2350)\nI2S Mic + Amp + 43 LEDs + OLED"]
-    PHONE["2. Android Smartphone\nWi-Fi Hotspot Gateway\nTelemetry UI & Mode Control"]
+    STAFF["1. Physical Staff: Pico 2 W (RP2350), I2S Mic + Amp + 43 LEDs + OLED"]
+    PHONE["2. Android Smartphone: Wi-Fi Hotspot Gateway, Telemetry UI & Mode Control"]
     subgraph PI5["3. Optional Wearable Raspberry Pi 5 (16 GB RAM Local AI Node)"]
-        WHISPER["Whisper.cpp\n(Offline Speech-to-Text)"]
-        OLLAMA["Ollama Local LLMs\n(Gemma 2 2B • Llama 3.2 1B)"]
-        PIPER["Piper C++ ONNX\n(Low-Latency Neural TTS)"]
+        WHISPER["Whisper.cpp (Offline Speech-to-Text)"]
+        OLLAMA["Ollama Local LLMs (Gemma 2 2B, Llama 3.2 1B)"]
+        PIPER["Piper C++ ONNX (Low-Latency Neural TTS)"]
         WHISPER --> OLLAMA --> PIPER
     end
 
-    STAFF <== "UDP :5005\n16 kHz Audio + Telemetry" ==> PHONE
-    PHONE <== "Local Wi-Fi LAN\nPrompt / Audio Relay" ==> PI5
-    STAFF -. "Direct Offline Mode\nUDP :5005 (No Phone Required)" .-> PI5
+    STAFF <== "UDP :5005 (16 kHz Audio + Telemetry)" ==> PHONE
+    PHONE <== "Local Wi-Fi LAN (Prompt / Audio Relay)" ==> PI5
+    STAFF -. "Direct Offline Mode (UDP :5005)" .-> PI5
 ```
 
 ### 3. How Local LLMs, `[SPELL: ...]` Dispatch & Real-Time UDP Streaming Work
@@ -108,22 +108,22 @@ While **Mk.V (`v1.3`)** uses a classic 3-step sequential pipeline (`I2S Raw PCM`
 ```mermaid
 flowchart LR
     subgraph EDGE["Stage 1: Smart Staff Firmware v2.0 (RP2350)"]
-        VAD["Onboard CMSIS-DSP VAD\n& Full-Duplex Barge-In"]
-        CODEC["4:1 IMA-ADPCM / Opus Framing\n(64 kbps vs 256 kbps Raw PCM)"]
-        DISC["Zero-Config BLE 5.3 GATT\n+ mDNS (celestial.local)"]
-        SHADER["60 FPS Parameterized\nLED Spell Shader Engine"]
+        VAD["Onboard CMSIS-DSP VAD & Full-Duplex Barge-In"]
+        CODEC["4:1 IMA-ADPCM / Opus Framing (64 kbps vs 256 kbps Raw PCM)"]
+        DISC["Zero-Config BLE 5.3 GATT + mDNS (celestial.local)"]
+        SHADER["60 FPS Parameterized LED Spell Shader Engine"]
         VAD --> CODEC
     end
 
     subgraph NPU["Stage 2: Native NPU & Realtime Audio Engine"]
-        OMNI["Direct Speech-to-Speech\n(Gemma 3n / 4 E2B on LiteRT-LM NPU\nor Gemini Live WebRTC)"]
-        FAST["Fast Offline Pipeline\nMoonshine ONNX + Kokoro-82M TTS\n(<180 ms First Audio Chunk)"]
-        TOOLS["Inline Hardware Tool Calling\nset_led_spell() • trigger_sfx()\nset_oled_mood()"]
+        OMNI["Direct Speech-to-Speech (Gemma 3n / 4 E2B on LiteRT-LM NPU or Gemini Live WebRTC)"]
+        FAST["Fast Offline Pipeline: Moonshine ONNX + Kokoro-82M TTS (<180 ms First Audio Chunk)"]
+        TOOLS["Inline Hardware Tool Calling: set_led_spell(), trigger_sfx(), set_oled_mood()"]
         OMNI --> TOOLS
         FAST --> TOOLS
     end
 
-    CODEC <== "Full-Duplex Audio (<300 ms Turn-Taking)\n+ Inline JSON Hardware Tool Calls" ==> NPU
+    CODEC <== "Full-Duplex Audio (<300 ms Turn-Taking) + Inline JSON Tool Calls" ==> NPU
     DISC -. "Auto-Discovery (Zero Static IP)" .-> NPU
 ```
 
