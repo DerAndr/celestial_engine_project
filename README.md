@@ -1,17 +1,34 @@
 # Celestial Engine Mk.V
 
-Embedded RP2350 controller, full-duplex I2S audio node, 43-LED concentric WS2812B display, and wireless UDP voice/telemetry system with Android and Raspberry Pi 5 host backends.
+**Interactive AI Wizard Staff** built on the **Raspberry Pi Pico 2 W (RP2350)** with full-duplex I2S audio (`INMP441` mic + `MAX98357A` 3W speaker), a **43-LED concentric WS2812B dome** (`7 + 12 + 24`), a `1.3" SH1106 OLED` HUD, wireless UDP v2 voice/telemetry streaming, and multi-host local LLMs (**Android**, **Raspberry Pi 5**, and **In-Browser WebGPU/WASM**).
 
-- **Web Simulator & Pinout Explorer:** [derandr.github.io/celestial_engine_project](https://derandr.github.io/celestial_engine_project/)
-- **Latest Release:** [v1.3.0](https://github.com/DerAndr/celestial_engine_project/releases/latest) (`celestial_firmware.uf2` + `celestial_companion_v1.1.2.apk`)
-- **Hardware Documentation:** [Inventory & BOM](docs/hardware/inventory.md) • [Pinout & Wiring](docs/wiring/pinout.md) • [UDP Protocol v2](docs/protocol.md)
-- **Author:** Created by **Dr. Andrey Holz** — [LinkedIn](https://www.linkedin.com/in/andrey-holz/) • [GitHub (@DerAndr)](https://github.com/DerAndr)
+- 🌐 **Live Interactive Digital Twin & In-Browser Local LLM:** [**derandr.github.io/celestial_engine_project**](https://derandr.github.io/celestial_engine_project/) *(Test all 28 LED patterns, 21 chiptunes, 14 SFX, and chat live with a local LLM directly in your browser via Transformers.js!)*
+- 📦 **Latest Release (`v1.3.0`):** [**v1.3.0-release**](https://github.com/DerAndr/celestial_engine_project/releases/tag/v1.3.0-release) (`celestial_firmware.uf2` + `celestial_companion_v1.1.2.apk`)
+- 📐 **Hardware & Protocol Docs:** [Inventory & BOM](docs/hardware/inventory.md) • [Pinout & Wiring](docs/wiring/pinout.md) • [UDP Protocol v2](docs/protocol.md) • [Project Tasks & Roadmap](docs/tasks.md)
+- 👤 **Author:** Created by **Dr. Andrey Holz** — [LinkedIn](https://www.linkedin.com/in/andrey-holz/) • [GitHub (@DerAndr)](https://github.com/DerAndr)
+
+---
+
+## 🌐 Try the Interactive Digital Twin in Your Browser (Zero Install)
+
+Don't have the physical hardware in front of you? Open the [**Live Web Digital Twin on GitHub Pages**](https://derandr.github.io/celestial_engine_project/):
+
+- **🧠 Live In-Browser Local LLM (`Transformers.js v4` WebGPU / WASM SIMD):** Click **`⚡ Connect Local LLM & Chat Now`** at the top of the page to run **`SmolLM2-135M-Instruct`** (`~120 MB q4f16/q4`) or **`LiquidAI LFM2.5-350M`** (`~258 MB q4f16`) **100% locally inside your browser** with real-time token streaming (`TextStreamer`) and zero server or API keys.
+- **🎙️ Voice & Text Interaction + Auto-Spell Casting:** Hold the green side `QUERY` button on the staff or click **`🎙️ Speak`** (`en-US`, up to 40s) to ask questions by voice. The Oracle replies in character, speaks via Browser TTS, scrolls the answer on the `128×64 SH1106 OLED` canvas, and automatically casts matching LED & sound spells.
+- **🎭 6 Interactive Oracle Personas:** Instant switching between **Machine God**, **Wise Archmage**, **Marvin the Paranoid Android**, **Cyberpunk Netrunner**, **Jack the Pumpkin King**, and **Custom Persona**.
+- **💡 28 Concentric WS2812B LED Patterns & 🎵 21 8-Bit Chiptunes + 14 Sound FX:** Exact 1:1 Web Audio & HTML5 Canvas port of the RP2350 C firmware (`firmware/src/leds.c` & `firmware/src/audio.c`), plus an interactive 3-tab **VTBB3 Breadboard & IC Pinout Explorer**.
 
 ---
 
 ## Overview
 
-**Celestial Engine Mk.V** is a hardware and software platform built around the **Raspberry Pi Pico 2 W (RP2350)**. The staff operates as a real-time embedded peripheral node over Wi-Fi (UDP port `5005`) while maintaining a deterministic local fallback mode on Core 1 (21 onboard 8-bit chiptunes, 14 cosmic/R2-D2 sound effects, and 28 concentric LED patterns) if no external host is connected.
+**Celestial Engine Mk.V** is a hardware and software platform built around the **Raspberry Pi Pico 2 W (RP2350)**. The staff operates as a real-time embedded peripheral node over Wi-Fi (UDP port `5005`) while maintaining a deterministic standalone fallback mode on Core 1 (**21 onboard 8-bit chiptunes**, **14 cosmic/R2-D2/spell sound effects**, and **28 concentric LED patterns**) when no external AI host is connected.
+
+| AI Execution Host | Local / Cloud LLM Models | Speech & Audio Pipeline | Role |
+| :--- | :--- | :--- | :--- |
+| **1. Android Smartphone (`v1.1.2`)** | **Gemma 4 E2B** (`gemma-4-E2B-it` local on-device) + **OpenRouter API** (Gemini / Claude / GPT cloud models) | Android SpeechRecognizer + 16 kHz UDP PCM TTS Pacer + `[SPELL: ...]` live hardware tags | **Primary Mobile Brain** over smartphone Wi-Fi Hotspot (`port 5005`) |
+| **2. Raspberry Pi 5 (`16 GB + 1 TB NVMe`)** | **Gemma 2 2B** (`gemma2:2b`) & **Llama 3.2 1B** (`llama3.2:1b`) via **Ollama** | **Whisper.cpp** (offline STT) + **Piper C++ ONNX** (low-latency neural TTS) | **Optional 100% Offline Wearable Node** (`celestial-brain.service`) |
+| **3. Web Digital Twin (`GitHub Pages`)** | **SmolLM2-135M-Instruct** & **LiquidAI LFM2.5-350M** via **Transformers.js v4** | Web Speech API Dictation (`en-US`) + Browser TTS + Web Audio 8-bit Synth | **Interactive Browser Simulator** (WebGPU / WASM SIMD, zero backend) |
 
 > **DIY Maker & Halloween Prop Disclaimer:** Celestial Engine Mk.V is a personal open-source embedded hardware project built as an interactive Halloween / cosplay prop and RP2350 engineering testbed. Festive LED effects and 8-bit chiptune interpretations are included strictly for non-commercial hobbyist demonstration.
 
@@ -21,7 +38,7 @@ Embedded RP2350 controller, full-duplex I2S audio node, 43-LED concentric WS2812
 
 ### 1. Primary Architecture (Default): Staff ⇄ Android Smartphone Hotspot
 
-In standard operation, only **two devices** are required: the physical **Staff (`Pico 2 W / RP2350`)** and an **Android Smartphone** running the companion app (`v1.1.2`) with its mobile Wi-Fi hotspot enabled (`10.169.248.1`).
+In standard operation, only **two devices** are required: the physical **Staff (`Pico 2 W / RP2350`)** and an **Android Smartphone** running the companion app (`v1.1.2`) with its mobile Wi-Fi hotspot enabled.
 
 ```mermaid
 flowchart LR
@@ -37,29 +54,29 @@ flowchart LR
         MCU --> HUD
     end
 
-    subgraph PHONE["2. Android Smartphone (Primary Host • 10.169.248.1)"]
+    subgraph PHONE["2. Android Smartphone (Primary Host • UDP :5005)"]
         HOTSPOT["Wi-Fi Hotspot Gateway\nBinary UDP v2 (:5005)"]
         STT["Speech-to-Text (STT)\n16 kHz PCM Stream Decoder"]
-        LLM["Oracle Persona Engine\n(On-Device / Cloud / Local Relay)"]
+        LLM["Oracle & Spell Engine\nLocal Gemma 4 E2B + OpenRouter API"]
         TTS["16 kHz TTS Pacer\n(1024 B / 32 ms UDP Chunks)"]
         HOTSPOT --> STT --> LLM --> TTS --> HOTSPOT
     end
 
     MCU -- "UDP :5005 Uplink\n16 kHz Mono PCM (640 B / 20 ms) + PTT" --> HOTSPOT
-    HOTSPOT -- "UDP :5005 Downlink\n16 kHz TTS Audio + OLED Text + LED Effect ID" --> MCU
+    HOTSPOT -- "UDP :5005 Downlink\n16 kHz TTS Audio + OLED Text + [SPELL] LED/SFX ID" --> MCU
 ```
 
 ### 2. Optional Expansion Architecture: Staff ⇄ Android Phone ⇄ Wearable Raspberry Pi 5 (Local LLMs)
 
-For **100% offline air-gapped operation** using local open-weight LLMs without draining the smartphone battery, an optional wearable **Raspberry Pi 5 (16 GB RAM + 1 TB NVMe SSD + X1209 UPS)** connects to the same smartphone Wi-Fi hotspot (`10.169.248.x`) and runs `celestial-brain.service`.
+For **100% offline air-gapped operation** using local open-weight LLMs without draining the smartphone battery, an optional wearable **Raspberry Pi 5 (16 GB RAM + 1 TB NVMe SSD + X1209 UPS)** connects to the same Wi-Fi hotspot and runs `celestial-brain.service`.
 
 ```mermaid
 flowchart LR
     STAFF["1. Physical Staff\nPico 2 W (RP2350)\nI2S Mic + Amp + 43 LEDs + OLED"]
-    PHONE["2. Android Smartphone\nWi-Fi Hotspot (10.169.248.1)\nTelemetry UI & Mode Control"]
+    PHONE["2. Android Smartphone\nWi-Fi Hotspot Gateway\nTelemetry UI & Mode Control"]
     subgraph PI5["3. Optional Wearable Raspberry Pi 5 (16 GB RAM Local AI Node)"]
         WHISPER["Whisper.cpp\n(Offline Speech-to-Text)"]
-        OLLAMA["Ollama Local LLMs\n(qwen2.5:0.5b / 1.5b • gemma4:e2b)"]
+        OLLAMA["Ollama Local LLMs\n(Gemma 2 2B • Llama 3.2 1B)"]
         PIPER["Piper C++ ONNX\n(Low-Latency Neural TTS)"]
         WHISPER --> OLLAMA --> PIPER
     end
@@ -69,24 +86,24 @@ flowchart LR
     STAFF -. "Direct Offline Mode\nUDP :5005 (No Phone Required)" .-> PI5
 ```
 
-### 3. How Local LLMs & Real-Time UDP Streaming Work
+### 3. How Local LLMs, `[SPELL: ...]` Dispatch & Real-Time UDP Streaming Work
 
 1. **Push-to-Talk & I2S DMA Capture (Uplink):**
    - Holding the side `QUERY` button (`GP9`) transitions the staff state machine into `LISTENING`.
    - RP2350 **Core 1** reads 32-bit I2S samples from the `INMP441` microphone via `PIO0 SM1`, converts them to 16-bit 16 kHz mono PCM, and streams `640-byte` (`20 ms`) UDP v2 packets (`0x04` audio frames with CRC-16-CCITT) to port `5005`.
 2. **Speech Recognition & Local LLM Generation:**
    - Releasing `QUERY` sends a `PTT_RELEASE` event (`0x05`) and switches the staff to `THINKING` (spinning cosmic vortex on the 43 LEDs).
-   - The host (`Android` or optional `Raspberry Pi 5`) transcribes the recorded PCM stream via `Whisper.cpp` / Android STT and queries the selected persona using **Ollama** (`qwen2.5:0.5b`, `qwen2.5:1.5b`, `gemma4:e2b`) or in-browser **Transformers.js ONNX WebGPU** in the web simulator.
-3. **Sentence-Chunked TTS & Visual Synchronization:**
-   - As the LLM generates tokens, completed clauses are immediately synthesized into `16 kHz` 16-bit mono PCM audio via **Piper ONNX** (`<300 ms` latency) or Android TTS.
-   - Before audio frames begin, the host sends an OLED text packet (`0x03`) and a thematic LED effect command (`0x01`) so the 1.3" `SH1106` display scrolls the response while the 43 concentric LEDs switch to the matching spell animation.
+   - The host transcribes the recorded speech and queries the active persona using **Gemma 4 E2B** on Android (or **OpenRouter** cloud models), **Ollama (`Gemma 2 2B` / `Llama 3.2 1B`)** on the Raspberry Pi 5, or **Transformers.js (`SmolLM2-135M` / `LFM2.5-350M`)** in the browser Digital Twin.
+3. **Dynamic `[SPELL: ...]` Hardware Choreography & Sentence-Chunked TTS:**
+   - The LLM prepends structured spell tags (`[SPELL: Name | ANIM: Animation | SOUNDS: Sfx1, Sfx2]`) which the host intercepts in real time to trigger matching concentric LED animations (`28` patterns) and multi-step sound effect chains (`14` SFX) over UDP while scrolling the spell title on the `SH1106` OLED.
+   - Spoken responses are synthesized into `16 kHz` 16-bit mono PCM audio via Android TTS or **Piper ONNX** (`<300 ms` latency).
 4. **Zero-Stutter 64 KB Ring Buffer Playback (Downlink):**
    - The host paces `1024-byte` (`32 ms`) PCM packets over UDP back to the staff.
-   - RP2350 **Core 0** pushes incoming audio into a lock-free **64 KB circular ring buffer** (`2.04 seconds` of buffer capacity), and **Core 1** streams the samples via DMA through `PIO1 SM0` to the `MAX98357A` Class-D amplifier without blocking LED or OLED updates.
+   - RP2350 **Core 0** pushes incoming audio into a lock-free **64 KB circular ring buffer** (`2.04 seconds` capacity), and **Core 1** streams the samples via DMA through `PIO1 SM0` to the `MAX98357A` Class-D amplifier without blocking LED or OLED updates.
 
 ### 4. Next-Gen v2.0 Target Flow (2026 Best-Practice Roadmap — Planned Next Release)
 
-While **Mk.V (v1.2)** uses a classic 3-step sequential pipeline (`I2S Raw PCM` → `STT` → `LLM Text` → `TTS` over static UDP), the upcoming **v2.0 architecture** upgrades the stack to the **2026 Edge AI & Wearable Best-Practice Flow**:
+While **Mk.V (`v1.3`)** uses a classic 3-step sequential pipeline (`I2S Raw PCM` → `STT` → `LLM Text` → `TTS` over static UDP), the upcoming **v2.0 architecture** upgrades the stack to the **2026 Edge AI & Wearable Best-Practice Flow**:
 
 ```mermaid
 flowchart LR
@@ -110,13 +127,13 @@ flowchart LR
     DISC -. "Auto-Discovery (Zero Static IP)" .-> NPU
 ```
 
-| Engineering Metric | Current Mk.V (`v1.2`) | Next-Gen Target (`v2.0` — 2026 Best Practice) |
+| Engineering Metric | Current Mk.V (`v1.3`) | Next-Gen Target (`v2.0` — 2026 Best Practice) |
 | :--- | :--- | :--- |
-| **Network Provisioning** | Static Hotspot / LAN IP (`10.169.248.1:5005`) | **Zero-Config `BLE 5.3 GATT` + `mDNS` (`celestial.local`)** |
+| **Network Provisioning** | Static Hotspot / LAN IP (`UDP :5005`) | **Zero-Config `BLE 5.3 GATT` + `mDNS` (`celestial.local`)** |
 | **Wireless Audio Codec** | Uncompressed `16 kHz` 16-bit PCM (`256 kbps`) | **4:1 `IMA-ADPCM` / `Opus` (`64 kbps`) + Sequence Jitter Buffer** |
 | **Voice Interaction** | Half-Duplex Push-to-Talk (`GP9` button hold) | **Onboard `CMSIS-DSP` VAD + Full-Duplex Barge-In (Interruptible)** |
 | **AI Inference Pipeline** | Sequential `STT → LLM → TTS` (`1.4–2.5 s` latency) | **Native Audio-to-Audio (`Gemma 3n/4` NPU / `WebRTC`) + `Kokoro-82M` (`<300 ms`)** |
-| **Hardware Control** | Fixed LED/SFX IDs mapped per preset | **Inline LLM Function Calling (`set_led_spell`, `trigger_sfx`, `set_oled_mood`)** |
+| **Hardware Control** | Tag-based `[SPELL: ...]` & preset LED/SFX IDs | **Inline LLM Function Calling (`set_led_spell`, `trigger_sfx`, `set_oled_mood`)** |
 
 ---
 
@@ -124,13 +141,13 @@ flowchart LR
 
 1. **Staff Firmware (`firmware/`)** — Bare-metal C/C++ firmware built on the Raspberry Pi Pico SDK (RP2350 Dual Cortex-M33 @ 150 MHz):
    - **Core 0:** Manages `CYW43439` Wi-Fi connectivity, binary UDP v2 packet framing (`port 5005`, CRC-16-CCITT, FNV-1a header `0x811C9DC5`), `SH1106` 128×64 I2C1 OLED UI (`400 kHz`), and quadrature rotary encoder / push-to-talk GPIO interrupts.
-   - **Core 1:** Runs timing-critical PIO state machines and DMA transfers: `PIO0 SM0` drives 43 addressable WS2812B LEDs (`800 kHz`), `PIO0 SM1` captures 16 kHz 16-bit mono PCM audio from the `INMP441` I2S microphone, and `PIO1 SM0` streams 16 kHz audio and 24 onboard chiptune sequences to the `MAX98357A` I2S Class-D amplifier.
+   - **Core 1:** Runs timing-critical PIO state machines and DMA transfers: `PIO0 SM0` drives 43 addressable WS2812B LEDs (`800 kHz`, **28 concentric animations**), `PIO0 SM1` captures 16 kHz 16-bit mono PCM audio from the `INMP441` I2S microphone, and `PIO1 SM0` streams 16 kHz TTS audio, **21 onboard 8-bit chiptunes**, and **14 cosmic/R2-D2/spell SFX** to the `MAX98357A` I2S Class-D amplifier.
 2. **Android Companion App (`android/`)** — Native Android 15+ application (`v1.1.2`, Kotlin / Jetpack Compose):
-   - Acts as a mobile Wi-Fi hotspot gateway (`10.169.248.1:5005`), handling voice queries, LLM/TTS streaming, remote LED/mode control, and real-time 43-LED state synchronization.
+   - Acts as the primary mobile Wi-Fi hotspot gateway (`port 5005`), running on-device **Gemma 4 E2B** (`gemma-4-E2B-it`) and **OpenRouter** cloud models, multimodal camera vision, the Arcane Grimoire spell engine (`[SPELL: ...]`), 6 Oracle personas, and live 43-LED telemetry synchronization.
 3. **Offline Raspberry Pi 5 Host (`tools/`)** — Local Linux service (`celestial-brain.service`) for Raspberry Pi 5 (16 GB RAM, 1 TB NVMe SSD):
-   - Provides fully offline speech-to-text (`Whisper.cpp`), local LLM inference (`Ollama`: `qwen2.5:0.5b`, `qwen2.5:1.5b`, `gemma4:e2b`), and neural text-to-speech (`Piper` ONNX) over local Wi-Fi.
-4. **Browser Digital Twin (`docs/`)** — Zero-dependency ES module web replica deployed via GitHub Pages:
-   - Interactive 2D physical assembly view, direct RP2350 pinout map, 43-LED effect simulator, SH1106 OLED HUD, Web Audio 8-bit synth, microphone voice input, and an in-browser Oracle (scripted responses + optional local WebGPU/WASM inference).
+   - Provides 100% offline speech-to-text (`Whisper.cpp`), local LLM inference (`Ollama`: `Gemma 2 2B`, `Llama 3.2 1B`), and neural text-to-speech (`Piper` ONNX) over local Wi-Fi.
+4. **Browser Digital Twin (`docs/`)** — Modular ES6 web replica deployed via GitHub Pages:
+   - Interactive 2D/3D physical assembly view, 3-tab VTBB3 breadboard & IC pinout explorer, 43-LED concentric ring simulator (`28` patterns), SH1106 OLED HUD, Web Audio 8-bit synth (`21` melodies + `14` SFX), live microphone voice capture (`en-US`, up to 40s), and an in-browser Oracle running **`SmolLM2-135M-Instruct`** or **`LiquidAI LFM2.5-350M`** 100% locally via **Transformers.js v4** (WebGPU / WASM SIMD).
 
 ---
 
