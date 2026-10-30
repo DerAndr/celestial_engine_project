@@ -144,17 +144,20 @@ export const REPO_TOPICS = [
 export function retrieveRepoKnowledge(question = '') {
   const q = (question || '').trim();
   if (!q) {
-    return { matchedTopics: [], contextString: REPO_SUMMARY_COMPACT };
+    return { matchedTopics: [], contextString: '' };
   }
 
   const matchedTopics = REPO_TOPICS.filter((topic) => topic.keywords.test(q));
   if (matchedTopics.length === 0) {
-    return { matchedTopics: [], contextString: REPO_SUMMARY_COMPACT };
+    return { matchedTopics: [], contextString: '' };
   }
 
-  const facts = matchedTopics.slice(0, 3).map((t) => t.fact).join(' ');
+  // Prefer specific topic facts over the full summary when both match, keeping prompt prefill fast on mobile
+  const specificTopics = matchedTopics.filter((t) => t.id !== 'repo_overview');
+  const chosenTopics = specificTopics.length > 0 ? specificTopics.slice(0, 2) : matchedTopics.slice(0, 1);
+  const facts = chosenTopics.map((t) => t.fact).join(' ');
   return {
     matchedTopics,
-    contextString: `${facts} (${REPO_SUMMARY_COMPACT})`
+    contextString: facts
   };
 }

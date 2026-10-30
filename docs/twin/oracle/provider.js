@@ -4,8 +4,8 @@
  * instant Scripted Demo responses, and opt-in Local AI Web Worker inference.
  */
 
-import { getScriptedResponse } from './scripted.js?v=1.3.1';
-import { LocalLlmClient, MODEL_INFO, probeWebGpuSupport } from './llm.js?v=1.3.1';
+import { getScriptedResponse } from './scripted.js?v=1.3.2';
+import { LocalLlmClient, MODEL_INFO, probeWebGpuSupport } from './llm.js?v=1.3.2';
 
 export { MODEL_INFO, probeWebGpuSupport };
 
@@ -122,14 +122,16 @@ export class OracleProvider {
    * @returns {Promise<{ requestId: number, text: string, mode: 'scripted' | 'local-ai', latencyMs: number }>}
    */
   async generate(req) {
-    const { requestId, personaId, question, customPrompt = '', mode = 'scripted' } = req;
+    const { requestId, personaId, question, customPrompt = '', mode = 'scripted', onStream } = req;
 
     if (mode === 'local-ai' && this.llmClient.isReady) {
       const systemPrompt = this.buildSystemPrompt(personaId, customPrompt);
       return await this.llmClient.generate({
         requestId,
         systemPrompt,
-        question: question || 'Provide a brief status or prophecy in character.'
+        question: question || 'Provide a brief status or prophecy in character.',
+        maxNewTokens: 100,
+        onStream
       });
     }
 

@@ -53,7 +53,7 @@ export class LocalLlmClient {
 
   ensureWorker() {
     if (this.worker) return;
-    const workerUrl = new URL('./worker.js?v=1.3.1', import.meta.url);
+    const workerUrl = new URL('./worker.js?v=1.3.2', import.meta.url);
     this.worker = new Worker(workerUrl, { type: 'module' });
 
     this.worker.addEventListener('message', (e) => {
@@ -68,6 +68,18 @@ export class LocalLlmClient {
           this.loadedModelKey = msg.modelKey;
           this.onReady(msg);
           break;
+
+        case 'STREAM': {
+          const entry = this.pendingRequests.get(msg.requestId);
+          if (entry && typeof entry.onStream === 'function') {
+            entry.onStream({
+              requestId: msg.requestId,
+              text: msg.text || '',
+              elapsedMs: msg.elapsedMs || 0
+            });
+          }
+          break;
+        }
 
         case 'DONE': {
           const entry = this.pendingRequests.get(msg.requestId);
@@ -115,18 +127,19 @@ export class LocalLlmClient {
     this.worker.postMessage({ type: 'INIT', modelKey });
   }
 
-  generate({ requestId, systemPrompt, question }) {
+  generate({ requestId, systemPrompt, question, maxNewTokens = 100, onStream }) {
     if (!this.worker || !this.isReady) {
       return Promise.reject(new Error('Local AI model is not ready.'));
     }
 
     return new Promise((resolve, reject) => {
-      this.pendingRequests.set(requestId, { resolve, reject });
+      this.pendingRequests.set(requestId, { resolve, reject, onStream });
       this.worker.postMessage({
         type: 'GENERATE',
         requestId,
         systemPrompt,
-        question
+        question,
+        maxNewTokens
       });
     });
   }

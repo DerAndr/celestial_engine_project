@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.1';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.1';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.1';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.1';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.1';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.2';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.2';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.2';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.2';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.2';
 
 let oracleProvider = null;
 let staff2D = null;
@@ -236,7 +236,16 @@ export async function submitOracleQuery(questionText) {
       personaId: state.personaId,
       question: q,
       customPrompt: state.customPrompt,
-      mode: useLocalAi ? 'local-ai' : 'scripted'
+      mode: useLocalAi ? 'local-ai' : 'scripted',
+      onStream: ({ text, elapsedMs }) => {
+        if (reqId !== twinState.getState().activeRequestId) return;
+        setSafeText('oracle-response-text', `${text} ▍`);
+        const srcLabel = document.getElementById('oracle-response-source');
+        if (srcLabel) {
+          srcLabel.textContent = `⚡ Streaming live from Local LLM (${twinState.getState().selectedModelKey}) • ${elapsedMs} ms...`;
+          srcLabel.style.color = '#38bdf8';
+        }
+      }
     });
 
     // Ignore stale response if another request started in the meantime

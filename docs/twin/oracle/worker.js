@@ -3,7 +3,7 @@
  * Uses @huggingface/transformers v4.3.2 via jsDelivr.
  */
 
-import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.3.1';
+import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.3.2';
 
 const TRANSFORMERS_CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js';
 
@@ -31,6 +31,7 @@ export const MODEL_CATALOG = {
 };
 
 let pipelineInstance = null;
+let TextStreamerClass = null;
 let loadedModelKey = null;
 let loadedDevice = null;
 let cancelledRequests = new Set();
@@ -38,36 +39,39 @@ let isGenerating = false;
 
 const CREATOR_LINKEDIN_URL = 'https://www.linkedin.com/in/andrey-holz/';
 
-/**
- * Clean and constrain output to 1-2 sentences, <= 25 words, no Markdown or emojis,
- * matching the Android OraclePersona contract while preserving full URLs and titles ("Dr.").
- */
-function sanitizeAndConstrainOutput(rawText, matchedTopics = []) {
+function cleanStreamFragment(rawText) {
   if (!rawText) return '';
-  let text = String(rawText)
+  return String(rawText)
     .replace(/<\|[^>]+?\|>/g, '')
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
-    // Convert markdown links [label](https://...) to plain URL
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, '$2')
-    // Replace small-LLM bracketed link placeholders like [link to LinkedIn profile] with the real LinkedIn URL
     .replace(/\[[^\]]*(?:linkedin|link|url|profile|contact)[^\]]*\]/gi, CREATOR_LINKEDIN_URL)
     .replace(/[*_`#~>]/g, '')
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Clean and constrain output (up to ~100 tokens / 4 sentences) without Markdown or emojis,
+ * while preserving full URLs and titles ("Dr.").
+ */
+function sanitizeAndConstrainOutput(rawText, matchedTopics = []) {
+  if (!rawText) return '';
+  let text = cleanStreamFragment(rawText);
 
   // Protect abbreviations like "Dr.", "Mr.", "Prof.", "Mk." before splitting sentences
   const protectedText = text.replace(/\b(Dr|Mr|Mrs|Ms|Prof|Mk|St|vs)\.\s+/gi, '$1\u0000 ');
   const sentenceParts = protectedText.split(/(?<=[.!?])\s+(?=[A-ZА-ЯЁ0-9])/);
   if (sentenceParts && sentenceParts.length > 0) {
-    text = sentenceParts.slice(0, 2).join(' ').replace(/\u0000/g, '.').trim();
+    text = sentenceParts.slice(0, 4).join(' ').replace(/\u0000/g, '.').trim();
   } else {
     text = protectedText.replace(/\u0000/g, '.').trim();
   }
 
   const words = text.split(/\s+/).filter(Boolean);
-  if (words.length > 25) {
-    text = words.slice(0, 25).join(' ').replace(/[,;:\-–—]+$/, '');
+  if (words.length > 90) {
+    text = words.slice(0, 90).join(' ').replace(/[,;:\-–—]+$/, '');
   }
 
   // Strip any dangling title at the very end caused by token or word-limit truncation (e.g. "... Dr.")
@@ -169,8 +173,9 @@ self.addEventListener('message', async (event) => {
         status: `Loading Transformers.js v4.3.2 (${device.toUpperCase()}, ${dtype})...`
       });
 
-      const { pipeline, env } = await import(TRANSFORMERS_CDN);
+      const { pipeline, env, TextStreamer } = await import(TRANSFORMERS_CDN);
       env.allowLocalModels = false;
+      TextStreamerClass = TextStreamer || null;
 
       const fileBytes = new Map();
       try {
@@ -264,20 +269,19 @@ self.addEventListener('message', async (event) => {
     }
 
     isGenerating = true;
-    const { systemPrompt, question, temperature = 0.7, maxNewTokens = 60 } = msg;
+    const { systemPrompt, question, temperature = 0.6, maxNewTokens = 100 } = msg;
 
     try {
       const userQuestion = (question || '').trim() || 'Give me a brief oracle status report.';
       const repoKnowledge = retrieveRepoKnowledge(userQuestion);
-      const baseSystemPrompt = systemPrompt || 'You are the Oracle of the Celestial Engine Mk.V staff. Respond in 1-2 short sentences under 25 words without markdown or emojis.';
+      const baseSystemPrompt = systemPrompt || 'You are the Oracle of the Celestial Engine Mk.V staff. Respond concisely in 1-2 sentences without markdown or emojis.';
 
-      const creatorFact = 'Creator fact: This project (Celestial Engine Mk.V) was created by Dr. Andrey Holz (LinkedIn: https://www.linkedin.com/in/andrey-holz/ ). Always write the exact full URL https://www.linkedin.com/in/andrey-holz/ and never write [link].';
+      const creatorFact = 'Creator fact: Celestial Engine Mk.V was created by Dr. Andrey Holz (LinkedIn: https://www.linkedin.com/in/andrey-holz/ ).';
 
-      // Inject hardware/repo context when the user's question asks about hardware/repo/creator topics,
-      // while keeping general creative questions natural and always knowing Dr. Andrey Holz is the creator.
-      const groundedSystemPrompt = (repoKnowledge.matchedTopics && repoKnowledge.matchedTopics.length > 0)
-        ? `${baseSystemPrompt}\n${creatorFact}\nUse these exact facts: ${repoKnowledge.contextString}`
-        : `${baseSystemPrompt}\n${creatorFact}\nDirectly answer the user's exact topic or request in 1-2 short sentences (maximum 25 words).`;
+      // Compact system prompt for fast mobile prefill
+      const groundedSystemPrompt = (repoKnowledge.matchedTopics && repoKnowledge.matchedTopics.length > 0 && repoKnowledge.contextString)
+        ? `${baseSystemPrompt}\n${creatorFact}\nFacts: ${repoKnowledge.contextString}`
+        : `${baseSystemPrompt}\n${creatorFact}`;
 
       const messages = [
         {
@@ -291,12 +295,36 @@ self.addEventListener('message', async (event) => {
       ];
 
       const startMs = performance.now();
+      let streamedRaw = '';
+      const streamer = (TextStreamerClass && pipelineInstance.tokenizer)
+        ? new TextStreamerClass(pipelineInstance.tokenizer, {
+            skip_prompt: true,
+            skip_special_tokens: true,
+            callback_function: (tokenText) => {
+              if (cancelledRequests.has(requestId)) return;
+              streamedRaw += tokenText;
+              const partialClean = cleanStreamFragment(streamedRaw);
+              if (partialClean) {
+                self.postMessage({
+                  type: 'STREAM',
+                  requestId,
+                  text: partialClean,
+                  elapsedMs: Math.round(performance.now() - startMs),
+                  modelKey: loadedModelKey,
+                  device: loadedDevice
+                });
+              }
+            }
+          })
+        : undefined;
+
       const out = await pipelineInstance(messages, {
         max_new_tokens: maxNewTokens,
         temperature,
         top_p: 0.9,
         repetition_penalty: 1.1,
-        do_sample: true
+        do_sample: loadedDevice === 'webgpu',
+        ...(streamer ? { streamer } : {})
       });
 
       if (cancelledRequests.has(requestId)) {
