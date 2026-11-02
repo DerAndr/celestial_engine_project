@@ -3,7 +3,7 @@
 Automated cache-busting version bumper for the Celestial Engine Mk.V Web Digital Twin.
 Usage:
     python tools/bump_twin_version.py 1.3.5
-Updates all ?v=X.Y.Z asset/module query parameters across docs/ so browsers never serve stale Web Workers or CSS/JS.
+Updates all ?v=X.Y.Z asset/module query parameters across docs/ while preserving file line endings.
 """
 
 import re
@@ -25,9 +25,10 @@ def bump_version(new_ver: str) -> None:
         raise ValueError(f"Version must be X.Y.Z, got: {new_ver}")
 
     for path in TARGET_FILES:
-        text = path.read_text(encoding="utf-8")
-        updated = re.sub(r"\?v=\d+\.\d+\.\d+", f"?v={new_ver}", text)
-        path.write_text(updated, encoding="utf-8")
+        raw = path.read_bytes().decode("utf-8")
+        updated = re.sub(r"\?v=\d+\.\d+\.\d+", f"?v={new_ver}", raw)
+        if updated != raw:
+            path.write_bytes(updated.encode("utf-8"))
         print(f"[UPDATED] {path.relative_to(ROOT)} -> ?v={new_ver}")
 
 
