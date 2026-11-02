@@ -70,3 +70,4 @@ Whenever modifying any file in `docs/`:
 3. **Check `README.md` & Mermaid Syntax**:
    - Ensure `README.md` reflects current model names, version tags, and feature counts.
    - Never use escaped quotes `\"`, `\n`, or square brackets `[...]` inside double-quoted Mermaid labels in `README.md`.
+
