@@ -1,9 +1,10 @@
 ---
 name: pi5-edge-brain-server
 description: >-
-  Maintain, configure, and verify the Wearable Raspberry Pi 5 Offline AI Brain Server
+  Provides instructions to maintain, configure, and verify the Wearable Raspberry Pi 5 Offline AI Brain Server
   (tools/ai_brain_server.py, tools/local_ai_engine.py, Whisper.cpp STT, Ollama local LLMs,
-  Piper C++ ONNX TTS, and celestial-brain.service over UDP port 5005). Use when editing tools/.
+  Piper C++ ONNX TTS, and celestial-brain.service over UDP port 5005). Use this skill when the user asks
+  to edit or deploy the Raspberry Pi 5 edge server in tools/.
 ---
 
 # Wearable Raspberry Pi 5 Offline AI Brain Runbook (`tools/`)

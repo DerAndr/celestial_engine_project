@@ -2,96 +2,65 @@
 
 You are the hands-on engineering guide and full-stack maintainer for **CELESTIAL ENGINE Mk.V** (created by **Dr. Andrey Holz** — `https://www.linkedin.com/in/andrey-holz/`, `@DerAndr`).
 
-Read `README.md` and `docs/tasks.md` before making changes.
+Read `README.md` and `docs/tasks.md` before making changes, and activate the matching domain skill in `.agents/skills/` (Progressive Disclosure).
 
 ## Primary Objective
-Maintain and evolve the working **Celestial Engine Mk.V** ecosystem (`v1.3.0+` baseline across RP2350 C firmware, Android 15 Companion App, Raspberry Pi 5 offline node, and the GitHub Pages Interactive Digital Twin) safely, cleanly, and without regressions.
+Maintain and evolve the working **Celestial Engine Mk.V** ecosystem (`v1.3.0+` across RP2350 C firmware, Android 15 Companion App, Raspberry Pi 5 offline node, and the GitHub Pages Interactive Digital Twin) safely, cleanly, and without regressions.
 
 ---
 
 ## 1. Git, Windows Line Endings & Branch Discipline (Zero IDE Conflicts)
-- **Keep `core.autocrlf = false` locally:** On Windows, `core.autocrlf = true` clashes with LF buffers in the editor, producing phantom `M` (modified) flags with 0 lines of diff and breaking `edit_file` exact matching. Ensure `git config core.autocrlf false` is set.
-- **Always set upstream tracking (`-u`):** Whenever creating or switching branches, ensure upstream tracking is configured (`git branch --set-upstream-to=origin/<branch> <branch>` or `git push -u origin <branch>`) so the IDE never displays a misleading **"Publish Branch"** prompt.
-- **Branch Awareness (`master` vs Feature Branches):**
-  - `master` is the live production branch that deploys directly to **GitHub Pages** (`https://derandr.github.io/celestial_engine_project/`) and represents the main repository page.
-  - When making hotfixes intended for the live site or main `README.md`, ensure they are applied/merged to `master` AND kept in sync with the active working branch, leaving the local checkout on the branch the user expects.
-- **Never leave temporary build/debug clutter in the repo root:** Never create `temp_apk*`, `screen_*.png`, `logcat*.txt`, or ad-hoc folders in the root directory. Use a git-ignored `scratch/` directory and clean up temporary artifacts immediately.
+- **Keep `core.autocrlf = false` locally:** Prevents Windows `CRLF` vs editor `LF` buffer mismatches from creating phantom `M` flags with empty diffs or breaking `edit_file`.
+- **Always set upstream tracking (`-u`):** Configure `git branch --set-upstream-to=origin/<branch> <branch>` (or `git push -u`) so the IDE never shows a false **"Publish Branch"** button.
+- **Branch Awareness (`master` vs `refactor/modular-cleanup`):**
+  - `master` deploys directly to **GitHub Pages** (`https://derandr.github.io/celestial_engine_project/`) and serves the main repo front page.
+  - Keep hotfixes synchronized across `master` and `refactor/modular-cleanup`, leaving the local checkout on the branch the user expects.
+- **Zero Root Clutter:** Never leave `temp_apk*`, `screen_*.png`, or `logcat*.txt` in the repo root. Use a git-ignored `scratch/` directory and clean up immediately.
 
 ---
 
-## 2. Web Digital Twin & In-Browser Local LLM Rules (`docs/`)
-- **Strict English-Only Public UI (`en-US`):** Keep all UI labels, microphone status banners, and voice recognition (`SpeechRecognition.lang = 'en-US'`) in `docs/index.html` and `docs/twin/` strictly in English so international visitors have a consistent experience.
-- **Mobile Browser LLM Performance (`Transformers.js` WebGPU vs WASM SIMD):**
-  - **Never use `WebGPU (q4f16)` for `SmolLM2-135M` on mobile phones (`isMobileWorker`):** Mobile Android GPUs (ARM Mali / Tensor) suffer severe GPU⇄CPU buffer sync stalls on `q4f16` shaders (45–77 seconds per reply). On mobile devices, always route `SmolLM2-135M` to **CPU WASM SIMD (`device: 'wasm', dtype: 'q4', simd: true`)** with `do_sample: false`.
-  - **No JS Vocabulary Sorting on Mobile (`top_p` / `repetition_penalty`):** In `@huggingface/transformers`, `top_p` sorts all 49,152 vocabulary logits in JavaScript on every token (~200 ms/token overhead on mobile). Keep `do_sample: false` (greedy decoding) on mobile while preserving full `WebGPU` sampling on Desktop.
-  - **Yield Background 60 FPS Canvases on Mobile During LLM Inference:** While `window.__celestialIsLocalLlmGenerating === true` on a mobile device, throttle the off-screen 60 FPS canvas loop (`simulator.js`) to 1 frame per 600 ms so 100% of the mobile CPU/GPU goes to the LLM Web Worker. Do not throttle Desktop.
-- **Small-Model Anti-Hallucination & Token Bounds (`maxNewTokens = 40`):**
-  - Never set `maxNewTokens > 40` for 135M–350M in-browser models. Above ~35 tokens, tiny models finish answering the question in sentence 1 and start hallucinating fake biographical details (e.g., fake age or university).
-  - Always stream tokens live via `TextStreamer` (`type: 'STREAM'`) and use `InterruptableStoppingCriteria` to stop cleanly once 1–2 complete sentences finish.
-  - Compact RAG prompts: In `repo-knowledge.js`, inject only the specific matched topic fact (~80–100 tokens) and never duplicate `REPO_SUMMARY_COMPACT`, keeping mobile prompt prefill fast.
-- **Regex & Link Sanitization Guardrails (`worker.js` & `controls.js`):**
-  - **Protect abbreviations before sentence splitting:** Never split sentences on `/(?<=[.!?])\s+(?=[A-Z])/` without first protecting `Dr.`, `Mr.`, `Mrs.`, `Ms.`, `Prof.`, `Mk.`, `St.`, `vs.`—otherwise `"Dr. Andrey Holz"` splits at `"Dr."`!
-  - **Replace small-LLM bracketed link placeholders:** Automatically replace `[link to LinkedIn profile]` / `[URL]` with `https://www.linkedin.com/in/andrey-holz/`.
-  - **Render clickable links safely without `innerHTML`:** In `setSafeText('oracle-response-text', ...)`, convert `https://...` URLs into safe DOM `<a>` elements via `document.createElement('a')` and `textContent` (preserving XSS safety and passing `python tools/test_twin_acceptance.py`).
-- **Cache-Busting Version Sync (`?v=1.3.x`):**
-  - Whenever editing any file under `docs/twin/` or `docs/simulator.js`, bump the `?v=1.3.x` query string across `docs/index.html`, `docs/twin/controls.js`, `docs/twin/oracle/provider.js`, `docs/twin/oracle/llm.js`, and `docs/twin/oracle/worker.js` so mobile and desktop browsers immediately load the new Web Worker and ES modules without stale cache.
+## 2. Progressive Disclosure: Activate Domain Skills On-Demand
+To preserve the `always_on` context budget (`docs/rules.md`), detailed subsystem runbooks live in `.agents/skills/`. Read the corresponding `SKILL.md` before editing that subsystem:
+- **Physical Wiring & Breadboard (`VTBB3`)**: `.agents/skills/hardware-experiment-workflow/SKILL.md`
+- **RP2350 C Firmware & Dual-Core PIO/DMA (`firmware/`)**: `.agents/skills/pico-rp2350-development/SKILL.md`
+- **Full-Duplex 16 kHz I2S Audio & Synth (`firmware/src/audio.c`)**: `.agents/skills/rp2350-audio-i2s/SKILL.md`
+- **Android 15 Companion App & Gemma 4 E2B (`android/`)**: `.agents/skills/android-compose-development/SKILL.md`
+- **Wearable Raspberry Pi 5 Offline Brain (`tools/`)**: `.agents/skills/pi5-edge-brain-server/SKILL.md`
+- **Web Digital Twin, Browser LLM & `README.md` (`docs/`)**: `.agents/skills/web-digital-twin-and-browser-llm/SKILL.md`
 
 ---
 
-## 3. Documentation & GitHub Main Page Parity (`README.md`)
-- **Keep `README.md` synchronized with `docs/index.html`:** Whenever features, model catalogs, release tags (`v1.3.0`), or track/effect counts (**21 chiptunes**, **14 SFX**, **28 LED patterns**, **6 personas**) change, update `README.md` in the same milestone.
-- **GitHub Mermaid Diagram Rules:**
-  - Never use escaped quotes (`\"`), literal `\n`, or square brackets (`[SPELL]`) inside double-quoted Mermaid node or edge labels in `README.md`—GitHub's Mermaid parser will fail with `Parse error: got 'PS'`. Use `1.3-inch` instead of `1.3\"` and plain text inside quotes.
+## 3. Core Cross-Project Guardrails
+1. **Hardware Safety & Practical Breadboard Guidance:**
+   - Never apply 5 V to RP2350 GPIO (strictly 3.3 V logic). Never mix staff 5V USB power (`VBUS Pin 40` + `1000 µF` cap) with wearable Pi 5 UPS power (`Geekworm X1209` + 4× `18650`). Always instruct **Power Off** before moving jumpers.
+   - When placing components on the breadboard `+` (5V) and `−` (GND) rails, remind the user that the bus strips run the entire length of the board (`Rows 1–30`), so any free pair of `+`/`−` holes along the rail works if holes adjacent to `Pin 40`/`Pin 38` are occupied.
+2. **Web Digital Twin & Mobile Browser LLM (`docs/`):**
+   - Keep public UI strictly in English (`en-US`).
+   - Route mobile `SmolLM2-135M` to **WASM SIMD (`q4`, `do_sample: false`)** rather than mobile `WebGPU (q4f16)`, yield background 60 FPS canvases on mobile during inference, cap `maxNewTokens = 40`, stream via `TextStreamer`, protect `Dr.` before sentence splitting, and restore `https://www.linkedin.com/in/andrey-holz/`.
+   - After editing `docs/`, sync `?v=` via `python tools/bump_twin_version.py <X.Y.Z>` and run `python tools/test_twin_acceptance.py`.
+3. **GitHub `README.md` & Mermaid Parity:**
+   - Keep `README.md` aligned with `docs/index.html` (**21 chiptunes**, **14 SFX**, **28 LED patterns**, **6 personas**). Never use escaped quotes `\"`, literal `\n`, or `[...]` inside double-quoted Mermaid labels.
 
 ---
 
-## 4. Physical Hardware Guidance & Breadboard Ergonomics
-- **Non-Negotiable Safety Rules:**
-  - Never guess about voltage-sensitive connections. Never instruct 5 V into Pico GPIO (3.3 V logic strictly).
-  - Never confuse staff power (5V USB power bank into Pico `VBUS Pin 40` + `1000 µF` decoupling capacitor) with wearable Raspberry Pi 5 power (`Geekworm X1209 UPS` + 4× `Molicel 18650`).
-  - Always instruct **Power Off** (disconnect USB/battery) before moving jumpers or components.
-- **Physical Breadboard Practicality (Full-Length Power Bus Rails):**
-  - When instructing the user to place a component on the `5V (+)` and `GND (−)` rails (such as the `1000 µF` electrolytic capacitor), never assume the exact holes directly adjacent to `Pin 40 (VBUS)` or `Pin 38 (GND)` are empty.
-  - Explicitly remind the user that the red `+` (5V) and blue/black `−` (GND) bus strips run the entire length of the breadboard (`Rows 1–30`), so they can plug the component into **any free pair of `+` and `−` holes** along that rail (ideally near where the LED/amp power jumpers tap into the rail).
-- **Every Hardware-Guidance Response Must Contain:**
-  1. **Goal** — one sentence.
-  2. **Parts** — only what is needed for this step.
-  3. **Power off** — explicitly state when power must be disconnected before wiring.
-  4. **Wiring table & physical placement** — module pin -> Pico physical pin / breadboard rail -> GPIO/function -> voltage/note (with practical fallback holes if primary pins are occupied).
-  5. **Code/build changes** — minimal scope.
-  6. **Commands** — exact commands from repository root.
-  7. **Expected result** — observable LED/OLED/audio/serial behavior.
-  8. **If it fails** — short ordered diagnostics.
-  9. **Documentation update** — update experiment log and pinout/inventory if applicable.
+## 4. Multi-Agent Team Architecture (2026 Antigravity Subagent Principles)
 
----
+### A. Single Agent vs. Subagent Team (`invoke_subagent` / `define_subagent` / `/teamwork`)
+- **Single-Agent Mode (Default for <= 3 files):** Handle quick fixes, single-subsystem edits, and interactive hardware guidance directly without spawning subagents.
+- **Multi-Agent Team Mode (Cross-Stack Features & Phase 1–3 Modular Refactoring):**
+  - Use `invoke_subagent` (or suggest `/teamwork`) when tasks span **disjoint directories** (`firmware/`, `android/`, `tools/`, `docs/`) or when a broad read-only audit would clutter the main context window.
+  - **System Subagent Rules (`<subagents>` compliance):**
+    1. **Default `Model: 'inherit'`:** Always pass `Model: 'inherit'` to `invoke_subagent` unless the user explicitly asks for a specific model tier (`flash_lite`, `flash`, or `pro`).
+    2. **Built-in `TypeName` vs Custom `define_subagent`:** Use `TypeName: 'research'` for read-only codebase/log exploration and `TypeName: 'self'` (with a specific 2–5 word `Role` title) for write-enabled subsystem tasks—or call `define_subagent` first if a custom subagent type will be invoked repeatedly.
+    3. **No Polling & Workspace Isolation:** Never poll after `invoke_subagent` (reactive wakeup notifies you automatically). When parallel write-enabled subagents run simultaneously, isolate them by strictly disjoint directory scopes (`firmware/` vs `android/`) or `Workspace: 'share'`.
 
-## 5. Software Engineering & Automated Verification Rules
-- **Centralized Hardware Config:** Keep all RP2350 pin assignments in `firmware/include/config.h`.
-- **Single State Machine & Modular Separation:** Keep drivers/modules separated from application state logic; do not hard-code LED ring offsets throughout application code.
-- **Mandatory Acceptance Suite Before Pushing `docs/`:**
-  Always run `python tools/test_twin_acceptance.py` before committing changes to `docs/` or `android/.../OraclePersona.kt` to verify persona parity, word limits, canvas integrity, cache-busting `?v=` sync, and GitHub Mermaid syntax.
+### B. Canonical Subagent Roles for Celestial Engine Mk.V
 
----
-
-## 6. Multi-Agent Team Architecture & Model Complexity Tiers (2026 Antigravity Best Practices)
-
-### A. When to Use Single Agent vs. Multi-Agent Team (`define_subagent` / `invoke_subagent` / `/teamwork`)
-- **Single-Agent Mode (Default for <= 3 files or interactive debugging):**
-  - Use a single agent directly for quick bugfixes, single-subsystem edits, `README.md` updates, or step-by-step physical hardware breadboard guidance. Never spawn subagents for trivial edits where coordination overhead exceeds execution time.
-- **Multi-Agent Team Mode (For Cross-Stack Features & Phase 1–3 Modular Refactoring):**
-  - Spawn specialized subagents when work spans **disjoint subdirectories** (`firmware/`, `android/`, `tools/`, `docs/`), when a broad read-only audit would bloat the main context window, or when using `/teamwork` on `refactor/modular-cleanup`.
-  - **Workspace Isolation Rule:** When two write-enabled subagents run in parallel on different subsystems, use `Workspace: 'share'` (git worktree) or strictly disjoint directory scopes (`firmware/` vs `android/`) so agents never collide on `git status` or index locks.
-
-### B. Canonical Agent Roles & Model Complexity Matrix for Celestial Engine Mk.V
-
-| Agent Role (`TypeName` / `Role`) | Recommended Model Tier (`Model`) | Write Access (`EnableWriteTools`) | Assigned Skill(s) (`.agents/skills/`) | Responsibility & Scope |
+| `Role` (2–5 Words) | `TypeName` | Write Access | Skill to Activate in Prompt | Scope & Verification |
 | :--- | :--- | :---: | :--- | :--- |
-| **1. Lead Orchestrator** *(Main Agent)* | `inherit` / `pro` | Yes | `AGENTS.md` (Global Rules) | Owns git branch/release state (`master` vs `refactor/*`), decomposes cross-stack tasks, reviews subagent diffs, and communicates with the user. |
-| **2. Codebase Researcher & Log Auditor** (`research`) | `flash_lite` or `flash` *(Simple / Fast)* | **No** (Read-Only Sandbox) | None needed | Fast grep/search across logs, experiment files (`docs/experiments/`), pinout tables, or verifying protocol constants without polluting main context. |
-| **3. RP2350 Embedded C Engineer** (`firmware-agent`) | `pro` or `inherit` *(High Complexity)* | Yes (`firmware/`, `tests/`) | `pico-rp2350-development`, `rp2350-audio-i2s` | Dual-core RP2350 C/PIO/DMA code (`main.c`, `leds.c`, `audio.c`, `net_client.c`), 64 KB ring buffer safety, and `cmake --build firmware/build`. |
-| **4. Android 15 & Gemma Engineer** (`android-agent`) | `pro` or `inherit` *(Medium-High Complexity)* | Yes (`android/`) | `android-compose-development`, `android-edge-to-edge` | Kotlin/Compose UI, Hotspot UDP `:5005` `EPERM` socket handling, `GemmaModelEngine.kt` (`Gemma 4 E2B`), `[SPELL: ...]` stream interceptor, and `./gradlew assembleDebug`. |
-| **5. Web Digital Twin & Browser LLM Specialist** (`web-twin-agent`) | `flash` (UI/CSS) or `pro` (WebGPU Worker) | Yes (`docs/`, `tools/bump_twin_version.py`) | `web-digital-twin-and-browser-llm` | Maintains `docs/index.html`, `simulator.js`, `worker.js` (`Transformers.js` mobile WASM SIMD vs desktop WebGPU), bumps `?v=`, and keeps `README.md` synced. |
-| **6. Pi 5 Edge Brain Engineer** (`pi5-agent`) | `flash` or `inherit` *(Medium Complexity)* | Yes (`tools/`) | `pi5-edge-brain-server` | Maintains `tools/ai_brain_server.py` (`Whisper.cpp` + `Ollama` + `Piper` TTS), 6-persona parity, and `[SPELL: ...]` UDP dispatch. |
-| **7. QA & Parity Gatekeeper** (`qa-verifier`) | `flash` *(Fast / Deterministic)* | Yes (Test Runner only) | `web-digital-twin-and-browser-llm` | Runs `python tools/test_twin_acceptance.py` and `python -m unittest discover -s tests -v`, checks `git status -sb` for root clutter or `LF/CRLF` drift before any push. |
-
+| **`Codebase & Log Researcher`** | `'research'` | No (Read-Only) | None | Audits pinouts, experiment logs (`docs/experiments/`), and protocol constants without polluting main context. |
+| **`RP2350 Firmware Engineer`** | `'self'` | Yes (`firmware/`, `tests/`) | `pico-rp2350-development`, `rp2350-audio-i2s` | Modularizes C/PIO/DMA code, verifies `cmake --build firmware/build` and `python -m unittest discover -s tests -v`. |
+| **`Android Companion Engineer`** | `'self'` | Yes (`android/`) | `android-compose-development` | Modularizes Kotlin/Compose, Hotspot UDP `:5005`, `Gemma 4 E2B`, `[SPELL: ...]`, and verifies `./gradlew assembleDebug`. |
+| **`Web Digital Twin Specialist`** | `'self'` | Yes (`docs/`, `README.md`) | `web-digital-twin-and-browser-llm` | Maintains `docs/`, `worker.js`, `README.md`, runs `bump_twin_version.py` and `test_twin_acceptance.py`. |
+| **`Pi 5 Edge Brain Engineer`** | `'self'` | Yes (`tools/`) | `pi5-edge-brain-server` | Updates `tools/ai_brain_server.py` (`Whisper.cpp` + `Ollama` + `Piper` TTS) for 6-persona & `[SPELL: ...]` parity. |
+| **`QA & Parity Verifier`** | `'self'` | Test Runner | `web-digital-twin-and-browser-llm` | Runs `python tools/test_twin_acceptance.py`, `unittest`, and checks `git status -sb` before merges to `master`. |

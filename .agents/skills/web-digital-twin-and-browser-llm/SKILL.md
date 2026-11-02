@@ -1,9 +1,10 @@
 ---
 name: web-digital-twin-and-browser-llm
 description: >-
-  Maintain, optimize, and verify the Celestial Engine Mk.V Interactive Web Digital Twin (GitHub Pages),
-  in-browser Local LLM worker (Transformers.js WebGPU / WASM SIMD), 6 Oracle personas, and README/Mermaid documentation.
-  Use whenever editing docs/index.html, docs/simulator.js, docs/twin/*, or README.md.
+  Provides instructions to maintain, optimize, and verify the Celestial Engine Mk.V Interactive Web Digital Twin
+  (GitHub Pages), in-browser Local LLM worker (Transformers.js WebGPU / WASM SIMD), 6 Oracle personas, and
+  README/Mermaid documentation. Use this skill when the user asks to edit docs/index.html, docs/simulator.js,
+  docs/twin/*, or README.md.
 ---
 
 # Web Digital Twin & In-Browser Local LLM Runbook

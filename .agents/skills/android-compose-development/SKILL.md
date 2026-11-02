@@ -1,9 +1,10 @@
 ---
 name: android-compose-development
 description: >-
-  Expert guidelines and anti-regression playbook for the Celestial Engine Mk.V Android 15+
+  Provides architecture guidelines and an anti-regression playbook for the Celestial Engine Mk.V Android 15+
   Companion App (Kotlin, Jetpack Compose, Wi-Fi Hotspot UDP v2 server, Gemma 4 E2B, OpenRouter,
-  Arcane Grimoire [SPELL] engine, and Multimodal Vision). Use when editing or building android/.
+  Arcane Grimoire [SPELL] engine, and Multimodal Vision). Use this skill when the user asks to edit,
+  build, or debug the Android application in android/.
 ---
 
 # Android 15 Companion App (`android/`) Development & Anti-Regression Playbook

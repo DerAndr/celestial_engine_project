@@ -1,10 +1,10 @@
 ---
 name: hardware-experiment-workflow
 description: >-
-  Standardized protocol for physical hardware experimentation, safe electrical wiring,
+  Provides the standardized protocol for physical hardware experimentation, safe electrical wiring,
   breadboard power-rail placement, and milestone verification on Celestial Engine Mk.V.
-  Use when guiding physical breadboard wiring, checking power rails, placing decoupling capacitors,
-  validating breakout pinouts, and documenting hardware experiments.
+  Use this skill when the user asks for physical breadboard wiring guidance, power rail checks,
+  capacitor placement, breakout pinout validation, or hardware experiment documentation.
 ---
 
 # Hardware Experimentation and Safety Protocol

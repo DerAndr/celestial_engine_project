@@ -1,10 +1,10 @@
 ---
 name: pico-rp2350-development
 description: >-
-  Build, configure, flash, and debug firmware for the Celestial Engine Mk.V staff on
-  Raspberry Pi Pico 2 W (RP2350 / Dual ARM Cortex-M33). Use when compiling C/C++ firmware,
-  editing main.c/leds.c/audio.c/net_client.c, configuring CMake for RP2350, handling CYW43 Wi-Fi UDP v2,
-  flashing UF2 binaries, or debugging serial output over USB CDC.
+  Provides instructions to build, configure, flash, and debug C/C++ firmware for the Celestial Engine Mk.V
+  staff on Raspberry Pi Pico 2 W (RP2350 / Dual ARM Cortex-M33). Use this skill when the user asks to
+  compile firmware, edit main.c/leds.c/audio.c/net_client.c, configure CMake for RP2350, handle CYW43
+  Wi-Fi UDP v2, flash UF2 binaries, or debug serial output over USB CDC.
 ---
 
 # Raspberry Pi Pico 2 W (RP2350) Firmware Runbook — Celestial Engine Mk.V

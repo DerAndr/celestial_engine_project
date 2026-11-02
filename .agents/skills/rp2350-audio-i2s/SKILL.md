@@ -1,9 +1,10 @@
 ---
 name: rp2350-audio-i2s
 description: >-
-  Configure, maintain, and debug full-duplex 16 kHz I2S audio input (INMP441 MEMS microphone)
+  Provides guidelines to configure, maintain, and debug full-duplex 16 kHz I2S audio input (INMP441 MEMS microphone)
   and I2S audio output (MAX98357A Class-D amplifier, 64 KB ring buffer, 21 chiptunes, 14 SFX)
-  on Raspberry Pi RP2350 using PIO state machines and DMA.
+  on Raspberry Pi RP2350 using PIO state machines and DMA. Use this skill when the user asks to modify
+  or debug staff microphone capture, speaker playback, chiptune synthesis, or audio ring buffers.
 ---
 
 # RP2350 Full-Duplex I2S Audio & Synthesizer Runbook
