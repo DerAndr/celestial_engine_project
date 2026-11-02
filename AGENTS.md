@@ -70,4 +70,28 @@ Maintain and evolve the working **Celestial Engine Mk.V** ecosystem (`v1.3.0+` b
 - **Centralized Hardware Config:** Keep all RP2350 pin assignments in `firmware/include/config.h`.
 - **Single State Machine & Modular Separation:** Keep drivers/modules separated from application state logic; do not hard-code LED ring offsets throughout application code.
 - **Mandatory Acceptance Suite Before Pushing `docs/`:**
-  Always run `python tools/test_twin_acceptance.py` before committing changes to `docs/` or `android/.../OraclePersona.kt` to verify persona parity, word limits, canvas integrity, and XSS-safe DOM rendering.
+  Always run `python tools/test_twin_acceptance.py` before committing changes to `docs/` or `android/.../OraclePersona.kt` to verify persona parity, word limits, canvas integrity, cache-busting `?v=` sync, and GitHub Mermaid syntax.
+
+---
+
+## 6. Multi-Agent Team Architecture & Model Complexity Tiers (2026 Antigravity Best Practices)
+
+### A. When to Use Single Agent vs. Multi-Agent Team (`define_subagent` / `invoke_subagent` / `/teamwork`)
+- **Single-Agent Mode (Default for <= 3 files or interactive debugging):**
+  - Use a single agent directly for quick bugfixes, single-subsystem edits, `README.md` updates, or step-by-step physical hardware breadboard guidance. Never spawn subagents for trivial edits where coordination overhead exceeds execution time.
+- **Multi-Agent Team Mode (For Cross-Stack Features & Phase 1–3 Modular Refactoring):**
+  - Spawn specialized subagents when work spans **disjoint subdirectories** (`firmware/`, `android/`, `tools/`, `docs/`), when a broad read-only audit would bloat the main context window, or when using `/teamwork` on `refactor/modular-cleanup`.
+  - **Workspace Isolation Rule:** When two write-enabled subagents run in parallel on different subsystems, use `Workspace: 'share'` (git worktree) or strictly disjoint directory scopes (`firmware/` vs `android/`) so agents never collide on `git status` or index locks.
+
+### B. Canonical Agent Roles & Model Complexity Matrix for Celestial Engine Mk.V
+
+| Agent Role (`TypeName` / `Role`) | Recommended Model Tier (`Model`) | Write Access (`EnableWriteTools`) | Assigned Skill(s) (`.agents/skills/`) | Responsibility & Scope |
+| :--- | :--- | :---: | :--- | :--- |
+| **1. Lead Orchestrator** *(Main Agent)* | `inherit` / `pro` | Yes | `AGENTS.md` (Global Rules) | Owns git branch/release state (`master` vs `refactor/*`), decomposes cross-stack tasks, reviews subagent diffs, and communicates with the user. |
+| **2. Codebase Researcher & Log Auditor** (`research`) | `flash_lite` or `flash` *(Simple / Fast)* | **No** (Read-Only Sandbox) | None needed | Fast grep/search across logs, experiment files (`docs/experiments/`), pinout tables, or verifying protocol constants without polluting main context. |
+| **3. RP2350 Embedded C Engineer** (`firmware-agent`) | `pro` or `inherit` *(High Complexity)* | Yes (`firmware/`, `tests/`) | `pico-rp2350-development`, `rp2350-audio-i2s` | Dual-core RP2350 C/PIO/DMA code (`main.c`, `leds.c`, `audio.c`, `net_client.c`), 64 KB ring buffer safety, and `cmake --build firmware/build`. |
+| **4. Android 15 & Gemma Engineer** (`android-agent`) | `pro` or `inherit` *(Medium-High Complexity)* | Yes (`android/`) | `android-compose-development`, `android-edge-to-edge` | Kotlin/Compose UI, Hotspot UDP `:5005` `EPERM` socket handling, `GemmaModelEngine.kt` (`Gemma 4 E2B`), `[SPELL: ...]` stream interceptor, and `./gradlew assembleDebug`. |
+| **5. Web Digital Twin & Browser LLM Specialist** (`web-twin-agent`) | `flash` (UI/CSS) or `pro` (WebGPU Worker) | Yes (`docs/`, `tools/bump_twin_version.py`) | `web-digital-twin-and-browser-llm` | Maintains `docs/index.html`, `simulator.js`, `worker.js` (`Transformers.js` mobile WASM SIMD vs desktop WebGPU), bumps `?v=`, and keeps `README.md` synced. |
+| **6. Pi 5 Edge Brain Engineer** (`pi5-agent`) | `flash` or `inherit` *(Medium Complexity)* | Yes (`tools/`) | `pi5-edge-brain-server` | Maintains `tools/ai_brain_server.py` (`Whisper.cpp` + `Ollama` + `Piper` TTS), 6-persona parity, and `[SPELL: ...]` UDP dispatch. |
+| **7. QA & Parity Gatekeeper** (`qa-verifier`) | `flash` *(Fast / Deterministic)* | Yes (Test Runner only) | `web-digital-twin-and-browser-llm` | Runs `python tools/test_twin_acceptance.py` and `python -m unittest discover -s tests -v`, checks `git status -sb` for root clutter or `LF/CRLF` drift before any push. |
+
