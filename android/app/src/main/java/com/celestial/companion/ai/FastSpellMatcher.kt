@@ -18,7 +18,8 @@ object FastSpellMatcher {
     private val FAST_SPELLS = listOf(
         FastSpell(
             keywords = listOf(
-                "fireball", "фаербол", "фаер бол", "огненный шар", "огонь", "пламя", "метеор", "подпали", "fire", "flame", "meteor"
+                "fireball", "фаербол", "фаер бол", "огненный шар", "огонь", "пламя", "метеор", "подпали", "fire", "flame", "meteor",
+                "feuerball", "feuer", "flamme"
             ),
             definition = SpellDefinition(
                 name = "Fireball",
@@ -32,7 +33,8 @@ object FastSpellMatcher {
         ),
         FastSpell(
             keywords = listOf(
-                "молния", "молнию", "цепная молния", "гроза", "разряд", "гром", "шарахни", "молнией", "lightning", "thunder", "thunderbolt", "zap"
+                "молния", "молнию", "цепная молния", "гроза", "разряд", "гром", "шарахни", "молнией", "lightning", "thunder", "thunderbolt", "zap",
+                "kettenblitz", "blitz", "donner", "gewitter"
             ),
             definition = SpellDefinition(
                 name = "Chain Lightning",
@@ -46,7 +48,8 @@ object FastSpellMatcher {
         ),
         FastSpell(
             keywords = listOf(
-                "щит", "эгида", "защита", "барьер", "щит эгиды", "защитный", "защити", "shield", "aegis", "barrier", "protect", "defense"
+                "щит", "эгида", "защита", "барьер", "щит эгиды", "защитный", "защити", "shield", "aegis", "barrier", "protect", "defense",
+                "schild", "ägisschild", "aegisschild", "barriere", "verteidigung"
             ),
             definition = SpellDefinition(
                 name = "Aegis Shield",
@@ -60,7 +63,8 @@ object FastSpellMatcher {
         ),
         FastSpell(
             keywords = listOf(
-                "водоворот", "черная дыра", "черную дыру", "сингулярность", "гравитация", "вихрь", "закрути", "vortex", "black hole", "singularity", "gravity", "swirl"
+                "водоворот", "черная дыра", "черную дыру", "сингулярность", "гравитация", "вихрь", "закрути", "vortex", "black hole", "singularity", "gravity", "swirl",
+                "wirbel", "schwarzes loch", "singularität", "gravitation"
             ),
             definition = SpellDefinition(
                 name = "Cosmic Vortex",
@@ -74,7 +78,8 @@ object FastSpellMatcher {
         ),
         FastSpell(
             keywords = listOf(
-                "змейка", "змейку", "уроборос", "змея", "змею", "snake", "ouroboros", "serpent"
+                "змейка", "змейку", "уроборос", "змея", "змею", "snake", "ouroboros", "serpent",
+                "schlange"
             ),
             definition = SpellDefinition(
                 name = "Ouroboros Serpent",
@@ -88,7 +93,8 @@ object FastSpellMatcher {
         ),
         FastSpell(
             keywords = listOf(
-                "пульсар", "шок", "взрыв", "ударная волна", "бабах", "взорви", "pulsar", "shockwave", "blast", "shock", "explosion"
+                "пульсар", "шок", "взрыв", "ударная волна", "бабах", "взорви", "pulsar", "shockwave", "blast", "shock", "explosion",
+                "druckwelle", "schockwelle"
             ),
             definition = SpellDefinition(
                 name = "Astral Pulsar",
@@ -102,7 +108,8 @@ object FastSpellMatcher {
         ),
         FastSpell(
             keywords = listOf(
-                "лед", "льдом", "вьюга", "стужа", "метель", "мороз", "заморозка", "заморозь", "иней", "снег", "frost", "blizzard", "ice", "freeze", "chilling", "snow"
+                "лед", "льдом", "вьюга", "стужа", "метель", "мороз", "заморозка", "заморозь", "иней", "снег", "frost", "blizzard", "ice", "freeze", "chilling", "snow",
+                "eis", "frostnova", "schneesturm", "kälte", "gefrieren", "schnee"
             ),
             definition = SpellDefinition(
                 name = "Frost Nova",
@@ -116,7 +123,8 @@ object FastSpellMatcher {
         ),
         FastSpell(
             keywords = listOf(
-                "галактика", "галактику", "космос", "звезды", "звездный", "млечный путь", "galaxy", "cosmos", "stars", "cosmic"
+                "галактика", "галактику", "космос", "звезды", "звездный", "млечный путь", "galaxy", "cosmos", "stars", "cosmic",
+                "galaxie", "kosmos", "sterne", "milchstraße"
             ),
             definition = SpellDefinition(
                 name = "Galaxy Drift",
@@ -130,7 +138,8 @@ object FastSpellMatcher {
         ),
         FastSpell(
             keywords = listOf(
-                "радуга", "утка", "утку", "кряк", "квантовая утка", "крякни", "rainbow", "quack", "duck"
+                "радуга", "утка", "утку", "кряк", "квантовая утка", "крякни", "rainbow", "quack", "duck",
+                "quantenente", "ente", "quak", "regenbogen"
             ),
             definition = SpellDefinition(
                 name = "Quantum Quack",
@@ -144,7 +153,8 @@ object FastSpellMatcher {
         ),
         FastSpell(
             keywords = listOf(
-                "хэллоуин", "тыква", "тыкву", "светильник", "кошмар", "ужас", "halloween", "pumpkin", "spooky", "scare"
+                "хэллоуин", "тыква", "тыкву", "светильник", "кошмар", "ужас", "halloween", "pumpkin", "spooky", "scare",
+                "kürbis", "grusel"
             ),
             definition = SpellDefinition(
                 name = "Jack-O'-Lantern",
@@ -158,7 +168,8 @@ object FastSpellMatcher {
         ),
         FastSpell(
             keywords = listOf(
-                "дроид", "дроида", "паника", "r2d2", "пищалка", "астромех", "droid", "hysteria", "r2"
+                "дроид", "дроида", "паника", "r2d2", "пищалка", "астромех", "droid", "hysteria", "r2",
+                "droide", "panik"
             ),
             definition = SpellDefinition(
                 name = "Droid Hysteria",
@@ -169,13 +180,70 @@ object FastSpellMatcher {
                 chantText = "Bip-boop bip-bop astromech hysterium, waaaah!",
                 oledText = "🤖 DROID"
             )
+        ),
+        FastSpell(
+            keywords = listOf(
+                "lumos", "lumos maxima", "люмос", "люмос максима", "фонарик", "licht", "zauberstab"
+            ),
+            definition = SpellDefinition(
+                name = "Lumos Maxima",
+                animation = LedAnimation.HARRY_POTTER,
+                sounds = listOf(12, 5, 1),
+                prompt = "Cast Lumos Maxima! [SPELL: Lumos Maxima | ANIM: HARRY_POTTER | SOUNDS: LUMOS, PORTAL, PULSAR] Lumos maxima lux aetheris!",
+                description = "Hogwarts Runes • Lumos • Portal • Shimmer",
+                chantText = "Lumos maxima lux aetheris, illustra noctem!",
+                oledText = "🪄 LUMOS!"
+            )
+        ),
+        FastSpell(
+            keywords = listOf(
+                "patronum", "patronus", "expecto patronum", "патронум", "патронус", "экспекто патронум", "дементор", "dementor", "schutzpatron"
+            ),
+            definition = SpellDefinition(
+                name = "Expecto Patronum",
+                animation = LedAnimation.HARRY_POTTER,
+                sounds = listOf(13, 0, 7),
+                prompt = "Cast Expecto Patronum! [SPELL: Expecto Patronum | ANIM: HARRY_POTTER | SOUNDS: PATRONUS, WARP, HAPPY] Expecto patronum anima argentea!",
+                description = "Hogwarts Runes • Patronus Mist • Warp",
+                chantText = "Expecto patronum anima argentea, averte dementores!",
+                oledText = "🦅 PATRONUS!"
+            )
+        ),
+        FastSpell(
+            keywords = listOf(
+                "ebay", "auction", "cha-ching", "chaching", "ибей", "ебей", "аукцион", "касса", "auktion", "gebot"
+            ),
+            definition = SpellDefinition(
+                name = "eBay Chaos Bid",
+                animation = LedAnimation.EBAY,
+                sounds = listOf(10, 3, 6),
+                prompt = "Cast eBay Chaos Bid! [SPELL: eBay Chaos Bid | ANIM: EBAY | SOUNDS: CHA_CHING, LASER, SUPERNOVA] Cha-ching gavel strike!",
+                description = "4-Color Strobe • Cha-Ching • Laser • Gavel",
+                chantText = "Going once, going twice, sold for ten thousand credits!",
+                oledText = "🔨 SOLD!"
+            )
+        ),
+        FastSpell(
+            keywords = listOf(
+                "sailor moon", "moon prism", "moonlight", "сейлор мун", "лунная призма", "лунный свет", "mondstein", "mondprisma"
+            ),
+            definition = SpellDefinition(
+                name = "Moon Prism Power",
+                animation = LedAnimation.SAILOR_MOON,
+                sounds = listOf(5, 1, 7),
+                prompt = "Cast Moon Prism Power! [SPELL: Moon Prism Power | ANIM: SAILOR_MOON | SOUNDS: PORTAL, PULSAR, HAPPY] Moon Prism Power Make Up!",
+                description = "Pastel Spiral • Portal • Shimmer • Chime",
+                chantText = "Moon Prism Power, Make Up! Tsuki ni kawatte oshioki yo!",
+                oledText = "🌙 MOON PRISM"
+            )
         )
     )
 
     private val SPELL_INTENT_WORDS = setOf(
         "заклинание", "заклинанием", "кастани", "скастуй", "кастуй", "поколдуй", "колдуй",
         "шарахни", "жахни", "швырни", "запусти", "активируй", "примени",
-        "cast", "spell", "magic", "incantation", "conjure", "invoke"
+        "cast", "spell", "magic", "incantation", "conjure", "invoke",
+        "zauber", "zauberspruch", "zaubern", "beschwöre", "magie"
     )
 
     private fun textMatchesKeyword(lowerText: String, words: Set<String>, kw: String): Boolean {

@@ -1,9 +1,9 @@
 package com.celestial.companion.ui.screens.leds
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -17,6 +17,51 @@ import kotlinx.coroutines.isActive
 import java.util.Calendar
 import kotlin.math.*
 import kotlin.random.Random
+
+/**
+ * Precomputed normalized polar LED ring unit coordinates (cos, sin) and ring radius factors
+ * for all 43 physical WS2812B LEDs (7 inner: 1 center + 6 inner ring, 12 middle ring, 24 outer ring).
+ * Eliminates trigonometric recomputation on every 33 Hz frame.
+ */
+private const val LED_COUNT = 43
+
+private val LED_UNIT_COS = FloatArray(LED_COUNT) { idx ->
+    when {
+        idx == 0 -> 0f
+        idx in 1..6 -> cos((idx - 1) * (2f * PI.toFloat() / 6f) - (PI.toFloat() / 2f))
+        idx in 7..18 -> cos((idx - 7) * (2f * PI.toFloat() / 12f) - (PI.toFloat() / 2f))
+        else -> cos((idx - 19) * (2f * PI.toFloat() / 24f) - (PI.toFloat() / 2f))
+    }
+}
+
+private val LED_UNIT_SIN = FloatArray(LED_COUNT) { idx ->
+    when {
+        idx == 0 -> 0f
+        idx in 1..6 -> sin((idx - 1) * (2f * PI.toFloat() / 6f) - (PI.toFloat() / 2f))
+        idx in 7..18 -> sin((idx - 7) * (2f * PI.toFloat() / 12f) - (PI.toFloat() / 2f))
+        else -> sin((idx - 19) * (2f * PI.toFloat() / 24f) - (PI.toFloat() / 2f))
+    }
+}
+
+private val LED_RING_SCALE = FloatArray(LED_COUNT) { idx ->
+    when {
+        idx == 0 -> 0f
+        idx in 1..6 -> 0.33f
+        idx in 7..18 -> 0.64f
+        else -> 0.95f
+    }
+}
+
+private val OUROBOROS_PATH = intArrayOf(
+    19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
+    7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+    1, 2, 3, 4, 5, 6,
+    0,
+    6, 5, 4, 3, 2, 1,
+    18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7
+)
+
+private val RADIAL_RING_R = floatArrayOf(0.0f, 1.0f, 2.0f, 3.2f)
 
 /**
  * AI Neural Model LED Themes mirroring firmware/src/leds.c:
@@ -51,8 +96,8 @@ val LLM_THEMES = listOf(
  * - Middle Ring:  12 LEDs (Indices 7..18)
  * - Outer Ring:   24 LEDs (Indices 19..42)
  *
- * Runs all 18 firmware animation modes with exact mathematical parity to Pico 2 W RP2350,
- * reactive to active state (LISTENING, PROCESSING, SPEAKING), voice volume, and neural model.
+ * Uses [drawWithCache] and precomputed normalized polar coordinates for zero-recomposition
+ * 33 Hz rendering without per-frame trigonometry or redundant allocations.
  */
 @Composable
 fun ConcentricLedRingsView(
@@ -82,83 +127,101 @@ fun ConcentricLedRingsView(
         StaffState.IDLE -> animation
     }
 
-    // Compute pixel RGB colors for all 43 LEDs
-    val colors = remember(effectiveAnimation, animTick, micLevelPct, aiModelId, brightnessPct) {
-        computeLedColors(effectiveAnimation, animTick, micLevelPct, aiModelId, brightnessPct)
-    }
+    // Reusable 43-LED color buffer to prevent per-frame array allocations at 33 Hz
+    val colorBuffer = remember { Array(LED_COUNT) { Color.Black } }
 
     Box(
-        modifier = modifier.size(size)
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val cx = size.toPx() / 2f
-            val cy = size.toPx() / 2f
-            val maxR = (size.toPx() / 2f) * 0.88f
+        modifier = modifier
+            .size(size)
+            .drawWithCache {
+                val canvasSizePx = this.size.minDimension
+                val cx = this.size.width / 2f
+                val cy = this.size.height / 2f
+                val maxR = (canvasSizePx / 2f) * 0.88f
 
-            val rInner = maxR * 0.33f
-            val rMiddle = maxR * 0.64f
-            val rOuter = maxR * 0.95f
+                val rInner = maxR * 0.33f
+                val rMiddle = maxR * 0.64f
+                val rOuter = maxR * 0.95f
+                val centerOffset = Offset(cx, cy)
 
-            val ledDotRadius = (size.toPx() / 240f) * 6.5f
+                val ledDotRadius = (canvasSizePx / 240f) * 6.5f
+                val guideColor = Color(0x2200E5FF)
+                val guideStroke = Stroke(width = 1f)
+                val coreDimWhite = Color.White.copy(alpha = 0.05f)
+                val coreBrightWhite = Color.White.copy(alpha = 0.65f)
 
-            // 1. Draw subtle background mounting guide rings
-            val guideColor = Color(0x2200E5FF)
-            drawCircle(color = guideColor, radius = rInner, center = Offset(cx, cy), style = Stroke(width = 1f))
-            drawCircle(color = guideColor, radius = rMiddle, center = Offset(cx, cy), style = Stroke(width = 1f))
-            drawCircle(color = guideColor, radius = rOuter, center = Offset(cx, cy), style = Stroke(width = 1f))
-
-            // 2. Draw all 43 LEDs with lens body and glowing optical halo
-            for (idx in 0 until 43) {
-                val (x, y) = when {
-                    idx == 0 -> Offset(cx, cy)
-                    idx in 1..6 -> {
-                        val angle = (idx - 1) * (2f * PI.toFloat() / 6f) - (PI.toFloat() / 2f)
-                        Offset(cx + rInner * cos(angle), cy + rInner * sin(angle))
-                    }
-                    idx in 7..18 -> {
-                        val angle = (idx - 7) * (2f * PI.toFloat() / 12f) - (PI.toFloat() / 2f)
-                        Offset(cx + rMiddle * cos(angle), cy + rMiddle * sin(angle))
-                    }
-                    else -> { // 19..42
-                        val angle = (idx - 19) * (2f * PI.toFloat() / 24f) - (PI.toFloat() / 2f)
-                        Offset(cx + rOuter * cos(angle), cy + rOuter * sin(angle))
-                    }
-                }
-
-                val ledColor = colors.getOrElse(idx) { Color.Black }
-                val haloRadius = if (idx == 0) ledDotRadius * 2.8f else ledDotRadius * 2.2f
-                val dotR = if (idx == 0) ledDotRadius * 1.35f else ledDotRadius
-
-                // Soft outer optical halo
-                if (ledColor != Color.Black) {
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(ledColor.copy(alpha = 0.55f), Color.Transparent),
-                            center = Offset(x, y),
-                            radius = haloRadius
-                        ),
-                        radius = haloRadius,
-                        center = Offset(x, y)
+                val ledCenters = Array(LED_COUNT) { idx ->
+                    val r = maxR * LED_RING_SCALE[idx]
+                    Offset(
+                        x = cx + r * LED_UNIT_COS[idx],
+                        y = cy + r * LED_UNIT_SIN[idx]
                     )
                 }
+                val dotRadii = FloatArray(LED_COUNT) { idx ->
+                    if (idx == 0) ledDotRadius * 1.35f else ledDotRadius
+                }
+                val haloRadii = FloatArray(LED_COUNT) { idx ->
+                    if (idx == 0) ledDotRadius * 2.8f else ledDotRadius * 2.2f
+                }
+                val coreCenters = Array(LED_COUNT) { idx ->
+                    val c = ledCenters[idx]
+                    val dotR = dotRadii[idx]
+                    Offset(c.x - dotR * 0.2f, c.y - dotR * 0.2f)
+                }
 
-                // LED lens body
-                drawCircle(
-                    color = ledColor,
-                    radius = dotR,
-                    center = Offset(x, y)
-                )
+                onDrawBehind {
+                    // Reading animTick inside onDrawBehind confines 33 Hz invalidation to the Draw phase
+                    val colors = computeLedColors(
+                        animation = effectiveAnimation,
+                        tick = animTick,
+                        micLevel = micLevelPct,
+                        aiModelId = aiModelId,
+                        brightnessPct = brightnessPct,
+                        outColors = colorBuffer
+                    )
 
-                // Bright inner specular core highlight
-                val coreAlpha = if (ledColor == Color.Black) 0.05f else 0.65f
-                drawCircle(
-                    color = Color.White.copy(alpha = coreAlpha),
-                    radius = dotR * 0.35f,
-                    center = Offset(x - dotR * 0.2f, y - dotR * 0.2f)
-                )
+                    // 1. Draw subtle background mounting guide rings
+                    drawCircle(color = guideColor, radius = rInner, center = centerOffset, style = guideStroke)
+                    drawCircle(color = guideColor, radius = rMiddle, center = centerOffset, style = guideStroke)
+                    drawCircle(color = guideColor, radius = rOuter, center = centerOffset, style = guideStroke)
+
+                    // 2. Draw all 43 LEDs with lens body and glowing optical halo
+                    for (idx in 0 until LED_COUNT) {
+                        val center = ledCenters[idx]
+                        val ledColor = colors[idx]
+                        val haloRadius = haloRadii[idx]
+                        val dotR = dotRadii[idx]
+
+                        // Soft outer optical halo
+                        if (ledColor != Color.Black) {
+                            drawCircle(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(ledColor.copy(alpha = 0.55f), Color.Transparent),
+                                    center = center,
+                                    radius = haloRadius
+                                ),
+                                radius = haloRadius,
+                                center = center
+                            )
+                        }
+
+                        // LED lens body
+                        drawCircle(
+                            color = ledColor,
+                            radius = dotR,
+                            center = center
+                        )
+
+                        // Bright inner specular core highlight
+                        drawCircle(
+                            color = if (ledColor == Color.Black) coreDimWhite else coreBrightWhite,
+                            radius = dotR * 0.35f,
+                            center = coreCenters[idx]
+                        )
+                    }
+                }
             }
-        }
-    }
+    )
 }
 
 /**
@@ -169,9 +232,11 @@ private fun computeLedColors(
     tick: Long,
     micLevel: Int,
     aiModelId: Int,
-    brightnessPct: Int
+    brightnessPct: Int,
+    outColors: Array<Color> = Array(LED_COUNT) { Color.Black }
 ): Array<Color> {
-    val arr = Array(43) { Color.Black }
+    val arr = outColors
+    for (i in 0 until LED_COUNT) arr[i] = Color.Black
     val brightnessFactor = (brightnessPct.coerceIn(10, 100) / 100f)
     val theme = LLM_THEMES.getOrElse(aiModelId) { LLM_THEMES[0] }
 
@@ -556,22 +621,14 @@ private fun computeLedColors(
         }
 
         LedAnimation.SPIRAL_SNAKE -> { // 18. Ouroboros Snake
-            val ouroborosPath = intArrayOf(
-                19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42,
-                7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
-                1, 2, 3, 4, 5, 6,
-                0,
-                6, 5, 4, 3, 2, 1,
-                18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7
-            )
             for (i in 0 until 43) arr[i] = rgb(2, 4, 14)
-            val pathLen = ouroborosPath.size
+            val pathLen = OUROBOROS_PATH.size
             val snakeLen = 12
             val headPos = (tick % pathLen).toInt()
 
             for (seg in snakeLen - 1 downTo 0) {
                 val pIdx = (headPos - seg + pathLen) % pathLen
-                val ledIdx = ouroborosPath[pIdx]
+                val ledIdx = OUROBOROS_PATH[pIdx]
                 if (seg == 0) {
                     arr[ledIdx] = rgb(255, 245, 200)
                     if (ledIdx == 0) {
@@ -587,11 +644,10 @@ private fun computeLedColors(
 
         LedAnimation.RADIAL_WAVE -> { // 19. Radial Shockwave
             val t = tick * 0.15f
-            val ringR = floatArrayOf(0.0f, 1.0f, 2.0f, 3.2f)
             for (i in 0 until 43) arr[i] = rgb(3, 6, 18)
 
             for (layer in 0..3) {
-                val r = ringR[layer]
+                val r = RADIAL_RING_R[layer]
                 var waveVal = 0.0f
                 for (p in 0..1) {
                     val waveFront = (t + p * 2.2f) % 4.4f

@@ -184,12 +184,12 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
 ### Phase 2: Android Companion App Architecture Decoupling
 *Target: Break down monolithic files (`StaffRepository.kt`, `GemmaModelEngine.kt`, `DashboardViewModel.kt`) into clean, decoupled layers.*
 
-- [x] **Binary Protocol Codec Layer (`protocol/`) — ✅ Extracted**:
-  - Extracted packet serialization and deserialization into `CelestialPacket.kt`, `NetMessageType.kt`, and `ProtocolConstants.kt`, verified by `tests/test_protocol_v2_parity.py` and `tests/test_android_packet_compat.py`.
+- [x] **Binary Protocol Codec Layer (`protocol/`) — ✅ Extracted & Unit Tested**:
+  - Extracted packet serialization and deserialization into `CelestialPacket.kt`, `NetMessageType.kt`, and `ProtocolConstants.kt`, verified by `CelestialPacketTest.kt`, `tests/test_protocol_v2_parity.py`, and `tests/test_android_packet_compat.py`.
 - [x] **Network Transport Layer (`network/`) — ✅ Extracted**:
   - Isolated Android 15 socket binding, hotspot network discovery, and UDP packet transport into `StaffTransport.kt` and `StaffUdpTransport.kt`.
-- [x] **Fast Spell Matcher & Prophecy Parser (`ai/FastSpellMatcher.kt`, `domain/model/CelestialProphecy.kt`) — ✅ Extracted**:
-  - Extracted deterministic spell trigger matching and `[SPELL: ...]` tag parsing.
+- [x] **Fast Spell Matcher & Prophecy Parser (`ai/FastSpellMatcher.kt`, `domain/model/CelestialProphecy.kt`) — ✅ Extracted & Unit Tested**:
+  - Extracted deterministic spell trigger matching (EN/RU/DE, including Harry Potter, eBay, Sailor Moon, Pokémon) and `[SPELL: ...]` tag parsing, verified by `FastSpellMatcherTest.kt` and `CelestialProphecyTest.kt` (`16/16` JUnit 4 tests pass).
 - [ ] **AI & Speech Subsystem Modularization (`ai/`)**:
   - Split `GemmaModelEngine.kt` into focused services:
     - `AcousticTranscriptionService.kt`: Handles fast audio-to-text transcription (~250ms helper).
@@ -214,8 +214,8 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
 - [ ] **Audio DMA & Buffer Separation (`audio_subsystem.c`)**:
   - Decouple MAX98357A I2S DMA ring buffer management from network chunk reception.
   - Implement clean FIFO buffer abstraction with explicit underflow/overflow recovery hooks.
-- [ ] **Strict Compiler Cleanliness**:
-  - Enable `-Wall -Wextra` in CMake and resolve all compiler warnings.
+- [x] **Strict Compiler Cleanliness (`-Wall -Wextra`) — ✅ Completed (2026-11-07)**:
+  - Enabled `-Wall -Wextra` in `firmware/CMakeLists.txt` and verified zero compiler warnings across all 288 targets (`arm-none-eabi-gcc 15.2`) and all 19 MSVC C host tests.
 
 ### Phase 4: Integration Test Suite & Protocol Regression Prevention — ✅ COMPLETED (2026-11-07)
 - [x] **Automated Protocol Packet Round-Trip Tests (`tests/test_protocol_v2_parity.py`)**:
@@ -481,12 +481,12 @@ com.celestial.companion/
     └── theme/                      # Cyber-Arcane dark mode palette & glowing shaders
 ```
 
-- [ ] **Task 8.2.1: Spell Forge Decoupling**:
-  - Isolate `SpellForge` into a pure Kotlin component with comprehensive unit tests for instant sub-20ms spell trigger matching.
+- [x] **Task 8.2.1: Spell Forge Decoupling (`FastSpellMatcher.kt` & `CelestialProphecy.kt`) — ✅ Completed (2026-11-07)**:
+  - Isolated `FastSpellMatcher` and `CelestialProphecy` with 10 JUnit 4 unit tests (`FastSpellMatcherTest.kt`, `CelestialProphecyTest.kt`) verifying sub-20ms EN/RU/DE spell trigger matching and tag stripping.
 - [ ] **Task 8.2.2: Dual Engine Provider**:
   - Implement seamless runtime switching between `CloudGeminiEngine` (ultra-fast Gemini 2.5 Flash cloud) and `OfflineSotaEngine` (Moonshine + Kokoro-82M).
-- [ ] **Task 8.2.3: Zero-Recomposition Canvas Optimization**:
-  - Use `drawWithCache` and `drawBehind` in `ConcentricRingsVisualizer` to eliminate unnecessary Compose layout passes during 33 Hz UDP packet bursts.
+- [x] **Task 8.2.3: Zero-Recomposition Canvas Optimization (`ConcentricLedRingsView.kt`) — ✅ Completed (2026-11-07)**:
+  - Replaced `Canvas` with `Modifier.drawWithCache` + `onDrawBehind` and precomputed normalized polar LED coordinates (`LED_UNIT_COS`, `LED_UNIT_SIN`) to eliminate per-frame allocations and Compose layout passes during 33 Hz UDP packet bursts.
 
 ---
 

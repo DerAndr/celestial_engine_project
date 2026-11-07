@@ -192,6 +192,17 @@ object CelestialProphecyParser {
     fun parseLedAnimation(animStr: String): LedAnimation {
         val upper = animStr.uppercase()
         return when {
+            upper.contains("HARRY") || upper.contains("POTTER") || upper.contains("HOGWARTS") -> LedAnimation.HARRY_POTTER
+            upper.contains("EBAY") || upper.contains("AUCTION") -> LedAnimation.EBAY
+            upper.contains("POKEMON") || upper.contains("POKEBALL") -> LedAnimation.POKEMON
+            upper.contains("SAILOR") || upper.contains("MOON_PRISM") -> LedAnimation.SAILOR_MOON
+            upper.contains("DOOM") -> LedAnimation.DOOM
+            upper.contains("TETRIS") -> LedAnimation.TETRIS
+            upper.contains("ZELDA") -> LedAnimation.ZELDA
+            upper.contains("STARWARS") -> LedAnimation.STARWARS
+            upper.contains("GHOSTBUSTERS") -> LedAnimation.GHOSTBUSTERS
+            upper.contains("MORROWIND") -> LedAnimation.MORROWIND
+            upper.contains("DAFT") -> LedAnimation.DAFT_PUNK
             upper.contains("OUROBOROS") || upper.contains("SPIRAL_SNAKE") -> LedAnimation.SPIRAL_SNAKE
             upper.contains("RADIAL") || upper.contains("RIPPLE") -> LedAnimation.RADIAL_WAVE
             upper.contains("COLLID") || upper.contains("INTERFER") -> LedAnimation.COLLIDING_WAVES
@@ -227,6 +238,10 @@ object CelestialProphecyParser {
                 t.contains("HAPPY") || t.contains("CHIRP") || t.contains("WHISTLE") -> 7
                 t.contains("CHATTER") || t.contains("BANTER") -> 8
                 t.contains("PANIC") || t.contains("SCREAM") || t.contains("ALARM") -> 9
+                t.contains("CHA_CHING") || t.contains("EBAY") || t.contains("CASH") -> 10
+                t.contains("POKE") || t.contains("HEAL") -> 11
+                t.contains("LUMOS") -> 12
+                t.contains("PATRONUS") || t.contains("PATRONUM") -> 13
                 else -> null
             }
             if (sfxId != null && !sfxList.contains(sfxId)) {
