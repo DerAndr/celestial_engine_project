@@ -83,6 +83,8 @@ class FirmwareRegressions(unittest.TestCase):
     def test_query_release_does_not_claim_unimplemented_upload(self): self.probe('main_query_release_probe')
     def test_boot_chime_is_serviced_before_voice_announcement(self): self.probe('main_boot_sequence_probe')
     def test_boot_announcement_eventually_plays_after_chime(self): self.probe('main_boot_announcement_probe')
+    def test_net_dispatcher_validation_and_routing(self): self.probe('test_net_dispatcher_validation_and_routing')
+    def test_audio_ring_buffer_fifo_and_bounds(self): self.probe('test_audio_ring_buffer_fifo_and_bounds')
 
 
 class VoiceToolRegressions(unittest.TestCase):

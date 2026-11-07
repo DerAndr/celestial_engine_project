@@ -13,11 +13,13 @@ static int test_printf(const char *fmt, ...) {
 #include "../firmware/src/query_button.c"
 #include "../firmware/src/encoder.c"
 #include "../firmware/src/sh1106.c"
+#include "../firmware/src/audio_ring_buffer.c"
 #include "../firmware/src/audio.c"
 #include "../firmware/src/mic.c"
 #include "../firmware/src/leds.c"
 #include "../firmware/src/voice_data.c"
 #include "../firmware/src/music_data.c"
+#include "../firmware/src/net_dispatcher.c"
 #include "../firmware/src/net_client.h"
 void net_client_init(void) {}
 void net_client_update(void) {}
@@ -249,4 +251,129 @@ EXPORT int main_boot_announcement_probe(void) {
     main_scenario=0;
     if (AUDIO_DIAGNOSTIC_BOOT || !AUDIO_STARTUP_SOUNDS) return chime_index == -1 && !voice_active && audio_get_volume() == 0 ? 0 : 1;
     return chime_index == -1 && voice_active && active_voice_clip == voice_get_clip(VOICE_ONLINE) ? 0 : 1;
+}
+static int dispatch_probe_hits = 0;
+static uint8_t dispatch_probe_last_type = 0;
+static void test_dispatch_handler(const net_packet_header_t *hdr, const uint8_t *payload, void *user_ctx) {
+    (void)payload;
+    if (user_ctx != NULL) *(int *)user_ctx += 1;
+    dispatch_probe_hits++;
+    dispatch_probe_last_type = hdr->msg_type;
+}
+EXPORT int net_dispatcher_probe(void) {
+    net_packet_header_t out_hdr;
+    uint8_t buf[64];
+    memset(buf, 0, sizeof(buf));
+
+    // 1. Short header rejection
+    if (net_dispatch_validate_packet(buf, 10, &out_hdr) != NET_DISPATCH_ERR_SHORT_HEADER) return 1;
+
+    // 2. Bad magic rejection
+    net_packet_header_t hdr = { 0x12345678u, NET_PROTOCOL_VERSION, NET_MSG_HEARTBEAT_ACK, 1, 0, 0 };
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr), &out_hdr) != NET_DISPATCH_ERR_BAD_MAGIC) return 2;
+
+    // 3. Bad version rejection
+    hdr.magic = NET_PROTOCOL_MAGIC;
+    hdr.version = 99;
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr), &out_hdr) != NET_DISPATCH_ERR_BAD_VERSION) return 3;
+
+    // 4. Valid heartbeat packet
+    hdr.version = NET_PROTOCOL_VERSION;
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr), &out_hdr) != NET_DISPATCH_OK) return 4;
+
+    // 5. Payload bounds check for RESP_AUDIO_START (requires exactly 4 bytes)
+    hdr.msg_type = NET_MSG_RESP_AUDIO_START;
+    hdr.payload_len = 2;
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr) + 2, &out_hdr) != NET_DISPATCH_ERR_MALFORMED_PAYLOAD) return 5;
+    hdr.payload_len = 4;
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr) + 4, &out_hdr) != NET_DISPATCH_OK) return 6;
+
+    // 6. Odd byte count rejected for RESP_AUDIO_CHUNK
+    hdr.msg_type = NET_MSG_RESP_AUDIO_CHUNK;
+    hdr.payload_len = 3;
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr) + 3, &out_hdr) != NET_DISPATCH_ERR_MALFORMED_PAYLOAD) return 7;
+    hdr.payload_len = 4;
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr) + 4, &out_hdr) != NET_DISPATCH_OK) return 8;
+
+    // 7. APP_COMMAND requires >= 6 bytes; CATALOG_RESP requires >= 17 bytes
+    hdr.msg_type = NET_MSG_APP_COMMAND;
+    hdr.payload_len = 4;
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr) + 4, &out_hdr) != NET_DISPATCH_ERR_MALFORMED_PAYLOAD) return 9;
+    hdr.payload_len = 6;
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr) + 6, &out_hdr) != NET_DISPATCH_OK) return 10;
+
+    hdr.msg_type = NET_MSG_CATALOG_RESP;
+    hdr.payload_len = 16;
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr) + 16, &out_hdr) != NET_DISPATCH_ERR_MALFORMED_PAYLOAD) return 11;
+    hdr.payload_len = 17;
+    memcpy(buf, &hdr, sizeof(hdr));
+    if (net_dispatch_validate_packet(buf, sizeof(hdr) + 17, &out_hdr) != NET_DISPATCH_OK) return 12;
+
+    // 8. Handler table lookup & process_packet execution
+    static const net_dispatch_entry_t test_table[] = {
+        { NET_MSG_APP_COMMAND,   test_dispatch_handler },
+        { NET_MSG_CATALOG_RESP,  test_dispatch_handler }
+    };
+    if (net_dispatch_LookupHandler(test_table, 2, NET_MSG_APP_COMMAND) != test_dispatch_handler) return 13;
+    if (net_dispatch_LookupHandler(test_table, 2, 0xFF) != NULL) return 14;
+
+    int ctx_counter = 0;
+    dispatch_probe_hits = 0;
+    if (net_dispatch_process_packet(test_table, 2, buf, sizeof(hdr) + 17, &ctx_counter) != NET_DISPATCH_OK) return 15;
+    if (dispatch_probe_hits != 1 || ctx_counter != 1 || dispatch_probe_last_type != NET_MSG_CATALOG_RESP) return 16;
+
+    return 0;
+}
+EXPORT int audio_ring_buffer_probe(void) {
+    int16_t backing[8];
+    audio_ring_buffer_t rb;
+
+    // 1. Reject non-power-of-two capacity
+    if (audio_rb_init(&rb, backing, 6)) return 1;
+    if (!audio_rb_init(&rb, backing, 8)) return 2;
+    if (audio_rb_available_read(&rb) != 0 || audio_rb_available_write(&rb) != 8) return 3;
+
+    // 2. Underflow on empty pop increments counter and outputs 0
+    int16_t sample = 1234;
+    if (audio_rb_pop_sample(&rb, &sample)) return 4;
+    if (sample != 0 || audio_rb_get_underflow_count(&rb) != 1) return 5;
+
+    // 3. Push 6 samples and verify FIFO order across wrap-around
+    const int16_t in1[6] = { 10, 20, 30, 40, 50, 60 };
+    if (!audio_rb_push_samples(&rb, in1, 6)) return 6;
+    if (audio_rb_available_read(&rb) != 6 || audio_rb_available_write(&rb) != 2) return 7;
+
+    // 4. Overflow rejected without corrupting queued samples
+    const int16_t in_overflow[4] = { 70, 80, 90, 100 };
+    if (audio_rb_push_samples(&rb, in_overflow, 4)) return 8;
+    if (audio_rb_get_overflow_count(&rb) != 1 || audio_rb_available_read(&rb) != 6) return 9;
+
+    // 5. Pop 4 samples, then push 4 more to wrap around power-of-two boundary
+    for (int i = 0; i < 4; i++) {
+        if (!audio_rb_pop_sample(&rb, &sample) || sample != (i + 1) * 10) return 10 + i;
+    }
+    if (!audio_rb_push_samples(&rb, in_overflow, 4)) return 14;
+    if (audio_rb_available_read(&rb) != 6 || audio_rb_available_write(&rb) != 2) return 15;
+
+    const int16_t expected[6] = { 50, 60, 70, 80, 90, 100 };
+    for (int i = 0; i < 6; i++) {
+        if (!audio_rb_pop_sample(&rb, &sample) || sample != expected[i]) return 20 + i;
+    }
+    if (audio_rb_available_read(&rb) != 0 || audio_rb_available_write(&rb) != 8) return 26;
+
+    // 6. Reset clears counters and indices
+    audio_rb_reset(&rb);
+    if (audio_rb_get_overflow_count(&rb) != 0 || audio_rb_get_underflow_count(&rb) != 0) return 27;
+
+    return 0;
 }

@@ -32,11 +32,13 @@ add_executable(celestial_firmware
     src/sh1106.c
     src/encoder.c
     src/query_button.c
+    src/audio_ring_buffer.c
     src/audio.c
     src/mic.c
     src/leds.c
     src/voice_data.c
     src/music_data.c
+    src/net_dispatcher.c
     src/net_client.c
 )
 target_compile_definitions(celestial_firmware PRIVATE CELESTIAL_FOUR_RINGS=0)

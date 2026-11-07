@@ -1,5 +1,6 @@
 #include "net_client.h"
 #include "net_protocol.h"
+#include "net_dispatcher.h"
 #include "audio.h"
 #include "response_gate.h"
 #include "pico/stdlib.h"
@@ -268,144 +269,147 @@ static void sanitize_oled_text(char *dst, const uint8_t *src, size_t src_len, si
     dst[out_idx] = '\0';
 }
 
-static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *p,
-                                         const ip_addr_t *addr, u16_t port) {
-    (void)arg;
-    (void)pcb;
-    if (!p) return;
-    net_packet_header_t hdr;
-    if (p->tot_len < sizeof hdr || pbuf_copy_partial(p, &hdr, sizeof hdr, 0) != sizeof hdr ||
-        hdr.magic != CELESTIAL_NET_MAGIC || hdr.version != CELESTIAL_NET_VERSION ||
-        hdr.payload_len > NET_MAX_PAYLOAD_SIZE || p->tot_len != sizeof hdr + hdr.payload_len) {
-        pbuf_free(p);
-        return;
+typedef struct {
+    const ip_addr_t *addr;
+    u16_t port;
+    uint32_t now;
+} net_rx_context_t;
+
+static inline bool is_authorized_response_source(const net_rx_context_t *ctx) {
+    bool is_from_server = (ip_addr_cmp(ctx->addr, &server_ip_addr) && ctx->port == active_server_port);
+    bool is_from_companion = (has_paired_companion && ip_addr_cmp(ctx->addr, &companion_ip_addr));
+    return is_from_server || is_from_companion;
+}
+
+static void handle_rx_app_command(const net_packet_header_t *hdr,
+                                  const uint8_t *payload,
+                                  void *user_ctx) {
+    (void)hdr;
+    const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
+    if (payload == NULL) return;
+
+    uint32_t token = (uint32_t)payload[0] | ((uint32_t)payload[1] << 8) |
+                     ((uint32_t)payload[2] << 16) | ((uint32_t)payload[3] << 24);
+    uint32_t expected = compute_auth_token(CELESTIAL_AUTH_SECRET);
+    if (strlen(CELESTIAL_AUTH_SECRET) == 0 || token == expected) {
+        companion_ip_addr = *ctx->addr;
+        companion_port = CELESTIAL_NET_DEFAULT_PORT;
+        has_paired_companion = true;
+        remote_cmd_t cmd = {0};
+        cmd.cmd_code = payload[4];
+        cmd.param = payload[5];
+        cmd.has_command = true;
+        enqueue_remote_command(&cmd);
+    }
+}
+
+static void handle_rx_app_time_sync(const net_packet_header_t *hdr,
+                                    const uint8_t *payload,
+                                    void *user_ctx) {
+    (void)hdr;
+    const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
+    if (payload == NULL) return;
+
+    uint32_t token = (uint32_t)payload[0] | ((uint32_t)payload[1] << 8) |
+                     ((uint32_t)payload[2] << 16) | ((uint32_t)payload[3] << 24);
+    uint32_t expected = compute_auth_token(CELESTIAL_AUTH_SECRET);
+    if (strlen(CELESTIAL_AUTH_SECRET) == 0 || token == expected) {
+        companion_ip_addr = *ctx->addr;
+        companion_port = CELESTIAL_NET_DEFAULT_PORT;
+        has_paired_companion = true;
+        remote_cmd_t cmd = {0};
+        cmd.cmd_code = 'X';
+        cmd.val32 = (uint32_t)payload[4] | ((uint32_t)payload[5] << 8) |
+                    ((uint32_t)payload[6] << 16) | ((uint32_t)payload[7] << 24);
+        cmd.val32_extra = (uint32_t)payload[8] | ((uint32_t)payload[9] << 8) |
+                          ((uint32_t)payload[10] << 16) | ((uint32_t)payload[11] << 24);
+        cmd.has_command = true;
+        enqueue_remote_command(&cmd);
+    }
+}
+
+static void handle_rx_cancel(const net_packet_header_t *hdr,
+                             const uint8_t *payload,
+                             void *user_ctx) {
+    (void)hdr;
+    (void)payload;
+    (void)user_ctx;
+    net_client_cancel();
+    net_cancel_flag = true;
+}
+
+static void handle_rx_catalog_resp(const net_packet_header_t *hdr,
+                                   const uint8_t *payload,
+                                   void *user_ctx) {
+    const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
+    if (payload == NULL) return;
+
+    uint8_t h_type = payload[0];
+    char h_name[16];
+    memcpy(h_name, &payload[1], 15);
+    h_name[15] = '\0';
+    uint8_t m_count = payload[16];
+    if (m_count > NET_MAX_CATALOG_MODELS) m_count = NET_MAX_CATALOG_MODELS;
+
+    net_catalog_resp_t cat;
+    memset(&cat, 0, sizeof(cat));
+    memcpy(cat.host_name, h_name, sizeof(cat.host_name) - 1);
+    cat.host_name[sizeof(cat.host_name) - 1] = '\0';
+    cat.model_count = m_count;
+
+    size_t offset = 17;
+    for (uint8_t i = 0; i < m_count && (offset + 26 <= hdr->payload_len); i++) {
+        cat.models[i].model_id = payload[offset];
+        cat.models[i].theme_idx = payload[offset + 1];
+        memcpy(cat.models[i].name, &payload[offset + 2], 18);
+        cat.models[i].name[17] = '\0';
+        memcpy(cat.models[i].tag, &payload[offset + 20], 6);
+        cat.models[i].tag[5] = '\0';
+        offset += 26;
     }
 
-    // Companion App Remote Control (Signed with CELESTIAL_AUTH_SECRET)
-    if (hdr.msg_type == NET_MSG_APP_COMMAND) {
-        if (hdr.payload_len >= 6) {
-            uint8_t payload[8];
-            pbuf_copy_partial(p, payload, 6, sizeof hdr);
-            uint32_t token = (uint32_t)payload[0] | ((uint32_t)payload[1] << 8) |
-                            ((uint32_t)payload[2] << 16) | ((uint32_t)payload[3] << 24);
-            uint32_t expected = compute_auth_token(CELESTIAL_AUTH_SECRET);
-            if (strlen(CELESTIAL_AUTH_SECRET) == 0 || token == expected) {
-                companion_ip_addr = *addr;
-                companion_port = CELESTIAL_NET_DEFAULT_PORT;
-                has_paired_companion = true;
-                remote_cmd_t cmd = {0};
-                cmd.cmd_code = payload[4];
-                cmd.param = payload[5];
-                cmd.has_command = true;
-                enqueue_remote_command(&cmd);
-            }
-        }
-        pbuf_free(p);
-        return;
-    }
-
-    if (hdr.msg_type == NET_MSG_APP_TIME_SYNC) {
-        if (hdr.payload_len >= 12) {
-            uint8_t payload[12];
-            pbuf_copy_partial(p, payload, 12, sizeof hdr);
-            uint32_t token = (uint32_t)payload[0] | ((uint32_t)payload[1] << 8) |
-                            ((uint32_t)payload[2] << 16) | ((uint32_t)payload[3] << 24);
-            uint32_t expected = compute_auth_token(CELESTIAL_AUTH_SECRET);
-            if (strlen(CELESTIAL_AUTH_SECRET) == 0 || token == expected) {
-                companion_ip_addr = *addr;
-                companion_port = CELESTIAL_NET_DEFAULT_PORT;
-                has_paired_companion = true;
-                remote_cmd_t cmd = {0};
-                cmd.cmd_code = 'X';
-                cmd.val32 = (uint32_t)payload[4] | ((uint32_t)payload[5] << 8) |
-                            ((uint32_t)payload[6] << 16) | ((uint32_t)payload[7] << 24);
-                cmd.val32_extra = (uint32_t)payload[8] | ((uint32_t)payload[9] << 8) |
-                                  ((uint32_t)payload[10] << 16) | ((uint32_t)payload[11] << 24);
-                cmd.has_command = true;
-                enqueue_remote_command(&cmd);
-            }
-        }
-        pbuf_free(p);
-        return;
-    }
-
-    uint32_t now = to_ms_since_boot(get_absolute_time());
-
-    if (hdr.msg_type == NET_MSG_CANCEL) {
-        net_client_cancel();
-        net_cancel_flag = true;
-        pbuf_free(p);
-        return;
-    }
-
-    if (hdr.msg_type == NET_MSG_CATALOG_RESP) {
-        if (hdr.payload_len >= 17) {
-            uint8_t payload[NET_MAX_PAYLOAD_SIZE];
-            pbuf_copy_partial(p, payload, hdr.payload_len, sizeof(hdr));
-            uint8_t h_type = payload[0];
-            char h_name[16];
-            memcpy(h_name, &payload[1], 15);
-            h_name[15] = '\0';
-            uint8_t m_count = payload[16];
-            if (m_count > NET_MAX_CATALOG_MODELS) m_count = NET_MAX_CATALOG_MODELS;
-
-            net_catalog_resp_t cat;
-            memset(&cat, 0, sizeof(cat));
-            memcpy(cat.host_name, h_name, sizeof(cat.host_name) - 1);
-            cat.host_name[sizeof(cat.host_name) - 1] = '\0';
-            cat.model_count = m_count;
-
-            size_t offset = 17;
-            for (uint8_t i = 0; i < m_count && (offset + 26 <= hdr.payload_len); i++) {
-                cat.models[i].model_id = payload[offset];
-                cat.models[i].theme_idx = payload[offset + 1];
-                memcpy(cat.models[i].name, &payload[offset + 2], 18);
-                cat.models[i].name[17] = '\0';
-                memcpy(cat.models[i].tag, &payload[offset + 20], 6);
-                cat.models[i].tag[5] = '\0';
-                offset += 26;
-            }
-
-            if (h_type == HOST_TYPE_PI5) {
-                last_pi5_heartbeat_rx_ms = now;
-                memcpy(&pi5_catalog_cache, &cat, sizeof(cat));
-                has_pi5_catalog = true;
-                if (preferred_host != HOST_TYPE_PHONE) {
-                    last_server_heartbeat_rx_ms = now;
-                    active_host_type = HOST_TYPE_PI5;
-                    server_ip_addr = *addr;
-                    active_server_port = pi5_server_port;
-                    memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
-                    strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
-                }
-            } else if (h_type == HOST_TYPE_PHONE) {
-                last_phone_heartbeat_rx_ms = now;
-                companion_ip_addr = *addr;
-                companion_port = CELESTIAL_NET_DEFAULT_PORT;
-                has_paired_companion = true;
-                memcpy(&phone_catalog_cache, &cat, sizeof(cat));
-                has_phone_catalog = true;
-
-                // When phone pushes its catalog, activate it and lock preferred_host to PHONE
-                preferred_host = HOST_TYPE_PHONE;
-                active_host_type = HOST_TYPE_PHONE;
-                server_ip_addr = *addr;
-                active_server_port = CELESTIAL_NET_DEFAULT_PORT;
-                last_server_heartbeat_rx_ms = now;
-                memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
-                strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
-            }
-        }
-        pbuf_free(p);
-        return;
-    }
-
-    // Check if heartbeat came from Pi 5 (even if server_ip_addr was temporarily pointing to Phone)
-    if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0 &&
-        ip_addr_cmp(addr, &pi5_server_ip_addr) && port == pi5_server_port) {
-        last_pi5_heartbeat_rx_ms = now;
+    if (h_type == HOST_TYPE_PI5) {
+        last_pi5_heartbeat_rx_ms = ctx->now;
+        memcpy(&pi5_catalog_cache, &cat, sizeof(cat));
+        has_pi5_catalog = true;
         if (preferred_host != HOST_TYPE_PHONE) {
-            last_server_heartbeat_rx_ms = now;
+            last_server_heartbeat_rx_ms = ctx->now;
+            active_host_type = HOST_TYPE_PI5;
+            server_ip_addr = *ctx->addr;
+            active_server_port = pi5_server_port;
+            memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
+            strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
+        }
+    } else if (h_type == HOST_TYPE_PHONE) {
+        last_phone_heartbeat_rx_ms = ctx->now;
+        companion_ip_addr = *ctx->addr;
+        companion_port = CELESTIAL_NET_DEFAULT_PORT;
+        has_paired_companion = true;
+        memcpy(&phone_catalog_cache, &cat, sizeof(cat));
+        has_phone_catalog = true;
+
+        // When phone pushes its catalog, activate it and lock preferred_host to PHONE
+        preferred_host = HOST_TYPE_PHONE;
+        active_host_type = HOST_TYPE_PHONE;
+        server_ip_addr = *ctx->addr;
+        active_server_port = CELESTIAL_NET_DEFAULT_PORT;
+        last_server_heartbeat_rx_ms = ctx->now;
+        memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
+        strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+    }
+}
+
+static void handle_rx_heartbeat(const net_packet_header_t *hdr,
+                                const uint8_t *payload,
+                                void *user_ctx) {
+    const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
+    if (hdr->request_id != 0) return;
+
+    // 1. Heartbeat from Pi 5 (even if server_ip_addr was temporarily pointing to Phone)
+    if (ip_addr_cmp(ctx->addr, &pi5_server_ip_addr) && ctx->port == pi5_server_port) {
+        last_pi5_heartbeat_rx_ms = ctx->now;
+        if (preferred_host != HOST_TYPE_PHONE) {
+            last_server_heartbeat_rx_ms = ctx->now;
             if (active_host_type != HOST_TYPE_PI5) {
                 active_host_type = HOST_TYPE_PI5;
                 server_ip_addr = pi5_server_ip_addr;
@@ -416,191 +420,243 @@ static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct 
                 }
             }
         }
-        if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
+        if (payload != NULL && hdr->payload_len >= (uint16_t)sizeof(uint32_t)) {
             uint32_t server_epoch = 0;
-            pbuf_copy_partial(p, &server_epoch, sizeof(uint32_t), sizeof(hdr));
-            if (server_epoch > 1700000000) {
+            memcpy(&server_epoch, payload, sizeof(uint32_t));
+            if (server_epoch > 1700000000u) {
                 extern void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis);
                 set_current_time_epoch(server_epoch, 0);
             }
         }
-        pbuf_free(p);
         return;
     }
 
-    // Check if heartbeat came from Phone / Companion App (not from Pi 5)
-    if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0 &&
-        (!ip_addr_cmp(addr, &pi5_server_ip_addr) || port != pi5_server_port)) {
-        last_phone_heartbeat_rx_ms = now;
-        companion_ip_addr = *addr;
-        companion_port = CELESTIAL_NET_DEFAULT_PORT;
-        has_paired_companion = true;
+    // 2. Heartbeat from Phone / Companion App (not from Pi 5)
+    last_phone_heartbeat_rx_ms = ctx->now;
+    companion_ip_addr = *ctx->addr;
+    companion_port = CELESTIAL_NET_DEFAULT_PORT;
+    has_paired_companion = true;
 
-        if (preferred_host == HOST_TYPE_PHONE || (preferred_host == HOST_TYPE_NONE && (now - last_pi5_heartbeat_rx_ms > 4000))) {
-            active_host_type = HOST_TYPE_PHONE;
-            server_ip_addr = companion_ip_addr;
-            active_server_port = CELESTIAL_NET_DEFAULT_PORT;
-            last_server_heartbeat_rx_ms = now;
-            if (has_phone_catalog) {
-                memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
-                strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
-            } else {
-                memcpy(&active_catalog, &DEFAULT_PHONE_CATALOG, sizeof(active_catalog));
-                strncpy(active_host_name, DEFAULT_PHONE_CATALOG.host_name, sizeof(active_host_name));
-            }
+    if (preferred_host == HOST_TYPE_PHONE ||
+        (preferred_host == HOST_TYPE_NONE && (ctx->now - last_pi5_heartbeat_rx_ms > 4000u))) {
+        active_host_type = HOST_TYPE_PHONE;
+        server_ip_addr = companion_ip_addr;
+        active_server_port = CELESTIAL_NET_DEFAULT_PORT;
+        last_server_heartbeat_rx_ms = ctx->now;
+        if (has_phone_catalog) {
+            memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
+            strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+        } else {
+            memcpy(&active_catalog, &DEFAULT_PHONE_CATALOG, sizeof(active_catalog));
+            strncpy(active_host_name, DEFAULT_PHONE_CATALOG.host_name, sizeof(active_host_name));
         }
-        if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
-            uint32_t server_epoch = 0;
-            pbuf_copy_partial(p, &server_epoch, sizeof(uint32_t), sizeof(hdr));
-            if (server_epoch > 1700000000) {
-                extern void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis);
-                set_current_time_epoch(server_epoch, 0);
-            }
+    }
+    if (payload != NULL && hdr->payload_len >= (uint16_t)sizeof(uint32_t)) {
+        uint32_t server_epoch = 0;
+        memcpy(&server_epoch, payload, sizeof(uint32_t));
+        if (server_epoch > 1700000000u) {
+            extern void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis);
+            set_current_time_epoch(server_epoch, 0);
         }
-
-        // Immediately send back a heartbeat ACK so Companion marks staff ONLINE right away!
-        struct pbuf *reply = pbuf_alloc(PBUF_TRANSPORT, sizeof(net_packet_header_t), PBUF_RAM);
-        if (reply != NULL) {
-            net_packet_header_t *rhdr = (net_packet_header_t *)reply->payload;
-            rhdr->magic = CELESTIAL_NET_MAGIC;
-            rhdr->version = CELESTIAL_NET_VERSION;
-            rhdr->msg_type = NET_MSG_HEARTBEAT;
-            rhdr->seq_num = tx_seq_counter++;
-            rhdr->payload_len = 0;
-            rhdr->request_id = 0;
-            udp_sendto(udp_client_pcb, reply, addr, port);
-            pbuf_free(reply);
-        }
-        pbuf_free(p);
-        return;
     }
 
-    // Direct Text Broadcast from Companion App / Brain Host (e.g. "To Staff" action in app)
-    // Only intercept if not matching an active response gate
-    if (hdr.msg_type == NET_MSG_RESP_TEXT && hdr.payload_len > 0 && !response_gate_matches(&response_gate, hdr.request_id)) {
-        uint8_t raw_text[512];
-        uint16_t copy_len = (hdr.payload_len < sizeof(raw_text)) ? hdr.payload_len : (uint16_t)(sizeof(raw_text) - 1);
-        pbuf_copy_partial(p, raw_text, copy_len, sizeof hdr);
-        sanitize_oled_text(resp_text_buffer, raw_text, copy_len, sizeof(resp_text_buffer));
+    // Immediately send back a heartbeat ACK so Companion marks staff ONLINE right away
+    struct pbuf *reply = pbuf_alloc(PBUF_TRANSPORT, sizeof(net_packet_header_t), PBUF_RAM);
+    if (reply != NULL) {
+        net_packet_header_t *rhdr = (net_packet_header_t *)reply->payload;
+        rhdr->magic = CELESTIAL_NET_MAGIC;
+        rhdr->version = CELESTIAL_NET_VERSION;
+        rhdr->msg_type = NET_MSG_HEARTBEAT;
+        rhdr->seq_num = tx_seq_counter++;
+        rhdr->payload_len = 0;
+        rhdr->request_id = 0;
+        udp_sendto(udp_client_pcb, reply, ctx->addr, ctx->port);
+        pbuf_free(reply);
+    }
+}
 
-        companion_ip_addr = *addr;
+static void handle_rx_resp_text(const net_packet_header_t *hdr,
+                                const uint8_t *payload,
+                                void *user_ctx) {
+    const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
+    if (payload == NULL || hdr->payload_len == 0) return;
+
+    // Direct Text Broadcast from Companion App / Brain Host when not matching an active gate
+    if (!response_gate_matches(&response_gate, hdr->request_id)) {
+        uint16_t copy_len = (hdr->payload_len < sizeof(resp_text_buffer))
+                            ? hdr->payload_len
+                            : (uint16_t)(sizeof(resp_text_buffer) - 1);
+        sanitize_oled_text(resp_text_buffer, payload, copy_len, sizeof(resp_text_buffer));
+
+        companion_ip_addr = *ctx->addr;
         companion_port = CELESTIAL_NET_DEFAULT_PORT;
         has_paired_companion = true;
         unsolicited_text_ready = true;
 
-        acknowledge_response(&hdr, addr, port);
-        pbuf_free(p);
+        acknowledge_response(hdr, ctx->addr, ctx->port);
         return;
     }
 
-    // Direct Unsolicited Audio Stream from Companion App or Brain Host
-    if (hdr.msg_type == NET_MSG_RESP_START && hdr.payload_len == sizeof(uint32_t)) {
-        companion_ip_addr = *addr;
-        companion_port = CELESTIAL_NET_DEFAULT_PORT;
-        has_paired_companion = true;
-        response_gate_begin(&response_gate, hdr.request_id);
-    }
+    if (!is_authorized_response_source(ctx)) return;
 
-    bool is_from_server = (ip_addr_cmp(addr, &server_ip_addr) && port == active_server_port);
-    bool is_from_companion = (has_paired_companion && ip_addr_cmp(addr, &companion_ip_addr));
-    if (!is_from_server && !is_from_companion) {
-        pbuf_free(p);
-        return;
-    }
+    uint16_t copy_len = (hdr->payload_len < sizeof(resp_text_buffer))
+                        ? hdr->payload_len
+                        : (uint16_t)(sizeof(resp_text_buffer) - 1);
+    sanitize_oled_text(resp_text_buffer, payload, copy_len, sizeof(resp_text_buffer));
+    response_progress_ms = ctx->now;
+    acknowledge_response(hdr, ctx->addr, ctx->port);
+}
 
-    if (hdr.msg_type == NET_MSG_HEARTBEAT && hdr.request_id == 0) {
-        last_server_heartbeat_rx_ms = now;
-        if (active_host_type == HOST_TYPE_PHONE) {
-            last_phone_heartbeat_rx_ms = now;
-        } else if (active_host_type == HOST_TYPE_PI5) {
-            last_pi5_heartbeat_rx_ms = now;
+static void handle_rx_resp_start(const net_packet_header_t *hdr,
+                                 const uint8_t *payload,
+                                 void *user_ctx) {
+    const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
+    if (payload == NULL || hdr->payload_len != sizeof(uint32_t)) return;
+
+    // Pair with companion / brain host and open gate for direct or active stream
+    companion_ip_addr = *ctx->addr;
+    companion_port = CELESTIAL_NET_DEFAULT_PORT;
+    has_paired_companion = true;
+    response_gate_begin(&response_gate, hdr->request_id);
+
+    if (!is_authorized_response_source(ctx)) return;
+    if (!response_gate_matches(&response_gate, hdr->request_id)) return;
+
+    bool first = !response_gate.started;
+    bool ack = response_gate_start(&response_gate, hdr->request_id);
+    if (ack && first) {
+        memcpy(&response_expected_samples, payload, sizeof(uint32_t));
+        audio_stop_voice();
+        audio_stop_chiptune();
+        audio_stop_cosmic_sfx();
+        audio_stream_reset();
+        response_received_samples = 0;
+        resp_is_receiving = true;
+        resp_is_ready = false;
+        last_resp_chunk_rx_ms = ctx->now;
+    }
+    if (ack) {
+        response_progress_ms = ctx->now;
+        acknowledge_response(hdr, ctx->addr, ctx->port);
+    }
+}
+
+static void handle_rx_resp_chunk(const net_packet_header_t *hdr,
+                                 const uint8_t *payload,
+                                 void *user_ctx) {
+    const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
+    if (payload == NULL || !is_authorized_response_source(ctx)) return;
+    if (!response_gate_matches(&response_gate, hdr->request_id)) return;
+
+    bool ack = false;
+    response_gate_t candidate = response_gate;
+    int accepted = response_gate_chunk(&candidate, hdr->request_id, hdr->seq_num);
+    if (accepted == 1) {
+        ack = true;
+    } else if (accepted == 2) {
+        int16_t chunk[NET_MAX_PAYLOAD_SIZE / 2];
+        memcpy(chunk, payload, hdr->payload_len);
+        size_t count = hdr->payload_len / 2;
+        if (audio_stream_push(chunk, count)) {
+            response_gate = candidate;
+            response_received_samples += (uint32_t)count;
+            last_resp_chunk_rx_ms = ctx->now;
+            ack = true;
         }
-        if (hdr.payload_len >= (uint16_t)sizeof(uint32_t)) {
-            uint32_t server_epoch = 0;
-            pbuf_copy_partial(p, &server_epoch, sizeof(uint32_t), sizeof(hdr));
-            if (server_epoch > 1700000000) {
-                extern void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis);
-                set_current_time_epoch(server_epoch, 0);
-            }
-        }
-    } else if (hdr.msg_type == NET_MSG_RESP_TEXT && hdr.payload_len > 0) {
-        uint8_t raw_text[512];
-        uint16_t copy_len = (hdr.payload_len < sizeof(raw_text)) ? hdr.payload_len : (uint16_t)(sizeof(raw_text) - 1);
-        pbuf_copy_partial(p, raw_text, copy_len, sizeof hdr);
-        sanitize_oled_text(resp_text_buffer, raw_text, copy_len, sizeof(resp_text_buffer));
-        response_progress_ms = now;
-        acknowledge_response(&hdr, addr, port);
-    } else if (response_gate_matches(&response_gate, hdr.request_id)) {
-        bool ack = false;
-        switch (hdr.msg_type) {
-        case NET_MSG_PROGRESS:
-            response_progress_ms = now;
-            break;
-        case NET_MSG_ERROR:
-            response_failed = true;
-            response_gate_cancel(&response_gate);
-            audio_stop_all();
-            resp_is_receiving = resp_is_ready = false;
-            break;
-        case NET_MSG_RESP_TEXT:
-            if (!response_gate.ended && hdr.payload_len > 0) {
-                uint8_t raw_text[512];
-                uint16_t copy_len = (hdr.payload_len < sizeof(raw_text)) ? hdr.payload_len : (uint16_t)(sizeof(raw_text) - 1);
-                pbuf_copy_partial(p, raw_text, copy_len, sizeof hdr);
-                sanitize_oled_text(resp_text_buffer, raw_text, copy_len, sizeof(resp_text_buffer));
-                ack = true;
-            }
-            break;
-        case NET_MSG_RESP_START:
-            if (hdr.payload_len == sizeof(uint32_t)) {
-                bool first = !response_gate.started;
-                ack = response_gate_start(&response_gate, hdr.request_id);
-                if (ack && first) {
-                    pbuf_copy_partial(p, &response_expected_samples, sizeof(uint32_t), sizeof hdr);
-                    audio_stop_voice();
-                    audio_stop_chiptune();
-                    audio_stop_cosmic_sfx();
-                    audio_stream_reset();
-                    response_received_samples = 0;
-                    resp_is_receiving = true;
-                    resp_is_ready = false;
-                    last_resp_chunk_rx_ms = now;
-                }
-            }
-            break;
-        case NET_MSG_RESP_CHUNK:
-            if (hdr.payload_len && !(hdr.payload_len & 1)) {
-                response_gate_t candidate = response_gate;
-                int accepted = response_gate_chunk(&candidate, hdr.request_id, hdr.seq_num);
-                if (accepted == 1) ack = true;
-                else if (accepted == 2) {
-                    int16_t chunk[NET_MAX_PAYLOAD_SIZE / 2];
-                    pbuf_copy_partial(p, chunk, hdr.payload_len, sizeof hdr);
-                    size_t count = hdr.payload_len / 2;
-                    if (audio_stream_push(chunk, count)) {
-                        response_gate = candidate;
-                        response_received_samples += count;
-                        last_resp_chunk_rx_ms = now;
-                        ack = true;
-                    }
-                }
-            }
-            break;
-        case NET_MSG_RESP_END:
-            if (!response_gate.ended && response_gate.started) {
-                ack = response_gate_end(&response_gate, hdr.request_id, hdr.seq_num);
-                audio_stream_finish();
-                resp_is_receiving = false;
-                resp_is_ready = true;
-            }
-            break;
-        default: break;
-        }
+    }
+    if (ack) {
+        response_progress_ms = ctx->now;
+        acknowledge_response(hdr, ctx->addr, ctx->port);
+    }
+}
+
+static void handle_rx_resp_end(const net_packet_header_t *hdr,
+                               const uint8_t *payload,
+                               void *user_ctx) {
+    (void)payload;
+    const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
+    if (!is_authorized_response_source(ctx)) return;
+    if (!response_gate_matches(&response_gate, hdr->request_id)) return;
+
+    if (!response_gate.ended && response_gate.started) {
+        bool ack = response_gate_end(&response_gate, hdr->request_id, hdr->seq_num);
+        audio_stream_finish();
+        resp_is_receiving = false;
+        resp_is_ready = true;
         if (ack) {
-            response_progress_ms = now;
-            acknowledge_response(&hdr, addr, port);
+            response_progress_ms = ctx->now;
+            acknowledge_response(hdr, ctx->addr, ctx->port);
         }
     }
+}
+
+static void handle_rx_progress(const net_packet_header_t *hdr,
+                               const uint8_t *payload,
+                               void *user_ctx) {
+    (void)payload;
+    const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
+    if (!is_authorized_response_source(ctx)) return;
+    if (response_gate_matches(&response_gate, hdr->request_id)) {
+        response_progress_ms = ctx->now;
+    }
+}
+
+static void handle_rx_error(const net_packet_header_t *hdr,
+                            const uint8_t *payload,
+                            void *user_ctx) {
+    (void)payload;
+    const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
+    if (!is_authorized_response_source(ctx)) return;
+    if (response_gate_matches(&response_gate, hdr->request_id)) {
+        response_failed = true;
+        response_gate_cancel(&response_gate);
+        audio_stop_all();
+        resp_is_receiving = resp_is_ready = false;
+    }
+}
+
+static const net_dispatch_entry_t NET_CLIENT_RX_DISPATCH_TABLE[] = {
+    { NET_MSG_APP_COMMAND,      handle_rx_app_command   },
+    { NET_MSG_APP_TIME_SYNC,    handle_rx_app_time_sync },
+    { NET_MSG_CANCEL,           handle_rx_cancel        },
+    { NET_MSG_CATALOG_RESP,     handle_rx_catalog_resp  },
+    { NET_MSG_HEARTBEAT_ACK,    handle_rx_heartbeat     },
+    { NET_MSG_RESP_TEXT,        handle_rx_resp_text     },
+    { NET_MSG_RESP_AUDIO_START, handle_rx_resp_start    },
+    { NET_MSG_RESP_AUDIO_CHUNK, handle_rx_resp_chunk    },
+    { NET_MSG_RESP_AUDIO_END,   handle_rx_resp_end      },
+    { NET_MSG_PROGRESS,         handle_rx_progress      },
+    { NET_MSG_ERROR,            handle_rx_error         }
+};
+
+static void net_client_udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *p,
+                                         const ip_addr_t *addr, u16_t port) {
+    (void)arg;
+    (void)pcb;
+    if (!p) return;
+
+    uint8_t raw_pkt[sizeof(net_packet_header_t) + NET_MAX_PAYLOAD_SIZE];
+    if (p->tot_len < sizeof(net_packet_header_t) || p->tot_len > sizeof(raw_pkt)) {
+        pbuf_free(p);
+        return;
+    }
+    if (pbuf_copy_partial(p, raw_pkt, p->tot_len, 0) != p->tot_len) {
+        pbuf_free(p);
+        return;
+    }
+
+    net_rx_context_t rx_ctx = {
+        .addr = addr,
+        .port = port,
+        .now  = to_ms_since_boot(get_absolute_time())
+    };
+    (void)net_dispatch_process_packet(
+        NET_CLIENT_RX_DISPATCH_TABLE,
+        sizeof(NET_CLIENT_RX_DISPATCH_TABLE) / sizeof(NET_CLIENT_RX_DISPATCH_TABLE[0]),
+        raw_pkt,
+        p->tot_len,
+        &rx_ctx
+    );
     pbuf_free(p);
 }
 

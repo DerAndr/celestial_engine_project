@@ -1,4 +1,5 @@
 #include "audio.h"
+#include "audio_ring_buffer.h"
 #include "config.h"
 #include "voice_data.h"
 #include "music_data.h"
@@ -92,10 +93,16 @@ static volatile bool pcm16_active = false;
 
 // Streaming 16-bit PCM ring buffer state (for infinite-duration live server speech playback)
 #define AUDIO_STREAM_RING_SIZE   65536 // 65,536 samples (131 KB = 4.096 seconds)
-#define AUDIO_STREAM_RING_MASK   (AUDIO_STREAM_RING_SIZE - 1)
-static int16_t audio_stream_ring[AUDIO_STREAM_RING_SIZE];
-static volatile uint32_t audio_stream_write_idx = 0;
-static volatile uint32_t audio_stream_read_idx = 0;
+static int16_t audio_stream_ring_storage[AUDIO_STREAM_RING_SIZE];
+static audio_ring_buffer_t audio_stream_rb = {
+    .storage         = audio_stream_ring_storage,
+    .capacity        = AUDIO_STREAM_RING_SIZE,
+    .mask            = AUDIO_STREAM_RING_SIZE - 1u,
+    .write_idx       = 0u,
+    .read_idx        = 0u,
+    .overflow_count  = 0u,
+    .underflow_count = 0u
+};
 static volatile bool audio_stream_active = false;
 static volatile bool audio_stream_eof = false;
 static absolute_time_t last_stream_packet_time;
@@ -1390,14 +1397,14 @@ static void fill_audio_buffer(uint32_t *buf, size_t count) {
 
         // 4. Mix streaming 16-bit PCM ring buffer if active
         if (audio_stream_active) {
-            if (audio_stream_read_idx != audio_stream_write_idx) {
-                int16_t s = audio_stream_ring[audio_stream_read_idx++ & AUDIO_STREAM_RING_MASK];
+            int16_t s = 0;
+            if (audio_rb_pop_sample(&audio_stream_rb, &s)) {
                 mixed_sample += (float)s * stream_gain;
             } else if (audio_stream_eof) {
                 audio_stream_active = false;
             } else {
-                // Buffer momentarily dry before EOF: keep stream active and output silence.
-                // Never stop DAC or abort DMA mid-stream; next UDP packet resumes instantly.
+                // Buffer momentarily dry before EOF: underflow recorded by audio_rb_pop_sample;
+                // never stop DAC or abort DMA mid-stream; next UDP packet resumes instantly.
             }
         }
 
@@ -1461,6 +1468,7 @@ void audio_init(void) {
     master_volume_percent = AUDIO_DEFAULT_VOLUME;
     master_gain = calculate_volume_gain(AUDIO_DEFAULT_VOLUME);
     amp_is_sleeping = false;
+    audio_rb_init(&audio_stream_rb, audio_stream_ring_storage, AUDIO_STREAM_RING_SIZE);
     audio_offset = pio_add_program(audio_pio, &audio_i2s_program);
     audio_i2s_program_init(audio_pio, audio_sm, audio_offset, PIN_SPK_DIN, PIN_SPK_BCLK);
 
@@ -1530,7 +1538,7 @@ void audio_set_volume(uint8_t volume_percent) {
     master_volume_percent = volume_percent;
     master_gain = gain;
     if (volume_percent == 0 && dma_chan_a >= 0 && dma_chan_b >= 0) {
-        audio_stream_read_idx = audio_stream_write_idx;
+        audio_rb_reset(&audio_stream_rb);
         audio_stream_active = false;
         amp_sleep();
     }
@@ -1673,8 +1681,7 @@ bool audio_is_pcm16_playing(void) {
 void audio_stream_reset(void) {
     uint32_t save = save_and_disable_interrupts();
     playback_peak_pcm24 = 0;
-    audio_stream_write_idx = 0;
-    audio_stream_read_idx = 0;
+    audio_rb_reset(&audio_stream_rb);
     audio_stream_eof = false;
     audio_stream_active = false;
     last_stream_packet_time = get_absolute_time();
@@ -1690,15 +1697,12 @@ bool audio_stream_push(const int16_t *samples, size_t count) {
         restore_interrupts(save);
         return true;
     }
-    if (count > AUDIO_STREAM_RING_SIZE - (uint32_t)(audio_stream_write_idx - audio_stream_read_idx) || audio_stream_eof) {
+    if (audio_stream_eof || !audio_rb_push_samples(&audio_stream_rb, samples, count)) {
         restore_interrupts(save);
         return false; /* Sender must retry; never overwrite queued speech. */
     }
-    for (size_t i = 0; i < count; i++) {
-        audio_stream_ring[audio_stream_write_idx++ & AUDIO_STREAM_RING_MASK] = samples[i];
-    }
     // Pre-buffer 0.10s (1600 samples) or EOF before kicking off DAC
-    if (!audio_stream_active && ((audio_stream_write_idx - audio_stream_read_idx >= 1600) || audio_stream_eof)) {
+    if (!audio_stream_active && ((audio_rb_available_read(&audio_stream_rb) >= 1600u) || audio_stream_eof)) {
         audio_stream_active = true;
         voice_active = false;
         active_voice_clip = NULL;
@@ -1711,7 +1715,7 @@ bool audio_stream_push(const int16_t *samples, size_t count) {
 void audio_stream_finish(void) {
     uint32_t save = save_and_disable_interrupts();
     audio_stream_eof = true;
-    if (audio_stream_write_idx != audio_stream_read_idx) {
+    if (audio_rb_available_read(&audio_stream_rb) > 0u) {
         audio_stream_active = true;
         voice_active = false;
         active_voice_clip = NULL;
@@ -1800,7 +1804,7 @@ void audio_update(void) {
     }
 
     // Stream inactivity watchdog: if stream is active but sender abandoned connection without EOF
-    if (audio_stream_active && !audio_stream_eof && (audio_stream_read_idx == audio_stream_write_idx)) {
+    if (audio_stream_active && !audio_stream_eof && (audio_rb_available_read(&audio_stream_rb) == 0u)) {
         if (absolute_time_diff_us(last_stream_packet_time, get_absolute_time()) > 1500000) {
             audio_stream_active = false;
             audio_stream_eof = true;

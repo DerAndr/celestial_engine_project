@@ -4,6 +4,10 @@ import android.util.Log
 import com.celestial.companion.ai.GemmaModelEngine
 import com.celestial.companion.ai.GemmaResult
 import com.celestial.companion.domain.model.*
+import com.celestial.companion.domain.usecase.EmergencyAbortUseCase
+import com.celestial.companion.domain.usecase.ProcessStaffVoiceQueryUseCase
+import com.celestial.companion.domain.usecase.StreamingOutputDirective
+import com.celestial.companion.domain.usecase.SyncStaffTelemetryUseCase
 import com.celestial.companion.network.StaffTransport
 import com.celestial.companion.protocol.CelestialPacket
 import com.celestial.companion.protocol.NetMessageType
@@ -35,7 +39,10 @@ data class IncomingStaffVoiceQuery(
 class StaffRepository(
     private val transport: StaffTransport,
     val gemmaEngine: GemmaModelEngine? = null,
-    val context: android.content.Context? = null
+    val context: android.content.Context? = null,
+    val voiceQueryUseCase: ProcessStaffVoiceQueryUseCase = ProcessStaffVoiceQueryUseCase(),
+    val telemetryUseCase: SyncStaffTelemetryUseCase = SyncStaffTelemetryUseCase(),
+    val emergencyAbortUseCase: EmergencyAbortUseCase = EmergencyAbortUseCase()
 ) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val ttsSynthesizer = context?.let { com.celestial.companion.audio.StaffTtsSynthesizer(it) }
@@ -119,17 +126,11 @@ class StaffRepository(
         activeAudioJob = null
         incomingAudioStream.reset()
         scope.launch {
-            val cancelPacket = CelestialPacket(
-                msgType = NetMessageType.CANCEL,
-                seqNum = 0,
-                payloadLen = 0,
-                requestId = 0L,
-                payload = ByteArray(0)
-            )
+            val cancelPacket = emergencyAbortUseCase.buildCancelPacket()
             transport.sendPacket(activeStaffIp, ProtocolConstants.DEFAULT_PORT, cancelPacket)
-            transport.sendPacket("255.255.255.255", ProtocolConstants.DEFAULT_PORT, cancelPacket)
+            transport.sendPacket(EmergencyAbortUseCase.BROADCAST_IP, ProtocolConstants.DEFAULT_PORT, cancelPacket)
         }
-        _telemetry.value = _telemetry.value.copy(state = StaffState.IDLE)
+        _telemetry.value = emergencyAbortUseCase.resetTelemetryToIdle(_telemetry.value)
     }
 
     fun computeAuthToken(): Int {
@@ -159,9 +160,9 @@ class StaffRepository(
             while (isActive) {
                 delay(1000)
                 val current = _telemetry.value
-                val now = System.currentTimeMillis()
-                if (current.isOnline && (now - current.lastSeenTimestamp > 3500)) {
-                    _telemetry.value = current.copy(isOnline = false)
+                val evaluated = telemetryUseCase.evaluateLiveness(current)
+                if (current.isOnline && !evaluated.isOnline) {
+                    _telemetry.value = evaluated
                     log("STAFF", "Staff link timed out (> 3.5s without heartbeat) -> OFFLINE", LogLevel.WARN)
                 }
             }
@@ -171,17 +172,7 @@ class StaffRepository(
         scope.launch {
             while (isActive) {
                 if (!_telemetry.value.isOnline) {
-                    val curMs = System.currentTimeMillis()
-                    val localOffset = java.util.TimeZone.getDefault().getOffset(curMs)
-                    val epochSec = ((curMs + localOffset) / 1000).toInt()
-                    val buf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(epochSec).array()
-                    val ping = CelestialPacket(
-                        msgType = NetMessageType.HEARTBEAT,
-                        seqNum = 1,
-                        payloadLen = buf.size,
-                        requestId = 0L,
-                        payload = buf
-                    )
+                    val ping = telemetryUseCase.buildHeartbeatPacket(seqNum = 1)
                     transport.sendPacket("255.255.255.255", ProtocolConstants.DEFAULT_PORT, ping)
                     if (activeStaffIp.isNotEmpty() && activeStaffIp != "255.255.255.255") {
                         transport.sendPacket(activeStaffIp, ProtocolConstants.DEFAULT_PORT, ping)

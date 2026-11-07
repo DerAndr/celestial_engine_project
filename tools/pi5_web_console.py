@@ -528,6 +528,42 @@ HTML_CONSOLE = """<!DOCTYPE html>
         <button class="secondary" id="saveConfigBtn" style="width:100%; justify-content:center;">💾 Save as Default Pi 5 Brain Config</button>
       </div>
     </div>
+
+    <!-- LIVE 43-LED CONCENTRIC RING & SH1106 OLED DIGITAL TWIN -->
+    <div class="card">
+      <h2>
+        <span>Staff Hardware Preview (43 LEDs & OLED)</span>
+        <span class="badge-sota" id="twinStateBadge">IDLE</span>
+      </h2>
+      <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+        <canvas id="ledRingCanvas" width="210" height="210" style="background:#050811; border-radius:50%; border:1px solid var(--border); box-shadow:0 0 24px rgba(56,189,248,0.12);"></canvas>
+        <canvas id="oledCanvas" width="256" height="104" style="width:100%; max-width:280px; background:#020409; border:2px solid #1e293b; border-radius:8px; image-rendering:pixelated;"></canvas>
+      </div>
+      <div class="field-group" style="margin-top:10px; margin-bottom:0;">
+        <label>Preview LED Animation / Sound FX</label>
+        <div style="display:flex; gap:6px;">
+          <select id="ledPreviewSelect" style="flex:1; font-size:0.78rem; padding:6px 8px;">
+            <option value="0">#0 Cosmic Breathing (Idle)</option>
+            <option value="1">#1 Warp Core Vortex</option>
+            <option value="4">#4 Rainbow Prism</option>
+            <option value="6">#6 Electric Storm</option>
+            <option value="7">#7 Supernova Burst</option>
+            <option value="10">#10 Solar Flare</option>
+            <option value="15">#15 Aegis Shield</option>
+            <option value="23">#23 Sailor Moon Prism</option>
+            <option value="24">#24 Hogwarts House Runes</option>
+            <option value="25">#25 Pokéball Capture Ring</option>
+            <option value="26">#26 eBay Chaos Auction</option>
+            <option value="28">#28 Ouroboros Spiral Snake</option>
+            <option value="29">#29 Radial Shockwave</option>
+            <option value="30">#30 Colliding Waves</option>
+            <option value="31">#31 Archimedes Spiral</option>
+            <option value="32">#32 Sacred Polygon Merkaba</option>
+          </select>
+          <button class="secondary" id="testSfxBtn" style="padding:6px 10px; font-size:0.76rem;">🔊 SFX</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- RIGHT COLUMN: INTERACTIVE VOICE, TEXT, SPELLS & BENCHMARK -->
@@ -550,6 +586,7 @@ HTML_CONSOLE = """<!DOCTYPE html>
           <button class="secondary" id="uploadAudioBtn">📁 Upload / Capture Audio</button>
           <input type="file" id="audioUploadInput" accept="audio/*" capture style="display:none;">
           <button class="secondary" id="sampleWavBtn">▶️ Test On-Device Sample WAV (query.wav)</button>
+          <button class="secondary" id="abortBtn" style="border-color:rgba(244,63,94,0.5); color:#fda4af;">🛑 Stop / Abort</button>
         </div>
       </div>
 
@@ -645,6 +682,275 @@ let activePersona = "machine_god";
 let isRecording = false;
 let mediaRecorder = null;
 let audioChunks = [];
+let activeAbortCtrl = null;
+
+// --- 43-LED Concentric Ring & SH1106 OLED Digital Twin State ---
+let twinState = "IDLE"; // IDLE | LISTENING | THINKING | SPEAKING
+let activeLedAnim = 0;
+let activeSpellName = "";
+let oledTickerText = "READY FOR ORACLE QUERY OR SPELL...";
+let oledScrollX = 0;
+let sfxAudioCtx = null;
+
+function setTwinState(st, spellTitle, tickerMsg) {
+  twinState = st;
+  const badge = document.getElementById("twinStateBadge");
+  if (badge) badge.textContent = st;
+  if (spellTitle !== undefined) activeSpellName = spellTitle;
+  if (tickerMsg !== undefined) {
+    oledTickerText = tickerMsg.toUpperCase();
+    oledScrollX = 0;
+  }
+}
+
+// Precompute 43-LED polar coordinates (Center 1 + Inner 6 + Mid 12 + Outer 24 = 43)
+const LED_COORDS = (() => {
+  const pts = [{ x: 0, y: 0, ring: 0, idx: 0, angle: 0, rNorm: 0 }];
+  const rings = [
+    { count: 6, r: 0.28, ring: 1 },
+    { count: 12, r: 0.56, ring: 2 },
+    { count: 24, r: 0.85, ring: 3 }
+  ];
+  rings.forEach(rg => {
+    for (let i = 0; i < rg.count; i++) {
+      const a = (i / rg.count) * Math.PI * 2 - Math.PI / 2;
+      pts.push({ x: Math.cos(a) * rg.r, y: Math.sin(a) * rg.r, ring: rg.ring, idx: i, angle: a, rNorm: rg.r });
+    }
+  });
+  return pts;
+})();
+
+function hslToRgb(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+function computeLedColor(p, t, animId) {
+  if (twinState === "LISTENING") {
+    const wave = 0.5 + 0.5 * Math.sin(t * 8 - p.ring * 1.1);
+    return [Math.round(20 + 220 * wave), Math.round(40 * wave), Math.round(90 * wave)];
+  }
+  if (twinState === "THINKING") {
+    const spin = 0.5 + 0.5 * Math.sin(p.angle * 3 - t * 6 + p.ring);
+    return [Math.round(140 * spin), Math.round(60 * spin), Math.round(255 * spin)];
+  }
+  switch (animId) {
+    case 4: // Rainbow Prism
+    case 23: // Sailor Moon Prism
+      return hslToRgb((p.angle * 180 / Math.PI) + t * 110 - p.ring * 35, 0.95, 0.55);
+    case 6: // Electric Storm
+      return (Math.sin(t * 16 + p.idx * 2.7 + p.ring * 3.1) > 0.65) ? [220, 245, 255] : [20, 90, 220];
+    case 7: // Supernova
+    case 10: { // Solar Flare
+      const pulse = 0.5 + 0.5 * Math.sin(t * 7 - p.rNorm * 4);
+      return [255, Math.round(70 + 150 * pulse), Math.round(20 * (1 - p.rNorm))];
+    }
+    case 15: { // Aegis Shield
+      const sh = 0.45 + 0.55 * Math.cos(p.angle * 4 + t * 4);
+      return [Math.round(20 * sh), Math.round(180 * sh), Math.round(255 * sh)];
+    }
+    case 24: // Hogwarts Gryffindor Gold/Crimson
+      return ((p.idx + Math.floor(t * 5)) % 2 === 0) ? [220, 30, 35] : [245, 190, 25];
+    case 25: // Pokeball Ring
+      if (p.ring === 0) return [255, 255, 255];
+      return (Math.sin(p.angle + t * 2) > 0) ? [235, 30, 35] : [240, 240, 248];
+    case 26: { // eBay 4-Color Strobe
+      const cols = [[229,50,56], [0,100,210], [245,175,2], [134,184,23]];
+      return cols[(p.idx + p.ring + Math.floor(t * 8)) % 4];
+    }
+    case 28: { // Ouroboros Spiral Snake
+      const s = 0.5 + 0.5 * Math.sin(p.angle * 2 - t * 5 + p.ring * 1.3);
+      return [Math.round(20 * s), Math.round(245 * s), Math.round(130 * s)];
+    }
+    case 29: // Radial Shockwave
+    case 30: { // Colliding Waves
+      const w = 0.5 + 0.5 * Math.cos(p.rNorm * 7 - t * 6) * Math.cos(p.angle * 2);
+      return [Math.round(56 + 190 * w), Math.round(189 * w), 255];
+    }
+    case 31: // Archimedes Spiral
+    case 32: { // Sacred Polygon
+      const m = 0.5 + 0.5 * Math.cos(p.angle * 3 + t * 4 - p.rNorm * 3);
+      return [Math.round(180 * m), Math.round(85 + 140 * m), 255];
+    }
+    default: { // Cosmic Breathing
+      const b = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 2.2 - p.rNorm * 2.0));
+      return [Math.round(35 * b), Math.round(165 * b), Math.round(245 * b)];
+    }
+  }
+}
+
+function renderTwinFrame(ts) {
+  const t = (ts || 0) * 0.001;
+  const ledCv = document.getElementById("ledRingCanvas");
+  if (ledCv) {
+    const ctx = ledCv.getContext("2d");
+    const w = ledCv.width, h = ledCv.height, cx = w / 2, cy = h / 2, maxR = w * 0.44;
+    ctx.clearRect(0, 0, w, h);
+
+    // Subtle concentric guide tracks
+    [0.28, 0.56, 0.85].forEach(r => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, maxR * r, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.12)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    const boost = (twinState === "SPEAKING") ? (0.85 + 0.3 * Math.sin(t * 18)) : 1.0;
+    for (let i = 0; i < LED_COORDS.length; i++) {
+      const p = LED_COORDS[i];
+      const [r0, g0, b0] = computeLedColor(p, t, activeLedAnim);
+      const r = Math.min(255, Math.round(r0 * boost));
+      const g = Math.min(255, Math.round(g0 * boost));
+      const b = Math.min(255, Math.round(b0 * boost));
+      const x = cx + p.x * maxR;
+      const y = cy + p.y * maxR;
+      const dotR = (p.ring === 0) ? 7.5 : (p.ring === 1 ? 5.5 : 4.6);
+
+      ctx.beginPath();
+      ctx.arc(x, y, dotR * 1.9, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${r},${g},${b},0.22)`;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x, y, dotR, 0, Math.PI * 2);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fill();
+    }
+  }
+
+  const oledCv = document.getElementById("oledCanvas");
+  if (oledCv) {
+    const octx = oledCv.getContext("2d");
+    const ow = oledCv.width, oh = oledCv.height;
+    octx.fillStyle = "#02050c";
+    octx.fillRect(0, 0, ow, oh);
+
+    octx.fillStyle = "#38bdf8";
+    octx.font = "bold 11px 'JetBrains Mono', monospace";
+    const modelSel = document.getElementById("modelSelect");
+    const mName = modelSel ? modelSel.value.toUpperCase() : "GEMMA4:E2B";
+    octx.fillText(`PI5 SOTA | ${mName}`, 8, 16);
+
+    octx.strokeStyle = "#1e293b";
+    octx.beginPath();
+    octx.moveTo(6, 22);
+    octx.lineTo(ow - 6, 22);
+    octx.stroke();
+
+    octx.fillStyle = "#a855f7";
+    octx.font = "bold 11px 'JetBrains Mono', monospace";
+    const line2 = activeSpellName ? `SPELL: ${activeSpellName.toUpperCase().slice(0, 20)}` : `ROLE: ${activePersona.toUpperCase()} [${twinState}]`;
+    octx.fillText(line2, 8, 40);
+
+    octx.fillStyle = "#e2e8f0";
+    octx.font = "12px 'JetBrains Mono', monospace";
+    const msg = oledTickerText + "   •   " + oledTickerText;
+    oledScrollX = (oledScrollX + 0.9) % (Math.max(180, oledTickerText.length * 7.4));
+    octx.save();
+    octx.beginPath();
+    octx.rect(8, 48, ow - 16, 26);
+    octx.clip();
+    octx.fillText(msg, 8 - oledScrollX, 66);
+    octx.restore();
+
+    octx.fillStyle = "#64748b";
+    octx.font = "10px 'JetBrains Mono', monospace";
+    octx.fillText(`LED FX #${activeLedAnim}  |  43 WS2812B  |  16KHZ`, 8, 92);
+  }
+  requestAnimationFrame(renderTwinFrame);
+}
+requestAnimationFrame(renderTwinFrame);
+
+// Web Audio 8-Bit SFX Synthesizer (14 canonical Staff SFX)
+function playSfxById(sfxId) {
+  try {
+    if (!sfxAudioCtx) sfxAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (sfxAudioCtx.state === "suspended") sfxAudioCtx.resume();
+    const now = sfxAudioCtx.currentTime;
+    const osc = sfxAudioCtx.createOscillator();
+    const gain = sfxAudioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(sfxAudioCtx.destination);
+    gain.gain.setValueAtTime(0.12, now);
+
+    const id = Number(sfxId) || 0;
+    if (id === 9) { // Quantum Quack
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(340, now);
+      osc.frequency.exponentialRampToValueAtTime(580, now + 0.09);
+      osc.frequency.exponentialRampToValueAtTime(260, now + 0.22);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+      osc.start(now); osc.stop(now + 0.25);
+    } else if (id === 10) { // eBay Cash Register Cha-Ching
+      osc.type = "square";
+      osc.frequency.setValueAtTime(987.77, now);
+      osc.frequency.setValueAtTime(1318.51, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+      osc.start(now); osc.stop(now + 0.34);
+    } else if (id === 5 || id === 1) { // Supernova / Plasma Blast
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(65, now + 0.38);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.40);
+      osc.start(now); osc.stop(now + 0.42);
+    } else { // Cosmic R2-D2 / Chime arpeggio
+      osc.type = "triangle";
+      const base = 440 + (id * 55) % 440;
+      osc.frequency.setValueAtTime(base, now);
+      osc.frequency.setValueAtTime(base * 1.25, now + 0.07);
+      osc.frequency.setValueAtTime(base * 1.5, now + 0.14);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc.start(now); osc.stop(now + 0.30);
+    }
+  } catch (e) {}
+}
+
+function playSfxChain(sfxIds) {
+  if (!Array.isArray(sfxIds) || !sfxIds.length) return;
+  sfxIds.slice(0, 3).forEach((id, idx) => {
+    setTimeout(() => playSfxById(id), idx * 320);
+  });
+}
+
+document.getElementById("ledPreviewSelect").addEventListener("change", (e) => {
+  activeLedAnim = parseInt(e.target.value, 10) || 0;
+  setTwinState("IDLE", "", `PREVIEWING LED ANIMATION #${activeLedAnim}`);
+});
+
+document.getElementById("testSfxBtn").addEventListener("click", () => {
+  playSfxChain([2, 7, 10]);
+});
+
+document.getElementById("abortBtn").addEventListener("click", () => {
+  if (activeAbortCtrl) {
+    try { activeAbortCtrl.abort(); } catch (e) {}
+    activeAbortCtrl = null;
+  }
+  const player = document.getElementById("audioPlayer");
+  if (player) {
+    player.pause();
+    player.currentTime = 0;
+  }
+  activeLedAnim = 0;
+  setTwinState("IDLE", "", "ABORTED BY USER — READY");
+  document.getElementById("responseText").textContent = "🛑 Operation aborted. Staff reset to IDLE.";
+});
+
+const audioPlayerEl = document.getElementById("audioPlayer");
+audioPlayerEl.addEventListener("play", () => setTwinState("SPEAKING"));
+audioPlayerEl.addEventListener("ended", () => setTwinState("IDLE"));
+audioPlayerEl.addEventListener("pause", () => { if (twinState === "SPEAKING") setTwinState("IDLE"); });
 
 async function fetchStatus() {
   try {
@@ -700,16 +1006,22 @@ function renderResult(d) {
     "Input Query: <b>" + (d.user_text || "(silence)") + "</b>";
 
   const sb = document.getElementById("spellBanner");
+  const spoken = d.spoken_text || d.raw_answer || "";
   if (d.spell && d.spell.is_spell) {
     sb.style.display = "block";
     sb.innerHTML = "✨ <b>ARCANE SPELL TRIGGERED:</b> " + d.spell.name +
       " &nbsp;|&nbsp; <b>LED ANIM ID:</b> #" + d.spell.anim_id +
       " &nbsp;|&nbsp; <b>SFX CHAIN:</b> [" + (d.spell.sfx_ids || []).join(", ") + "]";
+    activeLedAnim = Number(d.spell.anim_id) || 4;
+    setTwinState("SPEAKING", d.spell.name || "ARCANE SPELL", spoken);
+    playSfxChain(d.spell.sfx_ids || [7]);
   } else {
     sb.style.display = "none";
+    activeLedAnim = 1;
+    setTwinState("SPEAKING", "", spoken);
   }
 
-  document.getElementById("responseText").textContent = d.spoken_text || d.raw_answer || "";
+  document.getElementById("responseText").textContent = spoken;
   document.getElementById("mStt").textContent = (d.stt_ms !== undefined ? d.stt_ms + " ms" : "0 ms");
   document.getElementById("mSttSub").textContent = "Engine: " + (d.stt_used || "text");
   document.getElementById("mLlm").textContent = (d.llm_ms || 0) + " ms";
@@ -723,6 +1035,8 @@ function renderResult(d) {
     const player = document.getElementById("audioPlayer");
     player.src = "data:audio/wav;base64," + d.wav_base64;
     player.play().catch(() => {});
+  } else {
+    setTwinState("IDLE");
   }
 }
 
@@ -733,18 +1047,25 @@ async function runTextQuery(overrideText) {
   btn.disabled = true;
   btn.textContent = "⏳ Running on Pi 5...";
   document.getElementById("responseText").textContent = "Synthesizing prophecy & audio on Raspberry Pi 5...";
+  setTwinState("THINKING", "", "QUERYING PI 5 OLLAMA & KOKORO-82M...");
+  activeAbortCtrl = new AbortController();
   try {
     const payload = Object.assign({ text: text }, getSelectedParams());
     const r = await fetch("/api/text-query", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: activeAbortCtrl.signal
     });
     const d = await r.json();
     renderResult(d);
   } catch (e) {
-    document.getElementById("responseText").textContent = "Error: " + e;
+    if (e.name !== "AbortError") {
+      document.getElementById("responseText").textContent = "Error: " + e;
+      setTwinState("IDLE", "", "ERROR DURING QUERY");
+    }
   } finally {
+    activeAbortCtrl = null;
     btn.disabled = false;
     btn.textContent = "🔮 Ask Oracle";
     fetchStatus();
@@ -760,16 +1081,22 @@ document.getElementById("sampleWavBtn").addEventListener("click", async () => {
   const btn = document.getElementById("sampleWavBtn");
   btn.disabled = true;
   btn.textContent = "⏳ Transcribing & Thinking...";
+  setTwinState("THINKING", "", "TRANSCRIBING SAMPLE WAV VIA MOONSHINE ONNX...");
+  activeAbortCtrl = new AbortController();
   try {
     const payload = Object.assign({ use_sample_wav: true }, getSelectedParams());
     const r = await fetch("/api/voice-query", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: activeAbortCtrl.signal
     });
     const d = await r.json();
     renderResult(d);
+  } catch (e) {
+    if (e.name !== "AbortError") setTwinState("IDLE");
   } finally {
+    activeAbortCtrl = null;
     btn.disabled = false;
     btn.textContent = "▶️ Test On-Device Sample WAV (query.wav)";
     fetchStatus();
@@ -802,6 +1129,8 @@ document.getElementById("audioUploadInput").addEventListener("change", async (ev
   const btn = document.getElementById("uploadAudioBtn");
   btn.disabled = true;
   btn.textContent = "⏳ Decoding & Transcribing...";
+  setTwinState("THINKING", "", "DECODING & TRANSCRIBING AUDIO FILE...");
+  activeAbortCtrl = new AbortController();
   try {
     const arrayBuf = await file.arrayBuffer();
     const decodeCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
@@ -823,13 +1152,18 @@ document.getElementById("audioUploadInput").addEventListener("change", async (ev
     const r = await fetch("/api/voice-query", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: activeAbortCtrl.signal
     });
     const d = await r.json();
     renderResult(d);
   } catch (err) {
-    alert("Could not decode audio file: " + err);
+    if (err.name !== "AbortError") {
+      alert("Could not decode audio file: " + err);
+      setTwinState("IDLE");
+    }
   } finally {
+    activeAbortCtrl = null;
     btn.disabled = false;
     btn.textContent = "📁 Upload / Capture Audio";
     ev.target.value = "";
@@ -867,6 +1201,7 @@ document.getElementById("micRecordBtn").addEventListener("click", async () => {
       isRecording = true;
       btn.classList.add("recording");
       btn.textContent = "🛑 Stop & Send Voice Query";
+      setTwinState("LISTENING", "", "CAPTURING 16KHZ MONO PCM VOICE STREAM...");
     } catch (err) {
       alert("Microphone access requires HTTPS or localhost, or use 'Test On-Device Sample WAV': " + err);
     }
@@ -875,6 +1210,8 @@ document.getElementById("micRecordBtn").addEventListener("click", async () => {
     btn.classList.remove("recording");
     btn.textContent = "⏳ Processing Voice...";
     btn.disabled = true;
+    setTwinState("THINKING", "", "MOONSHINE STT -> OLLAMA -> KOKORO-82M...");
+    activeAbortCtrl = new AbortController();
     try {
       if (processorNode) processorNode.disconnect();
       if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
@@ -898,11 +1235,15 @@ document.getElementById("micRecordBtn").addEventListener("click", async () => {
       const r = await fetch("/api/voice-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: activeAbortCtrl.signal
       });
       const d = await r.json();
       renderResult(d);
+    } catch (e) {
+      if (e.name !== "AbortError") setTwinState("IDLE");
     } finally {
+      activeAbortCtrl = null;
       btn.disabled = false;
       btn.textContent = "🎙️ Record Microphone (Click to Start/Stop)";
       fetchStatus();

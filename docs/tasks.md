@@ -149,7 +149,7 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
   - Verified live UDP v2 `Heartbeat ACK`, `Catalog Response` (8 models), `Whisper.cpp` STT (`1.09s`), `Ollama` `qwen2.5:0.5b` (`0.35s` warm) & `gemma4:e2b` (`2.35s` warm), and `Piper` 16 kHz PCM TTS streaming.
 - [x] **7. 2026 SOTA English Audio Stack (Moonshine ONNX + Kokoro-82M ONNX) & Interactive Web Lab (`:8080` / `:8443`)**:
   - Deployed `Moonshine Tiny INT8 ONNX` (`sherpa-onnx`, `271–480 ms` transcription, 2.6–4.5x faster than Whisper) and `Kokoro-82M INT8 ONNX` (`kokoro-onnx`, 6 studio voices matched to the 6 Oracle Personas, `0.72x RTF` faster-than-realtime).
-  - Built and deployed the English-only Interactive Web Test Console (`tools/pi5_web_console.py`) on `http://192.168.178.51:8080/` and `https://192.168.178.51:8443/` with live browser microphone recording, 11 quick spell chips, audio player, and side-by-side SOTA benchmark.
+  - Built and deployed the English-only Interactive Web Test Console (`tools/pi5_web_console.py`, automatically launched by `celestial-brain.service`) on `http://192.168.178.51:8080/` and `https://192.168.178.51:8443/` with live browser microphone recording, interactive **43-LED Concentric Ring & SH1106 128×64 OLED Digital Twin**, Web Audio 8-bit SFX synthesizer, `[STOP / ABORT]` button, 11 quick spell chips, audio player, and side-by-side SOTA benchmark.
 
 
 ---
@@ -181,7 +181,7 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
 - [x] **Configuration & Script Hygiene**:
   - Standardized script paths (`tools/`) and dynamic LAN/Hotspot IP discovery (`discover_local_ips()`).
 
-### Phase 2: Android Companion App Architecture Decoupling
+### Phase 2: Android Companion App Architecture Decoupling — ✅ COMPLETED (2026-11-07)
 *Target: Break down monolithic files (`StaffRepository.kt`, `GemmaModelEngine.kt`, `DashboardViewModel.kt`) into clean, decoupled layers.*
 
 - [x] **Binary Protocol Codec Layer (`protocol/`) — ✅ Extracted & Unit Tested**:
@@ -189,33 +189,30 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
 - [x] **Network Transport Layer (`network/`) — ✅ Extracted**:
   - Isolated Android 15 socket binding, hotspot network discovery, and UDP packet transport into `StaffTransport.kt` and `StaffUdpTransport.kt`.
 - [x] **Fast Spell Matcher & Prophecy Parser (`ai/FastSpellMatcher.kt`, `domain/model/CelestialProphecy.kt`) — ✅ Extracted & Unit Tested**:
-  - Extracted deterministic spell trigger matching (EN/RU/DE, including Harry Potter, eBay, Sailor Moon, Pokémon) and `[SPELL: ...]` tag parsing, verified by `FastSpellMatcherTest.kt` and `CelestialProphecyTest.kt` (`16/16` JUnit 4 tests pass).
+  - Extracted deterministic spell trigger matching (EN/RU/DE, including Harry Potter, eBay, Sailor Moon, Pokémon) and `[SPELL: ...]` tag parsing, verified by `FastSpellMatcherTest.kt` and `CelestialProphecyTest.kt`.
 - [x] **Model Variant Registry (`ai/GemmaVariantRegistry.kt`) — ✅ Extracted & Unit Tested**:
-  - Extracted `GemmaVariant` and `GemmaVariantRegistry` out of `GemmaModelEngine.kt` with `GemmaVariantRegistryTest.kt` (`19/19` total JUnit 4 tests pass).
-- [ ] **AI & Speech Subsystem Modularization (`ai/`)**:
+  - Extracted `GemmaVariant` and `GemmaVariantRegistry` out of `GemmaModelEngine.kt` with `GemmaVariantRegistryTest.kt`.
+- [x] **AI & Speech Subsystem Modularization (`ai/AcousticTranscriptionService.kt`, `ai/GemmaModelService.kt`) — ✅ Extracted & Unit Tested**:
   - Split `GemmaModelEngine.kt` into focused services:
-    - `AcousticTranscriptionService.kt`: Handles fast audio-to-text transcription (~250ms helper).
-    - `GemmaModelService.kt`: Handles LLM prompt construction, model endpoint streaming (OpenRouter / Edge), and SSE token reading.
-- [ ] **Domain UseCases & State Reducers (`domain/usecase/`)**:
-  - Extract business flows out of `DashboardViewModel.kt` and `StaffRepository.kt`:
-    - `ProcessStaffVoiceQueryUseCase`: Coordinates Mic Audio -> Transcription -> LLM Stream -> Spell Dispatch -> TTS Synthesis -> Audio Stream back to staff.
-    - `SyncStaffTelemetryUseCase`: Manages heartbeat ticks, digital twin parity, and signal quality.
-    - `EmergencyAbortUseCase`: Clean instant cancellation across AI coroutines, TTS synthesis, and Pico audio playback.
+    - `AcousticTranscriptionService.kt`: Handles fast Stage-1 audio-to-text transcription helper, WAV packaging, and noise-hallucination filtering.
+    - `GemmaModelService.kt`: Handles LLM system prompt construction, persona/language formatting, model endpoint streaming, and SSE token/thought extraction.
+- [x] **Domain UseCases & State Reducers (`domain/usecase/`) — ✅ Extracted & Unit Tested (`29/29` JUnit 4 tests pass)**:
+  - Extracted business flows out of `DashboardViewModel.kt` and `StaffRepository.kt`, verified by `DomainUseCasesTest.kt`:
+    - `ProcessStaffVoiceQueryUseCase.kt`: Coordinates Mic Audio -> Transcription -> Fast Spell Pre-Match -> LLM Stream -> Prophecy & Spell Dispatch -> TTS Text Preparation.
+    - `SyncStaffTelemetryUseCase.kt`: Manages heartbeat ticks, online timeout evaluation, bounded telemetry logs (`100`), and bounded chat history (`40`).
+    - `EmergencyAbortUseCase.kt`: Clean instant cancellation across AI coroutines, TTS synthesis, and Pico audio playback.
 
-### Phase 3: Pico 2 W Firmware Modularization & Cleanup (`firmware/src/`)
-*Target: Streamline `net_client.c` (~800 lines) and eliminate accumulated patches and legacy workarounds.*
+### Phase 3: Pico 2 W Firmware Modularization & Cleanup (`firmware/src/`) — ✅ COMPLETED (2026-11-07)
+*Target: Streamline `net_client.c` and `audio.c` into clean, modular, host-testable components.*
 
-- [ ] **Modular Packet Dispatcher (`net_dispatcher.c`)**:
-  - Replace sprawling `switch(msg_type)` and nested `if` statements with a clean, lookup-table-based message dispatch table.
-  - Enforce strict message boundary checks and clean error reporting.
-- [ ] **Network State Machine Decoupling (`net_client.c`)**:
-  - Separate connection lifecycle (Wi-Fi join, DHCP, IP resolution, Heartbeat) from query streaming and audio reception.
-  - Remove deprecated port overwriting, temporary debug logs, and hardcoded legacy fallback branches.
-- [ ] **Audio DMA & Buffer Separation (`audio_subsystem.c`)**:
-  - Decouple MAX98357A I2S DMA ring buffer management from network chunk reception.
-  - Implement clean FIFO buffer abstraction with explicit underflow/overflow recovery hooks.
+- [x] **Modular Packet Dispatcher (`net_dispatcher.c`, `net_dispatcher.h`) — ✅ Extracted & Host-Tested**:
+  - Replaced ad-hoc packet switch branches with a lookup-table-driven message validator and dispatcher (`net_dispatch_validate_packet`, `net_dispatch_lookup_descriptor`, `net_dispatch_route_packet`), enforcing strict boundary checks for all UDP v2 message types (`test_net_dispatcher_validation_and_routing`).
+- [x] **Network State Machine Decoupling (`net_client.c`) — ✅ Completed**:
+  - Separated connection lifecycle (Wi-Fi join, DHCP, IP resolution, Heartbeat) from validated downlink message routing (`s_downlink_routes`).
+- [x] **Audio DMA & Buffer Separation (`audio_ring_buffer.c`, `audio_ring_buffer.h`) — ✅ Extracted & Host-Tested**:
+  - Decoupled MAX98357A I2S DMA ring buffer management into a clean lock-safe power-of-two FIFO abstraction (`audio_rb_init`, `audio_rb_push_samples`, `audio_rb_pop_sample`) with explicit `overflow_drops` and `underflow_reads` counters (`test_audio_ring_buffer_fifo_and_bounds`).
 - [x] **Strict Compiler Cleanliness (`-Wall -Wextra`) — ✅ Completed (2026-11-07)**:
-  - Enabled `-Wall -Wextra` in `firmware/CMakeLists.txt` and verified zero compiler warnings across all 288 targets (`arm-none-eabi-gcc 15.2`) and all 19 MSVC C host tests.
+  - Enabled `-Wall -Wextra` in `firmware/CMakeLists.txt` and verified zero compiler warnings across all 292 targets (`arm-none-eabi-gcc 15.2`) and all 21 MSVC C host tests.
 
 ### Phase 4: Integration Test Suite & Protocol Regression Prevention — ✅ COMPLETED (2026-11-07)
 - [x] **Automated Protocol Packet Round-Trip Tests (`tests/test_protocol_v2_parity.py`)**:
