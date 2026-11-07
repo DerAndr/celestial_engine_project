@@ -17,6 +17,7 @@ import json
 import os
 import shutil
 import socket
+import ssl
 import struct
 import subprocess
 import sys
@@ -31,6 +32,37 @@ import local_ai_engine
 import ai_brain_server
 
 WEB_PORT = int(os.environ.get("BRAIN_WEB_PORT", "8080"))
+HTTPS_PORT = int(os.environ.get("BRAIN_HTTPS_PORT", "8443"))
+TLS_DIR = os.path.join(local_ai_engine.LOCAL_AI_DIR, "tls")
+TLS_CERT = os.path.join(TLS_DIR, "pi5_cert.pem")
+TLS_KEY = os.path.join(TLS_DIR, "pi5_key.pem")
+
+
+def ensure_self_signed_cert():
+    """Generates a self-signed TLS certificate for HTTPS (:8443) so browser getUserMedia() works over LAN IP."""
+    if os.path.exists(TLS_CERT) and os.path.exists(TLS_KEY):
+        return True
+    try:
+        os.makedirs(TLS_DIR, exist_ok=True)
+        ips = ai_brain_server.discover_local_ips()
+        san_entries = ["DNS:localhost", "DNS:rpi-15", "DNS:rpi-15.local", "IP:127.0.0.1"]
+        for ip in ips:
+            if ip and not ip.startswith("127."):
+                san_entries.append(f"IP:{ip}")
+        san_str = ",".join(dict.fromkeys(san_entries))
+        cmd = [
+            "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+            "-keyout", TLS_KEY,
+            "-out", TLS_CERT,
+            "-days", "3650",
+            "-subj", "/CN=Celestial-Pi5-Edge-Lab",
+            "-addext", f"subjectAltName={san_str}"
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+        return os.path.exists(TLS_CERT) and os.path.exists(TLS_KEY)
+    except Exception as e:
+        print(f"  [WEB TLS WARN] Could not generate self-signed cert: {e}")
+        return False
 
 
 def get_pi5_system_telemetry():
@@ -508,9 +540,15 @@ HTML_CONSOLE = """<!DOCTYPE html>
 
       <!-- Voice Recording & Sample WAV -->
       <div class="field-group">
-        <label>A. Voice Input (Browser Microphone or On-Board Sample WAV)</label>
+        <label>A. Voice Input (Browser Microphone, Audio File, or On-Board Sample WAV)</label>
+        <div id="httpsNotice" style="display:none; background:rgba(245, 158, 11, 0.14); border:1px solid rgba(245, 158, 11, 0.5); border-radius:9px; padding:10px 13px; margin-bottom:10px; font-size:0.82rem; color:#fde68a;">
+          ⚠️ <b>Browser Security Note:</b> Live microphone access over LAN IP requires <b>HTTPS</b> or <b>http://localhost:8080/</b>.
+          <a id="httpsSwitchLink" href="#" style="color:#38bdf8; font-weight:700; margin-left:6px; text-decoration:underline;">🔒 Switch to HTTPS (:8443) Now ➔</a>
+        </div>
         <div class="btn-row">
           <button class="primary" id="micRecordBtn">🎙️ Record Microphone (Click to Start/Stop)</button>
+          <button class="secondary" id="uploadAudioBtn">📁 Upload / Capture Audio</button>
+          <input type="file" id="audioUploadInput" accept="audio/*" capture style="display:none;">
           <button class="secondary" id="sampleWavBtn">▶️ Test On-Device Sample WAV (query.wav)</button>
         </div>
       </div>
@@ -744,9 +782,70 @@ let mediaStream = null;
 let processorNode = null;
 let recordedPcm16 = [];
 
+const httpsUrl = "https://" + window.location.hostname + ":8443/";
+if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+  const notice = document.getElementById("httpsNotice");
+  const link = document.getElementById("httpsSwitchLink");
+  if (notice && link) {
+    notice.style.display = "block";
+    link.href = httpsUrl;
+  }
+}
+
+document.getElementById("uploadAudioBtn").addEventListener("click", () => {
+  document.getElementById("audioUploadInput").click();
+});
+
+document.getElementById("audioUploadInput").addEventListener("change", async (ev) => {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const btn = document.getElementById("uploadAudioBtn");
+  btn.disabled = true;
+  btn.textContent = "⏳ Decoding & Transcribing...";
+  try {
+    const arrayBuf = await file.arrayBuffer();
+    const decodeCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    const audioBuf = await decodeCtx.decodeAudioData(arrayBuf);
+    const ch = audioBuf.getChannelData(0);
+    const pcm16 = new Int16Array(ch.length);
+    for (let i = 0; i < ch.length; i++) {
+      const s = Math.max(-1, Math.min(1, ch[i]));
+      pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    await decodeCtx.close();
+    const bytes = new Uint8Array(pcm16.buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const pcmBase64 = btoa(binary);
+    const payload = Object.assign({ pcm_base64: pcmBase64 }, getSelectedParams());
+    const r = await fetch("/api/voice-query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+    renderResult(d);
+  } catch (err) {
+    alert("Could not decode audio file: " + err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "📁 Upload / Capture Audio";
+    ev.target.value = "";
+    fetchStatus();
+  }
+});
+
 document.getElementById("micRecordBtn").addEventListener("click", async () => {
   const btn = document.getElementById("micRecordBtn");
   if (!isRecording) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (confirm("Browser blocks live microphone on plain HTTP over LAN IP.\n\nClick OK to switch to HTTPS (" + httpsUrl + ") to unlock live microphone recording (accept the self-signed Pi 5 certificate once), or open http://localhost:8080/")) {
+        window.location.href = httpsUrl;
+      }
+      return;
+    }
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
@@ -1039,19 +1138,34 @@ class Pi5WebHandler(http.server.BaseHTTPRequestHandler):
         self.send_error(404)
 
 
-def start_web_console_daemon(port=WEB_PORT):
-    """Starts the HTTP test console in a background daemon thread."""
-    def _serve():
+def start_web_console_daemon(port=WEB_PORT, https_port=HTTPS_PORT):
+    """Starts both HTTP (:8080) and HTTPS (:8443, for browser microphone access) in background daemon threads."""
+    def _serve_http():
         try:
             server = http.server.ThreadingHTTPServer(("0.0.0.0", port), Pi5WebHandler)
-            print(f"  Web Console  : http://192.168.178.51:{port}/ (Interactive SOTA AI Test Lab)")
+            print(f"  Web Console  : http://192.168.178.51:{port}/ (HTTP Lab)")
             server.serve_forever()
         except Exception as e:
-            print(f"  [WEB CONSOLE WARN] Could not bind port {port}: {e}")
+            print(f"  [WEB CONSOLE WARN] Could not bind HTTP port {port}: {e}")
 
-    t = threading.Thread(target=_serve, daemon=True)
-    t.start()
-    return t
+    def _serve_https():
+        if not ensure_self_signed_cert():
+            return
+        try:
+            server = http.server.ThreadingHTTPServer(("0.0.0.0", https_port), Pi5WebHandler)
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ctx.load_cert_chain(certfile=TLS_CERT, keyfile=TLS_KEY)
+            server.socket = ctx.wrap_socket(server.socket, server_side=True)
+            print(f"  Web HTTPS Mic: https://192.168.178.51:{https_port}/ (HTTPS Live Microphone Enabled)")
+            server.serve_forever()
+        except Exception as e:
+            print(f"  [WEB HTTPS WARN] Could not bind HTTPS port {https_port}: {e}")
+
+    t1 = threading.Thread(target=_serve_http, daemon=True)
+    t1.start()
+    t2 = threading.Thread(target=_serve_https, daemon=True)
+    t2.start()
+    return t1
 
 
 if __name__ == "__main__":
