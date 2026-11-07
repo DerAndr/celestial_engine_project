@@ -107,8 +107,11 @@ class BrainTransport:
         with self.lock:
             if not self.active(session):
                 return False
-            self.sock.sendto(packet(kind, session.request_id, seq, payload), session.addr)
-            return True
+            try:
+                self.sock.sendto(packet(kind, session.request_id, seq, payload), session.addr)
+                return True
+            except OSError:
+                return False
 
     def send_app_command(self, session, cmd_code, param, passkey="apophis"):
         """Dispatches signed NET_MSG_APP_COMMAND (0x20) to staff to trigger LEDs or SFX."""
@@ -118,8 +121,11 @@ class BrainTransport:
             token = compute_auth_token(passkey)
             code_byte = ord(cmd_code) if isinstance(cmd_code, str) else int(cmd_code)
             payload = struct.pack("<IBB", token, code_byte & 0xFF, int(param) & 0xFF)
-            self.sock.sendto(packet(MSG_APP_COMMAND, request_id=0, seq=1, payload=payload), session.addr)
-            return True
+            try:
+                self.sock.sendto(packet(MSG_APP_COMMAND, request_id=0, seq=1, payload=payload), session.addr)
+                return True
+            except OSError:
+                return False
 
     def cancel(self, session):
         session.cancelled.set()
