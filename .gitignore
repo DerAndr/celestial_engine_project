@@ -18,7 +18,6 @@ __pycache__/
 *.pyc
 firmware/src/wifi_credentials.h
 
-
 # System & Editor files
 .DS_Store
 Thumbs.db
@@ -34,9 +33,16 @@ android/build/
 android/app/build/
 android/local.properties
 android_bin/
+android_artifact*/
+android_build_artifact*/
+build_apk/
+build_artifacts/
+release_artifacts/
+.pytest_cache/
 *.apk
 *.aab
 temp_apk*/
-*.png
-*.jpg
+/*.png
+/*.jpg
+!docs/assets/**
 scratch/

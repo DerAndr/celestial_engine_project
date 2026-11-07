@@ -118,10 +118,7 @@ class BrainTransport:
             token = compute_auth_token(passkey)
             code_byte = ord(cmd_code) if isinstance(cmd_code, str) else int(cmd_code)
             payload = struct.pack("<IBB", token, code_byte & 0xFF, int(param) & 0xFF)
-            target_addr = (session.addr[0], PORT)
-            self.sock.sendto(packet(MSG_APP_COMMAND, request_id=0, seq=1, payload=payload), target_addr)
-            if session.addr[1] != PORT:
-                self.sock.sendto(packet(MSG_APP_COMMAND, request_id=0, seq=1, payload=payload), session.addr)
+            self.sock.sendto(packet(MSG_APP_COMMAND, request_id=0, seq=1, payload=payload), session.addr)
             return True
 
     def cancel(self, session):
@@ -272,6 +269,8 @@ class BrainTransport:
                     else:
                         self.send(session, MSG_ERROR, payload=b'Brain busy')
                         session.done = True
-            except socket.timeout:
+            except (socket.timeout, ConnectionResetError):
                 pass
+            except OSError:
+                break
             self.progress()

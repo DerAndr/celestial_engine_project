@@ -173,24 +173,23 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
 ## 4. Full Independent Refactoring Plan: Eliminating Cruft & Fragility
 > **Objective**: Remove accumulated technical debt, ad-hoc hacks, and legacy files from past experiments that cause unexpected bugs. Re-architect the codebase into clean, modular, testable components.
 
-### Phase 1: Workspace Sanitation & Housekeeping (Immediate)
-- [ ] **Purge Root Clutter**:
-  - Remove stale build directories: `temp_apk*`, `build_apk`, `android_artifact`, `android_bin`.
-  - Archive/move temporary test screenshots (`screen_*.png`, `app_screen_*.png`) to `docs/assets/archive/` or delete obsolete captures.
-  - Clean up root `.gitignore` to prevent generated artifacts and test images from dirtying the working tree.
-- [ ] **Configuration & Script Hygiene**:
-  - Standardize all script paths (`tools/`, `scripts/`) to avoid hardcoded absolute paths or obsolete IP addresses.
+### Phase 1: Workspace Sanitation & Housekeeping — ✅ COMPLETED (2026-11-07)
+- [x] **Purge Root Clutter**:
+  - Removed stale build directories: `temp_apk*`, `build_apk`, `build_artifacts`, `android_artifact*`, `android_bin`, `android_build_artifact*`.
+  - Purged obsolete temporary root screenshots (`screen_*.png`, `app_screen_*.png`, `live_*.png`) while preserving `docs/assets/celestial_flask_physical.png`.
+  - Hardened root `.gitignore` (`/*.png`, `/*.jpg`, `!docs/assets/**`, `temp_apk*/`, `build_apk/`) to prevent generated artifacts and test images from dirtying the working tree.
+- [x] **Configuration & Script Hygiene**:
+  - Standardized script paths (`tools/`) and dynamic LAN/Hotspot IP discovery (`discover_local_ips()`).
 
 ### Phase 2: Android Companion App Architecture Decoupling
-*Target: Break down monolithic files (`StaffRepository.kt` ~600+ lines, `GemmaModelEngine.kt` ~680 lines, `DashboardViewModel.kt` ~800+ lines) into clean, decoupled layers.*
+*Target: Break down monolithic files (`StaffRepository.kt`, `GemmaModelEngine.kt`, `DashboardViewModel.kt`) into clean, decoupled layers.*
 
-- [ ] **Binary Protocol Codec Layer (`network/protocol/`)**:
-  - Extract packet serialization and deserialization out of `StaffRepository.kt` into dedicated, pure Kotlin codecs:
-    - `StaffPacketCodec.kt` (Encode/Decode `APP_TELEMETRY`, `AUDIO_STREAM`, `RESP_START`, `RESP_TEXT`, `RESP_AUDIO_CHUNK`, `RESP_END`, `CONTROL_MSG`).
-    - Add comprehensive unit tests (`StaffPacketCodecTest.kt`) to guarantee byte-level parity with Pico C structs (`net_protocol.h`).
-- [ ] **Network Transport Layer (`network/transport/`)**:
-  - Isolate raw Android 15 socket binding, hotspot network discovery (`ap_br_wlan2`), and coroutine packet loops into `StaffUdpTransport.kt`.
-  - Remove all business logic, audio pacing, and state mutation from the transport layer.
+- [x] **Binary Protocol Codec Layer (`protocol/`) — ✅ Extracted**:
+  - Extracted packet serialization and deserialization into `CelestialPacket.kt`, `NetMessageType.kt`, and `ProtocolConstants.kt`, verified by `tests/test_protocol_v2_parity.py` and `tests/test_android_packet_compat.py`.
+- [x] **Network Transport Layer (`network/`) — ✅ Extracted**:
+  - Isolated Android 15 socket binding, hotspot network discovery, and UDP packet transport into `StaffTransport.kt` and `StaffUdpTransport.kt`.
+- [x] **Fast Spell Matcher & Prophecy Parser (`ai/FastSpellMatcher.kt`, `domain/model/CelestialProphecy.kt`) — ✅ Extracted**:
+  - Extracted deterministic spell trigger matching and `[SPELL: ...]` tag parsing.
 - [ ] **AI & Speech Subsystem Modularization (`ai/`)**:
   - Split `GemmaModelEngine.kt` into focused services:
     - `AcousticTranscriptionService.kt`: Handles fast audio-to-text transcription (~250ms helper).
@@ -218,11 +217,11 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
 - [ ] **Strict Compiler Cleanliness**:
   - Enable `-Wall -Wextra` in CMake and resolve all compiler warnings.
 
-### Phase 4: Integration Test Suite & Protocol Regression Prevention
-- [ ] **Automated Protocol Packet Round-Trip Tests**:
-  - Python test runner (`tests/test_protocol_v2_parity.py`) verifying binary layout parity across C (`net_protocol.h`), Kotlin (`StaffPacketCodec.kt`), and Python (`tools/brain_transport.py`).
-- [ ] **Mock Voice Loop End-to-End Test**:
-  - CLI test tool simulating a complete staff query without physical hardware to catch regressions in CI.
+### Phase 4: Integration Test Suite & Protocol Regression Prevention — ✅ COMPLETED (2026-11-07)
+- [x] **Automated Protocol Packet Round-Trip Tests (`tests/test_protocol_v2_parity.py`)**:
+  - Verifies exact 3-way binary layout and constant parity across C (`net_protocol.h`, `net_client.c`), Kotlin (`NetMessageType.kt`, `ProtocolConstants.kt`, `CelestialPacket.kt`), and Python (`tools/brain_transport.py`, `tools/ai_brain_server.py`).
+- [x] **Mock Voice Loop End-to-End Test (`tests/test_protocol_v2_parity.py`)**:
+  - Runs a full in-process UDP socket voice loop (`HEARTBEAT` ➔ `CATALOG_REQ` ➔ `QUERY_START` ➔ `AUDIO_CHUNK` ➔ `QUERY_END` ➔ `[SPELL: ...]` `APP_COMMAND 0x20` dispatch ➔ `RESP_TEXT` ➔ `RESP_START` ➔ `RESP_CHUNK` ➔ `RESP_END`) without physical hardware.
 
 ---
 
