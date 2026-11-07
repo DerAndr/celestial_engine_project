@@ -139,5 +139,17 @@ class TestAndroidPacketCompatibility(unittest.TestCase):
         self.assertEqual(compute_auth_token("apophis"), 987681569)
         self.assertEqual(ai_brain_server.LOCAL_MODELS_BY_PRESET[5], "gemma4:e2b")
 
+        # SOTA Moonshine + Kokoro-82M voice mapping and Web Console checks
+        import pi5_web_console
+        self.assertEqual(set(local_ai_engine.PERSONA_KOKORO_VOICE.keys()), expected_personas)
+        caps = local_ai_engine.get_engine_capabilities()
+        for k in ("moonshine_stt", "whisper_stt", "kokoro_tts", "piper_tts", "ollama_llm"):
+            self.assertIn(k, caps)
+        wav_bytes = pi5_web_console.pcm16_to_wav_bytes(b"\x00\x00" * 160, 16000)
+        self.assertTrue(wav_bytes.startswith(b"RIFF"))
+        self.assertIn("/api/text-query", pi5_web_console.HTML_CONSOLE)
+        self.assertIn("/api/voice-query", pi5_web_console.HTML_CONSOLE)
+        self.assertIn("/api/benchmark", pi5_web_console.HTML_CONSOLE)
+
 if __name__ == "__main__":
     unittest.main()

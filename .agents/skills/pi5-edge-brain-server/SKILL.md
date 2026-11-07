@@ -2,9 +2,9 @@
 name: pi5-edge-brain-server
 description: >-
   Provides instructions to maintain, configure, and verify the Wearable Raspberry Pi 5 Offline AI Brain Server
-  (tools/ai_brain_server.py, tools/local_ai_engine.py, Whisper.cpp STT, Ollama local LLMs,
-  Piper C++ ONNX TTS, and celestial-brain.service over UDP port 5005). Use this skill when the user asks
-  to edit or deploy the Raspberry Pi 5 edge server in tools/.
+  (tools/ai_brain_server.py, tools/local_ai_engine.py, tools/pi5_web_console.py, Moonshine ONNX + Whisper.cpp STT,
+  Ollama local LLMs, Kokoro-82M + Piper ONNX TTS, and celestial-brain.service over UDP port 5005 and Web Lab port 8080).
+  Use this skill when the user asks to edit or deploy the Raspberry Pi 5 edge server in tools/.
 ---
 
 # Wearable Raspberry Pi 5 Offline AI Brain Runbook (`tools/`)
@@ -12,11 +12,11 @@ description: >-
 ## 1. Hardware & Service Profile
 - **Compute**: Raspberry Pi 5 (16 GB RAM) + `Lexar NM790` 1 TB NVMe SSD (PCIe Gen 3).
 - **Power**: Isolated `Geekworm X1209` 5.1V 5A UPS HAT + 4× `Molicel INR18650-M35A` cells (strictly separate from the staff's 5V USB power bank).
-- **Systemd Service**: `celestial-brain.service` listening on binary UDP v2 port `5005`.
-- **Offline AI Pipeline**:
-  1. **STT**: `Whisper.cpp` (`16 kHz` 16-bit mono PCM stream accumulated from UDP `0x04` frames until `PTT_RELEASE` `0x05`).
-  2. **Local LLM (`Ollama`)**: `gemma2:2b` (`Gemma 2 2B`), `llama3.2:1b` (`Llama 3.2 1B`), `gemma4:e2b`, `qwen2.5:0.5b`.
-  3. **Neural TTS**: `Piper C++ ONNX` synthesizing `16 kHz` 16-bit mono PCM and pacing `1024-byte` (`32 ms`) UDP packets back to the staff's 64 KB ring buffer.
+- **Systemd Service**: `celestial-brain.service` listening on binary UDP v2 port `5005` + Interactive Web Test Console (`tools/pi5_web_console.py`) on HTTP port `8080` (`http://192.168.178.51:8080/`).
+- **2026 SOTA Offline AI Pipeline**:
+  1. **STT**: `Moonshine Tiny INT8 ONNX` (`sherpa-onnx`, variable-length RoPE, ~`120–220 ms` on English audio) with automatic fallback to `Whisper.cpp` (`ggml-tiny.bin`).
+  2. **Local LLM (`Ollama`)**: `gemma4:e2b` (default, `"think": False`, `keep_alive: -1`, `num_ctx: 512`), `qwen2.5:0.5b` (~`0.35s`), `qwen2.5:1.5b`, `llama3.2:1b`, `deepseek-r1:1.5b`, `gemma2:2b`.
+  3. **Neural TTS**: `Kokoro-82M INT8 ONNX` (`kokoro-onnx`, 4 Cortex-A76 threads, multi-voice persona mapping: `am_adam`, `bm_george`, `am_michael`, `af_bella`, `af_heart`, `bf_emma`) resampled in-memory to `16 kHz` 16-bit mono PCM, with automatic fallback to `Piper C++ ONNX`.
 
 ## 2. Parity & Protocol Requirements
 1. **6 Oracle Personas Parity**:

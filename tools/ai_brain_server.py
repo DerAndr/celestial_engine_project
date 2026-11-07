@@ -268,6 +268,7 @@ def parse_spell_tag(text, fallback_spell=None):
         if not sfx_ids:
             sfx_ids = [3, 6]
         spoken = SPELL_TAG_REGEX.sub("", text).strip()
+        spoken = re.sub(r"\[[^\]]*\]", "", spoken).strip()
         if not spoken and fallback_spell:
             spoken = fallback_spell["chant_en"]
         elif not spoken:
@@ -281,16 +282,19 @@ def parse_spell_tag(text, fallback_spell=None):
             "spoken_text": spoken,
             "oled_text": oled
         }
+    clean_spoken = re.sub(r"\[[^\]]*\]", "", text).strip()
     if fallback_spell:
+        if not clean_spoken:
+            clean_spoken = fallback_spell["chant_en"]
         return {
             "is_spell": True,
             "name": fallback_spell["name"],
             "anim_id": fallback_spell["anim"],
             "sfx_ids": list(fallback_spell["sounds"]),
-            "spoken_text": text.strip(),
-            "oled_text": f"[SPELL] {fallback_spell['name']}: {text.strip()}"
+            "spoken_text": clean_spoken,
+            "oled_text": f"[SPELL] {fallback_spell['name']}: {clean_spoken}"
         }
-    return {"is_spell": False, "spoken_text": text.strip(), "oled_text": text.strip()}
+    return {"is_spell": False, "spoken_text": clean_spoken, "oled_text": clean_spoken}
 
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "brain_config.json")
@@ -869,7 +873,8 @@ def process_query_worker(transport, session):
             print(f"[REQUEST {session.request_id}] Querying Local Pi 5 Core ({local_model}) [{mode_label}]...")
             ai_text = (local_ai_engine.local_query_llm(
                 user_text, detected_lang, adult_mode=adult_mode, model=local_model,
-                persona_id=persona_id, custom_prompt=custom_prompt
+                persona_id=persona_id, custom_prompt=custom_prompt,
+                matched_spell=matched_spell
             ) if user_text else get_silence_answer(detected_lang))
         else:
             preset_info = MODEL_PRESETS.get(session.model, ("cloud", "Cloud LLM"))[1]
@@ -913,15 +918,16 @@ def process_query_worker(transport, session):
 
     print(f"[REQUEST {session.request_id}] TTS ({response_lang})...")
     pcm = b""
+    active_persona = config.get("persona_id", "machine_god")
     if use_local_pipeline:
-        print(f"[REQUEST {session.request_id}] Synthesizing via Local Piper TTS...")
-        pcm = local_ai_engine.local_synthesize_pcm(spoken_text, response_lang)
+        print(f"[REQUEST {session.request_id}] Synthesizing via Local SOTA TTS (Kokoro-82M / Piper)...")
+        pcm = local_ai_engine.local_synthesize_pcm(spoken_text, response_lang, persona_id=active_persona)
     else:
         print(f"[REQUEST {session.request_id}] Synthesizing via Edge-TTS...")
         pcm = asyncio.run(synthesize_speech_pcm(spoken_text, response_lang, config))
         if not pcm and HAS_LOCAL_AI:
-            print(f"[REQUEST {session.request_id}] Cloud TTS failed; falling back to Local Piper TTS...")
-            pcm = local_ai_engine.local_synthesize_pcm(spoken_text, response_lang)
+            print(f"[REQUEST {session.request_id}] Cloud TTS failed; falling back to Local SOTA TTS...")
+            pcm = local_ai_engine.local_synthesize_pcm(spoken_text, response_lang, persona_id=active_persona)
 
     if not transport.active(session):
         return
@@ -972,14 +978,21 @@ def main():
     print(f"  Cloud LLM    : OpenRouter (DeepSeek V3, Ministral 8B, Grok 4.5, Llama 70B)")
     print(f"  Local LLM    : Ollama -> {local_m} (Gemma 4 E2B / Qwen 2.5 / DeepSeek R1)")
     print(f"  Persona      : {persona_id} (6 Personas + [SPELL: ...] Hardware Choreography)")
-    print(f"  Local Audio  : Whisper.cpp (STT) + Piper Standalone (TTS)")
+    print(f"  Local Audio  : Moonshine ONNX / Whisper.cpp (STT) + Kokoro-82M / Piper (TTS)")
     print(f"  Routing Mode : {'100% FORCED OFFLINE' if force_local else 'Dynamic Dial (0-3: OpenRouter | 4-7: Pi 5 Local)'}")
     print(f"  Safety       : {safety_label}")
+    try:
+        import pi5_web_console
+        pi5_web_console.start_web_console_daemon(port=int(os.environ.get("BRAIN_WEB_PORT", "8080")))
+    except Exception as e:
+        print(f"  [WEB CONSOLE WARN] {e}")
     print("=" * 64)
     print("Ready and listening for Pico 2 W queries (Hold QUERY on staff)...")
 
     if HAS_LOCAL_AI and hasattr(local_ai_engine, "prewarm_local_model"):
         def _warmup():
+            if hasattr(local_ai_engine, "prewarm_sota_audio_engines"):
+                local_ai_engine.prewarm_sota_audio_engines()
             for m in ("qwen2.5:0.5b", local_m):
                 local_ai_engine.prewarm_local_model(m)
         threading.Thread(target=_warmup, daemon=True).start()
