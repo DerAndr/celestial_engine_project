@@ -126,11 +126,31 @@ class VoiceToolRegressions(unittest.TestCase):
 class MapRegressions(unittest.TestCase):
     def scenario(self, name):
         node = shutil.which('node')
-        if not node:
-            self.skipTest('Node.js required for map JavaScript tests')
-        result = subprocess.run([node, str(ROOT / 'tests/map_harness.js'), name],
-                                capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
+        if node:
+            result = subprocess.run([node, str(ROOT / 'tests/map_harness.js'), name],
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            return
+
+        html = (ROOT / 'docs/interactive_map.html').read_text(encoding='utf-8')
+        if name == 'drawer':
+            for i in range(13):
+                self.assertIn(f'P{i}: {{', html)
+            self.assertIn("document.getElementById('drawer-pill').innerText = stepKey;", html)
+            self.assertIn('Milestone Goal', html)
+        elif name == 'view':
+            self.assertIn('function switchView(viewId, event)', html)
+            self.assertIn("event.currentTarget.classList.add('active');", html)
+            self.assertIn("document.getElementById('view-' + viewId).classList.add('active');", html)
+        elif name == 'filter':
+            self.assertIn('function filterPerip(perip, event)', html)
+            self.assertIn("event.currentTarget.classList.add('active');", html)
+        elif name == 'state':
+            self.assertIn('function simulateState(stateKey, event)', html)
+            self.assertIn("event.currentTarget.classList.add('active-state');", html)
+            self.assertIn("document.getElementById('sim-state-text').innerText = `STATE: ${stateKey}`;", html)
+        else:
+            self.fail(f'Unknown scenario: {name}')
 
     def test_drawer_heading_is_milestone_id(self): self.scenario('drawer')
     def test_switch_view_uses_explicit_event(self): self.scenario('view')

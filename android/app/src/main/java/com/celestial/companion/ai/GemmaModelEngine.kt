@@ -31,87 +31,6 @@ import java.nio.ByteOrder
 
 private const val TAG = "GemmaModelEngine"
 
-/**
- * Supported Gemma & multimodal model options for companion AI execution.
- */
-enum class GemmaVariant(
-    val id: Int,
-    val displayName: String,
-    val tag: String,
-    val description: String,
-    val isMultimodal: Boolean,
-    val hasThinkingMode: Boolean,
-    val modelId: String = "google/gemini-2.5-flash",
-    val fallbackModelId: String = "google/gemini-2.5-flash"
-) {
-    GEMINI_FLASH(
-        0,
-        "Gemini 2.5 Flash",
-        "G2.5-FL",
-        "Ultra-fast high-concurrency Gemini multimodal vision & speech core (Default)",
-        isMultimodal = true,
-        hasThinkingMode = true,
-        modelId = "google/gemini-2.5-flash",
-        fallbackModelId = "google/gemini-2.5-flash"
-    ),
-    GEMMA_4_E2B(
-        1,
-        "Gemma 4 (E2B) Edge",
-        "G4-E2B",
-        "Google Gemma 4 instruction-tuned multimodal core",
-        isMultimodal = true,
-        hasThinkingMode = true,
-        modelId = "google/gemma-4-e2b-it",
-        fallbackModelId = "google/gemini-2.5-flash"
-    ),
-    GEMMA_4_31B(
-        2,
-        "Gemma 4 (31B) Multimodal",
-        "G4-31B",
-        "Google Gemma 4 31B instruction-tuned multimodal vision & reasoning core",
-        isMultimodal = true,
-        hasThinkingMode = true,
-        modelId = "google/gemma-4-31b-it",
-        fallbackModelId = "google/gemini-2.5-flash"
-    ),
-    GEMMA_4_26B(
-        3,
-        "Gemma 4 Think (26B A4B)",
-        "G4-26B",
-        "Google Gemma 4 26B Mixture-of-Experts with native CoT reasoning",
-        isMultimodal = true,
-        hasThinkingMode = true,
-        modelId = "google/gemma-4-26b-a4b-it",
-        fallbackModelId = "google/gemini-2.5-flash"
-    ),
-    GEMMA_3_27B(
-        4,
-        "Gemma 3 27B Vision",
-        "G3-27B",
-        "Google Gemma 3 27B multimodal instruction tuned model",
-        isMultimodal = true,
-        hasThinkingMode = true,
-        modelId = "google/gemma-3-27b-it",
-        fallbackModelId = "google/gemini-2.5-flash"
-    ),
-    PI5_OFFLOAD(
-        5,
-        "Pi 5 Local Core",
-        "PI5",
-        "Offload to Wearable Raspberry Pi 5 NVMe server over local Wi-Fi",
-        isMultimodal = false,
-        hasThinkingMode = false,
-        modelId = "local",
-        fallbackModelId = "google/gemini-2.5-flash"
-    );
-
-    companion object {
-        val E2B_MULTIMODAL = GEMMA_4_E2B
-        val E4B_THINKING = GEMMA_4_26B
-        val FLASH_NANO = GEMMA_3_27B
-    }
-}
-
 data class GemmaConfig(
     val variant: GemmaVariant = GemmaVariant.GEMINI_FLASH,
     val enableThinking: Boolean = true,
@@ -220,12 +139,7 @@ class GemmaModelEngine(
     }
 
     fun getLocalModelFile(variant: GemmaVariant): File {
-        val fileName = when (variant) {
-            GemmaVariant.E2B_MULTIMODAL -> "gemma-4-e2b-it.bin"
-            GemmaVariant.E4B_THINKING -> "gemma-4-e4b-it.bin"
-            else -> "generic-model.bin"
-        }
-        return File(modelStorageDir, fileName)
+        return File(modelStorageDir, GemmaVariantRegistry.localModelFileName(variant))
     }
 
     fun isModelWeightsDownloaded(variant: GemmaVariant): Boolean {

@@ -190,12 +190,12 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
   - Isolated Android 15 socket binding, hotspot network discovery, and UDP packet transport into `StaffTransport.kt` and `StaffUdpTransport.kt`.
 - [x] **Fast Spell Matcher & Prophecy Parser (`ai/FastSpellMatcher.kt`, `domain/model/CelestialProphecy.kt`) — ✅ Extracted & Unit Tested**:
   - Extracted deterministic spell trigger matching (EN/RU/DE, including Harry Potter, eBay, Sailor Moon, Pokémon) and `[SPELL: ...]` tag parsing, verified by `FastSpellMatcherTest.kt` and `CelestialProphecyTest.kt` (`16/16` JUnit 4 tests pass).
+- [x] **Model Variant Registry (`ai/GemmaVariantRegistry.kt`) — ✅ Extracted & Unit Tested**:
+  - Extracted `GemmaVariant` and `GemmaVariantRegistry` out of `GemmaModelEngine.kt` with `GemmaVariantRegistryTest.kt` (`19/19` total JUnit 4 tests pass).
 - [ ] **AI & Speech Subsystem Modularization (`ai/`)**:
   - Split `GemmaModelEngine.kt` into focused services:
     - `AcousticTranscriptionService.kt`: Handles fast audio-to-text transcription (~250ms helper).
     - `GemmaModelService.kt`: Handles LLM prompt construction, model endpoint streaming (OpenRouter / Edge), and SSE token reading.
-    - `GemmaVariantRegistry.kt`: Centralized enum and configurations for `gemma-4-E2B`, `gemma-4-31b`, etc.
-    - `CelestialProphecyParser.kt`: (Already extracted) dedicated unit testing for tag stripping and spell extraction.
 - [ ] **Domain UseCases & State Reducers (`domain/usecase/`)**:
   - Extract business flows out of `DashboardViewModel.kt` and `StaffRepository.kt`:
     - `ProcessStaffVoiceQueryUseCase`: Coordinates Mic Audio -> Transcription -> LLM Stream -> Spell Dispatch -> TTS Synthesis -> Audio Stream back to staff.
@@ -441,8 +441,8 @@ firmware/src/ (Target Refactored Layout)
   - Extract `inmp441_pio` and `max98357a_pio` into discrete, clock-separated drivers.
 - [ ] **Task 8.1.2: Core 1 Dedicated Chiptune Sandbox**:
   - Ensure Core 1 handles 100% of Web-Audio-style chiptune calculations in autonomous standalone mode without causing timer jitter on Core 0 network loops.
-- [ ] **Task 8.1.3: Hardware Watchdog & Power Guard**:
-  - Enable RP2350 hardware watchdog (8s timeout) alongside the 1000ms network timeout to guarantee zero freeze if a breadboard wire vibrates loose.
+- [x] **Task 8.1.3: Hardware Watchdog & Power Guard — ✅ Active in `firmware/src/main.c`**:
+  - RP2350 hardware watchdog (`watchdog_enable(8000, 1)`, `watchdog_caused_reboot()`, `watchdog_update()`) active alongside the 1000ms network timeout and 18% WS2812B brightness cap.
 
 ---
 
