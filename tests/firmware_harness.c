@@ -377,3 +377,9 @@ EXPORT int audio_ring_buffer_probe(void) {
 
     return 0;
 }
+EXPORT int test_net_dispatcher_validation_and_routing(void) {
+    return net_dispatcher_probe();
+}
+EXPORT int test_audio_ring_buffer_fifo_and_bounds(void) {
+    return audio_ring_buffer_probe();
+}
