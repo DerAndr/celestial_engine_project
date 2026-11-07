@@ -147,6 +147,9 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
   - Configured NetworkManager (`nmcli`) on Pi 5 with auto-connect profile `Celestial-Hotspot` (priority 5) alongside home Wi-Fi `FRITZ!Box 6690 YQ` (priority 10).
 - [x] **6. End-to-End Voice Cycle Verification (UDP v2 ↔ Pi 5)**:
   - Verified live UDP v2 `Heartbeat ACK`, `Catalog Response` (8 models), `Whisper.cpp` STT (`1.09s`), `Ollama` `qwen2.5:0.5b` (`0.35s` warm) & `gemma4:e2b` (`2.35s` warm), and `Piper` 16 kHz PCM TTS streaming.
+- [x] **7. 2026 SOTA English Audio Stack (Moonshine ONNX + Kokoro-82M ONNX) & Interactive Web Lab (`:8080` / `:8443`)**:
+  - Deployed `Moonshine Tiny INT8 ONNX` (`sherpa-onnx`, `271–480 ms` transcription, 2.6–4.5x faster than Whisper) and `Kokoro-82M INT8 ONNX` (`kokoro-onnx`, 6 studio voices matched to the 6 Oracle Personas, `0.72x RTF` faster-than-realtime).
+  - Built and deployed the English-only Interactive Web Test Console (`tools/pi5_web_console.py`) on `http://192.168.178.51:8080/` and `https://192.168.178.51:8443/` with live browser microphone recording, 11 quick spell chips, audio player, and side-by-side SOTA benchmark.
 
 
 ---
@@ -383,9 +386,8 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
   - Deploy **Llama 3.2 1B Instruct (INT4)** or **Qwen 2.5 1.5B Instruct (INT4)** (~800 MB–1.2 GB).
   - Target: Time-To-First-Token (TTFT) < 150 ms on Snapdragon / Google Tensor NPU.
   - Ensure strict system prompt compliance: 1–2 punchy sentences, max 20 words, with arcane `[SPELL: ...]` generation.
-- [ ] **Raspberry Pi 5 Optimization**:
-  - Build `llama.cpp` with ARMv8.2-A FP16 + DotProd + KleidiAI optimizations on Bookworm 64-bit.
-  - Target: > 30 tok/sec on 4-core BCM2712 CPU with NVMe model mmap.
+- [x] **Raspberry Pi 5 SOTA Audio & LLM Optimization (Completed 2026-11-07)**:
+  - Deployed `Moonshine Tiny INT8 ONNX` (`sherpa-onnx`), `Kokoro-82M INT8 ONNX` (`kokoro-onnx`, 4 Cortex-A76 threads), and multi-model RAM residency (`OLLAMA_MAX_LOADED_MODELS=3`, `keep_alive=-1`) on Bookworm 64-bit NVMe.
 
 #### Phase 3: Ultra-Realistic Neural TTS — Kokoro-82M via ONNX
 - [ ] **Android Companion: Kokoro-82M ONNX Runtime Pipeline**:

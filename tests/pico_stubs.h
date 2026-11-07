@@ -148,6 +148,7 @@ static uint32_t dma_encode_endless_transfer_count(void) { return 0xffffffffu; }
 #define DMA_IRQ_0 0
 static void irq_set_exclusive_handler(uint irq, void (*handler)(void)) { (void)irq; (void)handler; }
 static void irq_set_enabled(uint irq, bool b) { (void)irq; (void)b; }
+static void irq_set_priority(uint irq, uint8_t hardware_priority) { (void)irq; (void)hardware_priority; }
 typedef struct { int unused; } i2c_inst_t;
 static i2c_inst_t test_i2c;
 #define i2c1 (&test_i2c)
@@ -162,11 +163,14 @@ static int cyw43_fail, cyw43_uninitialized_calls;
 static int cyw43_arch_init(void) { return cyw43_fail; }
 static void cyw43_arch_enable_sta_mode(void) { if(cyw43_fail) cyw43_uninitialized_calls++; }
 static void cyw43_arch_gpio_put(uint pin, bool b) { (void)pin; (void)b; if(cyw43_fail) cyw43_uninitialized_calls++; }
+static void cyw43_arch_lwip_begin(void) {}
+static void cyw43_arch_lwip_end(void) {}
 #define PICO_ERROR_TIMEOUT -1
 static int getchar_timeout_us(uint32_t us) { (void)us; return -1; }
 static void reset_usb_boot(uint32_t a, uint32_t b) { (void)a; (void)b; }
 static void watchdog_reboot(uint32_t pc, uint32_t sp, uint32_t delay_ms) { (void)pc; (void)sp; (void)delay_ms; }
 static void watchdog_enable(uint32_t delay_ms, bool pause_on_debug) { (void)delay_ms; (void)pause_on_debug; }
 static void watchdog_update(void) {}
+static bool watchdog_caused_reboot(void) { return false; }
 #define __attribute__(x)
 #endif

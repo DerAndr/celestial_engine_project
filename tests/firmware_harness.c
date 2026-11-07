@@ -17,6 +17,7 @@ static int test_printf(const char *fmt, ...) {
 #include "../firmware/src/mic.c"
 #include "../firmware/src/leds.c"
 #include "../firmware/src/voice_data.c"
+#include "../firmware/src/music_data.c"
 #include "../firmware/src/net_client.h"
 void net_client_init(void) {}
 void net_client_update(void) {}
