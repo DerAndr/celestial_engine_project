@@ -17,8 +17,19 @@ MSG_RESP_START, MSG_RESP_CHUNK, MSG_RESP_END, MSG_CANCEL = range(5, 9)
 MSG_RESP_TEXT, MSG_ACK, MSG_PROGRESS, MSG_ERROR = range(9, 13)
 MSG_CATALOG_REQ = 0x0D
 MSG_CATALOG_RESP = 0x0E
+MSG_APP_COMMAND = 0x20
+MSG_APP_TIME_SYNC = 0x21
+MSG_APP_TELEMETRY = 0x22
 MAX_PAYLOAD = 512
 MAX_QUERY_BYTES = 16000 * 2 * 60
+
+def compute_auth_token(passkey="apophis"):
+    """Computes 32-bit FNV-1a signature matching firmware compute_auth_token()."""
+    h = 0x811c9dc5
+    for b in passkey.encode("utf-8"):
+        h ^= b
+        h = (h * 0x01000193) & 0xFFFFFFFF
+    return h
 
 def build_catalog_payload(host_type=1, host_name="PI 5 BRAIN", models=None):
     """Packs net_catalog_resp_t matching Pico 2 W binary layout:
@@ -97,6 +108,20 @@ class BrainTransport:
             if not self.active(session):
                 return False
             self.sock.sendto(packet(kind, session.request_id, seq, payload), session.addr)
+            return True
+
+    def send_app_command(self, session, cmd_code, param, passkey="apophis"):
+        """Dispatches signed NET_MSG_APP_COMMAND (0x20) to staff to trigger LEDs or SFX."""
+        with self.lock:
+            if not self.active(session):
+                return False
+            token = compute_auth_token(passkey)
+            code_byte = ord(cmd_code) if isinstance(cmd_code, str) else int(cmd_code)
+            payload = struct.pack("<IBB", token, code_byte & 0xFF, int(param) & 0xFF)
+            target_addr = (session.addr[0], PORT)
+            self.sock.sendto(packet(MSG_APP_COMMAND, request_id=0, seq=1, payload=payload), target_addr)
+            if session.addr[1] != PORT:
+                self.sock.sendto(packet(MSG_APP_COMMAND, request_id=0, seq=1, payload=payload), session.addr)
             return True
 
     def cancel(self, session):

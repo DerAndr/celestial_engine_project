@@ -37,7 +37,7 @@ def build_harness():
     includes = build / 'include'
     for name in ['pico/time.h', 'pico/stdlib.h', 'pico/bootrom.h', 'pico/cyw43_arch.h', 'hardware/gpio.h',
                  'hardware/i2c.h', 'hardware/pio.h', 'hardware/dma.h', 'hardware/clocks.h',
-                 'hardware/sync.h', 'audio_i2s.pio.h', 'mic_i2s.pio.h', 'ws2812.pio.h']:
+                 'hardware/sync.h', 'hardware/watchdog.h', 'audio_i2s.pio.h', 'mic_i2s.pio.h', 'ws2812.pio.h']:
         path = includes / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('#include "pico_stubs.h"\n', encoding='utf-8')

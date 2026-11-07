@@ -126,30 +126,27 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
   - `SPELL_ANIM_SACRED_POLYGON`: Stroboscopic geometric runes (Triquetra, Hexagram / Merkaba) rotating at harmonic ratios.
   - Phonetic VU Coupling: Real-time amplitude modulation from speaker DMA (words glow, plosives shockwave).
 
-### 🎯 Active Priority: Raspberry Pi 5 Wearable Node Modernization & Full Parity (Актуализация Raspberry Pi 5)
-> **Goal:** Bring the Raspberry Pi 5 Wearable Node (`tools/ai_brain_server.py` & `tools/local_ai_engine.py`) to 100% parity with the companion app and canonical v1.1.0 firmware, enabling seamless standalone offline AI with personas, spells, and concise speech.
+### 🎯 Active Priority: Raspberry Pi 5 Wearable Node Modernization & Full Parity (Актуализация Raspberry Pi 5) — ✅ COMPLETED (2026-11-07)
+> **Goal:** Bring the Raspberry Pi 5 Wearable Node (`tools/ai_brain_server.py` & `tools/local_ai_engine.py`) to 100% parity with the companion app and canonical v1.3.0 firmware, enabling seamless standalone offline AI with personas, spells, and concise speech.
 
-- [ ] **1. AI Persona Presets & System Prompt Modernization (`tools/ai_brain_server.py`, `tools/local_ai_engine.py`)**:
-  - Port the 6 interactive AI Personas (*Machine God, Wise Archmage, Marvin Android, Cyberpunk Netrunner, Jack Pumpkin King, Custom Prompt*) into the Python server.
-  - Enforce concise, punchy speech: 1–2 sentences, maximum 15–25 words (audio playback < 3s).
-  - Strict guardrails: no markdown, asterisks, bullet points, or emojis (for clean Piper TTS speech).
+- [x] **1. AI Persona Presets & System Prompt Modernization (`tools/ai_brain_server.py`, `tools/local_ai_engine.py`)**:
+  - Ported all 6 interactive AI Personas (*Machine God, Wise Archmage, Marvin Android, Cyberpunk Netrunner, Jack Pumpkin King, Custom Prompt*) into the Python server (`ORACLE_PERSONAS`) with voice-command switching in EN/DE/RU.
+  - Enforced concise, punchy speech: 1–2 sentences, maximum 15–25 words, with `"think": False` and `"num_predict": 48` for fast inference on Pi 5.
+  - Strict guardrails: stripped `<think>`/`<thought>` reasoning blocks, markdown, asterisks, and emojis (`strip_thinking_and_markdown`) for clean Piper TTS speech.
   - Default language: English (`[EN]`), with native EN/DE/RU system prompt templates.
-- [ ] **2. Arcane Spells & Incantations Hardware Dispatch (`[SPELL: ...]`)**:
-  - Add prompt injection and regex token interceptor in `ai_brain_server.py` for:
+- [x] **2. Arcane Spells & Incantations Hardware Dispatch (`[SPELL: ...]`)**:
+  - Added `FastSpellMatcher` (`match_fast_spell`), prompt injection (`SPELL_PROMPT_INJECTION`), and regex interceptor (`parse_spell_tag`) in `ai_brain_server.py` for:
     `[SPELL: Name | ANIM: Animation | SOUNDS: Sfx1, Sfx2, ...] <Incantation text>`
-  - Dispatch binary `NET_MSG_APP_COMMAND` (0x20) packets over UDP to staff to trigger corresponding 21 LED rune animations and 24 soundboard tracks.
-- [ ] **3. Dynamic Model Catalog & Protocol Alignment**:
-  - Update `NET_MSG_CATALOG_RESP` on Pi 5 with current models: `gemma4:e2b`, `qwen2.5:0.5b`, `llama3.2:1b`, `deepseek-r1:1.5b`.
-  - Align with canonical v1.1.0 45s audio streaming response gate and sequence numbering.
-- [ ] **4. Pi 5 Deployment & Service Verification**:
-  - Power on Raspberry Pi 5, pull latest `master` commits (`git pull`) at `/home/andr/celestial_engine_project`.
-  - Update virtual environment packages in `.venv` (`tools/requirements-brain.txt`).
-  - Verify and restart systemd service `celestial-brain.service`.
-- [ ] **5. Wearable Network Profile (Offline Field Mobility)**:
-  - Configure Pi 5 client auto-connect to phone hotspot (`Pixel_9_Pro_XL`), OR configure autonomous Pi 5 AP/Hotspot (`Celestial-Brain-AP`) so the staff connects directly without home Wi-Fi.
-- [ ] **6. End-to-End Voice Cycle Verification (Staff ↔ Pi 5)**:
-  - Switch staff to `[HOST] -> PI 5 BRAIN`.
-  - Verify voice query via INMP441, offline transcription via Whisper.cpp, Ollama local inference, Piper TTS, and clean playback via MAX98357A speaker.
+  - Implemented `BrainTransport.send_app_command()` (`NET_MSG_APP_COMMAND = 0x20`, signed with FNV-1a `"apophis"`) to trigger all 35 LED animations (`0..34`) and 14 sound effects (`0..13`) on the staff.
+- [x] **3. Dynamic Model Catalog & Protocol Alignment**:
+  - Aligned `NET_MSG_CATALOG_RESP` (`build_catalog_payload`), `DEFAULT_PI5_CATALOG` in `firmware/src/net_client.c`, and `LOCAL_MODELS_BY_PRESET` (`4=qwen2.5:0.5b`, `5=gemma4:e2b`, `6=deepseek-r1:1.5b`, `7=qwen2.5:1.5b`).
+  - Added startup RAM pre-warming (`keep_alive=-1`) for `qwen2.5:0.5b` and `gemma4:e2b` on `celestial-brain.service` boot.
+- [x] **4. Pi 5 Deployment & Service Verification**:
+  - Connected to Raspberry Pi 5 (`rpi-15`, `192.168.178.51`), linked `/home/andr/celestial_engine_project` to Git (`origin/master`), deployed updated `tools/`, and restarted `celestial-brain.service`.
+- [x] **5. Wearable Network Profile (Offline Field Mobility)**:
+  - Configured NetworkManager (`nmcli`) on Pi 5 with auto-connect profile `Celestial-Hotspot` (priority 5) alongside home Wi-Fi `FRITZ!Box 6690 YQ` (priority 10).
+- [x] **6. End-to-End Voice Cycle Verification (UDP v2 ↔ Pi 5)**:
+  - Verified live UDP v2 `Heartbeat ACK`, `Catalog Response` (8 models), `Whisper.cpp` STT (`1.09s`), `Ollama` `qwen2.5:0.5b` (`0.35s` warm) & `gemma4:e2b` (`2.35s` warm), and `Piper` 16 kHz PCM TTS streaming.
 
 
 ---

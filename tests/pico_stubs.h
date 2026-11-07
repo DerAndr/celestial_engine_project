@@ -165,5 +165,8 @@ static void cyw43_arch_gpio_put(uint pin, bool b) { (void)pin; (void)b; if(cyw43
 #define PICO_ERROR_TIMEOUT -1
 static int getchar_timeout_us(uint32_t us) { (void)us; return -1; }
 static void reset_usb_boot(uint32_t a, uint32_t b) { (void)a; (void)b; }
+static void watchdog_reboot(uint32_t pc, uint32_t sp, uint32_t delay_ms) { (void)pc; (void)sp; (void)delay_ms; }
+static void watchdog_enable(uint32_t delay_ms, bool pause_on_debug) { (void)delay_ms; (void)pause_on_debug; }
+static void watchdog_update(void) {}
 #define __attribute__(x)
 #endif

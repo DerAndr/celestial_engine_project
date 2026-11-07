@@ -90,9 +90,9 @@ static const net_catalog_resp_t DEFAULT_PI5_CATALOG = {
         { 2, 2, "GROK 4.5",       "GRK" },
         { 3, 3, "MARVIN (70B)",   "MRV" },
         { 4, 4, "QWEN 0.5B FAST", "Q05" },
-        { 5, 1, "LLAMA 3.2 (1B)", "L32" },
+        { 5, 0, "GEMMA 4 (E2B)",  "G4"  },
         { 6, 2, "DEEPSEEK R1",    "R1"  },
-        { 7, 4, "GEMMA 4 (E2B)",  "G4"  }
+        { 7, 3, "QWEN 1.5B CORE", "Q15" }
     }
 };
 

@@ -107,5 +107,37 @@ class TestAndroidPacketCompatibility(unittest.TestCase):
         self.assertEqual(host_name, "PHONE BRAIN")
         self.assertEqual(payload[16], 4)
 
+    def test_pi5_personas_spells_and_catalog_parity(self):
+        import local_ai_engine
+        import ai_brain_server
+        from brain_transport import compute_auth_token
+
+        # 6 Personas parity
+        expected_personas = {"machine_god", "archmage", "marvin", "cyberpunk", "pumpkin_lord", "custom"}
+        self.assertEqual(set(local_ai_engine.ORACLE_PERSONAS.keys()), expected_personas)
+
+        # Strip <think> blocks and markdown
+        raw = "<think>Internal reasoning about quantum entropy...</think> **Probability** is *99.4%*!"
+        self.assertEqual(local_ai_engine.strip_thinking_and_markdown(raw), "Probability is 99.4%!")
+
+        # FastSpellMatcher & [SPELL: ...] tag parsing
+        sp = ai_brain_server.match_fast_spell("Кастани огненный шар!")
+        self.assertIsNotNone(sp)
+        self.assertEqual(sp["name"], "Fireball")
+        self.assertEqual(sp["anim"], 5)
+
+        parsed = ai_brain_server.parse_spell_tag(
+            "[SPELL: Chain Lightning | ANIM: RADIAL_WAVE | SOUNDS: WARP, LASER, PULSAR] Fulgur aetheris catena!"
+        )
+        self.assertTrue(parsed["is_spell"])
+        self.assertEqual(parsed["name"], "Chain Lightning")
+        self.assertEqual(parsed["anim_id"], 19)
+        self.assertEqual(parsed["sfx_ids"], [0, 3, 1])
+        self.assertEqual(parsed["spoken_text"], "Fulgur aetheris catena!")
+
+        # FNV-1a token parity with C/Kotlin ("apophis" -> 0x3ADED321 = 987681569)
+        self.assertEqual(compute_auth_token("apophis"), 987681569)
+        self.assertEqual(ai_brain_server.LOCAL_MODELS_BY_PRESET[5], "gemma4:e2b")
+
 if __name__ == "__main__":
     unittest.main()
