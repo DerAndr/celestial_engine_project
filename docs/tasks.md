@@ -442,7 +442,15 @@ firmware/src/ (Target Refactored Layout)
   - Reduced `firmware/src/audio.c` from 1,927 lines down to 705 lines.
   - Verified with 29 passing unit tests (including all 21 MSVC host firmware regressions in `test_regressions.py`).
   - Flashed `celestial_firmware.uf2` to physical Pico 2 W over `picotool load -f -x` on COM9; verified live heartbeat telemetry, chime ('T'), chiptune ('M 0'), and audio diagnostics ('A') with 0 late refills and 0 TX stalls.
-- [x] **Task 8.1.3: Hardware Watchdog & Power Guard — ✅ Active in `firmware/src/main.c`**:
+- [x] **Task 8.1.3: LED Patterns & Ring Animators Extraction — ✅ Completed (2026-11-09)**:
+  - Extracted 35 LED animation algorithms (~2,400 lines) from `firmware/src/leds.c` into `firmware/src/led_patterns.c/h`, preserving all 28 menu animations, 7 dynamic state animations (Vortex, Speech Expand, Data Receive, Galaxy, Solar, Earth, 67 Easter Egg), chiptune audio sync, and 4-ring diagnostic hooks.
+  - Reduced `firmware/src/leds.c` from 2,660 lines down to **228 lines**.
+- [x] **Task 8.1.4: UI Screens & SH1106 Card Presentation Extraction — ✅ Completed (2026-11-09)**:
+  - Extracted all 14 screens and 6 card renderers (Galaxy, Solar System, Earth, Celestial Clock with 4 astronomical styles, Dynamic Architecture, and Dashboard) from `firmware/src/main.c` into `firmware/src/ui_screens.c/h`.
+  - Reduced `firmware/src/main.c` from 3,067 lines down to **1,303 lines**.
+  - Decoupled OLED presentation logic from Pico 2 W core event loop and networking state machine.
+  - Verified full test suite (41/41 tests passing) and flashed to physical Pico 2 W over COM9 (`Tick #2..#4 | OLED: ONLINE | State: IDLE`).
+- [x] **Task 8.1.5: Hardware Watchdog & Power Guard — ✅ Active in `firmware/src/main.c`**:
   - RP2350 hardware watchdog (`watchdog_enable(8000, 1)`, `watchdog_caused_reboot()`, `watchdog_update()`) active alongside the 1000ms network timeout and 18% WS2812B brightness cap.
 
 ---

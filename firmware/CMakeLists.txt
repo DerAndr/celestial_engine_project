@@ -29,6 +29,7 @@ pico_sdk_init()
 
 add_executable(celestial_firmware
     src/main.c
+    src/ui_screens.c
     src/sh1106.c
     src/encoder.c
     src/query_button.c
@@ -38,6 +39,7 @@ add_executable(celestial_firmware
     src/chiptune_synth.c
     src/audio.c
     src/mic.c
+    src/led_patterns.c
     src/leds.c
     src/voice_data.c
     src/music_data.c
