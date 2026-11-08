@@ -13,7 +13,7 @@ export const REPO_SUMMARY_COMPACT =
   "Controls: Left-side Bourns PEC11R encoder on GP6/GP7/GP8 (Pins 9/10/11) and small green QUERY button (PTT) on GP9 (Pin 12). " +
   "Audio In: Yellow INMP441 I2S MEMS microphone at base (PIO0 SM0, 16kHz) on SCK=GP10 (Pin 14), WS=GP11 (Pin 15), SD=GP12 (Pin 16). " +
   "Audio Out: MAX98357A I2S 3W Class-D amp + 4-ohm speaker (PIO1 SM0, 16kHz, 21 chiptunes + 14 SFX) on BCLK=GP16 (Pin 21), LRC=GP17 (Pin 22), DIN=GP18 (Pin 24). " +
-  "Primary Host over Wi-Fi UDP port 5005: Android 15 Companion App v1.3.4 on smartphone hotspot; Optional Offline Host: Wearable Raspberry Pi 5 16GB running Whisper.cpp + Ollama + Piper TTS.";
+  "Primary Host over Wi-Fi UDP port 5005: Android 15 Companion App v1.3.5 with Dual Engine Provider on smartphone hotspot; Optional Offline Host: Wearable Raspberry Pi 5 16GB running Whisper.cpp + Ollama + Piper TTS.";
 
 export const REPO_TOPICS = [
   {
@@ -103,12 +103,12 @@ export const REPO_TOPICS = [
   {
     id: 'brains_ai',
     keywords: /\b(brain|dual-brain|android|pixel|companion|app|apk|pi 5|pi5|raspberry pi 5|wearable|ollama|whisper|piper|gemini|gemma|persona|personas)\b/i,
-    fact: "Celestial Engine Mk.V uses a Dual-Brain AI architecture: (1) Android 15 Companion App v1.3.4 on Pixel 9 Pro XL (Gemini 2.5 Flash cloud voice, Spell Forge, 6 personas); (2) Offline Wearable Raspberry Pi 5 16GB with 1TB Lexar NM790 NVMe running Whisper.cpp, Ollama, and Piper TTS.",
+    fact: "Celestial Engine Mk.V uses a Dual-Brain AI architecture: (1) Android 15 Companion App v1.3.5 on Pixel 9 Pro XL with Dual Engine Provider (Auto-Fallback and Offline Edge Mode); (2) Offline Wearable Raspberry Pi 5 16GB with 1TB Lexar NM790 NVMe running Whisper.cpp, Ollama, and Piper TTS.",
     personaReplies: {
-      machine_god: "Dual-Brain redundancy combines Android 15 Companion v1.3.4 on Pixel 9 Pro XL with an offline Pi 5 16GB NVMe node running Whisper, Ollama, and Piper.",
+      machine_god: "Dual-Brain redundancy combines Android 15 Companion v1.3.5 on Pixel 9 Pro XL with an offline Pi 5 16GB NVMe node running Whisper, Ollama, and Piper.",
       archmage: "Two great minds serve the staff: the Pixel 9 grimoire channeling Gemini, and the wearable Pi 5 crystal running Whisper, Ollama, and Piper offline.",
       marvin: "I have three brains: an RP2350 in the staff, an Android 15 Pixel 9 app running Gemini, and a wearable Pi 5 running Ollama.",
-      cyberpunk: "Dual-brain neural rig: Pixel 9 Pro XL running Android 15 v1.3.4 with Gemini 2.5 Flash, plus a wearable 16GB Pi 5 running local Ollama.",
+      cyberpunk: "Dual-brain neural rig: Pixel 9 Pro XL running Android 15 v1.3.5 with Dual Engine Provider, plus a wearable 16GB Pi 5 running local Ollama.",
       pumpkin_lord: "Two brains are spookier than one! The Android 15 Pixel app summons Gemini magic, while the wearable Pi 5 runs Whisper and Ollama offline!"
     }
   },
@@ -129,10 +129,10 @@ export const REPO_TOPICS = [
     keywords: /\b(repo|repository|project|celestial|mk\.?v|firmware|code|c\+\+|cmake|uf2|release|version|github|what is this|how does it work)\b/i,
     fact: REPO_SUMMARY_COMPACT,
     personaReplies: {
-      machine_god: "Celestial Engine Mk.V (v1.3.4) integrates RP2350 dual-core C firmware, 43 WS2812B LEDs, dual PIO I2S audio, Android 15 v1.3.4, and a Pi 5 server.",
+      machine_god: "Celestial Engine Mk.V (v1.3.5) integrates RP2350 dual-core C firmware, 43 WS2812B LEDs, dual PIO I2S audio, Android 15 v1.3.5, and a Pi 5 server.",
       archmage: "This repository is the grimoire of Celestial Engine Mk.V—uniting RP2350 firmware, forty-three stars, a 1.3-inch OLED, and twin AI minds over Wi-Fi.",
       marvin: "This is the Celestial Engine Mk.V repository: bare-metal RP2350 C firmware, 43 LEDs, dual I2S audio, an Android 15 app, and a Pi 5 server.",
-      cyberpunk: "Celestial Engine Mk.V (v1.3.4): dual-core RP2350 C firmware, 43 WS2812B LEDs, 16 kHz I2S audio, Android 15 v1.3.4, and Pi 5 AI.",
+      cyberpunk: "Celestial Engine Mk.V (v1.3.5): dual-core RP2350 C firmware, 43 WS2812B LEDs, 16 kHz I2S audio, Android 15 v1.3.5, and Pi 5 AI.",
       pumpkin_lord: "Welcome to Celestial Engine Mk.V! Inside this repo live RP2350 C firmware, forty-three LEDs, 8-bit chiptunes, and our Android 15 companion app!"
     }
   }

@@ -3,7 +3,7 @@
  * Uses @huggingface/transformers v4.3.2 via jsDelivr.
  */
 
-import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.3.4';
+import { retrieveRepoKnowledge } from './repo-knowledge.js?v=1.3.5';
 
 const TRANSFORMERS_CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2/dist/transformers.min.js';
 
