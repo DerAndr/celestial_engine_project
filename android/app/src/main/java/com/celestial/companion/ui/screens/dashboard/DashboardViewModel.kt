@@ -36,7 +36,8 @@ data class OracleChatMessage(
 
 class DashboardViewModel(
     private val repository: StaffRepository,
-    val gemmaEngine: GemmaModelEngine? = repository.gemmaEngine
+    val gemmaEngine: GemmaModelEngine? = repository.gemmaEngine,
+    val dualEngineProvider: com.celestial.companion.ai.DualEngineProvider? = repository.dualEngineProvider
 ) : ViewModel() {
 
     companion object {
@@ -48,6 +49,14 @@ class DashboardViewModel(
     val phoneBrainActive: StateFlow<Boolean> = repository.phoneBrainActive
     val phoneModels: StateFlow<List<PhoneAiModel>> = repository.phoneModels
     val connectionMode: StateFlow<ConnectionMode> = repository.connectionMode
+
+    val engineMode: StateFlow<com.celestial.companion.ai.AiEngineMode> =
+        dualEngineProvider?.engineModeFlow ?: MutableStateFlow(com.celestial.companion.ai.AiEngineMode.AUTO_FALLBACK).asStateFlow()
+
+    fun setEngineMode(mode: com.celestial.companion.ai.AiEngineMode) {
+        dualEngineProvider?.engineMode = mode
+        repository.log("AI-ORACLE", "Switched AI Engine Mode to ${mode.name}", com.celestial.companion.domain.model.LogLevel.INFO)
+    }
 
     private val _currentLanguage = MutableStateFlow(gemmaEngine?.config?.language ?: StaffLanguage.ENGLISH)
     val currentLanguage: StateFlow<StaffLanguage> = _currentLanguage.asStateFlow()
@@ -397,7 +406,7 @@ class DashboardViewModel(
         targetStaffIp: String? = null,
         queryRequestId: Long = 0L
     ) {
-        val engine = gemmaEngine ?: return
+        val engine: com.celestial.companion.ai.CelestialAiEngine = dualEngineProvider ?: gemmaEngine ?: return
         if (_isGenerating.value) {
             cancelGeneration()
         }

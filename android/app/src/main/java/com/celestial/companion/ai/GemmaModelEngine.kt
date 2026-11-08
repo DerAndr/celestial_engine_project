@@ -68,7 +68,7 @@ class GemmaModelEngine(
     private val context: Context,
     val transcriptionService: AcousticTranscriptionService = AcousticTranscriptionService(),
     val modelService: GemmaModelService = GemmaModelService()
-) {
+) : CelestialAiEngine {
     var config: GemmaConfig = GemmaConfig()
 
     init {
@@ -158,7 +158,7 @@ class GemmaModelEngine(
     /**
      * Executes true multimodal streaming inference against the AI backend.
      */
-    fun streamInference(
+    override fun streamInference(
         prompt: String,
         image: Bitmap? = null,
         audioBytes: ByteArray? = null

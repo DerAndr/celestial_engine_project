@@ -39,6 +39,7 @@ data class IncomingStaffVoiceQuery(
 class StaffRepository(
     private val transport: StaffTransport,
     val gemmaEngine: GemmaModelEngine? = null,
+    val dualEngineProvider: com.celestial.companion.ai.DualEngineProvider? = null,
     val context: android.content.Context? = null,
     val voiceQueryUseCase: ProcessStaffVoiceQueryUseCase = ProcessStaffVoiceQueryUseCase(),
     val telemetryUseCase: SyncStaffTelemetryUseCase = SyncStaffTelemetryUseCase(),
@@ -554,7 +555,9 @@ class StaffRepository(
                         scope.launch {
                             val fullAnswer = StringBuilder()
                             var liveSpellTriggered = false
-                            gemmaEngine?.streamInference("Analyze voice inquiry from staff", audioBytes = audioData)?.collect { chunk ->
+                            val streamFlow = dualEngineProvider?.streamInference("Analyze voice inquiry from staff", audioBytes = audioData)
+                                ?: gemmaEngine?.streamInference("Analyze voice inquiry from staff", audioBytes = audioData)
+                            streamFlow?.collect { chunk ->
                                 when (chunk) {
                                     is com.celestial.companion.ai.GemmaStreamChunk.PhaseChanged -> {
                                         if (chunk.phase == com.celestial.companion.ai.AiProcessingPhase.ERROR) {

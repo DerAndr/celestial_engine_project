@@ -2,7 +2,9 @@ package com.celestial.companion
 
 import android.app.Application
 import android.util.Log
+import com.celestial.companion.ai.DualEngineProvider
 import com.celestial.companion.ai.GemmaModelEngine
+import com.celestial.companion.ai.OfflineEdgeEngine
 import com.celestial.companion.domain.repository.StaffRepository
 import com.celestial.companion.network.StaffUdpTransport
 
@@ -14,12 +16,25 @@ class CelestialApp : Application() {
         GemmaModelEngine(this)
     }
 
+    val offlineEngine: OfflineEdgeEngine by lazy {
+        OfflineEdgeEngine()
+    }
+
+    val dualEngineProvider: DualEngineProvider by lazy {
+        DualEngineProvider(gemmaEngine, offlineEngine, this)
+    }
+
     val staffRepository: StaffRepository by lazy {
         val udpTransport = StaffUdpTransport(context = this)
         val prefs = getSharedPreferences("celestial_prefs", MODE_PRIVATE)
         val savedPasskey = prefs.getString("auth_passkey", "apophis")?.ifEmpty { "apophis" } ?: "apophis"
         val savedIp = prefs.getString("staff_ip", "10.111.174.64") ?: "10.111.174.64"
-        StaffRepository(udpTransport, gemmaEngine, this).also {
+        StaffRepository(
+            transport = udpTransport,
+            gemmaEngine = gemmaEngine,
+            dualEngineProvider = dualEngineProvider,
+            context = this
+        ).also {
             it.passkey = savedPasskey
             it.setTargetStaffIp(savedIp)
             Log.i(TAG, "Celestial Engine StaffRepository initialized lazily (target: $savedIp, auth passkey: $savedPasskey)")

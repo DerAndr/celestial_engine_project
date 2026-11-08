@@ -480,8 +480,12 @@ com.celestial.companion/
 
 - [x] **Task 8.2.1: Spell Forge Decoupling (`FastSpellMatcher.kt` & `CelestialProphecy.kt`) — ✅ Completed (2026-11-07)**:
   - Isolated `FastSpellMatcher` and `CelestialProphecy` with 10 JUnit 4 unit tests (`FastSpellMatcherTest.kt`, `CelestialProphecyTest.kt`) verifying sub-20ms EN/RU/DE spell trigger matching and tag stripping.
-- [ ] **Task 8.2.2: Dual Engine Provider**:
-  - Implement seamless runtime switching between `CloudGeminiEngine` (ultra-fast Gemini 2.5 Flash cloud) and `OfflineSotaEngine` (Moonshine + Kokoro-82M).
+- [x] **Task 8.2.2: Dual Engine Provider & 100% Offline Edge Mode — ✅ Completed (2026-11-08)**:
+  - Implemented `AiEngineMode` (`AUTO_FALLBACK`, `OFFLINE_EDGE`, `CLOUD_ONLY`) with persistent SharedPreferences storage.
+  - Implemented `OfflineEdgeEngine` featuring sub-20ms regex/acoustic spell compilation, 6 multilingual persona prophecy banks (RU/EN/DE, $\le 25$ words), and full `GemmaStreamChunk` streaming lifecycle.
+  - Implemented `DualEngineProvider` implementing `CelestialAiEngine` with zero-friction auto-fallback when API keys are blank or network fails.
+  - Added interactive 3-chip UI selectors (`[🔄 AUTO]`, `[⚡ OFFLINE]`, `[☁️ CLOUD]`) in `DashboardScreen.kt` and `OracleTerminalScreen.kt`.
+  - Added full JUnit test suite in `DualEngineProviderTest.kt` verifying spell matching, persona boundaries, and streaming lifecycle.
 - [x] **Task 8.2.3: Zero-Recomposition Canvas Optimization (`ConcentricLedRingsView.kt`) — ✅ Completed (2026-11-07)**:
   - Replaced `Canvas` with `Modifier.drawWithCache` + `onDrawBehind` and precomputed normalized polar LED coordinates (`LED_UNIT_COS`, `LED_UNIT_SIN`) to eliminate per-frame allocations and Compose layout passes during 33 Hz UDP packet bursts.
 

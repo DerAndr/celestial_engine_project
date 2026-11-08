@@ -87,6 +87,7 @@ fun OracleTerminalScreen(
     val activeSpell by viewModel.activeSpell.collectAsState()
     val currentPersona by viewModel.currentPersona.collectAsState()
     val customSystemPrompt by viewModel.customSystemPrompt.collectAsState()
+    val engineMode by viewModel.engineMode.collectAsState()
 
     var promptInput by remember { mutableStateOf("") }
     var thinkingModeEnabled by remember { mutableStateOf(viewModel.gemmaEngine?.config?.enableThinking ?: true) }
@@ -591,6 +592,47 @@ fun OracleTerminalScreen(
                                 checkedTrackColor = Color(0x33FFD700)
                             )
                         )
+                    }
+                }
+
+                // AI Engine Mode Routing Chips (Task 8.2.2 Dual Engine Provider)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        com.celestial.companion.ai.AiEngineMode.AUTO_FALLBACK to "🔄 AUTO",
+                        com.celestial.companion.ai.AiEngineMode.OFFLINE_EDGE to "⚡ OFFLINE",
+                        com.celestial.companion.ai.AiEngineMode.CLOUD_ONLY to "☁️ CLOUD"
+                    ).forEach { (mode, label) ->
+                        val isSel = mode == engineMode
+                        val activeColor = when (mode) {
+                            com.celestial.companion.ai.AiEngineMode.AUTO_FALLBACK -> RunicGold
+                            com.celestial.companion.ai.AiEngineMode.OFFLINE_EDGE -> EmeraldGreen
+                            com.celestial.companion.ai.AiEngineMode.CLOUD_ONLY -> AetherCyan
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSel) activeColor.copy(alpha = 0.2f) else DeepVoid)
+                                .border(
+                                    1.dp,
+                                    if (isSel) activeColor else CardBorder,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable { viewModel.setEngineMode(mode) }
+                                .padding(vertical = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSel) activeColor else TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
                     }
                 }
 
