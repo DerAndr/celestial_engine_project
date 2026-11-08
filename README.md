@@ -26,7 +26,7 @@ Don't have the physical hardware in front of you? Open the [**Live Web Digital T
 
 | AI Execution Host | Local / Cloud LLM Models | Speech & Audio Pipeline | Role |
 | :--- | :--- | :--- | :--- |
-| **1. Android Smartphone (`v1.1.2`)** | **Gemma 4 E2B** (`gemma-4-E2B-it` local on-device) + **OpenRouter API** (Gemini / Claude / GPT cloud models) | Android SpeechRecognizer + 16 kHz UDP PCM TTS Pacer + `[SPELL: ...]` live hardware tags | **Primary Mobile Brain** over smartphone Wi-Fi Hotspot (`port 5005`) |
+| **1. Android Smartphone (`v1.3.4`)** | **Gemma 4 E2B** (`gemma-4-E2B-it` local on-device) + **OpenRouter API** (Gemini / Claude / GPT cloud models) | Android SpeechRecognizer + 16 kHz UDP PCM TTS Pacer + `[SPELL: ...]` live hardware tags | **Primary Mobile Brain** over smartphone Wi-Fi Hotspot (`port 5005`) |
 | **2. Raspberry Pi 5 (`16 GB + 1 TB NVMe`)** | **Gemma 4 E2B** (`gemma4:e2b`), **Qwen 2.5 0.5B** (`qwen2.5:0.5b`), **Llama 3.2 1B** & **Gemma 2 2B** via **Ollama** | **Moonshine Tiny INT8 ONNX** (`~270 ms` STT) + **Kokoro-82M INT8 ONNX** (6 studio voices) + `:8080`/`:8443` Web Lab | **Optional 100% Offline Wearable Node** (`celestial-brain.service`) |
 | **3. Web Digital Twin (`GitHub Pages`)** | **SmolLM2-135M-Instruct** & **LiquidAI LFM2.5-350M** via **Transformers.js v4** | Web Speech API Dictation (`en-US`) + Browser TTS + Web Audio 8-bit Synth | **Interactive Browser Simulator** (WebGPU / WASM SIMD, zero backend) |
 
@@ -38,7 +38,7 @@ Don't have the physical hardware in front of you? Open the [**Live Web Digital T
 
 ### 1. Primary Architecture (Default): Staff ⇄ Android Smartphone Hotspot
 
-In standard operation, only **two devices** are required: the physical **Staff (`Pico 2 W / RP2350`)** and an **Android Smartphone** running the companion app (`v1.1.2`) with its mobile Wi-Fi hotspot enabled.
+In standard operation, only **two devices** are required: the physical **Staff (`Pico 2 W / RP2350`)** and an **Android Smartphone** running the companion app (`v1.3.4`) with its mobile Wi-Fi hotspot enabled.
 
 ```mermaid
 flowchart LR

@@ -494,3 +494,19 @@ com.celestial.companion/
   - Added interactive switcher (`🔮 Assembled`, `🧩 Exploded`, `🔌 2D Pinout Map`) with High-DPI scaling and component isolation dimming.
 - [x] **Main-Page DIY & Halloween Prop Disclaimer**:
   - Replaced standalone `halloween.html` with a clean main-page disclaimer banner on `docs/index.html` and `README.md`.
+
+---
+
+### 8.4. Bidirectional Mesh Host Routing & Remote Locking (`v1.3.4`) — ✅ COMPLETED (2026-11-08)
+
+- [x] **Firmware Host Locking Symmetry (`firmware/src/net_client.c`)**:
+  - Eliminated bug where incoming companion phone catalog responses unconditionally reset `preferred_host` to `HOST_TYPE_PHONE`.
+  - Added explicit guard so `[LOCK PI 5]` and `[PI5 LOCK]` can never be overridden by background phone packets.
+  - Retained automatic failover when in `AUTO MESH` mode (`HOST_TYPE_NONE`).
+- [x] **Android Companion Remote Routing & Conflict Prevention (`StaffRepository.kt`)**:
+  - Added `_phoneBrainActive = (command.hostType != 1)`: selecting `[LOCK PI 5]` on the phone deactivates local query interception and catalog push to prevent competing with the Raspberry Pi 5 node.
+  - Verified authenticated command dispatch (`APP_COMMAND 0x20` with code `'H'`: `0 = Auto Mesh`, `1 = Pi 5`, `2 = Phone`).
+- [x] **Hardware & Live Ecosystem Verification**:
+  - Compiled and flashed `celestial_firmware.uf2` to physical Pico 2 W (`RP2350`, `COM9`, `192.168.178.101`).
+  - Compiled and deployed `celestial_companion_v1.3.4.apk` to Pixel 9 Pro XL (`49051FDAS001YK`).
+  - Verified telemetry reflects `Host: PI 5 BRAIN` and stays locked across multiple network intervals.

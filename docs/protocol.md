@@ -6,7 +6,7 @@ Header: little-endian `<IBBHHI`, 14 bytes: magic `0x454C4543`, version `2`, mess
 
 | Type | ID | Payload / behavior |
 |---|---:|---|
-| HEARTBEAT | 0x01 | ID zero; echoed immediately even during generation |
+| HEARTBEAT | 0x01 | ID zero; echoed immediately even during generation (includes 4-byte local epoch) |
 | QUERY_START | 0x02 | New nonzero ID; language + model bytes; replaces/cancels previous session |
 | AUDIO_CHUNK | 0x03 | Up to 256 mono samples; upload remains best-effort, duplicate/old chunks ignored |
 | QUERY_END | 0x04 | Starts generation once; redundant END never creates another worker |
@@ -18,6 +18,11 @@ Header: little-endian `<IBBHHI`, 14 bytes: magic `0x454C4543`, version `2`, mess
 | ACK | 0x0A | One-byte acknowledged type; echo request ID and sequence |
 | PROGRESS | 0x0B | Generation still running for this ID; not a completed answer |
 | ERROR | 0x0C | Explicit failure, not a silently truncated success |
+| CATALOG_REQ | 0x0D | Staff queries active AI models and host identity |
+| CATALOG_RESP | 0x0E | Host identity (`host_type`: 1=Pi 5, 2=Phone) + model catalog |
+| APP_COMMAND | 0x20 | Signed remote command (`token` + `code` + `param`): `'H'` Host (0=Auto, 1=Pi5, 2=Phone), `'M'` Mode, `'V'` Vol, `'L'` LEDs, `'C'` SFX, `'T'` Chiptune, `'S'` Stop |
+| APP_TIME_SYNC | 0x21 | Push Android/PC wall-clock epoch to Chronos clock |
+| APP_TELEMETRY | 0x22 | Staff binary broadcast (mode, state, vol, anim, host, telemetry) |
 
 Response TEXT/START/chunks/END use stop-and-wait with 200 ms retries and a 12 s packet deadline. The sender uses an absolute 16 kHz pacing clock; timer rounding must not accumulate per chunk. Pico's 32768-sample ring rejects writes when full. Sender retries without advancing sequence; it never overwrites queued audio. Response sequence count is bounded below 65536 chunks (about 17 minutes); server request lifetime is also bounded to 240 s including recording/generation/playback.
 
