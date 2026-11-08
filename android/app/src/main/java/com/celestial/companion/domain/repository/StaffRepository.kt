@@ -101,7 +101,7 @@ class StaffRepository(
                 }
             }
             ConnectionMode.MESH_ACTIVE -> {
-                _phoneBrainActive.value = true
+                _phoneBrainActive.value = false
                 scope.launch {
                     executeCommand(StaffCommand.SetHost(1))
                 }
@@ -501,6 +501,10 @@ class StaffRepository(
                 }
             }
             NetMessageType.QUERY_START -> {
+                if (!_phoneBrainActive.value) {
+                    Log.d(TAG, "Ignoring QUERY_START because Phone Brain is inactive (locked to Pi 5)")
+                    return
+                }
                 if (packet.requestId != 0L && packet.requestId == activeQueryRequestId && _telemetry.value.state == StaffState.LISTENING) {
                     Log.d(TAG, "Dropping duplicate QUERY_START (reqId=${packet.requestId})")
                     return
@@ -685,6 +689,7 @@ class StaffRepository(
                 _telemetry.value = _telemetry.value.copy(language = command.language)
             }
             is StaffCommand.SetHost -> {
+                _phoneBrainActive.value = (command.hostType != 1)
                 transport.sendCommand(activeStaffIp, 'H'.code.toByte(), command.hostType.toByte(), token)
                 _telemetry.value = _telemetry.value.copy(
                     preferredHost = command.hostType,

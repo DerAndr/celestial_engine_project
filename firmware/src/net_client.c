@@ -392,14 +392,17 @@ static void handle_rx_catalog_resp(const net_packet_header_t *hdr,
         memcpy(&phone_catalog_cache, &cat, sizeof(cat));
         has_phone_catalog = true;
 
-        // When phone pushes its catalog, activate it and lock preferred_host to PHONE
-        preferred_host = HOST_TYPE_PHONE;
-        active_host_type = HOST_TYPE_PHONE;
-        server_ip_addr = *ctx->addr;
-        active_server_port = CELESTIAL_NET_DEFAULT_PORT;
-        last_server_heartbeat_rx_ms = ctx->now;
-        memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
-        strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+        // When phone pushes its catalog, activate it ONLY if phone is preferred
+        // or if in Auto Mesh mode and Pi 5 has timed out. Never override explicit PI5 LOCK!
+        if (preferred_host == HOST_TYPE_PHONE ||
+            (preferred_host == HOST_TYPE_NONE && (ctx->now - last_pi5_heartbeat_rx_ms > 4000u))) {
+            active_host_type = HOST_TYPE_PHONE;
+            server_ip_addr = *ctx->addr;
+            active_server_port = CELESTIAL_NET_DEFAULT_PORT;
+            last_server_heartbeat_rx_ms = ctx->now;
+            memcpy(&active_catalog, &phone_catalog_cache, sizeof(active_catalog));
+            strncpy(active_host_name, phone_catalog_cache.host_name, sizeof(active_host_name));
+        }
     }
 }
 
