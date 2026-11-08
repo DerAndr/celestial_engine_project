@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="simulator.css?v=1.3.5">
+  <link rel="stylesheet" href="simulator.css?v=1.3.6">
 </head>
 <body>
   <!-- Ambient Deep Space Starfield -->
@@ -118,6 +118,7 @@
             <button type="button" class="replica-view-btn active" data-view="assembled" title="Assembled Physical Staff Replica">🔮 Assembled</button>
             <button type="button" class="replica-view-btn" data-view="exploded" title="Exploded Physical Build Overview">🧩 Exploded</button>
             <button type="button" class="replica-view-btn" data-view="breadboard" title="Interactive 2D RP2350 Pinout &amp; Equipment Wiring">🔌 2D Pinout Map</button>
+            <button type="button" class="replica-view-btn" data-view="photo" title="Real Physical Staff in Action">📷 Real Photo</button>
             <button type="button" class="replica-view-btn" data-view="3d" style="display: none;" title="Optional Interactive 3D WebGL Replica">🧊 3D View</button>
           </div>
         </div>
@@ -125,6 +126,9 @@
         <div class="replica-stage-box">
           <canvas id="replica-2d-canvas" width="460" height="490" aria-label="Interactive Physical Replica and Breadboard CAD Canvas"></canvas>
           <div id="replica-3d-container" class="replica-3d-viewport" style="display: none;" aria-label="Interactive 3D Staff Viewport"></div>
+          <div id="replica-photo-container" class="replica-photo-viewport" style="display: none; width: 100%; height: 100%; text-align: center; justify-content: center; align-items: center; padding: 10px;">
+            <img id="replica-photo-img" src="assets/celestial_flask_physical.webp" alt="Real Physical Celestial Engine Staff in Action" style="max-width: 100%; max-height: 470px; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.4);" loading="lazy">
+          </div>
         </div>
 
         <!-- Clickable Hardware Hotspot Chips -->
@@ -1517,7 +1521,7 @@
     </footer>
   </div>
 
-  <script src="simulator.js?v=1.3.5"></script>
-  <script type="module" src="twin/controls.js?v=1.3.5"></script>
+  <script src="simulator.js?v=1.3.6"></script>
+  <script type="module" src="twin/controls.js?v=1.3.6"></script>
 </body>
 </html>

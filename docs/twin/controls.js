@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.5';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.5';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.5';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.5';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.5';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.6';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.6';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.6';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.6';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.6';
 
 let oracleProvider = null;
 let staff2D = null;
@@ -484,17 +484,27 @@ export async function initTwinReplica() {
   populateEffectsGrid();
   updateOracleUi();
 
-  // Bind View Mode Switchers (Assembled Replica / Exploded Build / IC Breadboard CAD / 3D WebGL)
+  // Bind View Mode Switchers (Assembled Replica / Exploded Build / IC Breadboard CAD / 3D WebGL / Real Photo)
   document.querySelectorAll('.replica-view-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const mode = btn.dataset.view;
       document.querySelectorAll('.replica-view-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
 
+      const canvas2d = document.getElementById('replica-2d-canvas');
+      const photoContainer = document.getElementById('replica-photo-container');
+
       if (mode === '3d') {
+        if (photoContainer) photoContainer.style.display = 'none';
         await toggle3DView(true);
+      } else if (mode === 'photo') {
+        await toggle3DView(false);
+        if (canvas2d) canvas2d.style.display = 'none';
+        if (photoContainer) photoContainer.style.display = 'flex';
       } else {
         await toggle3DView(false);
+        if (photoContainer) photoContainer.style.display = 'none';
+        if (canvas2d) canvas2d.style.display = 'block';
         twinState.update({ viewMode2D: mode });
       }
     });

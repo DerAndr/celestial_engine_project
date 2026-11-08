@@ -1,5 +1,11 @@
 # Celestial Engine Mk.V
 
+<p align="center">
+  <img src="docs/assets/celestial_flask_physical.jpg" alt="Celestial Engine Mk.V Physical Staff in Action" width="360" style="border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
+  <br>
+  <em>Physical Celestial Engine Mk.V Cyber-Flask Staff in Action (Gemma 4 &lt;E2B&gt; &amp; Phone Brain on 1.3&quot; OLED, 43 WS2812B LEDs, and RP2350)</em>
+</p>
+
 **Interactive AI Wizard Staff** built on the **Raspberry Pi Pico 2 W (RP2350)** with full-duplex I2S audio (`INMP441` mic + `MAX98357A` 3W speaker), a **43-LED concentric WS2812B dome** (`7 + 12 + 24`), a `1.3" SH1106 OLED` HUD, wireless UDP v2 voice/telemetry streaming, and multi-host local LLMs (**Android**, **Raspberry Pi 5**, and **In-Browser WebGPU/WASM**).
 
 - 🌐 **Live Interactive Digital Twin & In-Browser Local LLM:** [**derandr.github.io/celestial_engine_project**](https://derandr.github.io/celestial_engine_project/) *(Test all 28 LED patterns, 21 chiptunes, 14 SFX, and chat live with a local LLM directly in your browser via Transformers.js!)*
@@ -16,7 +22,7 @@ Don't have the physical hardware in front of you? Open the [**Live Web Digital T
 - **🧠 Live In-Browser Local LLM (`Transformers.js v4` WebGPU / WASM SIMD):** Click **`⚡ Connect Local LLM & Chat Now`** at the top of the page to run **`SmolLM2-135M-Instruct`** (`~120 MB q4f16/q4`) or **`LiquidAI LFM2.5-350M`** (`~258 MB q4f16`) **100% locally inside your browser** with real-time token streaming (`TextStreamer`) and zero server or API keys.
 - **🎙️ Voice & Text Interaction + Auto-Spell Casting:** Hold the green side `QUERY` button on the staff or click **`🎙️ Speak`** (`en-US`, up to 40s) to ask questions by voice. The Oracle replies in character, speaks via Browser TTS, scrolls the answer on the `128×64 SH1106 OLED` canvas, and automatically casts matching LED & sound spells.
 - **🎭 6 Interactive Oracle Personas:** Instant switching between **Machine God**, **Wise Archmage**, **Marvin the Paranoid Android**, **Cyberpunk Netrunner**, **Jack the Pumpkin King**, and **Custom Persona**.
-- **💡 28 Concentric WS2812B LED Patterns & 🎵 21 8-Bit Chiptunes + 14 Sound FX:** Exact 1:1 Web Audio & HTML5 Canvas port of the RP2350 C firmware (`firmware/src/leds.c` & `firmware/src/audio.c`), plus an interactive 3-tab **VTBB3 Breadboard & IC Pinout Explorer**.
+- **💡 28 Concentric WS2812B LED Patterns & 🎵 21 8-Bit Chiptunes + 14 Sound FX:** Exact 1:1 Web Audio & HTML5 Canvas port of the RP2350 C firmware (`firmware/src/led_patterns.c` & `firmware/src/chiptune_synth.c`), plus an interactive 4-tab **VTBB3 Breadboard, IC Pinout & Real Hardware Explorer**.
 
 ---
 
