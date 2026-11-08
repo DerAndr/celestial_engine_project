@@ -452,6 +452,9 @@ firmware/src/ (Target Refactored Layout)
   - Verified full test suite (41/41 tests passing) and flashed to physical Pico 2 W over COM9 (`Tick #2..#4 | OLED: ONLINE | State: IDLE`).
 - [x] **Task 8.1.5: Hardware Watchdog & Power Guard — ✅ Active in `firmware/src/main.c`**:
   - RP2350 hardware watchdog (`watchdog_enable(8000, 1)`, `watchdog_caused_reboot()`, `watchdog_update()`) active alongside the 1000ms network timeout and 18% WS2812B brightness cap.
+- [ ] **Task 8.1.6: Firmware Minimal Entry Point & Event Dispatcher (`firmware/src/event_dispatcher.c/h`)**:
+  - Extract the high-level input/event state machine, telemetry broadcasting, and remote command routing from `firmware/src/main.c` into a dedicated `event_dispatcher.c/h`.
+  - Reduce `firmware/src/main.c` to a clean, minimal entry point (< 400 lines) dedicated strictly to hardware clock init, peripheral setup, Core 1 launch, and the top-level tick scheduler.
 
 ---
 
@@ -500,6 +503,14 @@ com.celestial.companion/
   - Added full JUnit test suite in `DualEngineProviderTest.kt` verifying spell matching, persona boundaries, and streaming lifecycle.
 - [x] **Task 8.2.3: Zero-Recomposition Canvas Optimization (`ConcentricLedRingsView.kt`) — ✅ Completed (2026-11-07)**:
   - Replaced `Canvas` with `Modifier.drawWithCache` + `onDrawBehind` and precomputed normalized polar LED coordinates (`LED_UNIT_COS`, `LED_UNIT_SIN`) to eliminate per-frame allocations and Compose layout passes during 33 Hz UDP packet bursts.
+- [ ] **Task 8.2.4: Dedicated UDP Transport & Android Foreground Service (`StaffUdpTransport.kt` & `StaffBrainService.kt`)**:
+  - Extract DatagramSocket UDP transport (`:5005`), binary protocol framing, and heartbeat monitoring out of `StaffRepository` / `DashboardViewModel` into an independent `StaffUdpTransport` and Android `ForegroundService` (`StaffBrainService`).
+  - Guarantee uninterrupted connection, Hotspot voice capture, and chiptune/TTS playback when the companion phone screen turns off or the app is minimized.
+- [ ] **Task 8.2.5: Android Companion On-Device SOTA Audio Engine (Moonshine STT + Kokoro-82M TTS via `sherpa-onnx`)**:
+  - Integrate on-device speech-to-text (`Moonshine Tiny INT8 ONNX`) and text-to-speech (`Kokoro-82M INT8 ONNX` with the 6 Oracle persona voices) directly into Android using `sherpa-onnx` / `onnxruntime-android`.
+  - Match the Raspberry Pi 5 audio pipeline for zero-latency, 100% offline edge computing on Google Pixel 9 Pro XL without requiring external cloud tokens or the Pi 5 backpack.
+- [ ] **Task 8.2.6: MVI Architecture & ViewModel Decomposition (`DashboardViewModel.kt`)**:
+  - Refactor `DashboardViewModel` into unidirectional Data Flow (MVI: `StaffIntent`, `StaffUiState`, `StaffSideEffect`), separating LED ring visualizer state, terminal logging, and model switching into decoupled reducers.
 
 ---
 
