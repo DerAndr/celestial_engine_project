@@ -334,7 +334,10 @@ static void handle_rx_cancel(const net_packet_header_t *hdr,
     (void)hdr;
     (void)payload;
     (void)user_ctx;
-    net_client_cancel();
+    /* Already inside lwIP RX callback lock — do not re-enter or call send_udp_packet here */
+    response_gate_cancel(&response_gate);
+    resp_is_receiving = false;
+    resp_is_ready = false;
     net_cancel_flag = true;
 }
 
@@ -370,9 +373,10 @@ static void handle_rx_catalog_resp(const net_packet_header_t *hdr,
 
     if (h_type == HOST_TYPE_PI5) {
         last_pi5_heartbeat_rx_ms = ctx->now;
+        pi5_server_ip_addr = *ctx->addr;
         memcpy(&pi5_catalog_cache, &cat, sizeof(cat));
         has_pi5_catalog = true;
-        if (preferred_host != HOST_TYPE_PHONE) {
+        if (preferred_host != HOST_TYPE_PHONE || (active_ap_profile == 1 && !has_paired_companion)) {
             last_server_heartbeat_rx_ms = ctx->now;
             active_host_type = HOST_TYPE_PI5;
             server_ip_addr = *ctx->addr;
@@ -408,7 +412,7 @@ static void handle_rx_heartbeat(const net_packet_header_t *hdr,
     // 1. Heartbeat from Pi 5 (even if server_ip_addr was temporarily pointing to Phone)
     if (ip_addr_cmp(ctx->addr, &pi5_server_ip_addr) && ctx->port == pi5_server_port) {
         last_pi5_heartbeat_rx_ms = ctx->now;
-        if (preferred_host != HOST_TYPE_PHONE) {
+        if (preferred_host != HOST_TYPE_PHONE || (active_ap_profile == 1 && !has_paired_companion)) {
             last_server_heartbeat_rx_ms = ctx->now;
             if (active_host_type != HOST_TYPE_PI5) {
                 active_host_type = HOST_TYPE_PI5;
@@ -417,6 +421,9 @@ static void handle_rx_heartbeat(const net_packet_header_t *hdr,
                 if (has_pi5_catalog) {
                     memcpy(&active_catalog, &pi5_catalog_cache, sizeof(active_catalog));
                     strncpy(active_host_name, pi5_catalog_cache.host_name, sizeof(active_host_name));
+                } else {
+                    memcpy(&active_catalog, &DEFAULT_PI5_CATALOG, sizeof(active_catalog));
+                    strncpy(active_host_name, DEFAULT_PI5_CATALOG.host_name, sizeof(active_host_name));
                 }
             }
         }
@@ -458,9 +465,11 @@ static void handle_rx_heartbeat(const net_packet_header_t *hdr,
             extern void set_current_time_epoch(uint32_t epoch_seconds, uint16_t millis);
             set_current_time_epoch(server_epoch, 0);
         }
+        /* Incoming packet with 4-byte epoch is already a Heartbeat ACK; do NOT echo back! */
+        return;
     }
 
-    // Immediately send back a heartbeat ACK so Companion marks staff ONLINE right away
+    // Only reply to a 0-byte Heartbeat ping from Companion so we never trigger an ACK ping-pong loop
     struct pbuf *reply = pbuf_alloc(PBUF_TRANSPORT, sizeof(net_packet_header_t), PBUF_RAM);
     if (reply != NULL) {
         net_packet_header_t *rhdr = (net_packet_header_t *)reply->payload;
@@ -667,7 +676,7 @@ void net_client_init(void) {
     ap_connect_failures = 0;
     active_server_port = get_current_server_port();
     ipaddr_aton(get_current_server_ip_str(), &server_ip_addr);
-    ipaddr_aton(BRAIN_SERVER_IP, &pi5_server_ip_addr);
+    ipaddr_aton(strlen(BRAIN_FALLBACK_SERVER_IP) > 0 ? BRAIN_FALLBACK_SERVER_IP : BRAIN_SERVER_IP, &pi5_server_ip_addr);
     memcpy(&active_catalog, &DEFAULT_PHONE_CATALOG, sizeof(active_catalog));
     active_host_type = HOST_TYPE_PHONE;
     strncpy(active_host_name, DEFAULT_PHONE_CATALOG.host_name, sizeof(active_host_name));
@@ -679,7 +688,7 @@ void net_client_init(void) {
         // CYW43 architecture is already initialized in main.c; enable station mode
         cyw43_arch_enable_sta_mode();
 
-        // Create UDP PCB
+        // Create UDP PCB inside the lwIP lock
         cyw43_arch_lwip_begin();
         if (udp_client_pcb != NULL) {
             udp_remove(udp_client_pcb);
@@ -693,8 +702,9 @@ void net_client_init(void) {
         }
         cyw43_arch_lwip_end();
 
-        // Connect asynchronously without blocking main thread
-        int err = cyw43_arch_wifi_connect_async(ssid, get_current_password(), CYW43_AUTH_WPA2_AES_PSK);
+        // Start non-blocking Wi-Fi association (cyw43_wifi_join acquires CYW43_THREAD_ENTER internally)
+        int err = cyw43_arch_wifi_connect_async(ssid, get_current_password(), CYW43_AUTH_WPA2_MIXED_PSK);
+
         if (err == 0) {
             current_status = NET_STATUS_CONNECTING;
         } else {
@@ -743,9 +753,10 @@ void net_client_update(void) {
             cyw43_arch_lwip_end();
         }
 
-        // When targeting PHONE host and on a mobile hotspot without an explicit companion yet,
-        // dynamically resolve server IP to DHCP default gateway (phone AP IP)
-        if ((active_host_type == HOST_TYPE_PHONE || preferred_host == HOST_TYPE_PHONE) && !has_paired_companion) {
+        // When targeting PHONE host on the mobile hotspot profile (active_ap_profile == 0) without a paired companion yet,
+        // dynamically resolve server IP to DHCP default gateway (phone AP IP).
+        // Never overwrite server_ip_addr with the home router IP when on active_ap_profile == 1 (home Wi-Fi / Pi 5)!
+        if (active_ap_profile == 0 && (active_host_type == HOST_TYPE_PHONE || preferred_host == HOST_TYPE_PHONE) && !has_paired_companion) {
             ip4_addr_t gw_ip;
             bool has_gw = false;
             cyw43_arch_lwip_begin();
@@ -803,14 +814,15 @@ void net_client_update(void) {
 
 #if HAVE_WIFI_CREDENTIALS
         // Allow up to 15 seconds for Wi-Fi association and DHCP negotiation.
-        // If the chip is actively negotiating (CYW43_LINK_JOIN / CYW43_LINK_NOIP), do not abort prematurely!
+        // If SSID is absent (CYW43_LINK_NONET) on Hotspot profile 0, fail over after 6 seconds.
         bool is_in_progress = (link_status == CYW43_LINK_JOIN || link_status == CYW43_LINK_NOIP);
-        uint32_t timeout_ms = is_in_progress ? 16000 : 10000;
+        uint32_t timeout_ms = is_in_progress ? 14000 : (active_ap_profile == 0 ? 6000 : 10000);
+        int max_failures = (active_ap_profile == 0) ? 1 : 2;
 
         if (now - last_reconnect_attempt_ms > timeout_ms) {
             last_reconnect_attempt_ms = now;
             ap_connect_failures++;
-            if (strlen(WIFI_FALLBACK_SSID) > 0 && ap_connect_failures >= 3) {
+            if (strlen(WIFI_FALLBACK_SSID) > 0 && ap_connect_failures >= max_failures) {
                 // Toggle between primary (0 = Hotspot) and fallback (1 = Home Wi-Fi)
                 active_ap_profile = (active_ap_profile == 0) ? 1 : 0;
                 ap_connect_failures = 0;
@@ -823,7 +835,7 @@ void net_client_update(void) {
             if (strlen(ssid) > 0) {
                 printf("[NET] Connecting to Wi-Fi SSID [%s] (attempt %d)...\n", ssid, ap_connect_failures + 1);
                 cyw43_arch_lwip_begin();
-                cyw43_arch_wifi_connect_async(ssid, get_current_password(), CYW43_AUTH_WPA2_AES_PSK);
+                cyw43_arch_wifi_connect_async(ssid, get_current_password(), CYW43_AUTH_WPA2_MIXED_PSK);
                 cyw43_arch_lwip_end();
             }
         }
@@ -1080,6 +1092,29 @@ void net_client_clear_unsolicited_text(void) {
     unsolicited_text_ready = false;
 }
 
+static void send_raw_udp_to(uint8_t msg_type, const void *payload, size_t payload_len,
+                            const ip_addr_t *dst_ip, uint16_t dst_port) {
+    if (udp_client_pcb == NULL || dst_ip == NULL || dst_ip->addr == 0) {
+        return;
+    }
+    size_t total_len = sizeof(net_packet_header_t) + payload_len;
+    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, total_len, PBUF_RAM);
+    if (p != NULL) {
+        net_packet_header_t *hdr = (net_packet_header_t *)p->payload;
+        hdr->magic = CELESTIAL_NET_MAGIC;
+        hdr->version = CELESTIAL_NET_VERSION;
+        hdr->msg_type = msg_type;
+        hdr->seq_num = tx_seq_counter++;
+        hdr->payload_len = (uint16_t)payload_len;
+        hdr->request_id = 0;
+        if (payload != NULL && payload_len > 0) {
+            memcpy((uint8_t *)p->payload + sizeof(*hdr), payload, payload_len);
+        }
+        udp_sendto(udp_client_pcb, p, dst_ip, dst_port);
+        pbuf_free(p);
+    }
+}
+
 void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint8_t anim, uint8_t clock_style,
                                uint8_t lang, uint8_t host_type, uint8_t pref_host,
                                uint8_t ai_model, uint8_t mic_level, uint8_t cosmos_zoom, uint8_t is_audio_playing) {
@@ -1088,29 +1123,16 @@ void net_client_send_telemetry(uint8_t mode, uint8_t state, uint8_t volume, uint
     }
     uint8_t payload[12] = { mode, state, volume, anim, clock_style, lang, host_type, pref_host,
                             ai_model, mic_level, cosmos_zoom, is_audio_playing };
-    size_t total_len = sizeof(net_packet_header_t) + sizeof(payload);
     cyw43_arch_lwip_begin();
-    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, total_len, PBUF_RAM);
-    if (p != NULL) {
-        net_packet_header_t *hdr = (net_packet_header_t *)p->payload;
-        hdr->magic = CELESTIAL_NET_MAGIC;
-        hdr->version = CELESTIAL_NET_VERSION;
-        hdr->msg_type = NET_MSG_APP_TELEMETRY;
-        hdr->seq_num = tx_seq_counter++;
-        hdr->payload_len = sizeof(payload);
-        hdr->request_id = 0;
-        memcpy((uint8_t *)p->payload + sizeof(*hdr), payload, sizeof(payload));
-        if (has_paired_companion) {
-            udp_sendto(udp_client_pcb, p, &companion_ip_addr, CELESTIAL_NET_DEFAULT_PORT);
-        } else {
-            ip_addr_t bcast;
-            ip_addr_set_ip4_u32(&bcast, IPADDR_BROADCAST);
-            udp_sendto(udp_client_pcb, p, &bcast, CELESTIAL_NET_DEFAULT_PORT);
-            if (server_ip_addr.addr != 0) {
-                udp_sendto(udp_client_pcb, p, &server_ip_addr, active_server_port);
-            }
+    if (has_paired_companion) {
+        send_raw_udp_to(NET_MSG_APP_TELEMETRY, payload, sizeof(payload), &companion_ip_addr, CELESTIAL_NET_DEFAULT_PORT);
+    } else {
+        ip_addr_t bcast;
+        ip_addr_set_ip4_u32(&bcast, IPADDR_BROADCAST);
+        send_raw_udp_to(NET_MSG_APP_TELEMETRY, payload, sizeof(payload), &bcast, CELESTIAL_NET_DEFAULT_PORT);
+        if (server_ip_addr.addr != 0) {
+            send_raw_udp_to(NET_MSG_APP_TELEMETRY, payload, sizeof(payload), &server_ip_addr, active_server_port);
         }
-        pbuf_free(p);
     }
     cyw43_arch_lwip_end();
 }
@@ -1120,31 +1142,21 @@ bool net_client_request_catalog(void) {
         return false;
     }
     cyw43_arch_lwip_begin();
-    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, sizeof(net_packet_header_t), PBUF_RAM);
-    if (p != NULL) {
-        net_packet_header_t *hdr = (net_packet_header_t *)p->payload;
-        hdr->magic = CELESTIAL_NET_MAGIC;
-        hdr->version = CELESTIAL_NET_VERSION;
-        hdr->msg_type = NET_MSG_CATALOG_REQ;
-        hdr->seq_num = tx_seq_counter++;
-        hdr->payload_len = 0;
-        hdr->request_id = 0;
+    // 1. Send query to Pi 5 (fresh pbuf per destination so etharp_query never sees p->ref > 1)
+    send_raw_udp_to(NET_MSG_CATALOG_REQ, NULL, 0, &pi5_server_ip_addr, pi5_server_port);
 
-        // 1. Send query to Pi 5
-        udp_sendto(udp_client_pcb, p, &pi5_server_ip_addr, pi5_server_port);
+    // 2. If phone companion is known, send query to phone
+    if (has_paired_companion) {
+        send_raw_udp_to(NET_MSG_CATALOG_REQ, NULL, 0, &companion_ip_addr, CELESTIAL_NET_DEFAULT_PORT);
+    }
 
-        // 2. If phone companion is known, send query to phone
-        if (has_paired_companion) {
-            udp_sendto(udp_client_pcb, p, &companion_ip_addr, CELESTIAL_NET_DEFAULT_PORT);
+    // 3. If in fallback hotspot profile and fallback IP differs from pi5_server_ip_addr, query fallback gateway
+    if (active_ap_profile == 1) {
+        ip_addr_t fb_ip;
+        ipaddr_aton(BRAIN_FALLBACK_SERVER_IP, &fb_ip);
+        if (!ip_addr_cmp(&fb_ip, &pi5_server_ip_addr) || BRAIN_FALLBACK_SERVER_PORT != pi5_server_port) {
+            send_raw_udp_to(NET_MSG_CATALOG_REQ, NULL, 0, &fb_ip, BRAIN_FALLBACK_SERVER_PORT);
         }
-
-        // 3. If in fallback hotspot profile, query fallback gateway
-        if (active_ap_profile == 1) {
-            ip_addr_t fb_ip;
-            ipaddr_aton(BRAIN_FALLBACK_SERVER_IP, &fb_ip);
-            udp_sendto(udp_client_pcb, p, &fb_ip, BRAIN_FALLBACK_SERVER_PORT);
-        }
-        pbuf_free(p);
     }
     cyw43_arch_lwip_end();
     return true;
