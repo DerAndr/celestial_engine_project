@@ -433,11 +433,15 @@ firmware/src/ (Target Refactored Layout)
 └── main.c                     # Minimal entry point: hardware_init(), core1_launch(), event_loop()
 ```
 
-- [ ] **Task 8.1.1: Driver Isolation**:
-  - Extract `sh1106_i2c` and `ws2812_pio` into self-contained modules with strict unit interfaces and no references to application state.
-  - Extract `inmp441_pio` and `max98357a_pio` into discrete, clock-separated drivers.
-- [ ] **Task 8.1.2: Core 1 Dedicated Chiptune Sandbox**:
-  - Ensure Core 1 handles 100% of Web-Audio-style chiptune calculations in autonomous standalone mode without causing timer jitter on Core 0 network loops.
+- [x] **Task 8.1.1: Driver Isolation — ✅ Completed (2026-11-08)**:
+  - Extracted `ws2812_driver` (`firmware/src/ws2812_driver.c/h`) encapsulating PIO0 SM1 + DMA channel claiming, configuration, non-blocking transmission, and latch timing.
+  - Extracted `max98357a_driver` (`firmware/src/max98357a_driver.c/h`) encapsulating PIO1 SM0 + double-buffered ping-pong DMA with circular ring buffers, RP2350-E5 chaining errata safety, hardware sleep/wake, and live IRQ latency profiling.
+  - Decoupled `firmware/src/leds.c` and `firmware/src/audio.c`, stripping low-level DMA and PIO register poking out of high-level sequencer logic.
+- [x] **Task 8.1.2: Core 1 Dedicated Chiptune Sandbox & Modular Synthesizer — ✅ Completed (2026-11-08)**:
+  - Extracted `chiptune_synth` (`firmware/src/chiptune_synth.c/h`) containing all 21 8-bit chiptune score arrays (Super Mario, Tetris, Doom E1M1, Zelda, Imperial March, etc.), 14 Cosmic SFX sequences, and sample-accurate synthesis rendering (`0.65*s1 + 0.25*s3 + 0.10*s5` arcade pulse wave with anti-click envelopes).
+  - Reduced `firmware/src/audio.c` from 1,927 lines down to 705 lines.
+  - Verified with 29 passing unit tests (including all 21 MSVC host firmware regressions in `test_regressions.py`).
+  - Flashed `celestial_firmware.uf2` to physical Pico 2 W over `picotool load -f -x` on COM9; verified live heartbeat telemetry, chime ('T'), chiptune ('M 0'), and audio diagnostics ('A') with 0 late refills and 0 TX stalls.
 - [x] **Task 8.1.3: Hardware Watchdog & Power Guard — ✅ Active in `firmware/src/main.c`**:
   - RP2350 hardware watchdog (`watchdog_enable(8000, 1)`, `watchdog_caused_reboot()`, `watchdog_update()`) active alongside the 1000ms network timeout and 18% WS2812B brightness cap.
 

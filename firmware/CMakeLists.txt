@@ -32,7 +32,10 @@ add_executable(celestial_firmware
     src/sh1106.c
     src/encoder.c
     src/query_button.c
+    src/ws2812_driver.c
+    src/max98357a_driver.c
     src/audio_ring_buffer.c
+    src/chiptune_synth.c
     src/audio.c
     src/mic.c
     src/leds.c

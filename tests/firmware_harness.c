@@ -13,6 +13,9 @@ static int test_printf(const char *fmt, ...) {
 #include "../firmware/src/query_button.c"
 #include "../firmware/src/encoder.c"
 #include "../firmware/src/sh1106.c"
+#include "../firmware/src/ws2812_driver.c"
+#include "../firmware/src/max98357a_driver.c"
+#include "../firmware/src/chiptune_synth.c"
 #include "../firmware/src/audio_ring_buffer.c"
 #include "../firmware/src/audio.c"
 #include "../firmware/src/mic.c"
@@ -137,11 +140,11 @@ EXPORT int oled_init_failure_probe(void) {
 EXPORT int oled_scan_probe(void) { return sh1106_i2c_scan(i2c1) == 0x3c ? 0 : 1; }
 EXPORT int audio_short_wake_probe(void) {
     audio_set_volume(10);
-    test_now=2000000; amp_is_sleeping=true; silence_since=0;
-    chime_index=-1; active_chiptune_track=-1; voice_active=false;
+    test_now=2000000; amp_sleep(); silence_since=0;
+    chime_index=-1; chiptune_synth_stop(); voice_active=false;
     audio_play_blip(); uint32_t scratch[512]; fill_audio_buffer(scratch,512);
     test_now += 2000; audio_update();
-    return amp_is_sleeping ? 1 : 0;
+    return max98357a_driver_is_sleeping() ? 1 : 0;
 }
 EXPORT int voice_invalid_probe(void) {
     return voice_get_clip((voice_phrase_id_t)-1) == NULL ? 0 : 1;
@@ -234,7 +237,7 @@ EXPORT int main_boot_sequence_probe(void) {
     reset_gpio(); cyw43_fail=0; cyw43_ready=false; next_dma=0;
     main_scenario=4; main_loop_count=0; current_state=STATE_IDLE;
     voice_active=false; active_voice_clip=NULL;
-    chime_index=-1; active_chiptune_track=-1; audio_set_volume(AUDIO_DEFAULT_VOLUME);
+    chime_index=-1; chiptune_synth_stop(); audio_set_volume(AUDIO_DEFAULT_VOLUME);
     if (!setjmp(main_exit)) firmware_main();
     main_scenario=0;
     return ((AUDIO_DIAGNOSTIC_BOOT || !AUDIO_STARTUP_SOUNDS) ?
@@ -244,7 +247,7 @@ EXPORT int main_boot_sequence_probe(void) {
 EXPORT int main_boot_announcement_probe(void) {
     reset_gpio(); cyw43_fail=0; cyw43_ready=false; next_dma=0;
     main_scenario=6; main_loop_count=0; current_state=STATE_IDLE;
-    voice_active=false; active_voice_clip=NULL; active_chiptune_track=-1;
+    voice_active=false; active_voice_clip=NULL; chiptune_synth_stop();
     chime_index=-1; audio_set_volume(AUDIO_DEFAULT_VOLUME);
     volume_edit_mode=mic_test_mode=led_edit_mode=chiptune_mode=voice_mode=clock_style_edit_mode=clock_time_edit_mode=false;
     if (!setjmp(main_exit)) firmware_main();

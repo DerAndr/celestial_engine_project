@@ -1,17 +1,15 @@
 #include "leds.h"
 #include "audio.h"
 #include "config.h"
+#include "ws2812_driver.h"
 #include "hardware/pio.h"
 #include "hardware/clocks.h"
-#include "hardware/dma.h"
 #include "pico/time.h"
-#include "ws2812.pio.h"
 #include <math.h>
 #include <stdlib.h>
 
 static PIO led_pio = pio0;
 static uint led_sm = 1;
-static uint led_offset = 0;
 
 static uint8_t master_brightness = LED_BRIGHTNESS_LIMIT;
 static absolute_time_t next_anim_time;
@@ -29,8 +27,6 @@ static uint8_t pixels_r[LED_RING_COUNT];
 static uint8_t pixels_g[LED_RING_COUNT];
 static uint8_t pixels_b[LED_RING_COUNT];
 
-static int led_dma_chan = -1;
-static dma_channel_config led_dma_config;
 static uint32_t led_tx_words[LED_RING_COUNT];
 #if CELESTIAL_FOUR_RINGS
 static absolute_time_t led_boot_test_started;
@@ -96,21 +92,10 @@ static inline uint32_t rgb_to_grb(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 static void show_pixels(void) {
-    // Finish packing the entire frame before starting PIO-paced DMA.
-    // CPU/USB/Wi-Fi/audio interrupts must not interrupt feeding the pixel stream.
     for (int i = 0; i < LED_RING_COUNT; ++i) {
         led_tx_words[i] = rgb_to_grb(pixels_r[i], pixels_g[i], pixels_b[i]) << 8u;
     }
-    __compiler_memory_barrier();
-    dma_channel_configure(led_dma_chan, &led_dma_config,
-                          &led_pio->txf[led_sm], led_tx_words, LED_RING_COUNT, true);
-    dma_channel_wait_for_finish_blocking(led_dma_chan);
-
-    // FIFO empty can still leave one 24-bit pixel in the output shifter.
-    while (!pio_sm_is_tx_fifo_empty(led_pio, led_sm)) {
-        tight_loop_contents();
-    }
-    sleep_us(35 + LED_RESET_US); // Finish the last 30us word, then a >=300us low latch.
+    ws2812_driver_transmit_blocking(led_tx_words, LED_RING_COUNT);
 }
 
 // Simple HSV to RGB converter (h: 0..359, s: 0..255, v: 0..255)
@@ -136,16 +121,7 @@ static void hsv_to_rgb(uint16_t h, uint8_t s, uint8_t v, uint8_t *r, uint8_t *g,
 }
 
 void leds_init(void) {
-    led_offset = pio_add_program(led_pio, &ws2812_program);
-    ws2812_program_init(led_pio, led_sm, led_offset, PIN_WS2812_DATA, 800000.0f, false);
-
-    led_dma_chan = dma_claim_unused_channel(true);
-    led_dma_config = dma_channel_get_default_config(led_dma_chan);
-    channel_config_set_transfer_data_size(&led_dma_config, DMA_SIZE_32);
-    channel_config_set_read_increment(&led_dma_config, true);
-    channel_config_set_write_increment(&led_dma_config, false);
-    channel_config_set_dreq(&led_dma_config, pio_get_dreq(led_pio, led_sm, true));
-    channel_config_set_high_priority(&led_dma_config, true);
+    ws2812_driver_init(led_pio, led_sm, PIN_WS2812_DATA, 800000.0f);
 
     for (int i = 0; i < LED_RING_COUNT; i++) {
         pixels_r[i] = 0;
