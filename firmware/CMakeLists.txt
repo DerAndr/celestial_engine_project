@@ -29,6 +29,7 @@ pico_sdk_init()
 
 add_executable(celestial_firmware
     src/main.c
+    src/event_dispatcher.c
     src/ui_screens.c
     src/sh1106.c
     src/encoder.c

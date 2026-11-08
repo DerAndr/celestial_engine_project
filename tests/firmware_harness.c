@@ -68,6 +68,7 @@ const char* net_client_get_response_text(void) { return ""; }
 bool net_client_response_failed(void) { return false; }
 uint32_t net_client_response_progress_ms(void) { return to_ms_since_boot(get_absolute_time()); }
 
+#include "../firmware/src/event_dispatcher.c"
 #define main firmware_main
 #include "../firmware/src/main.c"
 #undef main

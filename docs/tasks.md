@@ -452,9 +452,10 @@ firmware/src/ (Target Refactored Layout)
   - Verified full test suite (41/41 tests passing) and flashed to physical Pico 2 W over COM9 (`Tick #2..#4 | OLED: ONLINE | State: IDLE`).
 - [x] **Task 8.1.5: Hardware Watchdog & Power Guard — ✅ Active in `firmware/src/main.c`**:
   - RP2350 hardware watchdog (`watchdog_enable(8000, 1)`, `watchdog_caused_reboot()`, `watchdog_update()`) active alongside the 1000ms network timeout and 18% WS2812B brightness cap.
-- [ ] **Task 8.1.6: Firmware Minimal Entry Point & Event Dispatcher (`firmware/src/event_dispatcher.c/h`)**:
-  - Extract the high-level input/event state machine, telemetry broadcasting, and remote command routing from `firmware/src/main.c` into a dedicated `event_dispatcher.c/h`.
-  - Reduce `firmware/src/main.c` to a clean, minimal entry point (< 400 lines) dedicated strictly to hardware clock init, peripheral setup, Core 1 launch, and the top-level tick scheduler.
+- [x] **Task 8.1.6: Firmware Minimal Entry Point & Event Dispatcher (`firmware/src/event_dispatcher.c/h`) — ✅ Completed (2026-11-09)**:
+  - Extracted the high-level input/event state machine, telemetry broadcasting, chiptune LED synchronization, and serial/remote command routing from `firmware/src/main.c` into a dedicated `event_dispatcher.c/h`.
+  - Reduced `firmware/src/main.c` from 1,303 lines down to **148 lines** — a minimal, pristine entry point dedicated strictly to hardware clock init, peripheral setup, Core 1 launch, and the top-level tick scheduler.
+  - Verified with 41 passing unit tests (including all 21 MSVC host firmware regressions) and verified on physical hardware via COM9.
 
 ---
 
