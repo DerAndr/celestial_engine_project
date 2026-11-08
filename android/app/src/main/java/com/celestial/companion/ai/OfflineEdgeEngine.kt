@@ -152,7 +152,7 @@ class OfflineEdgeEngine(
         val matchedSpell = FastSpellMatcher.match(trimmed, customSpells)
         if (matchedSpell != null) {
             val animName = matchedSpell.animation.name
-            val soundsStr = matchedSpell.soundSequence.joinToString(", ") { it.name }
+            val soundsStr = if (matchedSpell.sounds.isNotEmpty()) matchedSpell.sounds.joinToString(", ") else "3, 6, 1"
             val incantation = resolveSpellIncantation(matchedSpell, language)
             return "[SPELL: ${matchedSpell.name} | ANIM: $animName | SOUNDS: $soundsStr] $incantation"
         }
@@ -170,34 +170,32 @@ class OfflineEdgeEngine(
     }
 
     private fun resolveSpellIncantation(spell: SpellDefinition, language: StaffLanguage): String {
+        if (spell.chantText.isNotBlank()) return spell.chantText
+        val n = spell.name.lowercase(Locale.ROOT)
         return when (language) {
-            StaffLanguage.RUSSIAN -> when (spell.id) {
-                0 -> "Игниса калидус! Пламя стихий пробуждается."
-                1 -> "Фульгур аркана! Грозовой разряд рассекает тьму."
-                2 -> "Санатио люкс! Целительный свет восстанавливает силы."
-                3 -> "Люмос максима! Сияние озаряет путь странника."
-                4 -> "Эгис кристаллис! Защитный щит развернут."
-                5 -> "Гласиес мортис! Стужа сковывает пространство."
-                6 -> "Астралис этернум! Звёздная вспышка ослепляет бездну."
+            StaffLanguage.RUSSIAN -> when {
+                n.contains("fire") || n.contains("плам") || n.contains("огонь") -> "Игниса калидус! Пламя стихий пробуждается."
+                n.contains("light") || n.contains("молн") || n.contains("гроз") -> "Фульгур аркана! Грозовой разряд рассекает тьму."
+                n.contains("heal") || n.contains("исцел") || n.contains("свет") -> "Санатио люкс! Целительный свет восстанавливает силы."
+                n.contains("shield") || n.contains("щит") -> "Эгис кристаллис! Защитный щит развернут."
+                n.contains("frost") || n.contains("лед") || n.contains("мороз") -> "Гласиес мортис! Стужа сковывает пространство."
+                n.contains("star") || n.contains("звезд") || n.contains("nova") -> "Астралис этернум! Звёздная вспышка ослепляет бездну."
                 else -> "${spell.name} — заклинание успешно активировано!"
             }
-            StaffLanguage.GERMAN -> when (spell.id) {
-                0 -> "Ignis calidus! Das Elementarfeuer erwacht."
-                1 -> "Fulgur arcana! Der Blitz spaltet die Dunkelheit."
-                2 -> "Sanatio lux! Heilendes Licht durchströmt den Äther."
-                3 -> "Lumos maxima! Helles Licht erleuchtet deinen Pfad."
-                4 -> "Aegis crystallis! Schutzschild ist aktiv."
-                5 -> "Glacies mortis! Arktischer Frost erstarrt den Raum."
+            StaffLanguage.GERMAN -> when {
+                n.contains("fire") || n.contains("feuer") -> "Ignis calidus! Das Elementarfeuer erwacht."
+                n.contains("light") || n.contains("blitz") -> "Fulgur arcana! Der Blitz spaltet die Dunkelheit."
+                n.contains("heal") || n.contains("heil") -> "Sanatio lux! Heilendes Licht durchströmt den Äther."
+                n.contains("shield") || n.contains("schild") -> "Aegis crystallis! Schutzschild ist aktiv."
+                n.contains("frost") || n.contains("eis") -> "Glacies mortis! Arktischer Frost erstarrt den Raum."
                 else -> "${spell.name} erfolgreich entfesselt!"
             }
-            else -> when (spell.id) {
-                0 -> "Ignis celestial! Fiery plasma engulfs the realm."
-                1 -> "Fulgur arcana! Lightning surges through the core."
-                2 -> "Sanatio lux! Celestial aura restores your vitality."
-                3 -> "Lumos maxima! Prismatic radiance guides the way."
-                4 -> "Aegis crystallis! Barrier matrix shields the bearer."
-                5 -> "Glacies mortis! Absolute zero freezes the void."
-                6 -> "Astralis aeternum! Cosmic nova detonates in brilliance."
+            else -> when {
+                n.contains("fire") -> "Ignis celestial! Fiery plasma engulfs the realm."
+                n.contains("light") -> "Fulgur arcana! Lightning surges through the core."
+                n.contains("heal") -> "Sanatio lux! Celestial aura restores your vitality."
+                n.contains("shield") -> "Aegis crystallis! Barrier matrix shields the bearer."
+                n.contains("frost") -> "Glacies mortis! Absolute zero freezes the void."
                 else -> "${spell.name} successfully cast!"
             }
         }

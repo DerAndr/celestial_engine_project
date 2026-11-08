@@ -32,3 +32,4 @@ enum class AiEngineMode(
         fun fromId(id: Int): AiEngineMode = entries.find { it.id == id } ?: AUTO_FALLBACK
     }
 }
+

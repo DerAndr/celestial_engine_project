@@ -72,8 +72,8 @@ class DualEngineProvider(
      */
     override fun streamInference(
         prompt: String,
-        image: Bitmap? = null,
-        audioBytes: ByteArray? = null
+        image: Bitmap?,
+        audioBytes: ByteArray?
     ): Flow<GemmaStreamChunk> = flow {
         when (_engineMode.value) {
             AiEngineMode.OFFLINE_EDGE -> {

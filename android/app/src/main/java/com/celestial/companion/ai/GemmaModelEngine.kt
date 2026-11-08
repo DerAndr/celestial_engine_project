@@ -160,8 +160,8 @@ class GemmaModelEngine(
      */
     override fun streamInference(
         prompt: String,
-        image: Bitmap? = null,
-        audioBytes: ByteArray? = null
+        image: Bitmap?,
+        audioBytes: ByteArray?
     ): Flow<GemmaStreamChunk> = flow {
         val t0 = System.currentTimeMillis()
         val hasImage = image != null

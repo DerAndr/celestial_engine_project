@@ -29,8 +29,8 @@ class DualEngineProviderTest {
             language = StaffLanguage.ENGLISH
         )
         assertTrue("Expected [SPELL: tag, got: $prophecy", prophecy.startsWith("[SPELL: Fireball"))
-        assertTrue("Expected ANIM: FIRE_SPIRAL, got: $prophecy", prophecy.contains("ANIM: FIRE_SPIRAL"))
-        assertTrue("Expected SOUNDS: FIREBALL, got: $prophecy", prophecy.contains("SOUNDS: FIREBALL"))
+        assertTrue("Expected ANIM: PLASMA, got: $prophecy", prophecy.contains("ANIM: PLASMA"))
+        assertTrue("Expected SOUNDS: 3, 6, 1, got: $prophecy", prophecy.contains("SOUNDS: 3, 6, 1"))
     }
 
     @Test
@@ -94,3 +94,4 @@ class DualEngineProviderTest {
         assertTrue("Tokens/sec should be positive", completeChunk.result.tokensPerSec > 0)
     }
 }
+
