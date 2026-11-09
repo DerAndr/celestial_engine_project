@@ -538,3 +538,18 @@ com.celestial.companion/
   - Compiled and flashed `celestial_firmware.uf2` to physical Pico 2 W (`RP2350`, `COM9`, `192.168.178.101`).
   - Compiled and deployed `celestial_companion_v1.3.4.apk` to Pixel 9 Pro XL (`49051FDAS001YK`).
   - Verified telemetry reflects `Host: PI 5 BRAIN` and stays locked across multiple network intervals.
+
+---
+
+### 8.5. Showcase & Documentation Overhaul (README Simplification & Dual-View Web Pages)
+
+- [ ] **Task 8.5.1: GitHub `README.md` Simplification & De-cluttering**:
+  - Streamline `README.md` from an overloaded, monstrous document into an elegant, punchy GitHub repository front page.
+  - Highlight the physical cyber-flask hero photo, high-level features, fast live links to GitHub Pages, and a simplified high-level architecture diagram.
+  - Move deep pinout matrices, long historical logs, and exhaustive tables into dedicated documents in `docs/` (`docs/wiring/pinout.md`, `docs/architecture.md`, `docs/protocol.md`).
+- [ ] **Task 8.5.2: Dual-Mode GitHub Pages (`✨ Quick Demo` vs `🔬 Deep Engineering Lab`)**:
+  - Implement a persistent dual-mode view toggle at the top of the GitHub Pages showcase:
+    - **`✨ Quick Demo` (Default / Lite)**: Fast, clutter-free mobile-friendly showcase featuring the physical staff in action, interactive 43-LED concentric dome animator, 8-bit chiptune jukebox, and fast Oracle persona chat.
+    - **`🔬 Deep Engineering Lab` (Full Technical View)**: The comprehensive technical workstation with the 2D IC breadboard CAD constructor, interactive pinout inspector, 3D WebGL exploded view, audio spectrum analyzer, binary UDP packet debugger, and exhaustive hardware schematics.
+- [ ] **Task 8.5.3: Documentation Parity & Modular Architecture Synchronization**:
+  - Update `docs/architecture.md`, `docs/protocol.md`, and `docs/hardware/` to accurately reflect the clean Phase 8.1 modular firmware layout (`main.c` [148 lines], `event_dispatcher`, `ui_screens`, `led_patterns`, `chiptune_synth`, `ws2812_driver`, `max98357a_driver`).
