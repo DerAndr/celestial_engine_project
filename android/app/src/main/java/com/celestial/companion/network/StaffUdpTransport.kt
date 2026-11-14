@@ -330,6 +330,15 @@ class StaffUdpTransport(
     override fun stop() {
         isRunning = false
         try {
+            multicastLock?.let {
+                if (it.isHeld) {
+                    it.release()
+                    Log.i(TAG, "Released WifiManager.MulticastLock")
+                }
+            }
+        } catch (_: Exception) {}
+        multicastLock = null
+        try {
             socket?.close()
         } catch (_: Exception) {}
         socket = null

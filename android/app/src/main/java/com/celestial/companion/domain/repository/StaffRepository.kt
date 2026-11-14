@@ -740,4 +740,21 @@ class StaffRepository(
             }
         }
     }
+
+    fun shutdown() {
+        Log.i(TAG, "Shutting down StaffRepository, closing UDP sockets and releasing TTS...")
+        try {
+            activeAudioJob?.cancel()
+            activeAudioJob = null
+        } catch (_: Exception) {}
+        try {
+            ttsSynthesizer?.shutdown()
+        } catch (_: Exception) {}
+        try {
+            transport.stop()
+        } catch (_: Exception) {}
+        try {
+            scope.cancel()
+        } catch (_: Exception) {}
+    }
 }

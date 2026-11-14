@@ -12,6 +12,7 @@ import com.celestial.companion.ai.FastSpellMatcher
 import com.celestial.companion.domain.model.*
 import com.celestial.companion.domain.repository.ConnectionMode
 import com.celestial.companion.domain.repository.StaffRepository
+import com.celestial.companion.domain.usecase.GrimoireStorageManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,28 +22,38 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import android.util.Log
 
-data class OracleChatMessage(
-    val id: String = java.util.UUID.randomUUID().toString(),
-    val isUser: Boolean,
-    val text: String,
-    val image: Bitmap? = null,
-    val thoughtTrace: String = "",
-    val modalityUsed: String = "TEXT",
-    val latencyMs: Long = 0,
-    val tokensPerSec: Float = 0f,
-    val timestamp: Long = System.currentTimeMillis(),
-    val isStreaming: Boolean = false
-)
-
 class DashboardViewModel(
     private val repository: StaffRepository,
     val gemmaEngine: GemmaModelEngine? = repository.gemmaEngine,
-    val dualEngineProvider: com.celestial.companion.ai.DualEngineProvider? = repository.dualEngineProvider
+    val dualEngineProvider: com.celestial.companion.ai.DualEngineProvider? = repository.dualEngineProvider,
+    private val grimoireStorage: GrimoireStorageManager = GrimoireStorageManager(repository.context)
 ) : ViewModel() {
 
     companion object {
         private const val TAG = "DashboardViewModel"
         const val MAX_CHAT_HISTORY = 40
+    }
+
+    /**
+     * Unidirectional MVI Intent dispatcher for clean screen-to-ViewModel interaction.
+     */
+    fun dispatchIntent(intent: StaffIntent) {
+        when (intent) {
+            is StaffIntent.SelectMode -> selectMode(intent.mode)
+            is StaffIntent.SetVolume -> setVolume(intent.volumePercent)
+            is StaffIntent.SetLedAnimation -> setLedAnimation(intent.animation)
+            is StaffIntent.SetClockStyle -> setClockStyle(intent.style)
+            is StaffIntent.SetLanguage -> setLanguage(intent.language)
+            is StaffIntent.SetPersona -> setPersona(intent.persona)
+            is StaffIntent.SetEngineMode -> setEngineMode(intent.mode)
+            is StaffIntent.SetStaffHost -> setStaffHost(intent.hostType)
+            is StaffIntent.CastSpell -> castSpell(intent.spell, intent.speakIncantation)
+            is StaffIntent.ActivateThematicPack -> activateThematicPack(intent.pack)
+            is StaffIntent.SubmitOracleQuery -> queryGemma(intent.prompt, intent.image, broadcastOnComplete = true)
+            StaffIntent.CancelGeneration -> cancelGeneration()
+            StaffIntent.StopAudio -> stopAudio()
+            StaffIntent.SyncSystemTime -> syncSystemTime()
+        }
     }
 
     val telemetry: StateFlow<StaffTelemetry> = repository.telemetry
@@ -219,63 +230,19 @@ class DashboardViewModel(
     }
 
     private fun persistCustomSpells(spells: List<SpellDefinition>) {
-        val ctx = repository.context ?: return
-        try {
-            val prefs = ctx.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
-            val arr = org.json.JSONArray()
-            spells.forEach { arr.put(it.toJson()) }
-            prefs.edit().putString("custom_spells", arr.toString()).apply()
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed persisting custom spells: ${e.message}")
-        }
+        grimoireStorage.persistCustomSpells(spells)
     }
 
     fun loadCustomSpells() {
-        val ctx = repository.context ?: return
-        try {
-            val prefs = ctx.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
-            val raw = prefs.getString("custom_spells", null) ?: return
-            val arr = org.json.JSONArray(raw)
-            val list = mutableListOf<SpellDefinition>()
-            for (i in 0 until arr.length()) {
-                list.add(SpellDefinition.fromJson(arr.getJSONObject(i)))
-            }
-            _customSpells.value = list
-            Log.i(TAG, "Loaded ${list.size} custom spells from Grimoire")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed loading custom spells: ${e.message}")
-        }
+        _customSpells.value = grimoireStorage.loadCustomSpells()
     }
 
     private fun persistVoicePreferences(prefsMap: Map<String, Boolean>) {
-        val ctx = repository.context ?: return
-        try {
-            val prefs = ctx.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
-            val json = org.json.JSONObject()
-            prefsMap.forEach { (k, v) -> json.put(k, v) }
-            prefs.edit().putString("spell_voice_prefs", json.toString()).apply()
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed persisting voice prefs: ${e.message}")
-        }
+        grimoireStorage.persistVoicePreferences(prefsMap)
     }
 
     fun loadVoicePreferences() {
-        val ctx = repository.context ?: return
-        try {
-            val prefs = ctx.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
-            val raw = prefs.getString("spell_voice_prefs", null) ?: return
-            val json = org.json.JSONObject(raw)
-            val map = mutableMapOf<String, Boolean>()
-            val keys = json.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                map[k] = json.optBoolean(k, true)
-            }
-            _spellVoicePreferences.value = map
-            Log.i(TAG, "Loaded ${map.size} spell voice preferences")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed loading voice prefs: ${e.message}")
-        }
+        _spellVoicePreferences.value = grimoireStorage.loadVoicePreferences()
     }
 
     fun playSoundSequence(sounds: List<Int>) {

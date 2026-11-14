@@ -84,28 +84,64 @@ fun DashboardScreen(
                         )
                     }
 
-                    // Connection Indicator
+                    // Connection Indicator + Clean Shutdown / Exit Button
+                    val context = LocalContext.current
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(if (telemetry.isOnline) Color(0x2200E676) else Color(0x22FF5252))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(if (telemetry.isOnline) EmeraldGreen else Color.Red)
-                        )
-                        Text(
-                            text = if (telemetry.isOnline) "ONLINE" else "OFFLINE",
-                            color = if (telemetry.isOnline) EmeraldGreen else Color.Red,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
-                        )
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (telemetry.isOnline) Color(0x2200E676) else Color(0x22FF5252))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(if (telemetry.isOnline) EmeraldGreen else Color.Red)
+                            )
+                            Text(
+                                text = if (telemetry.isOnline) "ONLINE" else "OFFLINE",
+                                color = if (telemetry.isOnline) EmeraldGreen else Color.Red,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+
+                        // Explicit Shut Down & Unload from Memory Button
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(Color(0x33FF1744))
+                                .border(1.dp, Color(0xFFFF5252), RoundedCornerShape(20.dp))
+                                .clickable {
+                                    val app = context.applicationContext as? com.celestial.companion.CelestialApp
+                                    val act = context as? android.app.Activity
+                                    app?.shutdownAndExit(act)
+                                }
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PowerSettingsNew,
+                                contentDescription = "Shut Down and Unload App",
+                                tint = Color(0xFFFF5252),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = "EXIT",
+                                color = Color(0xFFFF5252),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
                     }
                 }
 

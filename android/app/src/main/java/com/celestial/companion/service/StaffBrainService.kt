@@ -43,10 +43,32 @@ class StaffBrainService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            releaseLocks()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
             stopSelf()
+            (application as? CelestialApp)?.shutdownAndExit()
             return START_NOT_STICKY
         }
-        return START_STICKY
+        return START_NOT_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Automatically unload service & sockets when the user swipes the app away from Recents
+        releaseLocks()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(true)
+        }
+        stopSelf()
+        (application as? CelestialApp)?.shutdownAndExit()
     }
 
     @Suppress("DEPRECATION")
@@ -126,8 +148,8 @@ class StaffBrainService : Service() {
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingOpen)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", pendingStop)
-            .setOngoing(true)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "⏻ Shut Down", pendingStop)
+            .setOngoing(false)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }

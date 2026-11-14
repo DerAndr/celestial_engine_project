@@ -504,14 +504,14 @@ com.celestial.companion/
   - Added full JUnit test suite in `DualEngineProviderTest.kt` verifying spell matching, persona boundaries, and streaming lifecycle.
 - [x] **Task 8.2.3: Zero-Recomposition Canvas Optimization (`ConcentricLedRingsView.kt`) — ✅ Completed (2026-11-07)**:
   - Replaced `Canvas` with `Modifier.drawWithCache` + `onDrawBehind` and precomputed normalized polar LED coordinates (`LED_UNIT_COS`, `LED_UNIT_SIN`) to eliminate per-frame allocations and Compose layout passes during 33 Hz UDP packet bursts.
-- [ ] **Task 8.2.4: Dedicated UDP Transport & Android Foreground Service (`StaffUdpTransport.kt` & `StaffBrainService.kt`)**:
-  - Extract DatagramSocket UDP transport (`:5005`), binary protocol framing, and heartbeat monitoring out of `StaffRepository` / `DashboardViewModel` into an independent `StaffUdpTransport` and Android `ForegroundService` (`StaffBrainService`).
-  - Guarantee uninterrupted connection, Hotspot voice capture, and chiptune/TTS playback when the companion phone screen turns off or the app is minimized.
+- [x] **Task 8.2.4: Dedicated UDP Transport, Foreground Service & Clean Memory Unload (`StaffUdpTransport.kt`, `StaffBrainService.kt`, `CelestialApp.kt`) — ✅ Completed (2026-11-15)**:
+  - Isolated `StaffUdpTransport` (`:5005`) with full `MulticastLock` and dual-socket release in `stop()`, plus `StaffRepository.shutdown()` canceling all background heartbeat/discovery coroutines and shutting down `StaffTtsSynthesizer`.
+  - Updated `StaffBrainService` (`START_NOT_STICKY`, `onTaskRemoved`, and notification `⏻ Shut Down` action) and added `CelestialApp.shutdownAndExit()` + top-bar **`[⏻ EXIT]`** button in `DashboardScreen.kt` so the user can deterministically close the app, remove the task from Recents (`finishAndRemoveTask()`), and unload the process (`killProcess` / `exitProcess(0)`) with zero lingering background threads or RAM consumption.
 - [ ] **Task 8.2.5: Android Companion On-Device SOTA Audio Engine (Moonshine STT + Kokoro-82M TTS via `sherpa-onnx`)**:
   - Integrate on-device speech-to-text (`Moonshine Tiny INT8 ONNX`) and text-to-speech (`Kokoro-82M INT8 ONNX` with the 6 Oracle persona voices) directly into Android using `sherpa-onnx` / `onnxruntime-android`.
   - Match the Raspberry Pi 5 audio pipeline for zero-latency, 100% offline edge computing on Google Pixel 9 Pro XL without requiring external cloud tokens or the Pi 5 backpack.
-- [ ] **Task 8.2.6: MVI Architecture & ViewModel Decomposition (`DashboardViewModel.kt`)**:
-  - Refactor `DashboardViewModel` into unidirectional Data Flow (MVI: `StaffIntent`, `StaffUiState`, `StaffSideEffect`), separating LED ring visualizer state, terminal logging, and model switching into decoupled reducers.
+- [x] **Task 8.2.6: MVI Architecture & ViewModel Decomposition (`StaffUiState.kt`, `GrimoireStorageManager.kt`, `DashboardViewModel.kt`) — ✅ Completed (2026-11-15)**:
+  - Extracted `StaffUiState`, `StaffIntent` (`dispatchIntent`), and `OracleChatMessage` into `StaffUiState.kt` and isolated custom spell/voice preference persistence into `GrimoireStorageManager.kt`.
 
 ---
 
