@@ -541,20 +541,20 @@ com.celestial.companion/
 
 ---
 
-### 8.5. Showcase & Documentation Overhaul (README Simplification & Dual-View Web Pages)
+### 8.5. Showcase & Documentation Overhaul (README Simplification & Dual-View Web Pages) — ✅ COMPLETED (2026-11-14)
 
-- [ ] **Task 8.5.1: GitHub `README.md` Simplification & De-cluttering**:
-  - Streamline `README.md` from an overloaded, monstrous document into an elegant, punchy GitHub repository front page.
-  - Highlight the physical cyber-flask hero photo, high-level features, fast live links to GitHub Pages, and a simplified high-level architecture diagram.
-  - Move deep pinout matrices, long historical logs, and exhaustive tables into dedicated documents in `docs/` (`docs/wiring/pinout.md`, `docs/architecture.md`, `docs/protocol.md`).
-- [ ] **Task 8.5.2: Dual-Mode GitHub Pages (`✨ Quick Demo` vs `🔬 Deep Engineering Lab`)**:
-  - Implement a persistent dual-mode view toggle at the top of the GitHub Pages showcase:
-    - **`✨ Quick Demo` (Default / Lite)**: Fast, clutter-free mobile-friendly showcase featuring the physical staff in action, interactive 43-LED concentric dome animator, 8-bit chiptune jukebox, and fast Oracle persona chat.
-    - **`🔬 Deep Engineering Lab` (Full Technical View)**: The comprehensive technical workstation with the 2D IC breadboard CAD constructor, interactive pinout inspector, 3D WebGL exploded view, audio spectrum analyzer, binary UDP packet debugger, and exhaustive hardware schematics.
-- [ ] **Task 8.5.3: Documentation Parity & Modular Architecture Synchronization**:
-  - Update `docs/architecture.md`, `docs/protocol.md`, and `docs/hardware/` to accurately reflect the clean Phase 8.1 modular firmware layout (`main.c` [148 lines], `event_dispatcher`, `ui_screens`, `led_patterns`, `chiptune_synth`, `ws2812_driver`, `max98357a_driver`).
-- [ ] **Task 8.5.4: Document Android Companion CI/CD Build, GitHub Actions Auto-Release & ADB Deployment Pipeline**:
-  - Document the end-to-end Android Companion build and deployment architecture in `README.md`, `docs/architecture.md`, and `.agents/skills/android-compose-development/SKILL.md`:
+- [x] **Task 8.5.1: GitHub `README.md` Simplification & De-cluttering — ✅ Completed (2026-11-14)**:
+  - Streamlined `README.md` from a 270-line dense document into a crisp, high-impact 155-line GitHub repository front page.
+  - Highlighted the physical cyber-flask hero photo (`celestial_flask_physical.jpg`, `136 KB`), Dual-Mode GitHub Pages showcase links, 3 clean Mermaid diagrams, and a concise architecture summary.
+  - Moved exhaustive pinout matrices, modular firmware breakdowns, and CI/CD pipelines into [`docs/architecture.md`](architecture.md), [`docs/wiring/pinout.md`](wiring/pinout.md), and [`docs/protocol.md`](protocol.md).
+- [x] **Task 8.5.2: Dual-Mode GitHub Pages (`✨ Quick Demo` vs `🔬 Deep Engineering Lab`) — ✅ Completed (2026-11-14)**:
+  - Implemented a persistent dual-mode view toggle (`#mode-btn-demo` / `#mode-btn-lab`) at the top of `docs/index.html` with URL (`?mode=lab`) and `localStorage` state persistence:
+    - **`✨ Quick Demo` (Default / Lite)**: Fast, clutter-free showcase featuring the physical staff in action, in-browser Local LLM Oracle chat, 43-LED concentric dome animator, 8-bit chiptune jukebox, 14 SFX, and release downloads.
+    - **`🔬 Deep Engineering Lab` (Full Technical View)**: Unlocks the 2D RP2350 Pinout & Breadboard CAD Explorer, Binary UDP v2 Packet Framing Inspector, Duplex PIO/DMA I2S Audio Architecture, Dual-Brain Edge AI topology, and the new **Modular Firmware & Android CI/CD** tab (`#tab-cicd`).
+- [x] **Task 8.5.3: Documentation Parity & Modular Architecture Synchronization — ✅ Completed (2026-11-14)**:
+  - Created [`docs/architecture.md`](architecture.md) documenting the Phase 8.1 modular firmware layout (`main.c` [148 lines], `event_dispatcher.c`, `ui_screens.c`, `led_patterns.c`, `chiptune_synth.c`, `ws2812_driver.c`, `max98357a_driver.c`), Dual-Core PIO/DMA pipelines, and Bidirectional Mesh Host Locking.
+- [x] **Task 8.5.4: Document Android Companion CI/CD Build, GitHub Actions Auto-Release & ADB Deployment Pipeline — ✅ Completed (2026-11-14)**:
+  - Documented the end-to-end Android Companion build and deployment architecture in [`README.md`](../README.md), [`docs/architecture.md`](architecture.md), [`docs/index.html`](index.html) (`#tab-cicd`), and [`.agents/skills/android-compose-development/SKILL.md`](../.agents/skills/android-compose-development/SKILL.md):
     1. **Cloud APK Build & Release Clobbering (`.github/workflows/android-build.yml`)**:
        - Triggered automatically on pushes to `android/**`, `release`, or manual `workflow_dispatch`.
        - Compiles `./gradlew assembleDebug --no-daemon` on `ubuntu-latest` (Temurin JDK 17 + Gradle cache), eliminating the need for a local Android Studio installation.

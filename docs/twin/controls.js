@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.6';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.6';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.6';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.6';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.6';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.7';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.7';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.7';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.7';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.7';
 
 let oracleProvider = null;
 let staff2D = null;
@@ -881,6 +881,100 @@ export async function initTwinReplica() {
 
   // Automatically sync latest GitHub Release tag & APK/UF2 download assets
   syncLatestGitHubRelease();
+
+  // Initialize Dual-Mode Showcase Switcher (Task 8.5.2: Quick Demo vs Deep Engineering Lab)
+  initPageModeSwitcher();
+}
+
+function initPageModeSwitcher() {
+  const demoBtn = document.getElementById('mode-btn-demo');
+  const labBtn = document.getElementById('mode-btn-lab');
+  const upsellBtn = document.getElementById('upsell-btn-open-lab');
+  const modeBadge = document.getElementById('header-page-mode-badge');
+
+  function applyPageMode(mode, updateUrl = true) {
+    const cleanMode = mode === 'lab' ? 'lab' : 'demo';
+    document.body.setAttribute('data-page-mode', cleanMode);
+    if (demoBtn) {
+      demoBtn.classList.toggle('active', cleanMode === 'demo');
+      demoBtn.setAttribute('aria-selected', cleanMode === 'demo' ? 'true' : 'false');
+    }
+    if (labBtn) {
+      labBtn.classList.toggle('active', cleanMode === 'lab');
+      labBtn.setAttribute('aria-selected', cleanMode === 'lab' ? 'true' : 'false');
+    }
+    if (modeBadge) {
+      if (cleanMode === 'lab') {
+        modeBadge.textContent = '🔬 Deep Engineering Lab';
+        modeBadge.className = 'badge cyan';
+      } else {
+        modeBadge.textContent = '✨ Quick Demo Mode';
+        modeBadge.className = 'badge emerald';
+      }
+    }
+    try {
+      localStorage.setItem('celestial_page_mode', cleanMode);
+      if (updateUrl && window.history && window.history.replaceState) {
+        const url = new URL(window.location.href);
+        if (cleanMode === 'lab') {
+          url.searchParams.set('mode', 'lab');
+        } else {
+          url.searchParams.delete('mode');
+        }
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch (_) {}
+
+    // Trigger canvas resize/render when lab sections become visible
+    if (cleanMode === 'lab') {
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 60);
+    }
+  }
+
+  // Determine initial mode from URL ?mode=lab, hash (#schematic, #architecture, #system-overview), or localStorage
+  const params = new URLSearchParams(window.location.search);
+  const hash = (window.location.hash || '').toLowerCase();
+  const labHashes = ['#schematic', '#architecture', '#system-overview'];
+  const urlMode = params.get('mode');
+  let initialMode = 'demo';
+  if (urlMode === 'lab' || labHashes.includes(hash)) {
+    initialMode = 'lab';
+  } else if (urlMode === 'demo') {
+    initialMode = 'demo';
+  } else {
+    try {
+      const saved = localStorage.getItem('celestial_page_mode');
+      if (saved === 'lab' || saved === 'demo') initialMode = saved;
+    } catch (_) {}
+  }
+  applyPageMode(initialMode, false);
+
+  if (demoBtn) {
+    demoBtn.addEventListener('click', () => applyPageMode('demo'));
+  }
+  if (labBtn) {
+    labBtn.addEventListener('click', () => applyPageMode('lab'));
+  }
+  if (upsellBtn) {
+    upsellBtn.addEventListener('click', () => {
+      applyPageMode('lab');
+      const archSection = document.getElementById('schematic') || document.getElementById('system-overview');
+      if (archSection) {
+        setTimeout(() => archSection.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+      }
+    });
+  }
+
+  // Auto-switch to Lab mode if user clicks a nav link targeting a lab-only section
+  document.querySelectorAll('[data-requires-lab="true"]').forEach(link => {
+    link.addEventListener('click', () => {
+      if (document.body.getAttribute('data-page-mode') !== 'lab') {
+        applyPageMode('lab');
+      }
+    });
+  });
 }
 
 async function syncLatestGitHubRelease() {

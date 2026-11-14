@@ -10,9 +10,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="icon" href="favicon.ico" type="image/x-icon">
-  <link rel="stylesheet" href="simulator.css?v=1.3.6">
+  <link rel="stylesheet" href="simulator.css?v=1.3.7">
 </head>
-<body>
+<body data-page-mode="demo">
   <!-- Ambient Deep Space Starfield -->
   <canvas id="space-canvas"></canvas>
 
@@ -22,13 +22,7 @@
       <div class="badge-row">
         <span class="badge cyan">Pico 2 W (RP2350)</span>
         <span id="header-android-badge" class="badge">Android v1.3.4</span>
-
-
-
-
-
-
-
+        <span id="header-page-mode-badge" class="badge emerald">✨ Quick Demo Mode</span>
       </div>
 
       <h1 class="hero-title">CELESTIAL ENGINE Mk.V</h1>
@@ -36,30 +30,52 @@
         Interactive hardware replica and pinout explorer for the RP2350 staff controller: 43 concentric WS2812B LEDs, SH1106 128×64 I2C OLED, full-duplex 16 kHz I2S audio (INMP441 &amp; MAX98357A), and UDP port 5005 telemetry.
       </p>
 
+      <!-- Dual-Mode Showcase Switcher (Task 8.5.2: Quick Demo vs Deep Engineering Lab) -->
+      <div class="page-mode-switcher" role="tablist" aria-label="Showcase View Mode">
+        <button type="button" id="mode-btn-demo" class="page-mode-btn active" data-mode="demo" role="tab" aria-selected="true">
+          <span class="mode-icon">✨</span>
+          <div class="mode-text">
+            <strong>Quick Demo</strong>
+            <span>Fast Interactive Showcase, Local AI Chat, 43 LEDs &amp; 21 Melodies</span>
+          </div>
+        </button>
+        <button type="button" id="mode-btn-lab" class="page-mode-btn" data-mode="lab" role="tab" aria-selected="false">
+          <span class="mode-icon">🔬</span>
+          <div class="mode-text">
+            <strong>Deep Engineering Lab</strong>
+            <span>+ 2D RP2350 Pinout CAD, Binary UDP v2, PIO/DMA Audio &amp; CI/CD Pipeline</span>
+          </div>
+        </button>
+      </div>
+
       <div class="quick-links">
         <a href="#replica-showcase" class="btn-pill primary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           Explore Staff
         </a>
-        <a href="#system-overview" class="btn-pill">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-          System &amp; Local LLM Flow
+        <a href="#oracle-console" class="btn-pill" style="border-color: var(--violet-arcane); color: #e9d5ff; background: rgba(168, 85, 247, 0.14);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Ask the Oracle
         </a>
         <a href="#lighting-effects-drawer" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-          Lighting Effects
+          28 LED Effects
         </a>
         <a href="#preset-zelda" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           21 Melodies &amp; SFX
         </a>
-        <a href="#oracle-console" class="btn-pill" style="border-color: var(--violet-arcane); color: #e9d5ff; background: rgba(168, 85, 247, 0.14);">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          Ask the Oracle
+        <a href="#system-overview" class="btn-pill lab-nav-link" data-requires-lab="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          🔬 System &amp; LLM Flow
         </a>
-        <a href="#schematic" class="btn-pill">
+        <a href="#schematic" class="btn-pill lab-nav-link" data-requires-lab="true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4m-3.17-6.83l-2.83 2.83m-8 8l-2.83 2.83m0-13.66l2.83 2.83m8 8l2.83 2.83"/></svg>
-          2D Pinout Map
+          🔬 2D Pinout Map
+        </a>
+        <a href="#architecture" class="btn-pill lab-nav-link" data-requires-lab="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          🔬 Architecture &amp; CI/CD
         </a>
         <a href="https://github.com/DerAndr/celestial_engine_project" target="_blank" rel="noopener" class="btn-pill">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -603,10 +619,28 @@
 
     </main>
 
+    <!-- Quick Demo Mode Callout to Open Deep Engineering Lab -->
+    <section id="demo-lab-upsell" class="glass-panel demo-lab-upsell-card" aria-label="Switch to Deep Engineering Lab">
+      <div class="demo-lab-upsell-left">
+        <span class="badge cyan">🔬 DEEP ENGINEERING LAB AVAILABLE</span>
+        <h3 style="font-family: var(--font-display); font-size: 1.25rem; color: var(--text-primary); margin-top: 4px;">
+          Want to Inspect the 2D RP2350 Pinout Map, Binary UDP v2 Protocol &amp; Modular Firmware?
+        </h3>
+        <p style="font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5; margin-top: 4px;">
+          You are currently viewing the streamlined <strong>✨ Quick Demo</strong> showcase. Switch to the <strong>🔬 Deep Engineering Lab</strong> view to unlock the interactive 2D breadboard &amp; IC wiring explorer, UDP packet framing diagrams, dual-core PIO/DMA audio specs, and the automated GitHub Actions Android CI/CD pipeline.
+        </p>
+      </div>
+      <div class="demo-lab-upsell-actions">
+        <button type="button" id="upsell-btn-open-lab" class="btn-pill primary">
+          🔬 Open Deep Engineering Lab
+        </button>
+      </div>
+    </section>
+
     <!-- =====================================================================
-         PRIMARY ARCHITECTURE & LOCAL LLM STREAMING OVERVIEW
+         PRIMARY ARCHITECTURE & LOCAL LLM STREAMING OVERVIEW (LAB MODE)
          ===================================================================== -->
-    <section id="system-overview" class="glass-panel sys-overview-panel" aria-label="System Architecture and Local LLM Streaming Overview">
+    <section id="system-overview" class="glass-panel sys-overview-panel lab-only-section" aria-label="System Architecture and Local LLM Streaming Overview">
       <div class="panel-header" style="flex-wrap: wrap; gap: 10px;">
         <h2 class="panel-title">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="7" height="16" rx="1.5"/><rect x="15" y="4" width="7" height="16" rx="1.5"/><path d="M9 9h6M9 15h6"/></svg>
@@ -868,9 +902,9 @@
     </section>
 
     <!-- =====================================================================
-         INTERACTIVE 3D HARDWARE SCHEMATIC & WIRING EXPLORER
+         INTERACTIVE 3D HARDWARE SCHEMATIC & WIRING EXPLORER (LAB MODE)
          ===================================================================== -->
-    <section id="schematic" class="schematic-section">
+    <section id="schematic" class="schematic-section lab-only-section">
       <div class="section-heading">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4m-3.17-6.83l-2.83 2.83m-8 8l-2.83 2.83m0-13.66l2.83 2.83m8 8l2.83 2.83"/></svg>
         Interactive 2D RP2350 Pinout &amp; Equipment Wiring Map
@@ -959,15 +993,15 @@
     </section>
 
     <!-- =====================================================================
-         TECHNICAL ARCHITECTURE & ENGINEERING DEEP-DIVE
+         TECHNICAL ARCHITECTURE & ENGINEERING DEEP-DIVE (LAB MODE)
          ===================================================================== -->
-    <section id="architecture" class="tech-tabs-section" style="margin-top: 48px;">
+    <section id="architecture" class="tech-tabs-section lab-only-section" style="margin-top: 48px;">
       <div class="section-heading">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
         Technical Architecture & System Deep-Dive
       </div>
       <p style="color: var(--text-secondary); margin-top: -12px; margin-bottom: 12px; font-size: 0.95rem;">
-        Comprehensive engineering documentation of the Phone-to-Pico binary transport, dual-direction digital audio pipelines, hardware wiring matrix, and dual-brain edge AI redundancy.
+        Comprehensive engineering documentation of the Phone-to-Pico binary transport, dual-direction digital audio pipelines, hardware wiring matrix, dual-brain edge AI redundancy, and automated GitHub Actions CI/CD deployment.
       </p>
 
       <!-- Tabs Navigation -->
@@ -987,6 +1021,10 @@
         <button class="tab-btn" data-tab="tab-dualbrain">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           Dual-Brain Edge AI Architecture
+        </button>
+        <button class="tab-btn" data-tab="tab-cicd">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Modular Firmware &amp; Android CI/CD
         </button>
       </div>
 
@@ -1415,9 +1453,57 @@
               ⚡ Autonomous Fail-Safe Core (Pico 2 W Firmware)
             </div>
             <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin: 0;">
-              If both the Android phone and the Pi 5 server lose Wi-Fi signal, the staff's RP2350 microcontroller immediately detects packet timeout via its 1000ms watchdog. It smoothly transitions the HUD to <strong>AUTONOMOUS STANDALONE MODE</strong>: the physical rotary knob, OLED menu, 21 LED animations, and 24 retro chiptune synthesizers remain 100% operational with zero freeze or reboot.
+              If both the Android phone and the Pi 5 server lose Wi-Fi signal, the staff's RP2350 microcontroller immediately detects packet timeout via its 1000ms watchdog. It smoothly transitions the HUD to <strong>AUTONOMOUS STANDALONE MODE</strong>: the physical rotary knob, OLED menu, 28 LED animations, and 21 retro chiptune synthesizers + 14 SFX remain 100% operational with zero freeze or reboot.
             </p>
           </div>
+        </div>
+      </div>
+
+      <!-- Tab 5: Modular Firmware & Android CI/CD Pipeline -->
+      <div id="tab-cicd" class="tab-content">
+        <div class="glass-panel" style="padding: 24px;">
+          <h3 style="color: var(--cyan-primary); font-family: var(--font-display); font-size: 1.2rem; margin-bottom: 8px;">
+            Phase 8.1 Modular RP2350 Firmware &amp; GitHub Actions Android CI/CD Pipeline
+          </h3>
+          <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 16px;">
+            Both the bare-metal C/C++ firmware and the Android 15 Jetpack Compose application follow strict modular boundaries and automated cloud verification.
+          </p>
+
+          <div class="schematic-layout" style="gap: 20px; margin-bottom: 20px;">
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: 10px; padding: 18px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: var(--cyan-primary); font-size: 0.95rem;">1. Modular RP2350 C Firmware (<code>firmware/src/</code>)</strong>
+                <span class="badge cyan">41/41 Unit Tests</span>
+              </div>
+              <ul style="font-size: 0.82rem; color: var(--text-secondary); padding-left: 18px; line-height: 1.65;">
+                <li><code>main.c</code> (<strong>148 lines</strong>): Minimal hardware entry point, GPIO IRQ setup, and Core 1 launch.</li>
+                <li><code>event_dispatcher.c</code>: Finite state machine (<code>IDLE</code> / <code>LISTENING</code> / <code>PROCESSING</code> / <code>SPEAKING</code>), rotary encoder, PTT button, and remote UDP <code>APP_COMMAND</code> handling.</li>
+                <li><code>ui_screens.c</code>: All 8 <code>SH1106 128×64</code> I2C1 OLED screens and 20 Hz ticker.</li>
+                <li><code>led_patterns.c</code> + <code>ws2812_driver.c</code>: 28 concentric LED patterns + <code>PIO0 SM0</code> driver.</li>
+                <li><code>chiptune_synth.c</code> + <code>max98357a_driver.c</code>: 21 8-bit chiptunes, 14 cosmic SFX, and <code>PIO1 SM0</code> I2S TX DMA driver.</li>
+              </ul>
+            </div>
+
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-glass); border-radius: 10px; padding: 18px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: var(--emerald-green); font-size: 0.95rem;">2. Automated Android APK Build &amp; Release Sync</strong>
+                <span class="badge emerald">GitHub Actions CI/CD</span>
+              </div>
+              <ul style="font-size: 0.82rem; color: var(--text-secondary); padding-left: 18px; line-height: 1.65;">
+                <li><strong>Single Source of Truth:</strong> <code>versionName</code> in <code>android/app/build.gradle.kts</code> drives the entire release pipeline.</li>
+                <li><strong>Cloud APK Compilation (<code>android-build.yml</code>):</strong> Any push to <code>android/**</code> compiles <code>./gradlew assembleDebug</code> on <code>ubuntu-latest</code> (Temurin JDK 17) without requiring local Android Studio.</li>
+                <li><strong>Auto-Release Clobbering:</strong> Renames the output to <code>celestial_companion_v&lt;VER&gt;.apk</code> and runs <code>gh release upload --clobber</code> on the latest GitHub Release.</li>
+                <li><strong>Dynamic GitHub Pages Sync (<code>pages.yml</code>):</strong> Automatically patches <code>docs/index.html</code> download links and version badges during Pages deployment.</li>
+              </ul>
+            </div>
+          </div>
+
+          <pre class="code-card"><code># Cloud-Built APK -> Pull from Latest GitHub Release -> Install to Pixel 9 Pro XL via ADB
+gh run list --workflow=android-build.yml --limit 1
+gh release download --pattern "celestial_companion_*.apk" -D scratch/apk --clobber
+adb install -r (Get-Item scratch/apk/celestial_companion_v*.apk).FullName
+adb shell am start -n com.celestial.companion/.MainActivity
+Remove-Item -Recurse -Force scratch/apk</code></pre>
         </div>
       </div>
     </section>
@@ -1521,7 +1607,7 @@
     </footer>
   </div>
 
-  <script src="simulator.js?v=1.3.6"></script>
-  <script type="module" src="twin/controls.js?v=1.3.6"></script>
+  <script src="simulator.js?v=1.3.7"></script>
+  <script type="module" src="twin/controls.js?v=1.3.7"></script>
 </body>
 </html>
