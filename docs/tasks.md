@@ -517,7 +517,7 @@ com.celestial.companion/
 
 ### 8.3. Physical Twin & Showcase on GitHub Pages — ✅ COMPLETED (2026-10-29)
 
-- [x] **Store Real Hardware Photo**: Stored physical artifact photo in [`docs/assets/celestial_flask_physical.png`](assets/celestial_flask_physical.png).
+- [x] **Store Real Hardware Photo**: Stored physical artifact photo in [`docs/assets/celestial_flask_physical.jpg`](assets/celestial_flask_physical.jpg) (`136 KB`) and [`docs/assets/celestial_flask_physical.webp`](assets/celestial_flask_physical.webp) (`91 KB`).
 - [x] **Interactive Exploded vs Assembled vs 2D Pinout View**:
   - Added interactive switcher (`🔮 Assembled`, `🧩 Exploded`, `🔌 2D Pinout Map`) with High-DPI scaling and component isolation dimming.
 - [x] **Main-Page DIY & Halloween Prop Disclaimer**:
@@ -553,3 +553,15 @@ com.celestial.companion/
     - **`🔬 Deep Engineering Lab` (Full Technical View)**: The comprehensive technical workstation with the 2D IC breadboard CAD constructor, interactive pinout inspector, 3D WebGL exploded view, audio spectrum analyzer, binary UDP packet debugger, and exhaustive hardware schematics.
 - [ ] **Task 8.5.3: Documentation Parity & Modular Architecture Synchronization**:
   - Update `docs/architecture.md`, `docs/protocol.md`, and `docs/hardware/` to accurately reflect the clean Phase 8.1 modular firmware layout (`main.c` [148 lines], `event_dispatcher`, `ui_screens`, `led_patterns`, `chiptune_synth`, `ws2812_driver`, `max98357a_driver`).
+- [ ] **Task 8.5.4: Document Android Companion CI/CD Build, GitHub Actions Auto-Release & ADB Deployment Pipeline**:
+  - Document the end-to-end Android Companion build and deployment architecture in `README.md`, `docs/architecture.md`, and `.agents/skills/android-compose-development/SKILL.md`:
+    1. **Cloud APK Build & Release Clobbering (`.github/workflows/android-build.yml`)**:
+       - Triggered automatically on pushes to `android/**`, `release`, or manual `workflow_dispatch`.
+       - Compiles `./gradlew assembleDebug --no-daemon` on `ubuntu-latest` (Temurin JDK 17 + Gradle cache), eliminating the need for a local Android Studio installation.
+       - Extracts `versionName` from `android/app/build.gradle.kts`, renames `app-debug.apk` to `celestial_companion_v${ANDROID_VER}.apk`, uploads the workflow artifact (`celestial-companion-v${ANDROID_VER}-apk`), and on `master` automatically updates the latest GitHub Release (`gh release upload "$LATEST_TAG" "celestial_companion_v${ANDROID_VER}.apk" --clobber`).
+    2. **Dynamic GitHub Pages Version Synchronization (`.github/workflows/pages.yml`)**:
+       - Triggered on pushes to `docs/**` or `android/app/build.gradle.kts`.
+       - Dynamically parses `versionName` from `android/app/build.gradle.kts` and runs `sed -i` on `docs/index.html` during deployment so APK download links (`celestial_companion_v*.apk`) and `Android 15 Compose v*` badges on the live site never drift out of sync.
+    3. **Dual-Path Physical Smartphone Deployment (`Pixel 9 Pro XL` via `adb`)**:
+       - **Path A (Cloud GitHub Actions -> `gh` CLI -> `adb`)**: Push changes to `android/`, monitor run via `gh run list --workflow=android-build.yml`, download compiled APK into git-ignored `scratch/apk/` (`gh release download --pattern "celestial_companion_*.apk" -D scratch/apk --clobber` or `gh run download <run-id> -D scratch/apk`), install via `adb -s 49051FDAS001YK install -r scratch/apk/celestial_companion_v*.apk`, launch via `adb shell am start -n com.celestial.companion/.MainActivity`, and remove `scratch/apk/`.
+       - **Path B (Local Gradle -> `adb`)**: Run `cd android && .\gradlew assembleDebug` followed by `adb install -r android/app/build/outputs/apk/debug/app-debug.apk`.

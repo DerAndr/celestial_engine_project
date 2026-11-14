@@ -39,10 +39,25 @@ description: >-
    - Keep `DashboardViewModel._chatHistory` capped at `MAX_CHAT_HISTORY = 40`.
 2. **Multimodal Camera & Gallery Vision Downscaling**:
    - Always decode photos via two-pass `decodeSampledBitmap` (`max 800px`, EXIF orientation applied, intermediate bitmaps recycled, JPEG Base64 `< 100 KB`) and wrap network calls in `catch (e: Throwable)` so large photos never crash the app.
-3. **Build & Clean Workspace Rule**:
-   ```powershell
-   cd android
-   .\gradlew assembleDebug
-   ```
-   - Output APK is at `android/app/build/outputs/apk/debug/app-debug.apk`.
-   - **Never** create `temp_apk*`, `build_apk`, or screenshot dumps in the repository root.
+3. **Build & Deployment Pipeline (Local Gradle vs. GitHub Actions CI/CD + `adb`)**:
+   - **Single Source of Truth for Version**: `versionName` and `versionCode` in `android/app/build.gradle.kts` drive the entire release and web ecosystem.
+   - **Path A — Cloud Build via GitHub Actions (`.github/workflows/android-build.yml` + `.github/workflows/pages.yml`)**:
+     1. Any push touching `android/**` triggers `Build Android Companion APK` (`android-build.yml`) on `ubuntu-latest` (Temurin JDK 17 + Gradle cache).
+     2. The workflow runs `./gradlew assembleDebug --no-daemon`, extracts `versionName` from `android/app/build.gradle.kts`, renames the output to `celestial_companion_v${ANDROID_VER}.apk`, uploads it as a GitHub Actions artifact, and (on `master`) automatically overwrites the asset on the latest GitHub Release (`gh release upload "$LATEST_TAG" "celestial_companion_v${ANDROID_VER}.apk" --clobber`).
+     3. Simultaneously, `.github/workflows/pages.yml` triggers whenever `android/app/build.gradle.kts` changes and auto-patches `celestial_companion_v*.apk` links and `Android 15 Compose v*` badges in `docs/index.html` during GitHub Pages deployment.
+     4. **Deploying the Cloud-Built APK to Physical Phone (`Pixel 9 Pro XL`)**:
+        ```powershell
+        gh run list --workflow=android-build.yml --limit 1
+        gh release download --pattern "celestial_companion_*.apk" -D scratch/apk --clobber
+        adb install -r (Get-Item scratch/apk/celestial_companion_v*.apk).FullName
+        adb shell am start -n com.celestial.companion/.MainActivity
+        Remove-Item -Recurse -Force scratch/apk
+        ```
+   - **Path B — Local Gradle Build & Direct `adb` Install**:
+     ```powershell
+     cd android
+     .\gradlew assembleDebug
+     adb install -r app/build/outputs/apk/debug/app-debug.apk
+     adb shell am start -n com.celestial.companion/.MainActivity
+     ```
+   - **Zero Root Clutter Rule**: **Never** create `temp_apk*`, `build_apk`, or screenshot dumps in the repository root. Always use git-ignored `scratch/` and clean up immediately.
