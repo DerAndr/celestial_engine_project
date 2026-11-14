@@ -1228,15 +1228,15 @@ fun DashboardScreen(
                     ) {
                         Text(
                             text = when (sotaAudioState) {
-                                com.celestial.companion.ai.SotaAudioState.READY_ONNX_SOTA -> "✅ Moonshine ONNX INT8 Active"
+                                com.celestial.companion.ai.SotaAudioState.READY_ONNX -> "✅ Moonshine ONNX INT8 Active"
                                 com.celestial.companion.ai.SotaAudioState.DOWNLOADING -> "⬇️ Downloading ONNX ($sotaDownloadProgress%)..."
                                 else -> "⚡ Built-in DSP + Kokoro Profile"
                             },
-                            color = if (sotaAudioState == com.celestial.companion.ai.SotaAudioState.READY_ONNX_SOTA) EmeraldGreen else TextSecondary,
+                            color = if (sotaAudioState == com.celestial.companion.ai.SotaAudioState.READY_ONNX) EmeraldGreen else TextSecondary,
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
                         )
-                        if (sotaAudioState != com.celestial.companion.ai.SotaAudioState.READY_ONNX_SOTA &&
+                        if (sotaAudioState != com.celestial.companion.ai.SotaAudioState.READY_ONNX &&
                             sotaAudioState != com.celestial.companion.ai.SotaAudioState.DOWNLOADING
                         ) {
                             Box(

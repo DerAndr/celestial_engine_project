@@ -65,15 +65,15 @@ class DashboardViewModel(
         dualEngineProvider?.engineModeFlow ?: MutableStateFlow(com.celestial.companion.ai.AiEngineMode.AUTO_FALLBACK).asStateFlow()
 
     val sotaAudioState: StateFlow<com.celestial.companion.ai.SotaAudioState> =
-        repository.sotaAudioEngine?.state ?: MutableStateFlow(com.celestial.companion.ai.SotaAudioState.READY_BUILTIN_DSP).asStateFlow()
+        repository.sotaAudioEngine?.state ?: MutableStateFlow(com.celestial.companion.ai.SotaAudioState.READY_HYBRID).asStateFlow()
 
     val sotaDownloadProgress: StateFlow<Int> =
-        repository.sotaAudioEngine?.downloadProgress ?: MutableStateFlow(0).asStateFlow()
+        repository.sotaAudioEngine?.downloadProgressPct ?: MutableStateFlow(0).asStateFlow()
 
     fun downloadSotaMoonshineOnnx() {
         viewModelScope.launch {
             repository.log("SOTA-AUDIO", "⬇️ Downloading Moonshine Tiny INT8 ONNX models (~26 MB)...", LogLevel.INFO)
-            val ok = repository.sotaAudioEngine?.downloadMoonshineModels() ?: false
+            val ok = repository.sotaAudioEngine?.downloadAndInitMoonshine() ?: false
             if (ok) {
                 repository.log("SOTA-AUDIO", "✅ Moonshine ONNX INT8 models ready for on-device inference!", LogLevel.SUCCESS)
             } else {

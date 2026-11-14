@@ -13,8 +13,8 @@ class OnDeviceSotaAudioEngineTest {
     @Test
     fun `forPersona maps all 6 Oracle personas to distinct Kokoro-82M voice profiles`() {
         assertEquals(KokoroVoiceProfile.AM_ADAM, KokoroVoiceProfile.forPersona(OraclePersona.MACHINE_GOD.id))
-        assertEquals(KokoroVoiceProfile.BM_GEORGE, KokoroVoiceProfile.forPersona(OraclePersona.ARCHMAGE.id))
-        assertEquals(KokoroVoiceProfile.AM_ECHO, KokoroVoiceProfile.forPersona(OraclePersona.MARVIN.id))
+        assertEquals(KokoroVoiceProfile.BM_GEORGE_ARCHMAGE, KokoroVoiceProfile.forPersona(OraclePersona.ARCHMAGE.id))
+        assertEquals(KokoroVoiceProfile.BM_GEORGE_MARVIN, KokoroVoiceProfile.forPersona(OraclePersona.MARVIN.id))
         assertEquals(KokoroVoiceProfile.AF_BELLA, KokoroVoiceProfile.forPersona(OraclePersona.CYBERPUNK.id))
         assertEquals(KokoroVoiceProfile.AM_MICHAEL, KokoroVoiceProfile.forPersona(OraclePersona.PUMPKIN_LORD.id))
         assertEquals(KokoroVoiceProfile.AF_HEART, KokoroVoiceProfile.forPersona(OraclePersona.CUSTOM.id))
@@ -37,17 +37,18 @@ class OnDeviceSotaAudioEngineTest {
 
     @Test
     fun `parseTokensTable and detokenizePieces reconstruct clean English transcript`() {
-        val rawTokens = """
-            <s> 1
-            </s> 2
-            ▁Cast 10
-            ▁fire 11
-            ball 12
-        """.trimIndent()
-        val vocab = OnDeviceSotaAudioEngine.parseTokensTable(rawTokens)
+        val rawLines = listOf(
+            "<s> 1",
+            "</s> 2",
+            "\u2581Cast 10",
+            "\u2581fire 11",
+            "ball 12"
+        )
+        val vocab = OnDeviceSotaAudioEngine.parseTokensTable(rawLines)
         assertEquals(5, vocab.size)
 
-        val text = OnDeviceSotaAudioEngine.detokenizePieces(listOf(1, 10, 11, 12, 2), vocab)
+        val pieces = listOf(1, 10, 11, 12, 2).mapNotNull { vocab[it] }
+        val text = OnDeviceSotaAudioEngine.detokenizePieces(pieces)
         assertEquals("Cast fireball", text)
         assertTrue(FastSpellMatcher.isSpellIntent(text))
     }

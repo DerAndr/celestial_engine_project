@@ -225,7 +225,7 @@ class OfflineEdgeEngine(
             val classified = sotaAudioEngine?.transcribeOfflinePcm16(audioBytes, language)
                 ?: transcriptionService.classifyOfflineSpeech(audioBytes, language = language)
             if (classified.isNotBlank()) {
-                val sttBadge = if (sotaAudioEngine?.isMoonshineOnnxReady() == true) "Moonshine ONNX INT8" else "Acoustic Energy VAD"
+                val sttBadge = if (sotaAudioEngine?.areMoonshineModelsDownloaded() == true) "Moonshine ONNX INT8" else "Acoustic Energy VAD"
                 emit(GemmaStreamChunk.ThoughtToken("🎙️ STT ($sttBadge): \"$classified\"\n\n"))
                 classified
             } else {
