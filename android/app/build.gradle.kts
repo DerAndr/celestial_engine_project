@@ -12,8 +12,8 @@ android {
         applicationId = "com.celestial.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.3.7"
+        versionCode = 8
+        versionName = "1.3.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -54,6 +54,7 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.onnxruntime.android)
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation(libs.androidx.junit)

@@ -7,11 +7,11 @@
  *  - 2D Physical Replica / Exploded Build / IC Breadboard CAD Constructor + Optional 3D WebGL View
  */
 
-import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.7';
-import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.7';
-import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.7';
-import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.7';
-import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.7';
+import { twinState, STAFF_STATES, FIRMWARE_EFFECTS, MAX_CUSTOM_PROMPT_LENGTH } from './state.js?v=1.3.8';
+import { OracleProvider, MODEL_INFO, probeWebGpuSupport } from './oracle/provider.js?v=1.3.8';
+import { Staff2DRenderer, HARDWARE_HOTSPOTS } from './view/staff-2d.js?v=1.3.8';
+import { updateAccessibleOledTranscript } from './view/oled.js?v=1.3.8';
+import { speakOracleText, stopOracleSpeech, isSpeechRecognitionSupported, startVoiceDictation } from './audio/speech.js?v=1.3.8';
 
 let oracleProvider = null;
 let staff2D = null;

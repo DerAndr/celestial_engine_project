@@ -40,6 +40,7 @@ class StaffRepository(
     private val transport: StaffTransport,
     val gemmaEngine: GemmaModelEngine? = null,
     val dualEngineProvider: com.celestial.companion.ai.DualEngineProvider? = null,
+    val sotaAudioEngine: com.celestial.companion.ai.OnDeviceSotaAudioEngine? = null,
     val context: android.content.Context? = null,
     val voiceQueryUseCase: ProcessStaffVoiceQueryUseCase = ProcessStaffVoiceQueryUseCase(),
     val telemetryUseCase: SyncStaffTelemetryUseCase = SyncStaffTelemetryUseCase(),
@@ -423,9 +424,11 @@ class StaffRepository(
                     speechText.any { it in 'ä'..'ü' || it in 'Ä'..'Ü' || it == 'ß' } -> java.util.Locale.GERMAN
                     else -> java.util.Locale.US
                 }
-                Log.i(TAG, "Synthesizing audio: isSpell=${prophecy.isSpell}, locale=$locale, text='${speechText.take(40)}...'")
-                log("TTS", "Synthesizing voice audio: locale=$locale, text='${speechText.take(35)}...'", LogLevel.INFO)
-                val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(speechText, locale)
+                val personaId = gemmaEngine?.config?.personaId ?: OraclePersona.MACHINE_GOD.id
+                val voiceProfile = com.celestial.companion.audio.KokoroVoiceProfile.forPersona(personaId)
+                Log.i(TAG, "Synthesizing audio: isSpell=${prophecy.isSpell}, voice=${voiceProfile.voiceId}, locale=$locale, text='${speechText.take(40)}...'")
+                log("TTS", "Synthesizing voice (${voiceProfile.voiceId}): locale=$locale, text='${speechText.take(35)}...'", LogLevel.INFO)
+                val pcm = ttsSynthesizer?.synthesizeTo16kMonoPcm(speechText, locale, voiceProfile)
                 if (pcm != null && pcm.isNotEmpty()) {
                     streamAudioToStaff(pcm, targetIp, reqId)
                 } else {
@@ -749,6 +752,9 @@ class StaffRepository(
         } catch (_: Exception) {}
         try {
             ttsSynthesizer?.shutdown()
+        } catch (_: Exception) {}
+        try {
+            sotaAudioEngine?.close()
         } catch (_: Exception) {}
         try {
             transport.stop()

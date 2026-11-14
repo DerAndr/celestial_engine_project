@@ -52,7 +52,11 @@ class StaffTtsSynthesizer(private val context: Context) {
         }
     }
 
-    suspend fun synthesizeTo16kMonoPcm(text: String, locale: Locale = Locale.getDefault()): ByteArray? = withContext(Dispatchers.IO) {
+    suspend fun synthesizeTo16kMonoPcm(
+        text: String,
+        locale: Locale = Locale.getDefault(),
+        voiceProfile: KokoroVoiceProfile = KokoroVoiceProfile.AM_ADAM
+    ): ByteArray? = withContext(Dispatchers.IO) {
         val ready = withTimeoutOrNull(7000) { initDeferred.await() } ?: false
         if (!ready || !isInitialized) {
             Log.w(TAG, "TTS not ready for synthesis (ready=$ready, isInitialized=$isInitialized)")
@@ -66,8 +70,8 @@ class StaffTtsSynthesizer(private val context: Context) {
                 Log.w(TAG, "Locale $locale not fully supported (res=$res), falling back to base language: ${locale.language}")
                 engine.setLanguage(Locale(locale.language))
             }
-            engine.setSpeechRate(1.15f)
-            engine.setPitch(0.98f)
+            engine.setSpeechRate(voiceProfile.speechRate)
+            engine.setPitch(voiceProfile.pitch)
         } catch (e: Exception) {
             Log.w(TAG, "Could not set TTS locale or rate: ${e.message}")
         }

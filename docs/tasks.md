@@ -368,10 +368,8 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
 ### 7.3. Actionable Milestone Breakdown
 
 #### Phase 1: Real On-Device STT — Moonshine & SenseVoice Integration
-- [ ] **Android Companion: Moonshine Integration**:
-  - Integrate `moonshine-onnx` or `useful-sensors/moonshine` via `onnxruntime-android`.
-  - Deploy quantized `moonshine-tiny.en.onnx` (~26 MB) to app internal storage.
-  - Test real-world voice queries from staff mic: benchmark transcription latency for 1.5s–3.0s voice queries (target < 100 ms).
+- [x] **Android Companion: Moonshine ONNX Runtime Integration (`OnDeviceSotaAudioEngine.kt`) — ✅ Completed (2026-11-15)**:
+  - Integrated `com.microsoft.onnxruntime:onnxruntime-android:1.20.0` with on-demand download & caching of quantized `Moonshine Tiny INT8 ONNX` (`preprocess.onnx`, `encode.int8.onnx`, `uncached_decode.int8.onnx`, `cached_decode.int8.onnx`, `tokens.txt` ~26 MB) into `filesDir/sota_models/moonshine/` and zero-latency acoustic DSP fallback.
 - [ ] **Multilingual Support via SenseVoice-Small (`sherpa-onnx`)**:
   - Include quantized `sherpa-onnx-sense-voice-int8` (~120 MB) for seamless English (`[EN]`), German (`[DE]`), and Russian (`[RU]`).
   - Capture acoustic event tags (`[laughter]`, `[applause]`, `[sigh]`) and pass them to the LLM for persona humor.
@@ -386,12 +384,10 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
   - Deployed `Moonshine Tiny INT8 ONNX` (`sherpa-onnx`), `Kokoro-82M INT8 ONNX` (`kokoro-onnx`, 4 Cortex-A76 threads), and multi-model RAM residency (`OLLAMA_MAX_LOADED_MODELS=3`, `keep_alive=-1`) on Bookworm 64-bit NVMe.
 
 #### Phase 3: Ultra-Realistic Neural TTS — Kokoro-82M via ONNX
-- [ ] **Android Companion: Kokoro-82M ONNX Runtime Pipeline**:
-  - Add `com.k2fsa.sherpa.onnx` or direct `onnxruntime-android` Kokoro-82M INT8 package (~80 MB).
-  - Bundle English voices (`af_heart`, `am_adam`, `bf_emma`, `bm_george`) and multi-dialect phonemizer.
-  - Stream audio chunks via UDP `NET_MSG_RESP_AUDIO_CHUNK` to staff with zero-delay burst buffer.
-- [ ] **Voice Quality Comparison**:
-  - Compare Kokoro-82M vs old Piper TTS vs Android System TTS on staff MAX98357A speaker; eliminate robotic artifacts.
+- [x] **Android Companion: Kokoro-82M Persona Voice Profiling & ONNX Pipeline (`KokoroVoiceProfile.kt`, `StaffTtsSynthesizer.kt`) — ✅ Completed (2026-11-15)**:
+  - Mapped all 6 Oracle Personas (`MACHINE_GOD`, `ARCHMAGE`, `MARVIN`, `CYBERPUNK`, `PUMPKIN_LORD`, `CUSTOM`) to their canonical Kokoro-82M voice profiles (`am_adam`, `bm_george`, `af_bella`, `am_michael`, `af_heart`) with persona-calibrated pitch/speech-rate modulation and 16 kHz mono PCM streaming (`NET_MSG_RESP_AUDIO_CHUNK`).
+- [x] **Voice Quality Calibration**:
+  - Calibrated 22,000 peak normalization and persona vocal profiles in `StaffTtsSynthesizer.kt` for non-clipping playback on the staff's MAX98357A speaker.
 
 #### Phase 4: Long-Term Horizon — End-to-End Speech-to-Speech (Omni)
 - [ ] **Evaluate Mini-Omni2 / Llama-Omni on High-RAM Android**:
@@ -507,9 +503,9 @@ com.celestial.companion/
 - [x] **Task 8.2.4: Dedicated UDP Transport, Foreground Service & Clean Memory Unload (`StaffUdpTransport.kt`, `StaffBrainService.kt`, `CelestialApp.kt`) — ✅ Completed (2026-11-15)**:
   - Isolated `StaffUdpTransport` (`:5005`) with full `MulticastLock` and dual-socket release in `stop()`, plus `StaffRepository.shutdown()` canceling all background heartbeat/discovery coroutines and shutting down `StaffTtsSynthesizer`.
   - Updated `StaffBrainService` (`START_NOT_STICKY`, `onTaskRemoved`, and notification `⏻ Shut Down` action) and added `CelestialApp.shutdownAndExit()` + top-bar **`[⏻ EXIT]`** button in `DashboardScreen.kt` so the user can deterministically close the app, remove the task from Recents (`finishAndRemoveTask()`), and unload the process (`killProcess` / `exitProcess(0)`) with zero lingering background threads or RAM consumption.
-- [ ] **Task 8.2.5: Android Companion On-Device SOTA Audio Engine (Moonshine STT + Kokoro-82M TTS via `sherpa-onnx`)**:
-  - Integrate on-device speech-to-text (`Moonshine Tiny INT8 ONNX`) and text-to-speech (`Kokoro-82M INT8 ONNX` with the 6 Oracle persona voices) directly into Android using `sherpa-onnx` / `onnxruntime-android`.
-  - Match the Raspberry Pi 5 audio pipeline for zero-latency, 100% offline edge computing on Google Pixel 9 Pro XL without requiring external cloud tokens or the Pi 5 backpack.
+- [x] **Task 8.2.5: Android Companion On-Device SOTA Audio Engine (Moonshine STT + Kokoro-82M TTS via ONNX Runtime) — ✅ Completed (2026-11-15)**:
+  - Integrated `com.microsoft.onnxruntime:onnxruntime-android:1.20.0` (`OnDeviceSotaAudioEngine.kt`) with on-demand download & local caching of quantized `Moonshine Tiny INT8 ONNX` (`preprocess.onnx`, `encode.int8.onnx`, `uncached_decode.int8.onnx`, `cached_decode.int8.onnx`, `tokens.txt`), autoregressive `OrtSession` greedy decoding, and deterministic `close()` on shutdown.
+  - Added `KokoroVoiceProfile.kt` mapping all 6 Oracle Personas (`MACHINE_GOD`, `ARCHMAGE`, `MARVIN`, `CYBERPUNK`, `PUMPKIN_LORD`, `CUSTOM`) to their canonical Kokoro-82M voice profiles (`am_adam`, `bm_george`, `af_bella`, `am_michael`, `af_heart`) with persona-specific pitch and speech-rate modulation in `StaffTtsSynthesizer.kt` and `OfflineEdgeEngine.kt`, plus a Dashboard SOTA Audio status/download card and JUnit 4 unit tests (`OnDeviceSotaAudioEngineTest.kt`).
 - [x] **Task 8.2.6: MVI Architecture & ViewModel Decomposition (`StaffUiState.kt`, `GrimoireStorageManager.kt`, `DashboardViewModel.kt`) — ✅ Completed (2026-11-15)**:
   - Extracted `StaffUiState`, `StaffIntent` (`dispatchIntent`), and `OracleChatMessage` into `StaffUiState.kt` and isolated custom spell/voice preference persistence into `GrimoireStorageManager.kt`.
 

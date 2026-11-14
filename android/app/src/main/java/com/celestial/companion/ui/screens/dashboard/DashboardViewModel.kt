@@ -64,6 +64,24 @@ class DashboardViewModel(
     val engineMode: StateFlow<com.celestial.companion.ai.AiEngineMode> =
         dualEngineProvider?.engineModeFlow ?: MutableStateFlow(com.celestial.companion.ai.AiEngineMode.AUTO_FALLBACK).asStateFlow()
 
+    val sotaAudioState: StateFlow<com.celestial.companion.ai.SotaAudioState> =
+        repository.sotaAudioEngine?.state ?: MutableStateFlow(com.celestial.companion.ai.SotaAudioState.READY_BUILTIN_DSP).asStateFlow()
+
+    val sotaDownloadProgress: StateFlow<Int> =
+        repository.sotaAudioEngine?.downloadProgress ?: MutableStateFlow(0).asStateFlow()
+
+    fun downloadSotaMoonshineOnnx() {
+        viewModelScope.launch {
+            repository.log("SOTA-AUDIO", "⬇️ Downloading Moonshine Tiny INT8 ONNX models (~26 MB)...", LogLevel.INFO)
+            val ok = repository.sotaAudioEngine?.downloadMoonshineModels() ?: false
+            if (ok) {
+                repository.log("SOTA-AUDIO", "✅ Moonshine ONNX INT8 models ready for on-device inference!", LogLevel.SUCCESS)
+            } else {
+                repository.log("SOTA-AUDIO", "⚠️ Moonshine ONNX download failed; using built-in DSP + Kokoro-82M voice profiles", LogLevel.WARN)
+            }
+        }
+    }
+
     fun setEngineMode(mode: com.celestial.companion.ai.AiEngineMode) {
         dualEngineProvider?.engineMode = mode
         repository.log("AI-ORACLE", "Switched AI Engine Mode to ${mode.name}", com.celestial.companion.domain.model.LogLevel.INFO)

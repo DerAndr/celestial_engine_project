@@ -1061,6 +1061,10 @@ fun DashboardScreen(
         val phoneBrainActive by viewModel.phoneBrainActive.collectAsState()
         val phoneModels by viewModel.phoneModels.collectAsState()
         val engineMode by viewModel.engineMode.collectAsState()
+        val sotaAudioState by viewModel.sotaAudioState.collectAsState()
+        val sotaDownloadProgress by viewModel.sotaDownloadProgress.collectAsState()
+        val currentPersona by viewModel.currentPersona.collectAsState()
+        val activeKokoroVoice = com.celestial.companion.audio.KokoroVoiceProfile.forPersona(currentPersona.id)
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -1181,6 +1185,76 @@ fun DashboardScreen(
                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                                 fontFamily = FontFamily.Monospace
                             )
+                        }
+                    }
+                }
+
+                HorizontalDivider(color = CardBorder, thickness = 1.dp)
+
+                // On-Device SOTA Audio Engine Status (Task 8.2.5: Moonshine ONNX + Kokoro-82M Voice)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(DeepVoid)
+                        .border(1.dp, CardBorder, RoundedCornerShape(10.dp))
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🎙️ SOTA ON-DEVICE AUDIO",
+                            color = RunicGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = activeKokoroVoice.displayLabel,
+                            color = AetherCyan,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = when (sotaAudioState) {
+                                com.celestial.companion.ai.SotaAudioState.READY_ONNX_SOTA -> "✅ Moonshine ONNX INT8 Active"
+                                com.celestial.companion.ai.SotaAudioState.DOWNLOADING -> "⬇️ Downloading ONNX ($sotaDownloadProgress%)..."
+                                else -> "⚡ Built-in DSP + Kokoro Profile"
+                            },
+                            color = if (sotaAudioState == com.celestial.companion.ai.SotaAudioState.READY_ONNX_SOTA) EmeraldGreen else TextSecondary,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        if (sotaAudioState != com.celestial.companion.ai.SotaAudioState.READY_ONNX_SOTA &&
+                            sotaAudioState != com.celestial.companion.ai.SotaAudioState.DOWNLOADING
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0x2200E5FF))
+                                    .border(1.dp, AetherCyan, RoundedCornerShape(6.dp))
+                                    .clickable { viewModel.downloadSotaMoonshineOnnx() }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "GET MOONSHINE ONNX",
+                                    color = AetherCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                     }
                 }

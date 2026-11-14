@@ -1,5 +1,6 @@
 package com.celestial.companion.ai
 
+import com.celestial.companion.audio.KokoroVoiceProfile
 import com.celestial.companion.domain.model.CelestialProphecyParser
 import com.celestial.companion.domain.model.LedAnimation
 import com.celestial.companion.domain.model.OraclePersona
@@ -11,16 +12,18 @@ import kotlinx.coroutines.flow.flow
 import java.util.Locale
 
 /**
- * 100% On-Device Offline AI Engine (Task 8.2.2).
+ * 100% On-Device Offline AI Engine (Task 8.2.2 & Task 8.2.5).
  *
  * Provides zero-cloud, zero-latency local execution:
  * - Deterministic sub-20ms regex & acoustic spell compilation ([FastSpellMatcher])
- * - Multi-dialect acoustic speech classification ([AcousticTranscriptionService])
+ * - SOTA On-Device Moonshine Tiny ONNX Runtime STT + Multi-dialect acoustic speech classification ([OnDeviceSotaAudioEngine])
+ * - Kokoro-82M Persona Voice Profiling ([KokoroVoiceProfile])
  * - 6 Multilingual Persona prophecy banks (RU / EN / DE, strictly <= 25 words)
  * - Hardware choreography tags: `[SPELL: Name | ANIM: ... | SOUNDS: ...] <Incantation>`
  */
 class OfflineEdgeEngine(
-    private val transcriptionService: AcousticTranscriptionService = AcousticTranscriptionService()
+    private val transcriptionService: AcousticTranscriptionService = AcousticTranscriptionService(),
+    val sotaAudioEngine: OnDeviceSotaAudioEngine? = null
 ) {
 
     companion object {
@@ -219,9 +222,11 @@ class OfflineEdgeEngine(
         emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.INGESTING, "Processing on-device tokens..."))
 
         val actualQuery: String = if (hasAudio && audioBytes != null) {
-            val classified = transcriptionService.classifyOfflineSpeech(audioBytes, language = language)
+            val classified = sotaAudioEngine?.transcribeOfflinePcm16(audioBytes, language)
+                ?: transcriptionService.classifyOfflineSpeech(audioBytes, language = language)
             if (classified.isNotBlank()) {
-                emit(GemmaStreamChunk.ThoughtToken("Acoustic voice classified: \"$classified\"\n\n"))
+                val sttBadge = if (sotaAudioEngine?.isMoonshineOnnxReady() == true) "Moonshine ONNX INT8" else "Acoustic Energy VAD"
+                emit(GemmaStreamChunk.ThoughtToken("🎙️ STT ($sttBadge): \"$classified\"\n\n"))
                 classified
             } else {
                 prompt.ifBlank { "System status inquiry" }
@@ -231,8 +236,9 @@ class OfflineEdgeEngine(
         }
 
         // Phase 2: Offline Prophecy Generation
+        val voiceProfile = KokoroVoiceProfile.forPersona(personaId)
         emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Formulating on-device prophecy..."))
-        emit(GemmaStreamChunk.ThoughtToken("⚡ Engine: Offline Edge SOTA (Zero Cloud)\nPersona: $personaId | Lang: ${language.name}\n\n"))
+        emit(GemmaStreamChunk.ThoughtToken("⚡ Engine: Offline Edge SOTA (Zero Cloud)\nPersona: $personaId | Voice: ${voiceProfile.displayLabel} | Lang: ${language.name}\n\n"))
 
         val prophecyOutput = resolveOfflineProphecy(actualQuery, personaId, language, customSpells)
 
