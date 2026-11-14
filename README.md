@@ -78,19 +78,44 @@ flowchart LR
 
 ## 🚀 Automated Android CI/CD, GitHub Releases & ADB Deployment
 
-Every change to `android/` or `android/app/build.gradle.kts` triggers a synchronized cloud build and deployment pipeline (detailed in [`docs/architecture.md`](docs/architecture.md#3-android-companion-cicd-build-auto-release--adb-deployment-pipeline)):
+Every commit touching [`android/`](android/) or [`android/app/build.gradle.kts`](android/app/build.gradle.kts) drives a fully automated **zero-local-Android-Studio** cloud build, release publishing, GitHub Pages synchronization, and physical smartphone deployment pipeline (full specification in [`docs/architecture.md`](docs/architecture.md#3-android-companion-cicd-build-auto-release--adb-deployment-pipeline)):
 
 ```mermaid
 flowchart LR
-    PUSH["git push (android/**)"]
-    BUILD["android-build.yml (Temurin JDK 17 + Gradle assembleDebug)"]
-    REL["GitHub Release Auto-Update (gh release upload --clobber)"]
-    PAGES["pages.yml (Auto-sync APK version & links on GitHub Pages)"]
-    ADB["Phone Deploy (gh release download + adb install -r)"]
+    PUSH["git push (android/** or build.gradle.kts)"]
+    BUILD["1. android-build.yml (Ubuntu + JDK 17 + Gradle assembleDebug)"]
+    REL["2. GitHub Release Auto-Clobber (gh release upload --clobber)"]
+    PAGES["3. pages.yml + controls.js (Auto-sync APK version & links on Pages)"]
+    ADB["4. Phone Deploy (gh release download -> adb install -r -> MainActivity)"]
 
     PUSH --> BUILD --> REL --> ADB
     PUSH --> PAGES
 ```
+
+### How the 4-Stage Pipeline Works Under the Hood
+
+1. **Single Source of Truth ([`android/app/build.gradle.kts`](android/app/build.gradle.kts))**:
+   - `versionName` (e.g., `"1.3.4"`) and `versionCode` define the canonical version across the Android app, GitHub Releases, and the live GitHub Pages showcase.
+2. **Cloud APK Compilation & Auto-Release Clobbering ([`.github/workflows/android-build.yml`](.github/workflows/android-build.yml))**:
+   - **Triggers**: Automatic on any `push` to `android/**`, on `release: [published]`, or manual `workflow_dispatch`.
+   - **Headless Build**: Runs `./gradlew assembleDebug --no-daemon --stacktrace` on `ubuntu-latest` with Temurin JDK 17 (`actions/setup-java@v4` with Gradle caching) — no local Android Studio or 15 GB Android SDK required on the developer workstation.
+   - **Version Extraction & Release Overwrite**: Parses `versionName` via regex (`grep -oP 'versionName\s*=\s*"\K[^"]+' android/app/build.gradle.kts`), renames `app-debug.apk` to `celestial_companion_v${ANDROID_VER}.apk`, uploads a workflow artifact (`celestial-companion-v${ANDROID_VER}-apk`), and on `master` automatically overwrites the binary on the latest GitHub Release (`gh release upload "$LATEST_TAG" "celestial_companion_v${ANDROID_VER}.apk" --clobber`).
+3. **Dual-Layer GitHub Pages Version Sync ([`.github/workflows/pages.yml`](.github/workflows/pages.yml) + [`docs/twin/controls.js`](docs/twin/controls.js))**:
+   - **Build-Time HTML Patching (`pages.yml`)**: Triggered whenever `docs/**` **or** `android/app/build.gradle.kts` changes. Extracts `versionName` and runs `sed -i` on [`docs/index.html`](docs/index.html) before `actions/deploy-pages@v4` so static download links (`celestial_companion_v*.apk`) and version badges never go stale.
+   - **Client-Side Runtime Sync (`syncLatestGitHubRelease()` in [`docs/twin/controls.js`](docs/twin/controls.js))**: Queries `https://api.github.com/repos/DerAndr/celestial_engine_project/releases/latest` on page load in the visitor's browser to dynamically bind the `#download-apk` and `#download-uf2` buttons to the newest published release assets.
+4. **Dual-Path Smartphone Deployment (`Google Pixel 9 Pro XL` via `gh` CLI + `adb`)**:
+   - Engineers and coding agents can either pull the cloud-compiled APK directly from GitHub Releases/Actions (`gh release download` / `gh run download`) into git-ignored `scratch/apk/` and install over USB/Wireless `adb install -r` (preserving user permissions and OpenRouter API keys), or build locally with `./gradlew assembleDebug`.
+
+### 🔗 Where to Look (Workflows, Live Dashboards & Key Files)
+
+| Component / Resource | Repository File | Live GitHub Dashboard / Endpoint |
+| :--- | :--- | :--- |
+| **Android Cloud Build & Release Upload** | [`.github/workflows/android-build.yml`](.github/workflows/android-build.yml) | [**Actions → Build Android Companion APK**](https://github.com/DerAndr/celestial_engine_project/actions/workflows/android-build.yml) |
+| **GitHub Pages Auto-Version Deploy** | [`.github/workflows/pages.yml`](.github/workflows/pages.yml) | [**Actions → Deploy GitHub Pages**](https://github.com/DerAndr/celestial_engine_project/actions/workflows/pages.yml) |
+| **Core Firmware & Python Protocol CI** | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | [**Actions → Core Engine CI**](https://github.com/DerAndr/celestial_engine_project/actions/workflows/ci.yml) |
+| **Canonical Android Version (`versionName`)** | [`android/app/build.gradle.kts`](android/app/build.gradle.kts) | [**Latest GitHub Release & APK Asset**](https://github.com/DerAndr/celestial_engine_project/releases/latest) |
+| **Browser Runtime Release Asset Sync** | [`docs/twin/controls.js`](docs/twin/controls.js) (`syncLatestGitHubRelease`) | [**Live Web Showcase (`#releases`)**](https://derandr.github.io/celestial_engine_project/#releases) |
+| **Full Architecture & CI/CD Deep-Dive** | [`docs/architecture.md`](docs/architecture.md) | [**Deep Engineering Lab (`#tab-cicd`)**](https://derandr.github.io/celestial_engine_project/?mode=lab#architecture) |
 
 ### Quick Build & Deploy Commands
 
@@ -99,17 +124,22 @@ flowchart LR
 cmake --build firmware/build --target celestial_firmware --parallel 4
 picotool load -f -x firmware/build/celestial_firmware.elf
 
-# 2A. Android Companion — Cloud Build -> Pull from GitHub Release -> ADB Install
+# 2A. Android Companion — Cloud Build (GitHub Actions) -> Pull APK -> ADB Install to Phone
+gh run list --workflow=android-build.yml --limit 1
 gh release download --pattern "celestial_companion_*.apk" -D scratch/apk --clobber
 adb install -r (Get-Item scratch/apk/celestial_companion_v*.apk).FullName
 adb shell am start -n com.celestial.companion/.MainActivity
 Remove-Item -Recurse -Force scratch/apk
 
-# 2B. Android Companion — Local Gradle Build -> ADB Install
+# 2B. Android Companion — Alternative: Download Directly from Specific Actions Run ID
+gh run download <RUN_ID> -n celestial-companion-v1.3.4-apk -D scratch/apk
+adb install -r (Get-Item scratch/apk/celestial_companion_v*.apk).FullName
+
+# 2C. Android Companion — Local Gradle Build -> ADB Install
 cd android && .\gradlew assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 
-# 3. Run Regression & Web Twin Acceptance Suites
+# 3. Run Regression & Web Twin Acceptance Suites (41 C/Python tests + Twin Parity)
 python -m unittest discover -s tests -v
 python tools/test_twin_acceptance.py
 ```
