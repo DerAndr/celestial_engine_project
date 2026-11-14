@@ -34,7 +34,7 @@ class DualEngineProviderTest {
     }
 
     @Test
-    fun `OfflineEdgeEngine resolves all 6 personas in EN RU DE with word count <= 25`() {
+    fun `OfflineEdgeEngine resolves all 6 personas in EN RU DE with at most 25 words`() {
         val personas = listOf(
             OraclePersona.MACHINE_GOD,
             OraclePersona.ARCHMAGE,
