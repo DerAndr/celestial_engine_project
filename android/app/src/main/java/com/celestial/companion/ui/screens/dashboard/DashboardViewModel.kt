@@ -70,6 +70,24 @@ class DashboardViewModel(
     val sotaDownloadProgress: StateFlow<Int> =
         repository.sotaAudioEngine?.downloadProgressPct ?: MutableStateFlow(0).asStateFlow()
 
+    val onDeviceLlmState: StateFlow<com.celestial.companion.ai.OnDeviceLlmState> =
+        repository.onDeviceLlmEngine?.state ?: MutableStateFlow(com.celestial.companion.ai.OnDeviceLlmState.NOT_DOWNLOADED).asStateFlow()
+
+    val onDeviceLlmDownloadProgress: StateFlow<Int> =
+        repository.onDeviceLlmEngine?.downloadProgressPct ?: MutableStateFlow(0).asStateFlow()
+
+    fun downloadOnDeviceLlm() {
+        viewModelScope.launch {
+            repository.log("SOTA-LLM", "⬇️ Downloading SmolLM2-135M-Instruct INT8 ONNX (~131 MB)...", LogLevel.INFO)
+            val ok = repository.onDeviceLlmEngine?.downloadAndInitModel() ?: false
+            if (ok) {
+                repository.log("SOTA-LLM", "✅ SmolLM2-135M-Instruct INT8 ONNX loaded on Tensor G4 for 100% offline LLM inference!", LogLevel.SUCCESS)
+            } else {
+                repository.log("SOTA-LLM", "⚠️ SmolLM2 ONNX download failed; using fast deterministic banks", LogLevel.WARN)
+            }
+        }
+    }
+
     fun downloadSotaMoonshineOnnx() {
         viewModelScope.launch {
             repository.log("SOTA-AUDIO", "⬇️ Downloading Moonshine Tiny INT8 ONNX models (~26 MB)...", LogLevel.INFO)

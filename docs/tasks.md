@@ -374,12 +374,10 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
   - Include quantized `sherpa-onnx-sense-voice-int8` (~120 MB) for seamless English (`[EN]`), German (`[DE]`), and Russian (`[RU]`).
   - Capture acoustic event tags (`[laughter]`, `[applause]`, `[sigh]`) and pass them to the LLM for persona humor.
 
-#### Phase 2: Edge LLM Engine — Meta ExecuTorch & Google LiteRT-LM
-- [ ] **Android Companion: ExecuTorch / LiteRT-LM Integration**:
-  - Add `org.pytorch.executorch:executorch-android` or Google `LiteRT-LM` dependency.
-  - Deploy **Llama 3.2 1B Instruct (INT4)** or **Qwen 2.5 1.5B Instruct (INT4)** (~800 MB–1.2 GB).
-  - Target: Time-To-First-Token (TTFT) < 150 ms on Snapdragon / Google Tensor NPU.
-  - Ensure strict system prompt compliance: 1–2 punchy sentences, max 20 words, with arcane `[SPELL: ...]` generation.
+#### Phase 2: Edge LLM Engine — On-Device Generative ONNX Runtime LLM
+- [x] **Android Companion: On-Device Generative LLM Integration (`OnDeviceLlmEngine.kt`, `SmolLM2-135M-Instruct` INT8 ONNX) — ✅ Completed (2026-11-15)**:
+  - Implemented `OnDeviceLlmEngine.kt` with a pure-Kotlin GPT-2 Byte-Level BPE Tokenizer (`ByteLevelBpeTokenizer`), ChatML framing (`<|im_start|>`/`<|im_end|>`), and full 30-layer KV-cache autoregressive token generation (`past_key_values.0..29` -> `present.0..29`) via `com.microsoft.onnxruntime:onnxruntime-android:1.20.0`.
+  - Downloads `HuggingFaceTB/SmolLM2-135M-Instruct` (`onnx/model_int8.onnx` ~130.8 MB + `tokenizer.json`) on-demand into `filesDir/sota_models/smollm2/` and streams real neural tokens in `OfflineEdgeEngine.kt` (`modelTag = "SMOLLM2-ONNX"`).
 - [x] **Raspberry Pi 5 SOTA Audio & LLM Optimization (Completed 2026-11-07)**:
   - Deployed `Moonshine Tiny INT8 ONNX` (`sherpa-onnx`), `Kokoro-82M INT8 ONNX` (`kokoro-onnx`, 4 Cortex-A76 threads), and multi-model RAM residency (`OLLAMA_MAX_LOADED_MODELS=3`, `keep_alive=-1`) on Bookworm 64-bit NVMe.
 

@@ -41,6 +41,7 @@ class StaffRepository(
     val gemmaEngine: GemmaModelEngine? = null,
     val dualEngineProvider: com.celestial.companion.ai.DualEngineProvider? = null,
     val sotaAudioEngine: com.celestial.companion.ai.OnDeviceSotaAudioEngine? = null,
+    val onDeviceLlmEngine: com.celestial.companion.ai.OnDeviceLlmEngine? = null,
     val context: android.content.Context? = null,
     val voiceQueryUseCase: ProcessStaffVoiceQueryUseCase = ProcessStaffVoiceQueryUseCase(),
     val telemetryUseCase: SyncStaffTelemetryUseCase = SyncStaffTelemetryUseCase(),
@@ -755,6 +756,9 @@ class StaffRepository(
         } catch (_: Exception) {}
         try {
             sotaAudioEngine?.close()
+        } catch (_: Exception) {}
+        try {
+            onDeviceLlmEngine?.close()
         } catch (_: Exception) {}
         try {
             transport.stop()

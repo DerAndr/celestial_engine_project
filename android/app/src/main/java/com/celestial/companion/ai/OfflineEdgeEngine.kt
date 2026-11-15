@@ -23,7 +23,8 @@ import java.util.Locale
  */
 class OfflineEdgeEngine(
     private val transcriptionService: AcousticTranscriptionService = AcousticTranscriptionService(),
-    val sotaAudioEngine: OnDeviceSotaAudioEngine? = null
+    val sotaAudioEngine: OnDeviceSotaAudioEngine? = null,
+    val onDeviceLlmEngine: OnDeviceLlmEngine? = null
 ) {
 
     companion object {
@@ -235,35 +236,77 @@ class OfflineEdgeEngine(
             prompt.ifBlank { "System status inquiry" }
         }
 
-        // Phase 2: Offline Prophecy Generation
+        // Phase 2: Offline Prophecy Generation (True On-Device SmolLM2-135M INT8 ONNX or Fast Deterministic)
         val voiceProfile = KokoroVoiceProfile.forPersona(personaId)
+        val useOnnxLlm = onDeviceLlmEngine != null && onDeviceLlmEngine.isModelDownloaded()
+        val engineLabel = if (useOnnxLlm) "SmolLM2-135M INT8 ONNX (On-Device Neural)" else "Offline Edge SOTA (Deterministic)"
         emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.THINKING, "Formulating on-device prophecy..."))
-        emit(GemmaStreamChunk.ThoughtToken("⚡ Engine: Offline Edge SOTA (Zero Cloud)\nPersona: $personaId | Voice: ${voiceProfile.displayLabel} | Lang: ${language.name}\n\n"))
+        emit(GemmaStreamChunk.ThoughtToken("⚡ Engine: $engineLabel\nPersona: $personaId | Voice: ${voiceProfile.displayLabel} | Lang: ${language.name}\n\n"))
 
-        val prophecyOutput = resolveOfflineProphecy(actualQuery, personaId, language, customSpells)
-
-        // Phase 3: Token Streaming
         emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.STREAMING, "Streaming on-device prophecy..."))
 
-        // Split by words to simulate smooth token streaming for UI / OLED
-        val words = prophecyOutput.split(" ")
-        for (i in words.indices) {
-            val token = if (i == words.lastIndex) words[i] else "${words[i]} "
-            emit(GemmaStreamChunk.OutputToken(token))
-            delay(TOKEN_STREAM_DELAY_MS)
+        val matchedSpell = FastSpellMatcher.match(actualQuery.trim(), customSpells)
+        val fullGenerated = StringBuilder()
+        var wordCount = 0
+
+        if (matchedSpell != null) {
+            val animName = matchedSpell.animation.name
+            val soundsStr = if (matchedSpell.sounds.isNotEmpty()) matchedSpell.sounds.joinToString(", ") else "3, 6, 1"
+            val spellPrefix = "[SPELL: ${matchedSpell.name} | ANIM: $animName | SOUNDS: $soundsStr] "
+            emit(GemmaStreamChunk.OutputToken(spellPrefix))
+            fullGenerated.append(spellPrefix)
         }
+
+        if (useOnnxLlm && onDeviceLlmEngine != null) {
+            val llmPrompt = if (matchedSpell != null) {
+                "Chant a dramatic 1-sentence arcane incantation for the spell ${matchedSpell.name}."
+            } else {
+                actualQuery
+            }
+            val llmBuilder = StringBuilder()
+            onDeviceLlmEngine.generateStream(llmPrompt, personaId, language).collect { piece ->
+                llmBuilder.append(piece)
+                fullGenerated.append(piece)
+                emit(GemmaStreamChunk.OutputToken(piece))
+            }
+            if (llmBuilder.isBlank()) {
+                val fallback = if (matchedSpell != null) {
+                    resolveSpellIncantation(matchedSpell, language)
+                } else {
+                    resolveOfflineProphecy(actualQuery, personaId, language, customSpells)
+                }
+                emit(GemmaStreamChunk.OutputToken(fallback))
+                fullGenerated.append(fallback)
+            }
+        } else {
+            val bodyText = if (matchedSpell != null) {
+                resolveSpellIncantation(matchedSpell, language)
+            } else {
+                resolveOfflineProphecy(actualQuery, personaId, language, customSpells)
+            }
+            val words = bodyText.split(" ")
+            for (i in words.indices) {
+                val token = if (i == words.lastIndex) words[i] else "${words[i]} "
+                fullGenerated.append(token)
+                emit(GemmaStreamChunk.OutputToken(token))
+                delay(TOKEN_STREAM_DELAY_MS)
+            }
+        }
+
+        val finalOutput = fullGenerated.toString().trim()
+        wordCount = finalOutput.split(Regex("\\s+")).size.coerceAtLeast(1)
 
         // Phase 4: Complete
         val elapsedMs = (System.currentTimeMillis() - t0).coerceAtLeast(1)
-        val tokensPerSec = (words.size / (elapsedMs / 1000f)).coerceAtLeast(1f)
+        val tokensPerSec = (wordCount / (elapsedMs / 1000f)).coerceAtLeast(1f)
         val result = GemmaResult(
             prompt = actualQuery,
-            thoughtTrace = "Offline Edge Engine (Zero Cloud). Mode: ${if (FastSpellMatcher.isSpellIntent(actualQuery)) "FAST SPELL" else "ORACLE PROPHECY"}.",
-            outputText = prophecyOutput,
+            thoughtTrace = "$engineLabel. Mode: ${if (matchedSpell != null) "FAST SPELL" else "ORACLE PROPHECY"}.",
+            outputText = finalOutput,
             latencyMs = elapsedMs,
             tokensPerSec = tokensPerSec,
             modalityUsed = if (hasAudio) "AUDIO_OFFLINE" else "TEXT_OFFLINE",
-            modelTag = "EDGE-OFFLINE"
+            modelTag = if (useOnnxLlm) "SMOLLM2-ONNX" else "EDGE-OFFLINE"
         )
 
         emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.COMPLETED, "Completed ($elapsedMs ms)"))

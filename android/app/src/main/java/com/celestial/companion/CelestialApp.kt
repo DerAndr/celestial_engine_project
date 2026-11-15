@@ -5,6 +5,7 @@ import android.util.Log
 import com.celestial.companion.ai.DualEngineProvider
 import com.celestial.companion.ai.GemmaModelEngine
 import com.celestial.companion.ai.OfflineEdgeEngine
+import com.celestial.companion.ai.OnDeviceLlmEngine
 import com.celestial.companion.ai.OnDeviceSotaAudioEngine
 import com.celestial.companion.domain.repository.StaffRepository
 import com.celestial.companion.network.StaffUdpTransport
@@ -27,8 +28,12 @@ class CelestialApp : Application() {
         OnDeviceSotaAudioEngine(this, gemmaEngine.transcriptionService)
     }
 
+    val onDeviceLlmEngine: OnDeviceLlmEngine by lazy {
+        OnDeviceLlmEngine(this)
+    }
+
     val offlineEngine: OfflineEdgeEngine by lazy {
-        OfflineEdgeEngine(gemmaEngine.transcriptionService, sotaAudioEngine)
+        OfflineEdgeEngine(gemmaEngine.transcriptionService, sotaAudioEngine, onDeviceLlmEngine)
     }
 
     val dualEngineProvider: DualEngineProvider by lazy {
@@ -45,6 +50,7 @@ class CelestialApp : Application() {
             gemmaEngine = gemmaEngine,
             dualEngineProvider = dualEngineProvider,
             sotaAudioEngine = sotaAudioEngine,
+            onDeviceLlmEngine = onDeviceLlmEngine,
             context = this
         ).also {
             it.passkey = savedPasskey

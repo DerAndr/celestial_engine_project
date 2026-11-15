@@ -1063,6 +1063,8 @@ fun DashboardScreen(
         val engineMode by viewModel.engineMode.collectAsState()
         val sotaAudioState by viewModel.sotaAudioState.collectAsState()
         val sotaDownloadProgress by viewModel.sotaDownloadProgress.collectAsState()
+        val onDeviceLlmState by viewModel.onDeviceLlmState.collectAsState()
+        val onDeviceLlmDownloadProgress by viewModel.onDeviceLlmDownloadProgress.collectAsState()
         val currentPersona by viewModel.currentPersona.collectAsState()
         val activeKokoroVoice = com.celestial.companion.audio.KokoroVoiceProfile.forPersona(currentPersona.id)
 
@@ -1249,6 +1251,65 @@ fun DashboardScreen(
                             ) {
                                 Text(
                                     text = "GET MOONSHINE ONNX",
+                                    color = AetherCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = CardBorder, thickness = 1.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🧠 SOTA ON-DEVICE LLM",
+                            color = RunicGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "SmolLM2-135M INT8 ONNX",
+                            color = AetherCyan,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = when (onDeviceLlmState) {
+                                com.celestial.companion.ai.OnDeviceLlmState.READY_ONNX -> "✅ SmolLM2-135M ONNX Active"
+                                com.celestial.companion.ai.OnDeviceLlmState.DOWNLOADING -> "⬇️ Downloading LLM ($onDeviceLlmDownloadProgress%)..."
+                                else -> "⚡ Fast Deterministic Banks"
+                            },
+                            color = if (onDeviceLlmState == com.celestial.companion.ai.OnDeviceLlmState.READY_ONNX) EmeraldGreen else TextSecondary,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        if (onDeviceLlmState != com.celestial.companion.ai.OnDeviceLlmState.READY_ONNX &&
+                            onDeviceLlmState != com.celestial.companion.ai.OnDeviceLlmState.DOWNLOADING
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0x2200E5FF))
+                                    .border(1.dp, AetherCyan, RoundedCornerShape(6.dp))
+                                    .clickable { viewModel.downloadOnDeviceLlm() }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "GET SMOLLM2 ONNX",
                                     color = AetherCyan,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,

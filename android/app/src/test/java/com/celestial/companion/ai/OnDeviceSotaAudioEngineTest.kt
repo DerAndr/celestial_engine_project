@@ -52,4 +52,47 @@ class OnDeviceSotaAudioEngineTest {
         assertEquals("Cast fireball", text)
         assertTrue(FastSpellMatcher.isSpellIntent(text))
     }
+
+    @Test
+    fun `ByteLevelBpeTokenizer encodes ChatML and decodes byte-level BPE tokens accurately`() {
+        val sampleTokenizerJson = """
+            {
+              "model": {
+                "type": "BPE",
+                "vocab": {
+                  "<|endoftext|>": 0,
+                  "<|im_start|>": 1,
+                  "<|im_end|>": 2,
+                  "s": 10,
+                  "y": 11,
+                  "t": 12,
+                  "e": 13,
+                  "m": 14,
+                  "Ċ": 15,
+                  "Ġ": 16,
+                  "H": 17,
+                  "i": 18,
+                  "ĠH": 19,
+                  "ĠHi": 20
+                },
+                "merges": [
+                  "Ġ H",
+                  "ĠH i"
+                ]
+              },
+              "added_tokens": [
+                {"id": 0, "content": "<|endoftext|>"},
+                {"id": 1, "content": "<|im_start|>"},
+                {"id": 2, "content": "<|im_end|>"}
+              ]
+            }
+        """.trimIndent()
+
+        val tokenizer = OnDeviceLlmEngine.ByteLevelBpeTokenizer.fromTokenizerJson(sampleTokenizerJson)
+        val encoded = tokenizer.encodeText(" Hi")
+        assertEquals(listOf(20L), encoded)
+
+        val decoded = tokenizer.decodeTokens(listOf(1, 20, 2))
+        assertEquals(" Hi", decoded)
+    }
 }
