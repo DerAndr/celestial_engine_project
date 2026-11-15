@@ -460,75 +460,89 @@ class OnDeviceLlmEngine(
                     inputs[vName] = OnnxTensor.createTensor(env, FloatBuffer.wrap(pastValArrays[layer]), kvShape)
                 }
 
-                session.run(inputs).use { results ->
-                    val logitsTensor = results.get("logits").orElse(null) as? OnnxTensor ?: break
-                    val logitsBuf = logitsTensor.floatBuffer
-                    val logitsShape = logitsTensor.info.shape // [1, curSeqLen, vocabSize]
-                    val vocabSize = logitsShape.last().toInt()
-                    val lastTokenOffset = ((curSeqLen.toInt() - 1) * vocabSize)
+                val results = session.run(inputs)
+                var shouldStop = false
+                var deltaToEmit: String? = null
+                try {
+                    val logitsTensor = results.get("logits").orElse(null) as? OnnxTensor
+                    if (logitsTensor == null) {
+                        shouldStop = true
+                    } else {
+                        val logitsBuf = logitsTensor.floatBuffer
+                        val logitsShape = logitsTensor.info.shape // [1, curSeqLen, vocabSize]
+                        val vocabSize = logitsShape.last().toInt()
+                        val lastTokenOffset = ((curSeqLen.toInt() - 1) * vocabSize)
 
-                    val stepLogits = FloatArray(vocabSize)
-                    logitsBuf.position(lastTokenOffset)
-                    logitsBuf.get(stepLogits, 0, vocabSize)
+                        val stepLogits = FloatArray(vocabSize)
+                        logitsBuf.position(lastTokenOffset)
+                        logitsBuf.get(stepLogits, 0, vocabSize)
 
-                    // Apply repetition penalty to prevent loops
-                    for (prevId in generatedIds) {
-                        if (prevId in 0 until vocabSize) {
-                            val score = stepLogits[prevId]
-                            stepLogits[prevId] = if (score < 0f) score * REPETITION_PENALTY else score / REPETITION_PENALTY
+                        // Apply repetition penalty to prevent loops
+                        for (prevId in generatedIds) {
+                            if (prevId in 0 until vocabSize) {
+                                val score = stepLogits[prevId]
+                                stepLogits[prevId] = if (score < 0f) score * REPETITION_PENALTY else score / REPETITION_PENALTY
+                            }
+                        }
+
+                        // Greedy argmax selection
+                        var bestId = 0
+                        var bestVal = Float.NEGATIVE_INFINITY
+                        for (v in 0 until vocabSize) {
+                            if (stepLogits[v] > bestVal) {
+                                bestVal = stepLogits[v]
+                                bestId = v
+                            }
+                        }
+
+                        if (bestId.toLong() == EOS_TOKEN_ID || bestId.toLong() == EOT_TOKEN_ID) {
+                            shouldStop = true
+                        } else {
+                            generatedIds.add(bestId)
+
+                            // Extract updated KV cache from present.0..29
+                            val newPastSeqLen = totalSeqLen
+                            val newKvSize = (numKvHeads * newPastSeqLen * headDim).toInt()
+                            val nextKeys = Array(numLayers) { FloatArray(newKvSize) }
+                            val nextVals = Array(numLayers) { FloatArray(newKvSize) }
+                            for (layer in 0 until numLayers) {
+                                val pk = results.get("present.$layer.key").orElse(null) as? OnnxTensor
+                                val pv = results.get("present.$layer.value").orElse(null) as? OnnxTensor
+                                pk?.floatBuffer?.let { fb ->
+                                    fb.rewind()
+                                    fb.get(nextKeys[layer], 0, minOf(fb.remaining(), newKvSize))
+                                }
+                                pv?.floatBuffer?.let { fb ->
+                                    fb.rewind()
+                                    fb.get(nextVals[layer], 0, minOf(fb.remaining(), newKvSize))
+                                }
+                            }
+                            pastKeyArrays = nextKeys
+                            pastValArrays = nextVals
+                            pastSeqLen = newPastSeqLen
+
+                            // Incremental UTF-8 safe detokenization
+                            val decodedSoFar = tok.decodeTokens(generatedIds)
+                            if (decodedSoFar.length > emittedTextLen) {
+                                deltaToEmit = decodedSoFar.substring(emittedTextLen)
+                                emittedTextLen = decodedSoFar.length
+                            }
+
+                            // Stop early on sentence boundary once we have a crisp response (>= 8 words)
+                            val wordCount = decodedSoFar.trim().split(Regex("\\s+")).size
+                            if (wordCount >= 22 || (wordCount >= 8 && (decodedSoFar.endsWith(".") || decodedSoFar.endsWith("!") || decodedSoFar.endsWith("?") || decodedSoFar.contains("\n")))) {
+                                shouldStop = true
+                            }
                         }
                     }
-
-                    // Greedy argmax selection
-                    var bestId = 0
-                    var bestVal = Float.NEGATIVE_INFINITY
-                    for (v in 0 until vocabSize) {
-                        if (stepLogits[v] > bestVal) {
-                            bestVal = stepLogits[v]
-                            bestId = v
-                        }
-                    }
-
-                    if (bestId.toLong() == EOS_TOKEN_ID || bestId.toLong() == EOT_TOKEN_ID) {
-                        break
-                    }
-
-                    generatedIds.add(bestId)
-
-                    // Extract updated KV cache from present.0..29
-                    val newPastSeqLen = totalSeqLen
-                    val newKvSize = (numKvHeads * newPastSeqLen * headDim).toInt()
-                    val nextKeys = Array(numLayers) { FloatArray(newKvSize) }
-                    val nextVals = Array(numLayers) { FloatArray(newKvSize) }
-                    for (layer in 0 until numLayers) {
-                        val pk = results.get("present.$layer.key").orElse(null) as? OnnxTensor
-                        val pv = results.get("present.$layer.value").orElse(null) as? OnnxTensor
-                        pk?.floatBuffer?.let { fb ->
-                            fb.rewind()
-                            fb.get(nextKeys[layer], 0, minOf(fb.remaining(), newKvSize))
-                        }
-                        pv?.floatBuffer?.let { fb ->
-                            fb.rewind()
-                            fb.get(nextVals[layer], 0, minOf(fb.remaining(), newKvSize))
-                        }
-                    }
-                    pastKeyArrays = nextKeys
-                    pastValArrays = nextVals
-                    pastSeqLen = newPastSeqLen
-
-                    // Incremental UTF-8 safe detokenization
-                    val decodedSoFar = tok.decodeTokens(generatedIds)
-                    if (decodedSoFar.length > emittedTextLen) {
-                        val delta = decodedSoFar.substring(emittedTextLen)
-                        emittedTextLen = decodedSoFar.length
-                        emit(delta)
-                    }
-
-                    // Stop early on sentence boundary once we have a crisp response (>= 8 words)
-                    val wordCount = decodedSoFar.trim().split(Regex("\\s+")).size
-                    if (wordCount >= 22 || (wordCount >= 8 && (decodedSoFar.endsWith(".") || decodedSoFar.endsWith("!") || decodedSoFar.endsWith("?") || decodedSoFar.contains("\n")))) {
-                        break
-                    }
+                } finally {
+                    try { results.close() } catch (_: Throwable) {}
+                }
+                if (deltaToEmit != null) {
+                    emit(deltaToEmit!!)
+                }
+                if (shouldStop) {
+                    break
                 }
             } finally {
                 for (tensor in inputs.values) {
