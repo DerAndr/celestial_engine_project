@@ -1425,16 +1425,17 @@ class Pi5WebHandler(http.server.BaseHTTPRequestHandler):
                 user_text, detected_lang, stt_used = local_ai_engine.local_transcribe_with_meta(
                     wav_path, lang_id=0, engine_pref=stt_engine
                 )
+                emotion_events = local_ai_engine.detect_acoustic_events_from_wav(wav_path)
                 stt_ms = int((time.time() - t_stt0) * 1000)
 
-            user_text = user_text or "What is this?"
+            user_text = user_text or (" ".join(emotion_events) if emotion_events else "What is this?")
             matched_spell = ai_brain_server.match_fast_spell(user_text)
 
             t_llm0 = time.time()
             raw_answer = local_ai_engine.local_query_llm(
                 user_text, "en-US", model=model,
                 persona_id=persona_id, custom_prompt=custom_prompt,
-                matched_spell=matched_spell
+                matched_spell=matched_spell, emotion_events=emotion_events
             )
             llm_ms = int((time.time() - t_llm0) * 1000)
 

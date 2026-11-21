@@ -160,5 +160,38 @@ class MapRegressions(unittest.TestCase):
     def test_state_simulator_uses_explicit_event(self): self.scenario('state')
 
 
+class Pi5EmotionHumorParityTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location('local_ai_engine', ROOT / 'tools/local_ai_engine.py')
+        cls.engine = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.engine)
+
+    def test_detect_laughter_bursts_from_pcm16(self):
+        samples = []
+        for frame in range(8):
+            amp = 18000 if frame % 2 == 0 else 500
+            for i in range(800):
+                sign = 1 if (i // 10) % 2 == 0 else -1
+                samples.append(amp * sign)
+        pcm = struct.pack(f'<{len(samples)}h', *samples)
+        events = self.engine.detect_acoustic_events_from_pcm16(pcm)
+        self.assertIn('[laughter]', events)
+
+    def test_parse_emotion_tags_extracts_markers(self):
+        clean, events = self.engine.parse_emotion_tags('<|de|><|Laughter|> Wie geht es [sigh]')
+        self.assertEqual(clean, 'Wie geht es')
+        self.assertEqual(events, ['[laughter]', '[sigh]'])
+
+    def test_resolve_emotion_humor_prophecy_concise_and_persona_matched(self):
+        for lang in ('en-US', 'de-DE', 'ru-RU'):
+            for persona in ('machine_god', 'archmage', 'marvin', 'cyberpunk', 'pumpkin_lord'):
+                for event in ('[laughter]', '[applause]', '[sigh]'):
+                    reply = self.engine.resolve_emotion_humor_prophecy(event, persona_id=persona, lang_tag=lang)
+                    self.assertTrue(len(reply.strip()) > 0)
+                    self.assertLessEqual(len(reply.split()), 25, f"{persona}/{lang}/{event}: {reply}")
+                    self.assertNotIn('*', reply)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -837,15 +837,17 @@ def process_query_worker(transport, session):
         # STT Selection: local Whisper.cpp is fast (0.9s), private, and offline; fallback to Google STT
         user_text = None
         detected_lang = "en-US"
+        emotion_events = []
         if HAS_LOCAL_AI:
             user_text, detected_lang = local_ai_engine.local_transcribe(wav_path, session.lang)
+            emotion_events = local_ai_engine.detect_acoustic_events_from_pcm16(cleaned_pcm)
         if not user_text:
             user_text, detected_lang = transcribe_audio(wav_path, session.lang)
 
     if not transport.active(session):
         return
-    if user_text:
-        print(f"  [USER INPUT] \"{user_text}\" (Detected: {detected_lang})")
+    if user_text or emotion_events:
+        print(f"  [USER INPUT] \"{user_text or ''}\" (Detected: {detected_lang}, Events: {emotion_events})")
 
     # Fast Spell Matcher: detect instant spell keywords in user input
     matched_spell = match_fast_spell(user_text)
@@ -871,11 +873,18 @@ def process_query_worker(transport, session):
         if use_local_pipeline:
             local_model = LOCAL_MODELS_BY_PRESET.get(session.model, config.get("local_model", "gemma4:e2b"))
             print(f"[REQUEST {session.request_id}] Querying Local Pi 5 Core ({local_model}) [{mode_label}]...")
-            ai_text = (local_ai_engine.local_query_llm(
-                user_text, detected_lang, adult_mode=adult_mode, model=local_model,
-                persona_id=persona_id, custom_prompt=custom_prompt,
-                matched_spell=matched_spell
-            ) if user_text else get_silence_answer(detected_lang))
+            if user_text:
+                ai_text = local_ai_engine.local_query_llm(
+                    user_text, detected_lang, adult_mode=adult_mode, model=local_model,
+                    persona_id=persona_id, custom_prompt=custom_prompt,
+                    matched_spell=matched_spell, emotion_events=emotion_events
+                )
+            elif emotion_events:
+                ai_text = local_ai_engine.resolve_emotion_humor_prophecy(
+                    emotion_events[0], persona_id=persona_id, lang_tag=detected_lang
+                )
+            else:
+                ai_text = get_silence_answer(detected_lang)
         else:
             preset_info = MODEL_PRESETS.get(session.model, ("cloud", "Cloud LLM"))[1]
             print(f"[REQUEST {session.request_id}] Querying OpenRouter Core: {preset_info} [{mode_label}]...")

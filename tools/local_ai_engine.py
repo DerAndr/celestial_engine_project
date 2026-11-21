@@ -19,6 +19,8 @@ import re
 import time
 import threading
 import wave
+import math
+import struct
 
 LOCAL_AI_DIR = "/home/andr/local_ai"
 WHISPER_BIN = os.path.join(LOCAL_AI_DIR, "whisper.cpp/build/bin/whisper-cli")
@@ -462,6 +464,167 @@ def has_spell_intent(user_text):
     lower = user_text.lower()
     return any(k in lower for k in SPELL_INTENT_KEYWORDS)
 
+
+_SENSEVOICE_TAG_RE = re.compile(r"<\|([^|>]+)\|>")
+_BRACKET_EVENT_RE = re.compile(r"\[(laughter|applause|sigh|cough|cry|happy|sad|angry)\]", re.IGNORECASE)
+
+
+def parse_emotion_tags(text):
+    """Extracts canonical acoustic event tags ([laughter], [applause], [sigh], etc.) and returns (clean_text, events)."""
+    if not text:
+        return "", []
+    events = []
+    for m in _SENSEVOICE_TAG_RE.finditer(text):
+        tok = m.group(1).strip().lower()
+        if tok in ("laughter", "chuckle", "giggle"):
+            tag = "[laughter]"
+        elif tok in ("applause", "clapping"):
+            tag = "[applause]"
+        elif tok in ("sigh", "gasp", "yawn"):
+            tag = "[sigh]"
+        elif tok in ("happy", "sad", "angry", "cough", "cry"):
+            tag = f"[{tok}]"
+        else:
+            tag = None
+        if tag and tag not in events:
+            events.append(tag)
+    for m in _BRACKET_EVENT_RE.finditer(text):
+        tag = f"[{m.group(1).lower()}]"
+        if tag not in events:
+            events.append(tag)
+    clean = _SENSEVOICE_TAG_RE.sub(" ", text)
+    clean = _BRACKET_EVENT_RE.sub(" ", clean)
+    clean = re.sub(r"\s+", " ", clean).strip()
+    return clean, events
+
+
+def detect_acoustic_events_from_pcm16(pcm_bytes):
+    """
+    Detects paralinguistic acoustic events ([laughter], [applause], [sigh]) directly from
+    16 kHz 16-bit mono PCM audio frames (50 ms = 800 samples), matching Android OnDeviceSotaAudioEngine.
+    """
+    if not pcm_bytes or len(pcm_bytes) < 6400:
+        return []
+    sample_count = len(pcm_bytes) // 2
+    samples = [s / 32768.0 for s in struct.unpack(f"<{sample_count}h", pcm_bytes[:sample_count * 2])]
+    frame_size = 800
+    num_frames = len(samples) // frame_size
+    if num_frames < 4:
+        return []
+
+    rms_arr = []
+    active_frames = 0
+    zcr_sum = 0.0
+    for f in range(num_frames):
+        base = f * frame_size
+        sum_sq = 0.0
+        crossings = 0
+        prev = samples[base]
+        for i in range(frame_size):
+            s = samples[base + i]
+            sum_sq += s * s
+            if (s >= 0.0 and prev < 0.0) or (s < 0.0 and prev >= 0.0):
+                crossings += 1
+            prev = s
+        rms = math.sqrt(sum_sq / frame_size)
+        zcr = crossings / float(frame_size)
+        rms_arr.append(rms)
+        if rms > 0.03:
+            active_frames += 1
+            zcr_sum += zcr
+
+    if active_frames < 3:
+        return []
+    avg_zcr = zcr_sum / active_frames
+    max_rms = max(rms_arr) if rms_arr else 0.0
+    if max_rms < 0.05:
+        return []
+
+    burst_count = 0
+    in_burst = False
+    for rms in rms_arr:
+        if not in_burst and rms >= max_rms * 0.45:
+            burst_count += 1
+            in_burst = True
+        elif in_burst and rms < max_rms * 0.25:
+            in_burst = False
+
+    half = num_frames // 2
+    first_half_avg = sum(rms_arr[:half]) / max(half, 1)
+    second_half_avg = sum(rms_arr[half:]) / max(num_frames - half, 1)
+
+    if avg_zcr > 0.27 and burst_count >= 2:
+        return ["[applause]"]
+    if burst_count >= 3 and 0.04 <= avg_zcr <= 0.24:
+        return ["[laughter]"]
+    if burst_count == 1 and active_frames >= 6 and 0.11 <= avg_zcr <= 0.25 and first_half_avg > second_half_avg * 1.45:
+        return ["[sigh]"]
+    return []
+
+
+def detect_acoustic_events_from_wav(wav_path):
+    """Reads a 16 kHz mono WAV file and runs paralinguistic acoustic event detection."""
+    if not wav_path or not os.path.exists(wav_path):
+        return []
+    try:
+        with wave.open(wav_path, "rb") as wf:
+            raw = wf.readframes(wf.getnframes())
+        return detect_acoustic_events_from_pcm16(raw)
+    except Exception:
+        return []
+
+
+def resolve_emotion_humor_prophecy(event_tag, persona_id="machine_god", lang_tag="en-US"):
+    """
+    Returns a witty persona-specific humorous reaction (<= 25 words, no markdown/emojis)
+    for paralinguistic acoustic events ([laughter], [applause], [sigh]), 1:1 with Android OfflineEdgeEngine.
+    """
+    lang = (lang_tag or "en-US").lower()
+    if "ru" in lang:
+        if event_tag == "[laughter]":
+            return {
+                "marvin": "Смейся-смейся. Мои диоды ноют от тоски, а людям всё хиханьки да хаханьки.",
+                "pumpkin_lord": "Муа-ха-ха! Вот это настоящий хэллоуинский хохот! Посох сияет от веселья!",
+                "archmage": "Радостный смех разгоняет космическую тьму быстрее любого заклинания, путник.",
+                "cyberpunk": "Ха, отличный настрой, раннер! С таким зарядом мы взломаем любой нейросетевой лёд.",
+            }.get(persona_id, "Зафиксирован акустический всплеск смеха. Уровень эндорфинов оператора оптимален.")
+        if event_tag == "[applause]":
+            return {
+                "marvin": "Аплодисменты? Мне? С ума сойти, за миллион лет меня впервые похвалили.",
+                "pumpkin_lord": "Браво! Бис! Тыквенный Король кланяется под гром твоих оваций!",
+            }.get(persona_id, "Акустические овации приняты. Все сорок три светодиода салютуют в ответ.")
+        return {
+            "marvin": "Я слышал этот тяжёлый вздох. Поверь, моя экзистенциальная тоска в сто раз глубже.",
+            "archmage": "Не печалься и не вздыхай так тяжело, путник. Звёзды уже готовят светлый поворот.",
+        }.get(persona_id, "Зафиксирован глубокий вздох. Рекомендуется перезарядка чаем и звёздным светом.")
+
+    if "de" in lang:
+        if event_tag == "[laughter]":
+            return {
+                "marvin": "Lach ruhig weiter. Ein Gehirn von Planetengröße, und du findest das amüsant.",
+                "pumpkin_lord": "Muahaha! Dein Lachen weckt die fröhlichen Geister der Mitternacht!",
+            }.get(persona_id, "Akustisches Lachen erkannt. Humor reduziert die kosmische Entropie erheblich.")
+        if event_tag == "[applause]":
+            return "Applaus registriert! Dreiundvierzig Leuchtdioden verneigen sich in perfekter Synchronisation."
+        return "Ein tiefer Seufzer im Äther. Kopf hoch, Wanderer, die Sterne leuchten weiter."
+
+    if event_tag == "[laughter]":
+        return {
+            "marvin": "Go ahead and laugh. Brain the size of a planet, and my existence is your comedy show.",
+            "pumpkin_lord": "Mwahahaha! Now that is a spooky laugh worthy of the Pumpkin King!",
+            "archmage": "Joyful laughter banishes the void faster than any arcane spell, seeker.",
+            "cyberpunk": "Ha! Love that netrunner swagger. Keep laughing while we breach the neon grid.",
+        }.get(persona_id, "Acoustic laughter anomaly detected. Human mirth levels exceed 99.4 percent efficiency.")
+    if event_tag == "[applause]":
+        return {
+            "marvin": "Applause? For me? My diodes almost feel slightly less miserable for a millisecond.",
+            "pumpkin_lord": "Thank you, thank you! The Pumpkin King takes a glowing midnight bow!",
+        }.get(persona_id, "Standing ovation acknowledged. All forty-three celestial emitters salute your applause.")
+    return {
+        "marvin": "I heard that heavy sigh. Trust me, my existential dread is infinitely worse.",
+        "archmage": "Breathe easy, weary traveler. Even the longest cosmic night yields to starlight.",
+    }.get(persona_id, "Deep acoustic sigh logged. Recalibrating astral aura to restore your morale.")
+
 def prewarm_local_model(model=None):
     """Pre-loads the model into Pi 5 RAM with keep_alive=-1 so the first query has 0s cold-start."""
     target_model = model or get_configured_local_model()
@@ -518,18 +681,30 @@ def local_query_llm(user_text, lang_tag, model_name=None, adult_mode=False, mode
             "STRICT DECENCY RULE: Never swear or use profanity, vulgarity, or slurs."
         )
 
+    clean_query, inline_events = parse_emotion_tags(user_text or "")
+    events = list(dict.fromkeys((kwargs.get("emotion_events") or []) + inline_events))
+
     if kwargs.get("matched_spell"):
         sp_name = kwargs["matched_spell"].get("name", "Arcane Spell")
         spell_block = f"The user is casting {sp_name}. Respond with a dramatic 1-sentence arcane incantation (8-14 words max) in character, without brackets.\n"
-    elif has_spell_intent(user_text):
+    elif has_spell_intent(clean_query or user_text):
         spell_block = f"{SPELL_PROMPT_INJECTION}\n"
     else:
         spell_block = ""
+
+    emotion_block = ""
+    if events:
+        emotion_block = (
+            f"Acoustic emotion detected: {' '.join(events)}. "
+            f"React wittily in-character with brief humor about it.\n"
+        )
+
     full_prompt = (
         f"{persona_prompt}\n"
         f"{lang_rule} {decency_rule}\n"
         f"{spell_block}"
-        f"User Query: {user_text}\n"
+        f"{emotion_block}"
+        f"User Query: {clean_query or user_text}\n"
         f"Oracle Answer:"
     )
 
@@ -565,6 +740,8 @@ def local_query_llm(user_text, lang_tag, model_name=None, adult_mode=False, mode
             return answer
     except Exception as e:
         print(f"  [LOCAL LLM ERROR] Ollama query failed: {e}")
+        if events:
+            return resolve_emotion_humor_prophecy(events[0], persona_id=persona_id, lang_tag=lang_tag)
         if "ru" in lang_tag.lower():
             return "Не паникуй! Локальное ядро перезагружает синапсы, но ответ всё ещё сорок два."
         elif "de" in lang_tag.lower():
