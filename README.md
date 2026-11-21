@@ -9,7 +9,7 @@
 **Interactive AI Wizard Staff** powered by the **Raspberry Pi Pico 2 W (`RP2350` Dual Cortex-M33)** with full-duplex 16 kHz I2S audio (`INMP441` MEMS mic + `MAX98357A` 3W speaker), a **43-LED concentric WS2812B dome** (`7 + 12 + 24`), a `1.3" SH1106 OLED` HUD, wireless UDP v2 voice/telemetry streaming (`port 5005`), and multi-host local LLMs (**Android 15**, **Wearable Raspberry Pi 5**, and **In-Browser WebGPU/WASM**).
 
 - 🌐 **Live Interactive Showcase (2 Modes — `✨ Quick Demo` & `🔬 Engineering Lab`):** [**derandr.github.io/celestial_engine_project**](https://derandr.github.io/celestial_engine_project/)
-- 📦 **Latest Release (`v1.3.x`):** [**GitHub Releases**](https://github.com/DerAndr/celestial_engine_project/releases/latest) (`celestial_firmware.uf2` + auto-built `celestial_companion_v1.3.4.apk`)
+- 📦 **Latest Release (`v1.4.0`):** [**GitHub Releases (`v1.4.0-release`)**](https://github.com/DerAndr/celestial_engine_project/releases/latest) (`celestial_firmware.uf2` + auto-built `celestial_companion_v1.4.0.apk`)
 - 📐 **Engineering Deep-Dives:** [System Architecture & CI/CD](docs/architecture.md) • [Pinout & Wiring](docs/wiring/pinout.md) • [Hardware BOM](docs/hardware/inventory.md) • [UDP Protocol v2](docs/protocol.md) • [Roadmap & Tasks](docs/tasks.md)
 - 👤 **Author:** Created by **Dr. Andrey Holz** — [LinkedIn](https://www.linkedin.com/in/andrey-holz/) • [GitHub (@DerAndr)](https://github.com/DerAndr)
 
@@ -35,7 +35,7 @@ Open [**derandr.github.io/celestial_engine_project**](https://derandr.github.io/
 | Execution Node | AI / Audio Stack | Primary Role |
 | :--- | :--- | :--- |
 | **1. Staff Controller (`firmware/`)** | **RP2350 Dual Cortex-M33** (`Core 0`: Wi-Fi UDP `:5005` + OLED + Event Dispatcher; `Core 1`: PIO I2S Mic/Amp + 64 KB Ring Buffer + 43 LEDs + 8-Bit Synth) | Real-time embedded peripheral & standalone 21-track / 28-LED fallback |
-| **2. Android Companion (`android/`)** | **Kotlin / Compose (`v1.3.4+`)** • `DualEngineProvider` (`AUTO_FALLBACK`, `OFFLINE_EDGE` `<20 ms`, `CLOUD_ONLY` via Gemma 4 E2B / Gemini 2.5 Flash) | Primary mobile Wi-Fi Hotspot gateway (`:5005`), camera vision & remote control |
+| **2. Android Companion (`android/`)** | **Kotlin / Compose (`v1.4.0`)** • On-Device ONNX (`Moonshine INT8`, `SenseVoice INT8` + emotion tags, `SmolLM2-135M INT8` LLM, `Kokoro-82M` voice profiles) + `Gemma 4 E2B` / `Gemini 2.5 Flash` | Primary mobile Wi-Fi Hotspot gateway (`:5005`), camera vision & remote control |
 | **3. Wearable Pi 5 (`tools/`)** | **Raspberry Pi 5 (16 GB + 1 TB NVMe)** • `Moonshine INT8 ONNX` STT + `Ollama` (`Gemma 4 E2B`, `Qwen 2.5`, `Llama 3.2`) + `Kokoro-82M INT8` TTS + `:8080` Web Lab | Optional 100% air-gapped offline backpack co-processor (`celestial-brain.service`) |
 | **4. Browser Twin (`docs/`)** | **ES6 + Web Audio + Transformers.js v4** (`SmolLM2-135M` / `LFM2.5-350M`) | Zero-install interactive web replica & pinout explorer |
 
@@ -95,10 +95,10 @@ flowchart LR
 ### How the 4-Stage Pipeline Works Under the Hood
 
 1. **Single Source of Truth ([`android/app/build.gradle.kts`](android/app/build.gradle.kts))**:
-   - `versionName` (e.g., `"1.3.4"`) and `versionCode` define the canonical version across the Android app, GitHub Releases, and the live GitHub Pages showcase.
+   - `versionName` (e.g., `"1.4.0"`), `versionCode`, and the pinned project debug signing certificate (`android/app/celestial-debug.keystore`) define the canonical version across the Android app, GitHub Releases, and the live GitHub Pages showcase while ensuring `adb install -r` upgrades seamlessly across cloud and local builds.
 2. **Cloud APK Compilation & Auto-Release Clobbering ([`.github/workflows/android-build.yml`](.github/workflows/android-build.yml))**:
    - **Triggers**: Automatic on any `push` to `android/**`, on `release: [published]`, or manual `workflow_dispatch`.
-   - **Headless Build**: Runs `./gradlew assembleDebug --no-daemon --stacktrace` on `ubuntu-latest` with Temurin JDK 17 (`actions/setup-java@v4` with Gradle caching) — no local Android Studio or 15 GB Android SDK required on the developer workstation.
+   - **Headless Build & Unit Testing**: Runs `./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace` (39 JUnit 4 tests) on `ubuntu-latest` with Temurin JDK 17 (`actions/setup-java@v4` with Gradle caching) — no local Android Studio or 15 GB Android SDK required on the developer workstation.
    - **Version Extraction & Release Overwrite**: Parses `versionName` via regex (`grep -oP 'versionName\s*=\s*"\K[^"]+' android/app/build.gradle.kts`), renames `app-debug.apk` to `celestial_companion_v${ANDROID_VER}.apk`, uploads a workflow artifact (`celestial-companion-v${ANDROID_VER}-apk`), and on `master` automatically overwrites the binary on the latest GitHub Release (`gh release upload "$LATEST_TAG" "celestial_companion_v${ANDROID_VER}.apk" --clobber`).
 3. **Dual-Layer GitHub Pages Version Sync ([`.github/workflows/pages.yml`](.github/workflows/pages.yml) + [`docs/twin/controls.js`](docs/twin/controls.js))**:
    - **Build-Time HTML Patching (`pages.yml`)**: Triggered whenever `docs/**` **or** `android/app/build.gradle.kts` changes. Extracts `versionName` and runs `sed -i` on [`docs/index.html`](docs/index.html) before `actions/deploy-pages@v4` so static download links (`celestial_companion_v*.apk`) and version badges never go stale.
@@ -132,7 +132,7 @@ adb shell am start -n com.celestial.companion/.MainActivity
 Remove-Item -Recurse -Force scratch/apk
 
 # 2B. Android Companion — Alternative: Download Directly from Specific Actions Run ID
-gh run download <RUN_ID> -n celestial-companion-v1.3.4-apk -D scratch/apk
+gh run download <RUN_ID> -n celestial-companion-v1.4.0-apk -D scratch/apk
 adb install -r (Get-Item scratch/apk/celestial_companion_v*.apk).FullName
 
 # 2C. Android Companion — Local Gradle Build -> ADB Install

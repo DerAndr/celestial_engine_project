@@ -1,6 +1,6 @@
 # Celestial Engine Mk.V — System Architecture, Modular Firmware & CI/CD Pipeline
 
-This document provides the deep technical architecture for **Celestial Engine Mk.V (`v1.3.6`)**, covering the modular RP2350 C/C++ firmware layout, dual-core PIO/DMA audio and lighting pipelines, multi-host Edge AI routing (`Android 15`, `Raspberry Pi 5`, and `In-Browser WebGPU/WASM`), and the automated GitHub Actions Android build & deployment pipeline.
+This document provides the deep technical architecture for **Celestial Engine Mk.V (`v1.4.0`)**, covering the modular RP2350 C/C++ firmware layout, dual-core PIO/DMA audio and lighting pipelines, multi-host Edge AI routing (`Android 15`, `Raspberry Pi 5`, and `In-Browser WebGPU/WASM`), and the automated GitHub Actions Android build & deployment pipeline.
 
 ---
 
@@ -94,11 +94,11 @@ flowchart LR
 | **5. Client-Side Release API Sync** | [`docs/twin/controls.js`](twin/controls.js) (`syncLatestGitHubRelease`) | [**Live GitHub Pages Showcase (`#releases`)**](https://derandr.github.io/celestial_engine_project/#releases) |
 
 ### B. Single Source of Truth (`android/app/build.gradle.kts`)
-- `versionName` (e.g., `"1.3.4"`) and `versionCode` in [`android/app/build.gradle.kts`](../android/app/build.gradle.kts) drive the APK filename, the GitHub Actions artifact name, the GitHub Release binary name, and the live GitHub Pages download badges.
+- `versionName` (e.g., `"1.4.0"`), `versionCode`, and the pinned `android/app/celestial-debug.keystore` in [`android/app/build.gradle.kts`](../android/app/build.gradle.kts) drive the APK filename, consistent signature across cloud/local builds, the GitHub Actions artifact name, the GitHub Release binary name, and the live GitHub Pages download badges.
 
 ### C. Cloud APK Compilation & Release Clobbering (`.github/workflows/android-build.yml`)
 1. **Trigger**: Runs automatically on any push to `master` or `release` modifying `android/**` or `.github/workflows/android-build.yml` (or via manual `workflow_dispatch`).
-2. **Headless Cloud Build**: Spins up `ubuntu-latest` with Temurin JDK 17 (`actions/setup-java@v4` with Gradle dependency caching), executing `./gradlew assembleDebug --no-daemon --stacktrace` without requiring a local Android Studio setup.
+2. **Headless Cloud Build & Unit Test Suite**: Spins up `ubuntu-latest` with Temurin JDK 17 (`actions/setup-java@v4` with Gradle dependency caching), executing `./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace` (39 JUnit 4 unit tests) without requiring a local Android Studio setup.
 3. **Version Extraction & Artifact Naming**: Extracts `versionName` via regex (`grep -oP 'versionName\s*=\s*"\K[^"]+' android/app/build.gradle.kts`) and renames `app-debug.apk` to `celestial_companion_v${ANDROID_VER}.apk`.
 4. **Automatic Release Asset Overwrite**: Queries the latest GitHub Release tag (`gh release view --json tagName -q .tagName`) and runs:
    ```bash

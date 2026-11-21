@@ -1,6 +1,6 @@
 # Tasks — Final Setup: Phone + Pico 2 W Core, Hotspot First, & AI Spells
 
-Updated 2026-10-29. The project baseline locks the primary operating topology to **Pico 2 W (Staff) + Android Companion Phone (Mobile Brain v1.1.2)**, with an optional connection profile to **Raspberry Pi 5**, and a full **Interactive Web Digital Twin & In-Browser Local LLM Showcase (`v1.3.0`)** deployed on GitHub Pages.
+Updated 2026-11-21. The project baseline locks the primary operating topology to **Pico 2 W (Modular RP2350 Firmware v1.4.0) + Android Companion Phone (Mobile Brain v1.4.0 with On-Device Moonshine/SenseVoice ONNX STT, SmolLM2-135M ONNX LLM & Kokoro-82M Voice Profiles)**, with an optional connection profile to **Raspberry Pi 5**, and a full **Dual-Mode Interactive Web Digital Twin & In-Browser Local LLM Showcase (`v1.4.0`)** deployed on GitHub Pages.
 
 ---
 
