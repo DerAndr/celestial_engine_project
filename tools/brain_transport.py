@@ -226,7 +226,7 @@ class BrainTransport:
             self.cancel(session)
         return False
 
-    def stream(self, session, pcm, text):
+    def stream(self, session, pcm, text, use_adpcm=False):
         if not pcm or len(pcm) % 2:
             self.send(session, MSG_ERROR, payload=b'No synthesized audio')
             return False
@@ -236,6 +236,25 @@ class BrainTransport:
             return False
         if not self.deliver(session, MSG_RESP_TEXT, payload=text[:500]):
             return False
+        if use_adpcm:
+            import adpcm_codec
+            if not self.deliver(session, MSG_RESP_START, payload=struct.pack('<IBBBB', len(pcm) // 2, 1, 0, 0, 0)):
+                return False
+            seq = 0
+            due = time.monotonic()
+            pcm_slice_bytes = 960  # 480 samples (30 ms @ 16 kHz) -> 244-byte ADPCM UDP chunk
+            for offset in range(0, len(pcm), pcm_slice_bytes):
+                slice_pcm = pcm[offset:offset + pcm_slice_bytes]
+                if len(slice_pcm) % 4 != 0:
+                    slice_pcm = slice_pcm + b'\x00\x00'
+                chunk = adpcm_codec.encode_block(slice_pcm)
+                if not self.deliver(session, MSG_RESP_CHUNK, seq, chunk):
+                    return False
+                due += (len(slice_pcm) // 2) / 16000.0
+                session.cancelled.wait(max(0, due - time.monotonic()))
+                seq += 1
+            return self.deliver(session, MSG_RESP_END, seq)
+
         if not self.deliver(session, MSG_RESP_START, payload=struct.pack('<I', len(pcm) // 2)):
             return False
         seq = 0

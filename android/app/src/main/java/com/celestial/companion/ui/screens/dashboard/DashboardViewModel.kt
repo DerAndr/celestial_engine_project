@@ -85,6 +85,31 @@ class DashboardViewModel(
     val senseVoiceDownloadProgress: StateFlow<Int> =
         repository.sotaAudioEngine?.senseVoiceDownloadProgressPct ?: MutableStateFlow(0).asStateFlow()
 
+    val kokoroOnnxState: StateFlow<com.celestial.companion.audio.KokoroDownloadState> =
+        repository.ttsSynthesizer?.kokoroOnnxSynthesizer?.state
+            ?: MutableStateFlow(com.celestial.companion.audio.KokoroDownloadState.NOT_DOWNLOADED).asStateFlow()
+
+    val kokoroDownloadProgress: StateFlow<Int> =
+        repository.ttsSynthesizer?.kokoroOnnxSynthesizer?.downloadProgressPct ?: MutableStateFlow(0).asStateFlow()
+
+    val useAdpcmCodec: StateFlow<Boolean> = repository.useAdpcmCodec
+
+    fun toggleAdpcmCodec() {
+        repository.setUseAdpcmCodec(!repository.useAdpcmCodec.value)
+    }
+
+    fun downloadKokoroOnnx() {
+        viewModelScope.launch {
+            repository.log("SOTA-TTS", "⬇️ Downloading Kokoro-82M INT8 ONNX (~115 MB)...", LogLevel.INFO)
+            val ok = repository.ttsSynthesizer?.kokoroOnnxSynthesizer?.downloadAndInit() ?: false
+            if (ok) {
+                repository.log("SOTA-TTS", "✅ Kokoro-82M INT8 ONNX loaded on device!", LogLevel.SUCCESS)
+            } else {
+                repository.log("SOTA-TTS", "⚠️ Kokoro-82M ONNX download failed; using calibrated TTS profile", LogLevel.WARN)
+            }
+        }
+    }
+
     fun downloadSenseVoiceOnnx() {
         viewModelScope.launch {
             repository.log("SOTA-AUDIO", "⬇️ Downloading SenseVoice-Small Multilingual INT8 ONNX ([EN]/[DE]/[RU] + Emotion tags)...", LogLevel.INFO)

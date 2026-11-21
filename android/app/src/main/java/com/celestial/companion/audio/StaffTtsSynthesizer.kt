@@ -21,7 +21,7 @@ private const val TAG = "StaffTtsSynthesizer"
 
 class StaffTtsSynthesizer(private val context: Context) {
     private var tts: TextToSpeech? = null
-    private val kokoroOnnxSynthesizer = KokoroOnnxSynthesizer(context)
+    val kokoroOnnxSynthesizer = KokoroOnnxSynthesizer(context)
     private val initDeferred = CompletableDeferred<Boolean>()
     private var isInitialized = false
 

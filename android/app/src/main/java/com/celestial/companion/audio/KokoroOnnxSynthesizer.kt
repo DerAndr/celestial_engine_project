@@ -5,20 +5,33 @@ import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
 
+enum class KokoroDownloadState(val badge: String) {
+    NOT_DOWNLOADED("CALIBRATED SYSTEM TTS + KOKORO PROFILE"),
+    DOWNLOADING("DOWNLOADING KOKORO-82M INT8 ONNX..."),
+    READY_ONNX("KOKORO-82M INT8 ONNX READY"),
+    ERROR("DOWNLOAD FAILED (PROFILE FALLBACK)")
+}
+
 /**
  * Task 9.2: On-Device Kokoro-82M INT8 ONNX Neural Synthesizer (`24 kHz Float32` -> `16 kHz 16-bit mono PCM`).
  *
- * Mirrors `tools/local_ai_engine.py` (`_synthesize_kokoro_pcm`) by checking `filesDir/sota_models/kokoro/`
- * for `kokoro-v1.0.int8.onnx` and `voices-v1.0.bin`, resampling 24 kHz float32 waveforms to 16 kHz mono
- * with 22,000 peak normalization for non-clipping MAX98357A speaker playback.
+ * Downloads `kokoro-v1.0.int8.onnx` (~88.1 MB) and `voices-v1.0.bin` (~26.9 MB) on-demand into
+ * `filesDir/sota_models/kokoro/`, matching `tools/local_ai_engine.py` (`_synthesize_kokoro_pcm`),
+ * and resamples 24 kHz float32 waveforms to 16 kHz mono with 22,000 peak normalization for MAX98357A.
  */
 class KokoroOnnxSynthesizer(
     private val context: Context? = null
@@ -27,6 +40,8 @@ class KokoroOnnxSynthesizer(
         private const val TAG = "KokoroOnnxSynthesizer"
         const val MODEL_FILENAME = "kokoro-v1.0.int8.onnx"
         const val VOICES_FILENAME = "voices-v1.0.bin"
+        private const val KOKORO_RELEASE_BASE =
+            "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
 
         /**
          * Linearly resamples 24 kHz Float32 waveform (`[-1.0f, 1.0f]`) to 16 kHz signed 16-bit little-endian
@@ -65,6 +80,14 @@ class KokoroOnnxSynthesizer(
     private var ortEnv: OrtEnvironment? = null
     private var kokoroSession: OrtSession? = null
 
+    private val _state = MutableStateFlow(
+        if (isReady()) KokoroDownloadState.READY_ONNX else KokoroDownloadState.NOT_DOWNLOADED
+    )
+    val state: StateFlow<KokoroDownloadState> = _state.asStateFlow()
+
+    private val _downloadProgressPct = MutableStateFlow(if (isReady()) 100 else 0)
+    val downloadProgressPct: StateFlow<Int> = _downloadProgressPct.asStateFlow()
+
     private fun getModelDir(): File? {
         val base = context?.filesDir ?: return null
         return File(base, "sota_models/kokoro")
@@ -74,7 +97,66 @@ class KokoroOnnxSynthesizer(
         val dir = getModelDir() ?: return false
         val model = File(dir, MODEL_FILENAME)
         val voices = File(dir, VOICES_FILENAME)
-        return model.exists() && model.length() > 1_000_000L && voices.exists() && voices.length() > 1024L
+        return model.exists() && model.length() > 10_000_000L && voices.exists() && voices.length() > 1_000_000L
+    }
+
+    suspend fun downloadAndInit(): Boolean = withContext(Dispatchers.IO) {
+        val dir = getModelDir() ?: return@withContext false
+        if (!dir.exists()) dir.mkdirs()
+
+        _state.value = KokoroDownloadState.DOWNLOADING
+        _downloadProgressPct.value = 1
+
+        val files = listOf(
+            VOICES_FILENAME to 1_000_000L,
+            MODEL_FILENAME to 10_000_000L
+        )
+        try {
+            for ((index, entry) in files.withIndex()) {
+                val (fileName, minBytes) = entry
+                val targetFile = File(dir, fileName)
+                if (!targetFile.exists() || targetFile.length() < minBytes) {
+                    val conn = (URL("$KOKORO_RELEASE_BASE/$fileName").openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 15000
+                        readTimeout = 60000
+                        instanceFollowRedirects = true
+                        setRequestProperty("User-Agent", "CelestialEngineMk5-Android/1.4.0")
+                    }
+                    val code = conn.responseCode
+                    if (code !in 200..299) {
+                        throw IllegalStateException("HTTP $code downloading $fileName")
+                    }
+                    val contentLen = conn.contentLengthLong.coerceAtLeast(1L)
+                    val tmpFile = File(dir, "$fileName.part")
+                    conn.inputStream.use { input ->
+                        FileOutputStream(tmpFile).use { output ->
+                            val buf = ByteArray(32 * 1024)
+                            var downloaded = 0L
+                            while (true) {
+                                val read = input.read(buf)
+                                if (read <= 0) break
+                                output.write(buf, 0, read)
+                                downloaded += read
+                                val frac = (downloaded.toDouble() / contentLen.toDouble()).coerceIn(0.0, 1.0)
+                                val pct = if (index == 0) (frac * 23.0).toInt().coerceIn(1, 23)
+                                else (23.0 + frac * 76.0).toInt().coerceIn(23, 99)
+                                _downloadProgressPct.value = pct
+                            }
+                        }
+                    }
+                    if (targetFile.exists()) targetFile.delete()
+                    tmpFile.renameTo(targetFile)
+                }
+            }
+            _downloadProgressPct.value = 100
+            val loaded = ensureSessionLoaded()
+            _state.value = if (loaded) KokoroDownloadState.READY_ONNX else KokoroDownloadState.ERROR
+            loaded
+        } catch (e: Exception) {
+            Log.w(TAG, "Kokoro-82M ONNX download failed: ${e.message}", e)
+            _state.value = KokoroDownloadState.ERROR
+            false
+        }
     }
 
     private suspend fun ensureSessionLoaded(): Boolean = mutex.withLock {
@@ -88,6 +170,7 @@ class KokoroOnnxSynthesizer(
                 setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             }
             kokoroSession = env.createSession(File(dir, MODEL_FILENAME).absolutePath, opts)
+            _state.value = KokoroDownloadState.READY_ONNX
             Log.i(TAG, "Loaded Kokoro-82M INT8 ONNX session successfully")
             true
         } catch (t: Throwable) {
@@ -96,11 +179,6 @@ class KokoroOnnxSynthesizer(
         }
     }
 
-    /**
-     * Attempts neural waveform synthesis via Kokoro-82M INT8 ONNX when weights are present.
-     * Returns `null` if weights are absent or phoneme tokens cannot be resolved, allowing instant
-     * fallback to Android System `TextToSpeech` with [KokoroVoiceProfile] modulation.
-     */
     suspend fun synthesizeOrNull(text: String, voiceProfile: KokoroVoiceProfile): ByteArray? = withContext(Dispatchers.Default) {
         if (text.isBlank() || !isReady()) return@withContext null
         if (!ensureSessionLoaded()) return@withContext null

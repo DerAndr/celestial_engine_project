@@ -199,6 +199,56 @@ class TestProtocolV2ParityAndMockVoiceLoop(unittest.TestCase):
         self.assertEqual(res["sequential_ttfa_ms"], 310.0)
         self.assertTrue(res["omni_meets_300ms"])
 
+    def test_brain_transport_adpcm_stream_packets(self):
+        # Verify BrainTransport.stream(..., use_adpcm=True) emits 8-byte RESP_START(codec=1) and 244-byte ADPCM chunks
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_sock.bind(("127.0.0.1", 0))
+        server_addr = server_sock.getsockname()
+
+        staff_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        staff_sock.bind(("127.0.0.1", 0))
+        staff_sock.settimeout(2.0)
+
+        transport = brain_transport.BrainTransport(server_sock, retry_seconds=0.05, packet_timeout=2.0)
+        pcm_samples = [int(14000.0 * math.sin(2.0 * math.pi * 150.0 * i / 16000.0)) for i in range(480)]
+        pcm_bytes = struct.pack("<480h", *pcm_samples)
+
+        def worker(tp, session):
+            tp.stream(session, pcm_bytes, b"ADPCM OK", use_adpcm=True)
+
+        t = threading.Thread(target=transport.serve, args=(worker,), daemon=True)
+        t.start()
+        try:
+            rid = 9001
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_QUERY_START, rid, 0, bytes([0, 5])), server_addr)
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_AUDIO_CHUNK, rid, 0, b"\x00\x01" * 160), server_addr)
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_QUERY_END, rid, 1), server_addr)
+
+            start_payload = None
+            chunks = []
+            got_end = False
+            while not got_end:
+                raw, _ = staff_sock.recvfrom(1024)
+                kind, r_id, seq, payload = brain_transport.unpack(raw)
+                if kind == brain_transport.MSG_ACK:
+                    continue
+                if kind == brain_transport.MSG_RESP_START:
+                    start_payload = payload
+                elif kind == brain_transport.MSG_RESP_CHUNK:
+                    chunks.append(payload)
+                elif kind == brain_transport.MSG_RESP_END:
+                    got_end = True
+                staff_sock.sendto(brain_transport.packet(brain_transport.MSG_ACK, r_id, seq, bytes([kind])), server_addr)
+
+            self.assertEqual(len(start_payload), 8)
+            sample_cnt, codec_id, _, _, _ = struct.unpack("<IBBBB", start_payload)
+            self.assertEqual((sample_cnt, codec_id), (480, 1))
+            self.assertEqual(len(chunks), 1)
+            self.assertEqual(len(chunks[0]), 244)
+        finally:
+            server_sock.close()
+            staff_sock.close()
+
 
 if __name__ == "__main__":
     unittest.main()
