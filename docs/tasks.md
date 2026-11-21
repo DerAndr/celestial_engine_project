@@ -799,3 +799,203 @@ gh run watch $runId --exit-status
   $runId = (gh run list --workflow=android-build.yml --branch=feat/sota-phase-next --limit 1 --json databaseId -q '.[0].databaseId')
   gh run watch $runId --exit-status
   ```
+
+---
+
+## 11. Waveshare ESP32-S3-Touch-AMOLED-1.8 — Raspberry Pi 5 Satellite Screen, Speaker & Microphone (Non-Destructive Dual-Mode Firmware)
+
+> **Purpose:** Turn the connected **Waveshare ESP32-S3-Touch-AMOLED-1.8** (`COM11`, Wi-Fi IP `192.168.178.121`, `368×448` CO5300 QSPI AMOLED, `FT3168`/`CST816S` capacitive touch, `ES8311` I2C `0x18` audio codec + speaker PA + onboard microphone, `AXP2101` PMU, `16 MB` Flash, `8 MB` PSRAM) into a wearable/desk **Touch Screen + Speaker + Push-to-Talk Microphone terminal for the Raspberry Pi 5 AI Brain Server** — **WITHOUT deleting or losing any existing firmware** (`ESP-Brookesia Phone OS` in `factory` at `0x110000` and the `12-Page Art Deco PC Monitor / Codex Pet / Vintage Radio` in `ota_0` at `0x690000`).
+
+### 11.0. Hardware Pinout & Non-Destructive Partition Map (Verified on `COM11` / `192.168.178.121`)
+
+| Subsystem | Chip / Controller | ESP32-S3 Pins / Address | Verified Status |
+| :--- | :--- | :--- | :--- |
+| **QSPI AMOLED Display (`368×448`)** | `CO5300` / `SH8601` | `SCLK=11, CS=12, D0=4, D1=5, D2=6, D3=7` (`x_offset=28`) | ✅ Working (`16-line` internal DMA SRAM flush) |
+| **Capacitive Touch** | `CST816S` (`0x15`) / `FT3168` (`0x38`) | `I2C SDA=15, SCL=14, TP_INT=21` | ✅ Working (`0x15` detected on I2C scan) |
+| **Audio Codec (Speaker DAC + Mic ADC)** | **`ES8311`** (`I2C 0x18`, ID `0x8311`) | `MCLK=16, BCLK=9, WS=45, DOUT=8 (Spk), DIN=10 (Mic), PA=46` | ✅ DAC working; ADC Mic on `GPIO 10` (`MIC1P/1N`) |
+| **Power & GPIO Expander** | `AXP2101` (`0x34`) + `TCA9554` (`0x20`) | `I2C SDA=15, SCL=14`, `BOOT_BTN=0` | ✅ Working |
+| **Partition `factory` (`0x110000`, `5.5 MB`)** | Original `ESP-Brookesia / XiaoZhi AI` | Flash offset `0x110000 .. 0x690000` | 🔒 **NEVER TOUCH / NEVER ERASE** |
+| **Partition `ota_0` (`0x690000`, `3.0 MB`)** | Dual-Persona `Cricket 12-Page PC Monitor` + `Celestial Pi 5 Terminal` | Flash offset `0x690000 .. 0x990000` (`C:\projects\personal\cricket\firmware`) | 🔄 Backed up + auto-switches to Pi 5 Mode when Pi 5 starts |
+
+---
+
+### Task 11.1: Non-Destructive `ota_0` Backup & Dual-Persona Auto-Switch State Machine
+- [ ] **Objective**: Preserve a bit-exact backup of the current `ota_0` firmware before any modifications, and add a non-destructive runtime mode state machine (`AppPersonaMode`: `MODE_PC_MONITOR_12PAGE = 0` vs `MODE_CELESTIAL_PI5_BRAIN = 1`) that **boots into the normal 12-page PC Monitor by default** and **automatically switches to `MODE_CELESTIAL_PI5_BRAIN` whenever the Raspberry Pi 5 starts up** (via USB Serial `/dev/ttyACM0` or Wi-Fi UDP `:4210`).
+- **Target Files**:
+  1. `C:\projects\personal\cricket\backup\backup_current_ota0.ps1` *(new script)*
+  2. `C:\projects\personal\cricket\firmware\src\main.cpp`
+- **Step-by-Step Implementation Spec**:
+  1. **Save Current `ota_0` Binary Before Any Edit**:
+     - Copy `C:\projects\personal\cricket\firmware\.pio\build\esp32-s3-touch-amoled-1-8\firmware.bin` to `C:\projects\personal\cricket\backup\cricket_pc_monitor_12page_ota0.bin` so the exact current build can be flashed back to `0x690000` in 3 seconds at any time.
+  2. **Add `AppPersonaMode` & Auto-Attach Detection in `main.cpp`**:
+     - Define:
+       ```cpp
+       enum AppPersonaMode {
+           MODE_PC_MONITOR_12PAGE = 0,
+           MODE_CELESTIAL_PI5_BRAIN = 1
+       };
+       static AppPersonaMode g_persona_mode = MODE_PC_MONITOR_12PAGE;
+       static uint32_t g_pi5_last_heartbeat_ms = 0;
+       static IPAddress g_pi5_ip(0, 0, 0, 0);
+       static uint16_t g_pi5_udp_port = 5005;
+       static bool g_pi5_via_usb_serial = false;
+       ```
+     - **Auto-Switch Trigger Rules**:
+       1. **Wi-Fi UDP (`port 4210`)**: When a UDP JSON packet arrives containing `"cmd":"celestial_pi5_attach"` or `"host":"PI5-BRAIN"`, set `g_persona_mode = MODE_CELESTIAL_PI5_BRAIN`, store `g_pi5_ip = g_udp.remoteIP()`, `g_pi5_last_heartbeat_ms = millis()`, and update the screen immediately.
+       2. **USB CDC Serial (`Serial` at `115200` / `921600`)**: When plugged into a Raspberry Pi 5 USB port, the Pi 5 daemon sends a line starting with `CELESTIAL_PI5_JSON:{...}\n`. When `Serial.available()` reads a line starting with `CELESTIAL_PI5_JSON:`, set `g_persona_mode = MODE_CELESTIAL_PI5_BRAIN`, `g_pi5_via_usb_serial = true`, parse the JSON state, and reply `CELESTIAL_ESP32_ACK:{"device":"ESP32-S3-AMOLED","mode":"PI5_BRAIN"}\n`.
+       3. **Auto-Return / Manual Toggle**:
+          - If `"cmd":"celestial_pi5_detach"` arrives (or the user taps **`[🖥️ PC MODE]`** on the top bar / HTTP `POST /api/mode?target=pc`), set `g_persona_mode = MODE_PC_MONITOR_12PAGE` and return immediately to the 12-page Cricket PC Monitor (`OVERVIEW`, `CPU`, `GPU`, `CODEX PET`, `ATELIER`, `RADIO`, `SLOP`, `SYSTEM`).
+          - On Page 12 (`SYSTEM`) of the PC Monitor, add a quick touch button **`[🔮 PI 5 BRAIN MODE]`** so the user can also enter Pi 5 Mode manually at any time, while keeping **`[SWITCH TO PHONE OS]`** (`switchToFactoryPartition()`) intact.
+- **Verification Command**:
+  ```powershell
+  Test-Path C:\projects\personal\cricket\backup\cricket_pc_monitor_12page_ota0.bin
+  ```
+
+---
+
+### Task 11.2: Full-Duplex ES8311 Audio Driver (16 kHz I2S Speaker Out `GPIO 8` + 16 kHz I2S Microphone In `GPIO 10`)
+- [ ] **Objective**: Upgrade the ESP32-S3 audio subsystem from TX-only (`DOUT = GPIO 8`) to **Full-Duplex 16 kHz 16-bit I2S (`DOUT = GPIO 8`, `DIN = GPIO 10`)** and configure the **ES8311 ADC + Microphone PGA registers (`0x0E`, `0x14`, `0x15`, `0x17`, `0x1B`, `0x1C`)** so the ESP32-S3 works simultaneously as a **16 kHz Speaker** and a **16 kHz Push-to-Talk Microphone** for the Raspberry Pi 5.
+- **Target Files**:
+  1. `C:\projects\personal\cricket\firmware\src\main.cpp`
+- **Step-by-Step Implementation Spec**:
+  1. **Define Microphone Pin & RX Channel Handle**:
+     ```cpp
+     #define I2S_DIN_PIN       10
+     static i2s_chan_handle_t g_i2s_rx = nullptr;
+     static volatile bool g_mic_recording = false;
+     static volatile int16_t g_mic_peak = 0;
+     static volatile uint32_t g_mic_tx_bytes = 0;
+     ```
+  2. **Enable ES8311 ADC & Microphone Input in `initEs8311()`**:
+     - After the existing DAC register writes in `initEs8311()`, add the verified ES8311 ADC microphone registers:
+       ```cpp
+       i2cWriteReg(ES8311_ADDR, 0x0E, 0x02); // Enable analog PGA & ADC modulator
+       i2cWriteReg(ES8311_ADDR, 0x14, 0x1A); // Select MIC1P/MIC1N + Analog PGA gain (+24dB)
+       i2cWriteReg(ES8311_ADDR, 0x15, 0x40); // ADC ramp rate
+       i2cWriteReg(ES8311_ADDR, 0x16, 0x24); // ADC mic gain scale
+       i2cWriteReg(ES8311_ADDR, 0x17, 0xBF); // ADC volume (0dB, unmuted)
+       i2cWriteReg(ES8311_ADDR, 0x1B, 0x0A); // ADC HPF / EQ config
+       i2cWriteReg(ES8311_ADDR, 0x1C, 0x6A); // ADC DC block filter enabled
+       ```
+  3. **Initialize Full-Duplex I2S (`&g_i2s_tx, &g_i2s_rx`) in `initI2sAudio()`**:
+     - Pass both `&g_i2s_tx` and `&g_i2s_rx` to `i2s_new_channel(&chan_cfg, &g_i2s_tx, &g_i2s_rx)`.
+     - Set `.din = (gpio_num_t)I2S_DIN_PIN` (`GPIO 10`) in `std_cfg.gpio_cfg`.
+     - Call `i2s_channel_init_std_mode(g_i2s_rx, &std_cfg)` and `i2s_channel_enable(g_i2s_rx)`.
+  4. **Stream Captured 16 kHz Mono PCM / 4:1 IMA-ADPCM to Raspberry Pi 5**:
+     - When `g_mic_recording == true` (while user holds the **`[🎙️ HOLD TO SPEAK]`** touch button on the AMOLED screen or toggles `[🎙️ TALK]`):
+       - Read stereo 16-bit frames from `g_i2s_rx` (`i2s_channel_read`), extract the active microphone channel (`left` or max-energy channel) into a `240-sample` (`480-byte`, `15 ms`) mono `int16_t` frame, compute `g_mic_peak`, and stream it to the Raspberry Pi 5 over UDP (`g_pi5_ip`, port `4212` / `5005` with header `"CMIC"` + `uint16_t seq` + `480 bytes PCM16LE`).
+     - Also allow `audioRxTask` (`TCP port 4211` and UDP audio packets `"CSPK"`) to play incoming `16 kHz 16-bit mono PCM` from the Raspberry Pi 5 (`Kokoro-82M` / `Piper TTS`) whenever `g_persona_mode == MODE_CELESTIAL_PI5_BRAIN` (even when `g_radio_on == false`).
+  5. **Add `/api/mic_test` Diagnostic Endpoint**:
+     - Record `200 ms` from `g_i2s_rx`, compute `mic_peak` and `rms`, and return `{"mic_ok":true,"mic_peak":...,"mic_rms":...}` so automated tests can verify live microphone capture over HTTP.
+- **Verification Command**:
+  ```powershell
+  curl.exe -s http://192.168.178.121/api/mic_test
+  ```
+
+---
+
+### Task 11.3: Cyber-Arcane `368×448` AMOLED Touch UI for Raspberry Pi 5 Brain (`renderCelestialPi5Screen()`)
+- [ ] **Objective**: Build a dedicated, high-contrast Cyber-Arcane touch interface (`renderCelestialPi5Screen()` and `handleCelestialPi5Touch()`) for `MODE_CELESTIAL_PI5_BRAIN` on the `368×448` AMOLED panel.
+- **Target Files**:
+  1. `C:\projects\personal\cricket\firmware\src\main.cpp`
+  2. `C:\projects\personal\cricket\emulator.py` *(keep 1:1 parity in the local Python preview emulator)*
+- **Step-by-Step Implementation Spec**:
+  1. **Define `Pi5BrainState` Struct in `main.cpp`**:
+     ```cpp
+     struct Pi5BrainState {
+         char status[28] = "PI 5 BRAIN: STANDBY";
+         char persona_name[24] = "MACHINE GOD";
+         int persona_id = 0; // 0..5
+         char stt_engine[20] = "MOONSHINE INT8";
+         char tts_engine[20] = "KOKORO-82M";
+         char last_heard[96] = "Tap & hold MIC below to speak to the Oracle...";
+         char prophecy[220] = "The Omnissiah awaits your voice command.";
+         char active_spell[24] = "NONE";
+         uint8_t spell_r = 36, spell_g = 204, spell_b = 182;
+         float pi5_temp_c = 48.0f;
+         float pi5_ram_pct = 24.0f;
+         int latency_ms = 0;
+     };
+     static Pi5BrainState g_pi5;
+     ```
+  2. **Layout of `renderCelestialPi5Screen()` (`368×448` RGB565)**:
+     - **Header Bar (`y=12..50`)**:
+       - Left: Live status diamond (Green = Connected to Pi 5, Cyan = Speaking, Red = Recording Mic) + `"PI 5 ORACLE"`.
+       - Right: **`[🖥️ PC]`** button (`x=276..348, y=14..48`) to switch back to the 12-page PC Monitor with one tap.
+     - **Card 1 — Persona & Pi 5 Telemetry Strip (`y=56..118`)**:
+       - Left/Center: Active Persona badge (`< MACHINE GOD >` / `ARCHMAGE` / `MARVIN` / `CYBERPUNK` / `PUMPKIN LORD` / `CUSTOM`) — tap `<` or `>` to cycle persona on the Pi 5!
+       - Sub-row: `STT: MOONSHINE | TTS: KOKORO | PI5: 49C`.
+     - **Card 2 — Live Voice Transcript, Active `[SPELL]` & Oracle Prophecy (`y=124..288`)**:
+       - Top line (`COL_CYAN`): `"YOU: "` + wrapped `g_pi5.last_heard` (`2 lines`).
+       - Spell badge (drawn with `rgb565(g_pi5.spell_r, g_pi5.spell_g, g_pi5.spell_b)` border): `"SPELL: "` + `g_pi5.active_spell`.
+       - Prophecy box (`COL_GOLD` / `COL_TEXT`): 4 wrapped lines (`26 chars` each) of `g_pi5.prophecy` + live 12-bar audio waveform visualizer (`g_audio_peak` / `g_mic_peak`).
+     - **Card 3 — Giant Push-to-Talk / Toggle Microphone Button (`y=296..368`)**:
+       - When `g_mic_recording == false`: Emerald/Gold bordered button **`[🎙️ TAP TO SPEAK TO PI 5]`** with live mic VU indicator.
+       - When `g_mic_recording == true`: Glowing Crimson button **`[🔴 LISTENING... TAP TO SEND]`** streaming 16 kHz mic audio to the Pi 5.
+     - **Bottom Control Bar (`y=376..434`)**:
+       - **`[⚡ CAST]`** (`x=14..120`): Triggers a test spell / voice prophecy on Pi 5.
+       - **`[V-]` / `75%` / `[V+]`** (`x=128..264`): Adjusts onboard ES8311 speaker volume (`0..100%`).
+       - **`[🔊 BEEP]`** (`x=272..354`): Plays quick 440 Hz chime / repeats last TTS audio.
+
+---
+
+### Task 11.4: Raspberry Pi 5 Auto-Attach Bridge & Audio/HUD Streamer (`tools/pi5_esp32_satellite.py` & `tools/ai_brain_server.py`)
+- [ ] **Objective**: Create a clean Python bridge module [`tools/pi5_esp32_satellite.py`](../tools/pi5_esp32_satellite.py) (and hook it into [`tools/ai_brain_server.py`](../tools/ai_brain_server.py)) so that whenever the Raspberry Pi 5 brain server starts, it **automatically finds the ESP32-S3** (via USB `/dev/ttyACM*` / `COM*` or Wi-Fi UDP `:4210`), switches its screen into **Celestial Pi 5 Brain Mode**, receives 16 kHz microphone audio from the ESP32-S3, runs `Moonshine/SenseVoice STT -> Ollama/Offline LLM -> Kokoro-82M TTS`, updates the ESP32-S3 AMOLED display, and plays the synthesized voice out of the ESP32-S3's speaker!
+- **Target Files**:
+  1. `tools/pi5_esp32_satellite.py` *(new file)*
+  2. `tools/ai_brain_server.py`
+  3. `tests/test_regressions.py`
+- **Step-by-Step Implementation Spec**:
+  1. **Create `Esp32SatelliteBridge` in `tools/pi5_esp32_satellite.py`**:
+     - **Auto-Discovery (`discover_esp32()`)**:
+       - Broadcasts `CRICKET_DISCOVER` to UDP port `4210` (and checks default IP `192.168.178.121` or `--esp-ip`), plus checks serial ports matching `VID_303A` (`PID_1001`).
+     - **Auto-Attach on Startup (`attach()`)**:
+       - Sends UDP JSON packet to `(esp_ip, 4210)`:
+         ```json
+         {
+           "cmd": "celestial_pi5_attach",
+           "host": "PI5-BRAIN",
+           "persona": "MACHINE GOD",
+           "stt_engine": "MOONSHINE INT8",
+           "tts_engine": "KOKORO-82M",
+           "pi5_status": "ONLINE :5005",
+           "pi5_heard": "Ready for voice command",
+           "pi5_prophecy": "The Omnissiah blesses this satellite node.",
+           "pi5_spell": "NONE"
+         }
+         ```
+       - Starts a background heartbeat thread sending live Pi 5 CPU temp, RAM %, active persona, last STT transcript, last prophecy, and active `[SPELL]` every `1.5s`.
+     - **Receive 16 kHz Microphone Stream from ESP32-S3 (`UDP port 4212`)**:
+       - Listens for `"CMIC"` packets (`4-byte magic "CMIC" + uint16 seq + 480 bytes 16 kHz PCM16LE`), accumulates them while the user is speaking on the ESP32-S3, and when `"CMIC_END"` arrives, passes the complete `16 kHz PCM` buffer directly into `LocalAiEngine.transcribe_audio_bytes()` -> `generate_prophecy()` -> `synthesize_speech_pcm()`.
+     - **Stream Synthesized `Kokoro-82M` / `Piper` 16 kHz PCM to ESP32-S3 Speaker (`TCP port 4211`)**:
+       - Connects to `(esp_ip, 4211)` and streams the `16 kHz 16-bit mono PCM` waveform in `512-byte` chunks so the ESP32-S3's `ES8311` speaker speaks the Oracle prophecy out loud while the RP2350 staff animates the spell!
+     - **Auto-Detach on Shutdown (`detach()`)**:
+       - Sends `{"cmd":"celestial_pi5_detach"}` on `SIGINT`/`SIGTERM` so the ESP32-S3 automatically returns to its 12-page Cricket PC Monitor mode when the Pi 5 server stops.
+  2. **Unit Tests in `tests/test_regressions.py`**:
+     - Add `test_esp32_satellite_attach_detach_and_cmic_framing` verifying JSON attach/detach packet generation, `"CMIC"` packet assembly into 16 kHz PCM, and full compatibility with `LocalAiEngine`.
+- **Verification Command**:
+  ```powershell
+  python -m unittest discover -s tests -v
+  ```
+
+---
+
+### Task 11.5: End-to-End Hardware Verification on Connected ESP32-S3 (`COM11` / `192.168.178.121`)
+- [ ] **Objective**: Compile and flash the updated dual-mode `ota_0` firmware to the connected **Waveshare ESP32-S3-Touch-AMOLED-1.8 (`COM11`)**, verify that both existing modes (`12-Page Cricket PC Monitor` and `Factory ESP-Brookesia Phone OS`) remain 100% intact, and test live **Pi 5 Satellite Screen + ES8311 Speaker + ES8311 Microphone** operation.
+- **Step-by-Step Verification Commands**:
+  1. **Compile & Flash `ota_0` via PlatformIO (`COM11`)**:
+     ```powershell
+     cd C:\projects\personal\cricket\firmware
+     pio run -t upload --upload-port COM11
+     ```
+  2. **Verify I2C, ES8311 Speaker & ES8311 Microphone via HTTP Diagnostics**:
+     ```powershell
+     curl.exe -s http://192.168.178.121/api/diag
+     curl.exe -s http://192.168.178.121/api/mic_test
+     ```
+  3. **Verify Automatic Switch to Celestial Pi 5 Brain Mode (Screen + Speaker + Mic) & Automatic Return to 12-Page PC Monitor**:
+     ```powershell
+     cd c:\projects\personal\hardware-01\celestial_engine_project
+     python tools/pi5_esp32_satellite.py --esp-ip 192.168.178.121 --demo
+     ```
+     - Confirm the ESP32-S3 AMOLED screen automatically switches to **`PI 5 ORACLE`** HUD, plays the synthesized Oracle voice through its onboard speaker, captures live microphone input from `ES8311 ADC (GPIO 10)`, and switches back to the **12-Page Art Deco PC Monitor** when `--demo` exits.
