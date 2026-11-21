@@ -24,6 +24,7 @@ static int test_printf(const char *fmt, ...) {
 #include "../firmware/src/leds.c"
 #include "../firmware/src/voice_data.c"
 #include "../firmware/src/music_data.c"
+#include "../firmware/src/adpcm_codec.c"
 #include "../firmware/src/net_dispatcher.c"
 #include "../firmware/src/net_client.h"
 void net_client_init(void) {}
@@ -73,6 +74,9 @@ uint32_t net_client_response_progress_ms(void) { return to_ms_since_boot(get_abs
 #include "../firmware/src/main.c"
 #undef main
 #define EXPORT __declspec(dllexport)
+#ifndef HARNESS_API
+#define HARNESS_API EXPORT
+#endif
 static void reset_gpio(void) { memset(test_gpio, 1, sizeof test_gpio); test_now = 0; }
 
 EXPORT int query_bounce_probe(void) {
@@ -388,4 +392,10 @@ EXPORT int test_net_dispatcher_validation_and_routing(void) {
 }
 EXPORT int test_audio_ring_buffer_fifo_and_bounds(void) {
     return audio_ring_buffer_probe();
+}
+HARNESS_API uint16_t harness_adpcm_encode(const int16_t *pcm, uint16_t count, uint8_t *out_buf, uint16_t max_out) {
+    return (uint16_t)ima_adpcm_encode_block(pcm, count, out_buf, max_out);
+}
+HARNESS_API uint16_t harness_adpcm_decode(const uint8_t *in_buf, uint16_t in_len, int16_t *out_pcm, uint16_t max_samples) {
+    return (uint16_t)ima_adpcm_decode_block(in_buf, in_len, out_pcm, max_samples);
 }

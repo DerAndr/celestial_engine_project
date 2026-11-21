@@ -684,7 +684,7 @@ gh run watch $runId --exit-status
 ---
 
 ### Task 9.5: Uplink 4:1 IMA-ADPCM Microphone Compression (`Pico 2 W INMP441 -> Phone / Pi 5`)
-- [ ] **Objective**: Currently, **downlink** TTS audio (`Phone/Pi 5 -> Pico 2 W` via `NET_MSG_RESP_AUDIO_START` + `NET_MSG_RESP_AUDIO_CHUNK`) uses 4:1 `IMA-ADPCM` (`64 kbps`), while **uplink** microphone capture (`Pico 2 W -> Phone/Pi 5` via `NET_MSG_QUERY_START` + `NET_MSG_AUDIO_CHUNK`) still transmits raw 16-bit PCM (`256 kbps`). Extend 4:1 `IMA-ADPCM` to uplink microphone packets so both directions run at `64 kbps` with self-healing 4-byte block headers.
+- [x] **Objective**: Currently, **downlink** TTS audio (`Phone/Pi 5 -> Pico 2 W` via `NET_MSG_RESP_AUDIO_START` + `NET_MSG_RESP_AUDIO_CHUNK`) uses 4:1 `IMA-ADPCM` (`64 kbps`), while **uplink** microphone capture (`Pico 2 W -> Phone/Pi 5` via `NET_MSG_QUERY_START` + `NET_MSG_AUDIO_CHUNK`) still transmits raw 16-bit PCM (`256 kbps`). Extend 4:1 `IMA-ADPCM` to uplink microphone packets so both directions run at `64 kbps` with self-healing 4-byte block headers. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Target Files**:
   1. `firmware/src/net_client.c`
   2. `android/app/src/main/java/com/celestial/companion/domain/repository/StaffRepository.kt`
@@ -722,7 +722,7 @@ gh run watch $runId --exit-status
 ---
 
 ### Task 9.6: Cross-Language Bit-Exact C $\leftrightarrow$ Python $\leftrightarrow$ Kotlin IMA-ADPCM Test (`tests/firmware_harness.c` & `tests/test_regressions.py`)
-- [ ] **Objective**: Guarantee that the C (`firmware/src/adpcm_codec.c`), Python (`tools/adpcm_codec.py`), and Kotlin (`ImaAdpcmCodec.kt`) implementations of `ima_adpcm_encode_block` and `ima_adpcm_decode_block` are **100% bit-for-bit identical** (same initial `step_index`, same nibble packing order, and same predictor clamping).
+- [x] **Objective**: Guarantee that the C (`firmware/src/adpcm_codec.c`), Python (`tools/adpcm_codec.py`), and Kotlin (`ImaAdpcmCodec.kt`) implementations of `ima_adpcm_encode_block` and `ima_adpcm_decode_block` are **100% bit-for-bit identical** (same initial `step_index`, same nibble packing order, and same predictor clamping). — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Target Files**:
   1. `tests/firmware_harness.c`
   2. `tests/test_regressions.py`
@@ -754,7 +754,7 @@ gh run watch $runId --exit-status
 ---
 
 ### Task 9.7: Multi-Clause Prosody Chunker & Domain Lexicon for `KokoroOnnxSynthesizer.kt`
-- [ ] **Objective**: Improve `KokoroOnnxSynthesizer.kt` naturalness on Arcane Oracle prophecies by adding (a) a curated domain IPA lexicon (`celestial`, `omnissiah`, `void`, `arcane`, `aegis`, `supernova`, `chrono`, `plasma`, `rune`, `staff`, `warp`, `nebula`, `quantum`, `flux`, `grimoire`, `prophecy`) in `englishToIpaPhonemes(text)` and (b) multi-clause prosody chunking (`splitTextIntoKokoroClauses`) so multi-sentence prophecies pause naturally at sentence boundaries and never exceed the 510-token Kokoro context window.
+- [x] **Objective**: Improve `KokoroOnnxSynthesizer.kt` naturalness on Arcane Oracle prophecies by adding (a) a curated domain IPA lexicon (`celestial`, `omnissiah`, `void`, `arcane`, `aegis`, `supernova`, `chrono`, `plasma`, `rune`, `staff`, `warp`, `nebula`, `quantum`, `flux`, `grimoire`, `prophecy`) in `englishToIpaPhonemes(text)` and (b) multi-clause prosody chunking (`splitTextIntoKokoroClauses`) so multi-sentence prophecies pause naturally at sentence boundaries and never exceed the 510-token Kokoro context window. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Target Files**:
   1. `android/app/src/main/java/com/celestial/companion/audio/KokoroOnnxSynthesizer.kt`
   2. `android/app/src/test/java/com/celestial/companion/ai/OnDeviceSotaAudioEngineTest.kt`
@@ -778,7 +778,7 @@ gh run watch $runId --exit-status
 ---
 
 ### Task 9.8: Interactive On-Device SOTA Benchmark Card in `OracleTerminalScreen.kt`
-- [ ] **Objective**: Add a one-tap **`[⚡ Run On-Device SOTA Benchmark]`** button inside the Android Companion's **Oracle Terminal (`OracleTerminalScreen.kt`)** that runs a live self-test on the physical smartphone (`Moonshine/SenseVoice STT`, `SmolLM2-135M LLM`, `Kokoro-82M TTS`, `4:1 IMA-ADPCM`, and `OmniAudioSession` latency) and prints a structured telemetry report into the terminal log.
+- [x] **Objective**: Add a one-tap **`[⚡ Run On-Device SOTA Benchmark]`** button inside the Android Companion's **Oracle Terminal (`OracleTerminalScreen.kt`)** that runs a live self-test on the physical smartphone (`Moonshine/SenseVoice STT`, `SmolLM2-135M LLM`, `Kokoro-82M TTS`, `4:1 IMA-ADPCM`, and `OmniAudioSession` latency) and prints a structured telemetry report into the terminal log. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Target Files**:
   1. `android/app/src/main/java/com/celestial/companion/ui/DashboardViewModel.kt`
   2. `android/app/src/main/java/com/celestial/companion/ui/screens/OracleTerminalScreen.kt`
@@ -820,7 +820,7 @@ gh run watch $runId --exit-status
 ---
 
 ### Task 11.1: Non-Destructive `ota_0` Backup & Dual-Persona Auto-Switch State Machine
-- [ ] **Objective**: Preserve a bit-exact backup of the current `ota_0` firmware before any modifications, and add a non-destructive runtime mode state machine (`AppPersonaMode`: `MODE_PC_MONITOR_12PAGE = 0` vs `MODE_CELESTIAL_PI5_BRAIN = 1`) that **boots into the normal 12-page PC Monitor by default** and **automatically switches to `MODE_CELESTIAL_PI5_BRAIN` whenever the Raspberry Pi 5 starts up** (via USB Serial `/dev/ttyACM0` or Wi-Fi UDP `:4210`).
+- [x] **Objective**: Preserve a bit-exact backup of the current `ota_0` firmware before any modifications, and add a non-destructive runtime mode state machine (`AppPersonaMode`: `MODE_PC_MONITOR_12PAGE = 0` vs `MODE_CELESTIAL_PI5_BRAIN = 1`) that **boots into the normal 12-page PC Monitor by default** and **automatically switches to `MODE_CELESTIAL_PI5_BRAIN` whenever the Raspberry Pi 5 starts up** (via USB Serial `/dev/ttyACM0` or Wi-Fi UDP `:4210`). — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Target Files**:
   1. `C:\projects\personal\cricket\backup\backup_current_ota0.ps1` *(new script)*
   2. `C:\projects\personal\cricket\firmware\src\main.cpp`
@@ -854,7 +854,7 @@ gh run watch $runId --exit-status
 ---
 
 ### Task 11.2: Full-Duplex ES8311 Audio Driver (16 kHz I2S Speaker Out `GPIO 8` + 16 kHz I2S Microphone In `GPIO 10`)
-- [ ] **Objective**: Upgrade the ESP32-S3 audio subsystem from TX-only (`DOUT = GPIO 8`) to **Full-Duplex 16 kHz 16-bit I2S (`DOUT = GPIO 8`, `DIN = GPIO 10`)** and configure the **ES8311 ADC + Microphone PGA registers (`0x0E`, `0x14`, `0x15`, `0x17`, `0x1B`, `0x1C`)** so the ESP32-S3 works simultaneously as a **16 kHz Speaker** and a **16 kHz Push-to-Talk Microphone** for the Raspberry Pi 5.
+- [x] **Objective**: Upgrade the ESP32-S3 audio subsystem from TX-only (`DOUT = GPIO 8`) to **Full-Duplex 16 kHz 16-bit I2S (`DOUT = GPIO 8`, `DIN = GPIO 10`)** and configure the **ES8311 ADC + Microphone PGA registers (`0x0E`, `0x14`, `0x15`, `0x17`, `0x1B`, `0x1C`)** so the ESP32-S3 works simultaneously as a **16 kHz Speaker** and a **16 kHz Push-to-Talk Microphone** for the Raspberry Pi 5. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Target Files**:
   1. `C:\projects\personal\cricket\firmware\src\main.cpp`
 - **Step-by-Step Implementation Spec**:
@@ -895,7 +895,7 @@ gh run watch $runId --exit-status
 ---
 
 ### Task 11.3: Cyber-Arcane `368×448` AMOLED Touch UI for Raspberry Pi 5 Brain (`renderCelestialPi5Screen()`)
-- [ ] **Objective**: Build a dedicated, high-contrast Cyber-Arcane touch interface (`renderCelestialPi5Screen()` and `handleCelestialPi5Touch()`) for `MODE_CELESTIAL_PI5_BRAIN` on the `368×448` AMOLED panel.
+- [x] **Objective**: Build a dedicated, high-contrast Cyber-Arcane touch interface (`renderCelestialPi5Screen()` and `handleCelestialPi5Touch()`) for `MODE_CELESTIAL_PI5_BRAIN` on the `368×448` AMOLED panel. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Target Files**:
   1. `C:\projects\personal\cricket\firmware\src\main.cpp`
   2. `C:\projects\personal\cricket\emulator.py` *(keep 1:1 parity in the local Python preview emulator)*
@@ -940,7 +940,7 @@ gh run watch $runId --exit-status
 ---
 
 ### Task 11.4: Raspberry Pi 5 Auto-Attach Bridge & Audio/HUD Streamer (`tools/pi5_esp32_satellite.py` & `tools/ai_brain_server.py`)
-- [ ] **Objective**: Create a clean Python bridge module [`tools/pi5_esp32_satellite.py`](../tools/pi5_esp32_satellite.py) (and hook it into [`tools/ai_brain_server.py`](../tools/ai_brain_server.py)) so that whenever the Raspberry Pi 5 brain server starts, it **automatically finds the ESP32-S3** (via USB `/dev/ttyACM*` / `COM*` or Wi-Fi UDP `:4210`), switches its screen into **Celestial Pi 5 Brain Mode**, receives 16 kHz microphone audio from the ESP32-S3, runs `Moonshine/SenseVoice STT -> Ollama/Offline LLM -> Kokoro-82M TTS`, updates the ESP32-S3 AMOLED display, and plays the synthesized voice out of the ESP32-S3's speaker!
+- [x] **Objective**: Create a clean Python bridge module [`tools/pi5_esp32_satellite.py`](../tools/pi5_esp32_satellite.py) (and hook it into [`tools/ai_brain_server.py`](../tools/ai_brain_server.py)) so that whenever the Raspberry Pi 5 brain server starts, it **automatically finds the ESP32-S3** (via USB `/dev/ttyACM*` / `COM*` or Wi-Fi UDP `:4210`), switches its screen into **Celestial Pi 5 Brain Mode**, receives 16 kHz microphone audio from the ESP32-S3, runs `Moonshine/SenseVoice STT -> Ollama/Offline LLM -> Kokoro-82M TTS`, updates the ESP32-S3 AMOLED display, and plays the synthesized voice out of the ESP32-S3's speaker! — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Target Files**:
   1. `tools/pi5_esp32_satellite.py` *(new file)*
   2. `tools/ai_brain_server.py`
@@ -981,7 +981,7 @@ gh run watch $runId --exit-status
 ---
 
 ### Task 11.5: End-to-End Hardware Verification on Connected ESP32-S3 (`COM11` / `192.168.178.121`)
-- [ ] **Objective**: Compile and flash the updated dual-mode `ota_0` firmware to the connected **Waveshare ESP32-S3-Touch-AMOLED-1.8 (`COM11`)**, verify that both existing modes (`12-Page Cricket PC Monitor` and `Factory ESP-Brookesia Phone OS`) remain 100% intact, and test live **Pi 5 Satellite Screen + ES8311 Speaker + ES8311 Microphone** operation.
+- [x] **Objective**: Compile and flash the updated dual-mode `ota_0` firmware to the connected **Waveshare ESP32-S3-Touch-AMOLED-1.8 (`COM11`)**, verify that both existing modes (`12-Page Cricket PC Monitor` and `Factory ESP-Brookesia Phone OS`) remain 100% intact, and test live **Pi 5 Satellite Screen + ES8311 Speaker + ES8311 Microphone** operation. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Step-by-Step Verification Commands**:
   1. **Compile & Flash `ota_0` via PlatformIO (`COM11`)**:
      ```powershell

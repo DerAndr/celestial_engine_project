@@ -1004,6 +1004,8 @@ bool net_client_ping_server(void) {
     return true;
 }
 
+#define ADPCM_CODEC_ID_IMA_4BIT 1u
+
 bool net_client_send_query_start(uint8_t lang_code, uint8_t model_preset) {
     net_client_cancel();
     cyw43_arch_lwip_begin();
@@ -1013,7 +1015,7 @@ bool net_client_send_query_start(uint8_t lang_code, uint8_t model_preset) {
     resp_text_buffer[0] = '\0';
     response_progress_ms = to_ms_since_boot(get_absolute_time());
     cyw43_arch_lwip_end();
-    uint8_t payload[2] = { lang_code, model_preset };
+    uint8_t payload[6] = { lang_code, model_preset, 0u, 0u, 0u, ADPCM_CODEC_ID_IMA_4BIT };
     bool sent = send_udp_packet(NET_MSG_QUERY_START, payload, sizeof payload);
     if (sent) send_udp_packet(NET_MSG_QUERY_START, payload, sizeof payload);
     else { net_client_cancel(); response_failed = true; }
@@ -1025,16 +1027,19 @@ bool net_client_send_audio_chunk(const int16_t *samples, size_t sample_count) {
         return true;
     }
 
+    static uint8_t uplink_adpcm_buf[NET_MAX_PAYLOAD_SIZE];
+    const size_t max_samples_per_pkt = (NET_MAX_PAYLOAD_SIZE - IMA_ADPCM_HEADER_BYTES) * 2u;
     size_t offset = 0;
     while (offset < sample_count) {
         size_t chunk_samples = sample_count - offset;
-        size_t max_samples_per_pkt = NET_MAX_PAYLOAD_SIZE / sizeof(int16_t);
         if (chunk_samples > max_samples_per_pkt) {
             chunk_samples = max_samples_per_pkt;
         }
 
-        size_t bytes = chunk_samples * sizeof(int16_t);
-        if (!send_udp_packet(NET_MSG_AUDIO_CHUNK, &samples[offset], bytes)) {
+        size_t adpcm_bytes = ima_adpcm_encode_block(
+            &samples[offset], chunk_samples, uplink_adpcm_buf, sizeof(uplink_adpcm_buf)
+        );
+        if (adpcm_bytes == 0 || !send_udp_packet(NET_MSG_AUDIO_CHUNK, uplink_adpcm_buf, adpcm_bytes)) {
             return false;
         }
         offset += chunk_samples;

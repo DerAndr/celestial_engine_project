@@ -249,6 +249,60 @@ class TestProtocolV2ParityAndMockVoiceLoop(unittest.TestCase):
             server_sock.close()
             staff_sock.close()
 
+    def test_uplink_query_start_and_adpcm_audio_chunk_roundtrip(self):
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_sock.bind(("127.0.0.1", 0))
+        server_addr = server_sock.getsockname()
+
+        staff_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        staff_sock.bind(("127.0.0.1", 0))
+        staff_sock.settimeout(2.0)
+
+        transport = brain_transport.BrainTransport(server_sock, retry_seconds=0.05, packet_timeout=2.0)
+        num_samples = 480
+        pcm_samples = [int(16000.0 * math.sin(2.0 * math.pi * 500.0 * i / 16000.0)) for i in range(num_samples)]
+        pcm_bytes = struct.pack(f"<{num_samples}h", *pcm_samples)
+        adpcm_chunk = adpcm_codec.encode_block(pcm_bytes)
+        self.assertEqual(len(adpcm_chunk), 244)
+
+        captured = {}
+
+        def worker(tp, session):
+            captured["codec_id"] = session.uplink_codec_id
+            captured["pcm"] = bytes(session.pcm)
+            tp.stream(session, b"\x00\x00" * 16, b"UPLINK ADPCM OK")
+
+        t = threading.Thread(target=transport.serve, args=(worker,), daemon=True)
+        t.start()
+        try:
+            rid = 9002
+            query_start_payload = bytes([0, 5, 0, 0, 0, brain_transport.ADPCM_CODEC_ID_IMA_4BIT])
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_QUERY_START, rid, 0, query_start_payload), server_addr)
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_AUDIO_CHUNK, rid, 0, adpcm_chunk), server_addr)
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_QUERY_END, rid, 1), server_addr)
+
+            got_end = False
+            while not got_end:
+                raw, _ = staff_sock.recvfrom(1024)
+                kind, r_id, seq, _ = brain_transport.unpack(raw)
+                if kind == brain_transport.MSG_ACK:
+                    continue
+                if kind == brain_transport.MSG_RESP_END:
+                    got_end = True
+                staff_sock.sendto(brain_transport.packet(brain_transport.MSG_ACK, r_id, seq, bytes([kind])), server_addr)
+
+            self.assertEqual(captured["codec_id"], 1)
+            decoded_pcm = captured["pcm"]
+            self.assertEqual(len(decoded_pcm), 960)
+            decoded_samples = struct.unpack(f"<{num_samples}h", decoded_pcm)
+            sig_power = sum(s * s for s in pcm_samples)
+            err_power = sum((a - b) ** 2 for a, b in zip(pcm_samples, decoded_samples))
+            snr_db = 10.0 * math.log10(sig_power / max(err_power, 1))
+            self.assertGreater(snr_db, 28.0)
+        finally:
+            server_sock.close()
+            staff_sock.close()
+
 
 if __name__ == "__main__":
     unittest.main()

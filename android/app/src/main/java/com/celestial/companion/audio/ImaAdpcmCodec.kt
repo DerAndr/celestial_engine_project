@@ -13,6 +13,8 @@ import java.nio.ByteOrder
 object ImaAdpcmCodec {
 
     const val HEADER_BYTES = 4
+    const val CODEC_ID_NONE = 0
+    const val CODEC_ID_IMA_ADPCM = 1
 
     private val IMA_STEP_TABLE = intArrayOf(
         7, 8, 9, 10, 11, 12, 13, 14, 16, 17,
@@ -69,6 +71,9 @@ object ImaAdpcmCodec {
         }
         return out
     }
+
+    fun decodeBlockToPcm16Le(adpcmBytes: ByteArray, maxSamples: Int = (adpcmBytes.size - HEADER_BYTES) * 2): ByteArray =
+        decodeBlock(adpcmBytes, maxSamples)
 
     fun decodeBlock(adpcmBytes: ByteArray, maxSamples: Int = (adpcmBytes.size - HEADER_BYTES) * 2): ByteArray {
         if (adpcmBytes.size <= HEADER_BYTES || maxSamples <= 0) return ByteArray(0)

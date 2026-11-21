@@ -22,6 +22,22 @@ MSG_APP_TIME_SYNC = 0x21
 MSG_APP_TELEMETRY = 0x22
 MAX_PAYLOAD = 512
 MAX_QUERY_BYTES = 16000 * 2 * 60
+ADPCM_CODEC_ID_IMA_4BIT = 1
+
+
+def parse_query_start(payload: bytes):
+    """Parse QUERY_START payload into (lang, model, codec_id), preserving 2-byte PCM16 compat."""
+    if len(payload) < 2:
+        return None
+    lang = payload[0]
+    model = payload[1]
+    if len(payload) >= 6:
+        codec_id = payload[5]
+    elif len(payload) >= 3:
+        codec_id = payload[2]
+    else:
+        codec_id = 0
+    return lang, model, codec_id
 
 def compute_auth_token(passkey="apophis"):
     """Computes 32-bit FNV-1a signature matching firmware compute_auth_token()."""
@@ -80,6 +96,7 @@ class Session:
     request_id: int
     lang: int
     model: int
+    uplink_codec_id: int = 0
     pcm: bytearray = field(default_factory=bytearray)
     recording: bool = True
     done: bool = False
@@ -150,7 +167,7 @@ class BrainTransport:
             return None
         with self.lock:
             current = self.sessions.get(addr)
-            if kind == MSG_QUERY_START and len(payload) == 2 and rid:
+            if kind == MSG_QUERY_START and len(payload) >= 2 and rid:
                 if rid in self.retired_ids.get(addr, ()):
                     return None
                 if current and current.request_id == rid:
@@ -160,7 +177,8 @@ class BrainTransport:
                     self.retired_ids.setdefault(addr, deque(maxlen=32)).append(current.request_id)
                 if len(self.sessions) >= 8 and addr not in self.sessions:
                     return None
-                current = Session(addr, rid, payload[0], payload[1])
+                lang, model, codec_id = parse_query_start(payload)
+                current = Session(addr, rid, lang, model, uplink_codec_id=codec_id)
                 self.sessions[addr] = current
                 return None
             if not current or current.request_id != rid or current.cancelled.is_set():
@@ -171,16 +189,30 @@ class BrainTransport:
                 with current.condition:
                     current.acknowledged = (payload[0], seq)
                     current.condition.notify_all()
-            elif kind == MSG_AUDIO_CHUNK and current.recording and payload and not len(payload) % 2:
+            elif kind == MSG_AUDIO_CHUNK and current.recording and payload:
+                if current.uplink_codec_id == ADPCM_CODEC_ID_IMA_4BIT:
+                    if len(payload) <= 4:
+                        return None
+                    try:
+                        import adpcm_codec
+                    except ImportError:
+                        from tools import adpcm_codec
+                    decoded_pcm = adpcm_codec.decode_block(payload)
+                else:
+                    if len(payload) % 2:
+                        return None
+                    decoded_pcm = payload
+                if not decoded_pcm:
+                    return None
                 if current.last_upload_seq is not None:
                     delta = (seq - current.last_upload_seq) & 0xffff
                     if not 0 < delta < 0x8000:
                         return None
-                if len(current.pcm) + len(payload) > MAX_QUERY_BYTES:
+                if len(current.pcm) + len(decoded_pcm) > MAX_QUERY_BYTES:
                     self.send(current, MSG_ERROR, payload=b'Query too long')
                     self.cancel(current)
                 else:
-                    current.pcm.extend(payload)
+                    current.pcm.extend(decoded_pcm)
                     current.last_upload_seq = seq
             elif kind == MSG_QUERY_END and current.recording:
                 current.recording = False

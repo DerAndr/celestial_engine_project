@@ -232,4 +232,44 @@ class OnDeviceSotaAudioEngineTest {
         assertEquals(0.25f, row0!![0], 1e-5f)
         assertEquals(0.75f, row1!![0], 1e-5f)
     }
+
+    @Test
+    fun `KokoroOnnxSynthesizer domain IPA lexicon covers 30 plus Celestial terms and produces valid token IDs`() {
+        assertTrue(
+            "Expected at least 30 domain IPA lexicon entries",
+            com.celestial.companion.audio.KokoroOnnxSynthesizer.DOMAIN_IPA_LEXICON.size >= 30
+        )
+
+        val ipa = com.celestial.companion.audio.KokoroOnnxSynthesizer.englishToIpaPhonemes(
+            "The Omnissiah blesses this celestial grimoire and supernova aegis."
+        )
+        assertTrue(ipa.contains("ˌɑːmnɪsˈaɪə"))
+        assertTrue(ipa.contains("sˌuːpɚnˈoʊvə"))
+        assertTrue(ipa.contains("ɡɹɪmwˈɑːɹ"))
+
+        val tokens = com.celestial.companion.audio.KokoroOnnxSynthesizer.englishToKokoroTokens(
+            "Omnissiah supernova arcane grimoire aegis chrono nebula"
+        )
+        assertTrue("Expected non-empty domain IPA token sequence", tokens.size >= 20)
+        assertTrue("All token IDs must be within 1..177", tokens.all { it in 1..177 })
+    }
+
+    @Test
+    fun `splitTextIntoKokoroClauses strips spell tags and chunks multi-sentence prophecies under maxChars`() {
+        val prophecy = "[SPELL: Supernova | ANIM: SUPERNOVA | SOUNDS: SUPERNOVA] " +
+            "The Omnissiah awakens in the celestial void. " +
+            "Quantum runes align across the astral matrix! " +
+            "Shields hold steady at full luminosity."
+
+        val clauses = com.celestial.companion.audio.KokoroOnnxSynthesizer.splitTextIntoKokoroClauses(prophecy)
+        assertEquals(3, clauses.size)
+        assertEquals("The Omnissiah awakens in the celestial void.", clauses[0])
+        assertEquals("Quantum runes align across the astral matrix!", clauses[1])
+        assertEquals("Shields hold steady at full luminosity.", clauses[2])
+
+        val longClause = "First cosmic alignment, second harmonic resonance, third arcane oscillation, fourth warp surge across the stars"
+        val subChunks = com.celestial.companion.audio.KokoroOnnxSynthesizer.splitTextIntoKokoroClauses(longClause, maxCharsPerClause = 45)
+        assertTrue("Expected multiple sub-chunks, got $subChunks", subChunks.size >= 3)
+        assertTrue("Every chunk must be <= 45 chars", subChunks.all { it.length <= 45 })
+    }
 }

@@ -135,6 +135,8 @@ class StaffRepository(
 
     private val incomingAudioStream = ByteArrayOutputStream()
     private var activeAudioJob: Job? = null
+    @Volatile
+    private var uplinkAudioCodecId: Int = 0
 
     fun abortCurrentQuery() {
         Log.i(TAG, "abortCurrentQuery: aborting TTS, canceling audio stream, sending CANCEL packet")
@@ -550,8 +552,10 @@ class StaffRepository(
                     return
                 }
                 activeQueryRequestId = packet.requestId
-                Log.i(TAG, "Incoming QUERY_START from ${packet.senderIp} (reqId=${packet.requestId})")
-                log("VOICE", "🎤 QUERY_START received from ${packet.senderIp} (reqId=${packet.requestId})", LogLevel.INFO)
+                uplinkAudioCodecId = if (packet.payload.size >= 6) (packet.payload[5].toInt() and 0xFF) else 0
+                val codecLabel = if (uplinkAudioCodecId == com.celestial.companion.audio.ImaAdpcmCodec.CODEC_ID_IMA_ADPCM) "4:1 IMA-ADPCM" else "PCM16"
+                Log.i(TAG, "Incoming QUERY_START from ${packet.senderIp} (reqId=${packet.requestId}, uplinkCodec=$codecLabel)")
+                log("VOICE", "🎤 QUERY_START received from ${packet.senderIp} (reqId=${packet.requestId}, codec=$codecLabel)", LogLevel.INFO)
                 incomingAudioStream.reset()
                 _telemetry.value = _telemetry.value.copy(
                     state = StaffState.LISTENING,
@@ -560,10 +564,18 @@ class StaffRepository(
             }
             NetMessageType.AUDIO_CHUNK -> {
                 if (packet.payload.isNotEmpty()) {
-                    incomingAudioStream.write(packet.payload)
-                    val count = incomingAudioStream.size() / 480
-                    if (count > 0 && count % 20 == 0) {
-                        log("VOICE", "🎙️ Streaming audio... ${incomingAudioStream.size()} B ($count chunks)", LogLevel.DEBUG)
+                    val pcmBytes = if (uplinkAudioCodecId == com.celestial.companion.audio.ImaAdpcmCodec.CODEC_ID_IMA_ADPCM && packet.payload.size >= 4) {
+                        val sampleCount = (packet.payload.size - 4) * 2
+                        com.celestial.companion.audio.ImaAdpcmCodec.decodeBlockToPcm16Le(packet.payload, sampleCount)
+                    } else {
+                        packet.payload
+                    }
+                    if (pcmBytes.isNotEmpty()) {
+                        incomingAudioStream.write(pcmBytes)
+                        val count = incomingAudioStream.size() / 480
+                        if (count > 0 && count % 20 == 0) {
+                            log("VOICE", "🎙️ Streaming audio... ${incomingAudioStream.size()} B ($count chunks)", LogLevel.DEBUG)
+                        }
                     }
                 }
             }

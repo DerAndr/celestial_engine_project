@@ -83,6 +83,51 @@ class KokoroOnnxSynthesizer(
             '↓' to 169, '→' to 171, '↗' to 172, '↘' to 173, 'ᵻ' to 177
         )
 
+        private val SPELL_TAG_REGEX = Regex("\\[SPELL:[^\\]]*\\]", RegexOption.IGNORE_CASE)
+        private val CLAUSE_SPLIT_REGEX = Regex("(?<=[.!?;:])\\s+")
+        private val COMMA_SPLIT_REGEX = Regex("(?<=,)\\s+")
+
+        /**
+         * Task 9.7: Curated domain IPA pronunciation dictionary for Celestial Engine / Oracle terms.
+         * Checked prior to general lexicon and rule-based G2P conversion.
+         */
+        val DOMAIN_IPA_LEXICON: Map<String, String> = mapOf(
+            "celestial" to "səlˈɛstiəl",
+            "omnissiah" to "ˌɑːmnɪsˈaɪə",
+            "arcane" to "ɑːɹkˈeɪn",
+            "grimoire" to "ɡɹɪmwˈɑːɹ",
+            "prophecy" to "pɹˈɑːfəsi",
+            "supernova" to "sˌuːpɚnˈoʊvə",
+            "aegis" to "ˈiːdʒɪs",
+            "fireball" to "fˈaɪɚbˌɔːl",
+            "chrono" to "kɹˈoʊnoʊ",
+            "nebula" to "nˈɛbjələ",
+            "plasma" to "plˈæzmə",
+            "machine" to "məʃˈiːn",
+            "stars" to "stˈɑːɹz",
+            "void" to "vˈɔɪd",
+            "light" to "lˈaɪt",
+            "shield" to "ʃˈiːld",
+            "circuit" to "sˈɜːɹkɪt",
+            "quantum" to "kwˈɑːntəm",
+            "flux" to "flˈʌks",
+            "warp" to "wˈɔːɹp",
+            "staff" to "stˈæf",
+            "oracle" to "ˈɔːɹəkəl",
+            "spirit" to "spˈɪɹɪt",
+            "blesses" to "blˈɛsɪz",
+            "cosmos" to "kˈɑːzmoʊs",
+            "gravity" to "ɡɹˈævɪti",
+            "photon" to "fˈoʊtɑːn",
+            "matrix" to "mˈeɪtɹɪks",
+            "cyber" to "sˈaɪbɚ",
+            "rune" to "ɹˈuːn",
+            "runes" to "ɹˈuːnz",
+            "aether" to "ˈiːθɚ",
+            "telemetry" to "təlˈɛmɪtɹi",
+            "nexus" to "nˈɛksəs"
+        )
+
         private val LEXICON_IPA: Map<String, String> = mapOf(
             "the" to "ðə", "a" to "ə", "an" to "æn", "and" to "ænd", "of" to "ʌv",
             "to" to "tuː", "in" to "ɪn", "is" to "ɪz", "are" to "ɑːɹ", "you" to "juː",
@@ -105,11 +150,56 @@ class KokoroOnnxSynthesizer(
         )
 
         /**
-         * Rule-based English Grapheme-to-IPA converter and Kokoro tokenizer.
-         * Produces token IDs in `[1..177]` (excluding the outer `0` padding).
+         * Task 9.7: Splits long prophecies into natural prosody clauses bounded by `maxCharsPerClause`
+         * so Kokoro-82M never overflows its 510-phoneme context window and pauses cleanly at punctuation.
          */
-        fun englishToKokoroTokens(text: String): IntArray {
-            if (text.isBlank()) return IntArray(0)
+        fun splitTextIntoKokoroClauses(text: String, maxCharsPerClause: Int = 180): List<String> {
+            val cleaned = text
+                .replace(SPELL_TAG_REGEX, " ")
+                .replace(Regex("\\s+"), " ")
+                .trim()
+            if (cleaned.isEmpty()) return emptyList()
+
+            val limit = maxCharsPerClause.coerceAtLeast(24)
+            val result = ArrayList<String>()
+            for (sentence in CLAUSE_SPLIT_REGEX.split(cleaned)) {
+                val trimmed = sentence.trim()
+                if (trimmed.isEmpty()) continue
+                if (trimmed.length <= limit) {
+                    result.add(trimmed)
+                } else {
+                    for (subClause in COMMA_SPLIT_REGEX.split(trimmed)) {
+                        val sub = subClause.trim()
+                        if (sub.isEmpty()) continue
+                        if (sub.length <= limit) {
+                            result.add(sub)
+                        } else {
+                            var current = StringBuilder()
+                            for (word in sub.split(' ')) {
+                                if (word.isEmpty()) continue
+                                if (current.isNotEmpty() && current.length + 1 + word.length > limit) {
+                                    result.add(current.toString())
+                                    current = StringBuilder()
+                                }
+                                if (current.isNotEmpty()) current.append(' ')
+                                current.append(word)
+                            }
+                            if (current.isNotEmpty()) {
+                                result.add(current.toString())
+                            }
+                        }
+                    }
+                }
+            }
+            return result
+        }
+
+        /**
+         * Converts English text into Kokoro IPA phoneme characters, checking [DOMAIN_IPA_LEXICON]
+         * and [LEXICON_IPA] before falling back to rule-based G2P conversion.
+         */
+        fun englishToIpaPhonemes(text: String): String {
+            if (text.isBlank()) return ""
             val normalized = text.trim()
                 .replace("99.94", "ninety-nine point nine four")
                 .replace("99.4", "ninety-nine point four")
@@ -122,7 +212,7 @@ class KokoroOnnxSynthesizer(
                 val seg = m.value
                 if (seg[0].isLetter()) {
                     val lower = seg.lowercase(Locale.US)
-                    val dictHit = LEXICON_IPA[lower]
+                    val dictHit = DOMAIN_IPA_LEXICON[lower] ?: LEXICON_IPA[lower]
                     if (dictHit != null) {
                         ipaBuilder.append(dictHit)
                     } else {
@@ -138,8 +228,16 @@ class KokoroOnnxSynthesizer(
                     }
                 }
             }
+            return ipaBuilder.toString().replace(Regex("\\s+"), " ").trim()
+        }
 
-            val rawIpa = ipaBuilder.toString().replace(Regex("\\s+"), " ").trim()
+        /**
+         * Rule-based English Grapheme-to-IPA converter and Kokoro tokenizer.
+         * Produces token IDs in `[1..177]` (excluding the outer `0` padding).
+         */
+        fun englishToKokoroTokens(text: String): IntArray {
+            val rawIpa = englishToIpaPhonemes(text)
+            if (rawIpa.isEmpty()) return IntArray(0)
             val ids = ArrayList<Int>(rawIpa.length.coerceAtMost(MAX_PHONEME_LENGTH))
             for (ch in rawIpa) {
                 if (ids.size >= MAX_PHONEME_LENGTH) break
@@ -430,10 +528,11 @@ class KokoroOnnxSynthesizer(
     }
 
     /**
-     * Runs genuine on-device Kokoro-82M INT8 ONNX synthesis:
-     * 1. Converts English text to IPA token IDs (`englishToKokoroTokens`) and pads with `0` (`[1, N+2]`).
-     * 2. Loads the 256-float style vector for `voiceProfile.voiceId` at index `N - 1` from `voices-v1.0.bin`.
-     * 3. Executes `kokoroSession.run(inputs)` and resamples the 24 kHz float32 output to 16 kHz 16-bit mono PCM.
+     * Runs genuine on-device Kokoro-82M INT8 ONNX synthesis across prosody clauses:
+     * 1. Splits text via [splitTextIntoKokoroClauses] to stay within the 510-phoneme context window.
+     * 2. Converts each clause to IPA token IDs (`englishToKokoroTokens`) and pads with `0` (`[1, N+2]`).
+     * 3. Executes `kokoroSession.run(inputs)`, resamples 24 kHz float32 -> 16 kHz PCM16 LE, and inserts
+     *    `3200 bytes` (`100 ms` @ 16 kHz) of zero-PCM silence between clauses.
      */
     suspend fun synthesizeOrNull(text: String, voiceProfile: KokoroVoiceProfile): ByteArray? = withContext(Dispatchers.Default) {
         if (text.isBlank() || !isReady()) return@withContext null
@@ -441,9 +540,37 @@ class KokoroOnnxSynthesizer(
         val env = ortEnv ?: return@withContext null
         val session = kokoroSession ?: return@withContext null
 
-        val innerTokens = englishToKokoroTokens(text)
-        if (innerTokens.isEmpty()) return@withContext null
-        val styleVec = getVoiceStyleRow(voiceProfile.voiceId, innerTokens.size) ?: return@withContext null
+        val clauses = splitTextIntoKokoroClauses(text)
+        if (clauses.isEmpty()) return@withContext null
+        if (clauses.size == 1) {
+            return@withContext synthesizeSingleClauseOrNull(clauses[0], voiceProfile, env, session)
+        }
+
+        val combinedPcm = java.io.ByteArrayOutputStream()
+        val interClauseSilence = ByteArray(3200) // 100 ms silence @ 16 kHz mono 16-bit PCM
+        var synthesizedClauseCount = 0
+        for (clause in clauses) {
+            val clausePcm = synthesizeSingleClauseOrNull(clause, voiceProfile, env, session)
+            if (clausePcm != null && clausePcm.isNotEmpty()) {
+                if (synthesizedClauseCount > 0) {
+                    combinedPcm.write(interClauseSilence)
+                }
+                combinedPcm.write(clausePcm)
+                synthesizedClauseCount++
+            }
+        }
+        if (synthesizedClauseCount == 0) null else combinedPcm.toByteArray()
+    }
+
+    private fun synthesizeSingleClauseOrNull(
+        clause: String,
+        voiceProfile: KokoroVoiceProfile,
+        env: OrtEnvironment,
+        session: OrtSession
+    ): ByteArray? {
+        val innerTokens = englishToKokoroTokens(clause)
+        if (innerTokens.isEmpty()) return null
+        val styleVec = getVoiceStyleRow(voiceProfile.voiceId, innerTokens.size) ?: return null
 
         val paddedTokensLong = LongArray(innerTokens.size + 2)
         val paddedTokensInt = IntArray(innerTokens.size + 2)
@@ -473,21 +600,21 @@ class KokoroOnnxSynthesizer(
 
             val res = session.run(inputs)
             try {
-                val outTensor = res.firstOrNull()?.value as? OnnxTensor ?: return@withContext null
+                val outTensor = res.firstOrNull()?.value as? OnnxTensor ?: return null
                 val fb = outTensor.floatBuffer
                 fb.rewind()
                 val samples24k = FloatArray(fb.remaining())
                 fb.get(samples24k)
-                if (samples24k.size < 240) return@withContext null
+                if (samples24k.size < 240) return null
                 val pcm16k = resampleFloat24kToPcm16kMono(samples24k, targetPeak = 22000)
                 Log.i(TAG, "Kokoro-82M ONNX synthesized ${samples24k.size} samples @ 24kHz -> ${pcm16k.size} B PCM @ 16kHz (voice=${voiceProfile.voiceId})")
-                return@withContext pcm16k
+                return pcm16k
             } finally {
                 try { res.close() } catch (_: Throwable) {}
             }
         } catch (t: Throwable) {
             Log.w(TAG, "Kokoro-82M ONNX inference error (${t.message}), falling back to system TTS")
-            return@withContext null
+            return null
         } finally {
             for (tensor in inputs.values) {
                 try { tensor.close() } catch (_: Throwable) {}

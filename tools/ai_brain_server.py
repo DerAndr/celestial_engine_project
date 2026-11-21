@@ -807,14 +807,15 @@ def process_query_worker(transport, session):
         cleaned_pcm = clean_pcm_samples(raw_pcm)
 
         count = len(cleaned_pcm) // 2
+        codec_label = "4:1 IMA-ADPCM" if getattr(session, "uplink_codec_id", 0) == 1 else "PCM16"
         if count > 0:
             samples = list(struct.unpack(f"<{count}h", cleaned_pcm[:count * 2]))
             min_s = min(samples)
             max_s = max(samples)
             rms_s = int(math.sqrt(sum(s*s for s in samples) / count))
-            print(f"[REQUEST {session.request_id}] {len(raw_pcm)} bytes ({dur:.2f}s). Stats: min={min_s}, max={max_s}, RMS={rms_s}")
+            print(f"[REQUEST {session.request_id}] {len(raw_pcm)} bytes ({dur:.2f}s, uplink={codec_label}). Stats: min={min_s}, max={max_s}, RMS={rms_s}")
         else:
-            print(f"[REQUEST {session.request_id}] 0 bytes received!")
+            print(f"[REQUEST {session.request_id}] 0 bytes received (uplink={codec_label})!")
 
         try:
             with wave.open("/home/andr/last_query.wav", "wb") as wf_dbg:

@@ -88,6 +88,7 @@ fun OracleTerminalScreen(
     val currentPersona by viewModel.currentPersona.collectAsState()
     val customSystemPrompt by viewModel.customSystemPrompt.collectAsState()
     val engineMode by viewModel.engineMode.collectAsState()
+    val isBenchmarkRunning by viewModel.isBenchmarkRunning.collectAsState()
 
     var promptInput by remember { mutableStateOf("") }
     var thinkingModeEnabled by remember { mutableStateOf(viewModel.gemmaEngine?.config?.enableThinking ?: true) }
@@ -634,6 +635,27 @@ fun OracleTerminalScreen(
                             )
                         }
                     }
+                }
+
+                // Task 9.8: Interactive On-Device SOTA Benchmark Button
+                OutlinedButton(
+                    onClick = { viewModel.runOnDeviceSotaBenchmark() },
+                    enabled = !isBenchmarkRunning,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, if (isBenchmarkRunning) RunicGold else EmeraldGreen),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = SpaceBlack
+                    ),
+                    contentPadding = PaddingValues(vertical = 6.dp, horizontal = 10.dp)
+                ) {
+                    Text(
+                        text = if (isBenchmarkRunning) "⚡ Benchmarking SOTA..." else "⚡ Benchmark SOTA",
+                        color = if (isBenchmarkRunning) RunicGold else EmeraldGreen,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
                 }
 
                 // Interactive Model Selector Pills
