@@ -575,7 +575,7 @@ com.celestial.companion/
 ---
 
 ### Task 9.1: Full Greedy Autoregressive Moonshine Decoder & SenseVoice CTC Decoder (`OnDeviceSotaAudioEngine.kt`)
-- [ ] **Objective**: Replace the first-pass encoder validation in `OnDeviceSotaAudioEngine.runMoonshineFirstPass` with the complete greedy token decoding loop for both **Moonshine Tiny INT8 ONNX** (`uncached_decode.int8.onnx` + `cached_decode.int8.onnx`) and **SenseVoice-Small INT8 ONNX** (`model.int8.onnx` CTC argmax).
+- [x] **Objective**: Replace the first-pass encoder validation in `OnDeviceSotaAudioEngine.runMoonshineFirstPass` with the complete greedy token decoding loop for both **Moonshine Tiny INT8 ONNX** (`uncached_decode.int8.onnx` + `cached_decode.int8.onnx`) and **SenseVoice-Small INT8 ONNX** (`model.int8.onnx` CTC argmax). — ✅ Completed on `feat/sota-phase-next` (2026-11-21)
 - **Target Files**:
   1. `android/app/src/main/java/com/celestial/companion/ai/OnDeviceSotaAudioEngine.kt`
   2. `android/app/src/test/java/com/celestial/companion/ai/OnDeviceSotaAudioEngineTest.kt`
@@ -610,7 +610,7 @@ com.celestial.companion/
 ---
 
 ### Task 9.2: On-Device Kokoro-82M INT8 ONNX Neural Synthesizer (`KokoroOnnxSynthesizer.kt` & `StaffTtsSynthesizer.kt`)
-- [ ] **Objective**: Add direct on-device `Kokoro-82M INT8 ONNX` neural waveform generation on Android (`24 kHz Float32` -> in-memory linear resampling to `16 kHz 16-bit signed mono PCM`), matching `tools/local_ai_engine.py` (`_synthesize_kokoro_pcm`) with zero-latency fallback to Android System `TextToSpeech`.
+- [x] **Objective**: Add direct on-device `Kokoro-82M INT8 ONNX` neural waveform generation on Android (`24 kHz Float32` -> in-memory linear resampling to `16 kHz 16-bit signed mono PCM`), matching `tools/local_ai_engine.py` (`_synthesize_kokoro_pcm`) with zero-latency fallback to Android System `TextToSpeech`. — ✅ Completed on `feat/sota-phase-next` (2026-11-21)
 - **Target Files**:
   1. `android/app/src/main/java/com/celestial/companion/audio/KokoroOnnxSynthesizer.kt` *(new file)*
   2. `android/app/src/main/java/com/celestial/companion/audio/StaffTtsSynthesizer.kt`
@@ -637,7 +637,7 @@ com.celestial.companion/
 ---
 
 ### Task 9.3: 4:1 IMA-ADPCM Low-Bandwidth Wireless Audio Codec (RP2350 C + Kotlin + Python Parity)
-- [ ] **Objective**: Add an optional 4:1 `IMA-ADPCM` (`64 kbps` vs `256 kbps` raw PCM, `960 samples` per `484-byte` UDP payload) codec across C firmware, Android Kotlin, and Raspberry Pi 5 Python to eliminate Wi-Fi jitter and quadruple the effective pre-buffer duration on RP2350 without changing the `64 KB` RAM footprint.
+- [x] **Objective**: Add an optional 4:1 `IMA-ADPCM` (`64 kbps` vs `256 kbps` raw PCM, `960 samples` per `484-byte` UDP payload) codec across C firmware, Android Kotlin, and Raspberry Pi 5 Python to eliminate Wi-Fi jitter and quadruple the effective pre-buffer duration on RP2350 without changing the `64 KB` RAM footprint. — ✅ Completed on `feat/sota-phase-next` (2026-11-21)
 - **Target Files**:
   1. `firmware/src/adpcm_codec.h` & `firmware/src/adpcm_codec.c` *(new files)*
   2. `android/app/src/main/java/com/celestial/companion/audio/ImaAdpcmCodec.kt` *(new file)*
@@ -659,7 +659,7 @@ com.celestial.companion/
 ---
 
 ### Task 9.4: End-to-End Speech-to-Speech (Omni) Latency Harness (`Mini-Omni2` / Native Audio-In -> Audio-Out)
-- [ ] **Objective**: Implement the Section 7.3 Phase 4 benchmark harness (`OmniAudioSession.kt` & `tools/omni_benchmark.py`) to evaluate direct audio-to-audio streaming (`16 kHz PCM in` -> `16 kHz PCM out` without intermediate text round-trips) targeting **< 300 ms glass-to-glass latency** on 16 GB RAM hosts (`Pixel 9 Pro XL` and `Raspberry Pi 5`).
+- [x] **Objective**: Implement the Section 7.3 Phase 4 benchmark harness (`OmniAudioSession.kt` & `tools/omni_benchmark.py`) to evaluate direct audio-to-audio streaming (`16 kHz PCM in` -> `16 kHz PCM out` without intermediate text round-trips) targeting **< 300 ms glass-to-glass latency** on 16 GB RAM hosts (`Pixel 9 Pro XL` and `Raspberry Pi 5`). — ✅ Completed on `feat/sota-phase-next` (2026-11-21)
 - **Target Files**:
   1. `android/app/src/main/java/com/celestial/companion/ai/OmniAudioSession.kt` *(new file)*
   2. `tools/omni_benchmark.py` *(new file)*

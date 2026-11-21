@@ -7,6 +7,7 @@ Phase 4 Integration Test Suite:
    [SPELL: ...] APP_COMMAND 0x20 dispatch -> acknowledged PCM audio & OLED text streaming).
 """
 
+import math
 import os
 import re
 import socket
@@ -21,6 +22,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import brain_transport
 import ai_brain_server
+import adpcm_codec
+import omni_benchmark
 
 
 class TestProtocolV2ParityAndMockVoiceLoop(unittest.TestCase):
@@ -173,6 +176,28 @@ class TestProtocolV2ParityAndMockVoiceLoop(unittest.TestCase):
         finally:
             server_sock.close()
             staff_sock.close()
+
+    def test_ima_adpcm_4_to_1_compression_and_snr(self):
+        num_samples = 480
+        pcm_samples = [int(16000.0 * math.sin(2.0 * math.pi * 150.0 * i / 16000.0)) for i in range(num_samples)]
+        pcm_bytes = struct.pack(f"<{num_samples}h", *pcm_samples)
+
+        encoded = adpcm_codec.encode_block(pcm_bytes)
+        self.assertEqual(len(encoded), 244)  # 4-byte header + 240 nibble bytes
+
+        decoded_bytes = adpcm_codec.decode_block(encoded, num_samples)
+        self.assertEqual(len(decoded_bytes), 960)
+        decoded_samples = struct.unpack(f"<{num_samples}h", decoded_bytes)
+
+        sig_power = sum(s * s for s in pcm_samples)
+        err_power = sum((a - b) ** 2 for a, b in zip(pcm_samples, decoded_samples))
+        snr_db = 10.0 * math.log10(sig_power / max(err_power, 1))
+        self.assertGreater(snr_db, 28.0)
+
+    def test_omni_benchmark_harness_evaluates_sub_300ms(self):
+        res = omni_benchmark.evaluate_pipeline_latency(stt_ms=95.0, llm_ttft_ms=140.0, tts_first_chunk_ms=75.0)
+        self.assertEqual(res["sequential_ttfa_ms"], 310.0)
+        self.assertTrue(res["omni_meets_300ms"])
 
 
 if __name__ == "__main__":

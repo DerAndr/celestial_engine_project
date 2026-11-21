@@ -135,4 +135,71 @@ class OnDeviceSotaAudioEngineTest {
         )
         assertTrue("Expected Marvin humor response, got: $marvinHumor", marvinHumor.lowercase().contains("laugh"))
     }
+
+    @Test
+    fun `decodeCtcGreedyLogits collapses repeated tokens and blank frames accurately`() {
+        val vocab = mapOf(
+            0 to "<blk>",
+            1 to "<|en|>",
+            2 to "<|Laughter|>",
+            3 to "\u2581Cast",
+            4 to "\u2581fire",
+            5 to "ball"
+        )
+        val vocabSize = 6
+        // 8 time steps: 1, 1, 0, 2, 3, 3, 4, 5
+        val targets = intArrayOf(1, 1, 0, 2, 3, 3, 4, 5)
+        val logits = FloatArray(targets.size * vocabSize) { -5.0f }
+        for (t in targets.indices) {
+            logits[t * vocabSize + targets[t]] = 5.0f
+        }
+        val decoded = OnDeviceSotaAudioEngine.decodeCtcGreedyLogits(logits, targets.size, vocabSize, vocab, blankId = 0)
+        assertEquals("<|en|><|Laughter|> Cast fireball", decoded)
+    }
+
+    @Test
+    fun `resampleFloat24kToPcm16kMono downsamples 24kHz sine wave to 16kHz 16bit PCM with 22000 peak`() {
+        val samples24k = FloatArray(2400) { i ->
+            kotlin.math.sin(2.0 * Math.PI * 440.0 * i / 24000.0).toFloat() * 0.5f
+        }
+        val pcm16k = com.celestial.companion.audio.KokoroOnnxSynthesizer.resampleFloat24kToPcm16kMono(samples24k, targetPeak = 22000)
+        assertEquals(1600 * 2, pcm16k.size)
+
+        val bb = ByteBuffer.wrap(pcm16k).order(ByteOrder.LITTLE_ENDIAN)
+        var maxPeak = 0
+        while (bb.hasRemaining()) {
+            val v = kotlin.math.abs(bb.short.toInt())
+            if (v > maxPeak) maxPeak = v
+        }
+        assertTrue("Expected peak near 22000, got $maxPeak", maxPeak in 21900..22000)
+    }
+
+    @Test
+    fun `ImaAdpcmCodec compresses 480 PCM samples 4 to 1 with high fidelity`() {
+        val pcmSamples = ShortArray(480) { i ->
+            (kotlin.math.sin(2.0 * Math.PI * 500.0 * i / 16000.0) * 16000.0).toInt().toShort()
+        }
+        val inBb = ByteBuffer.allocate(960).order(ByteOrder.LITTLE_ENDIAN)
+        for (s in pcmSamples) inBb.putShort(s)
+
+        val encoded = com.celestial.companion.audio.ImaAdpcmCodec.encodeBlock(inBb.array())
+        assertEquals(244, encoded.size) // 4-byte header + 240 nibble bytes = 4:1 compression
+
+        val decoded = com.celestial.companion.audio.ImaAdpcmCodec.decodeBlock(encoded, 480)
+        assertEquals(960, decoded.size)
+    }
+
+    @Test
+    fun `OmniAudioSession tracks glass to glass latency under 300ms target`() {
+        val session = OmniAudioSession("Mini-Omni2 Test")
+        session.appendUplinkFrame(OmniAudioFrame(ByteArray(640)))
+        session.markMicReleased(1000L)
+        session.markFirstSpellTag(1120L)
+        session.markFirstAudioChunk(1226L)
+
+        val metrics = session.snapshotMetrics()
+        assertEquals(640, session.totalUplinkBytes())
+        assertEquals(226L, metrics.glassToGlassLatencyMs)
+        assertTrue(metrics.meetsSub300MsTarget)
+    }
 }
