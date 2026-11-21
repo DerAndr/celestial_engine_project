@@ -81,7 +81,10 @@ def encode_block(pcm_bytes: bytes) -> bytes:
         return b""
     samples = struct.unpack(f"<{num_samples}h", pcm_bytes[: num_samples * 2])
     predictor = samples[0]
+    init_diff = abs(samples[1] - predictor) if num_samples > 1 else 0
     step_index = 0
+    while step_index < 88 and IMA_STEP_TABLE[step_index] < init_diff:
+        step_index += 1
     out = bytearray(struct.pack("<hBB", predictor, step_index, 0))
     for i in range(0, num_samples, 2):
         lo, predictor, step_index = _encode_nibble(samples[i], predictor, step_index)

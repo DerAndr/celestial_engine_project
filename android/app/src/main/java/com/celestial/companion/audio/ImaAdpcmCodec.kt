@@ -38,7 +38,11 @@ object ImaAdpcmCodec {
         val samples = ShortArray(numSamples) { inBb.short }
 
         var predictor = samples[0].toInt()
+        val initDiff = if (numSamples > 1) kotlin.math.abs(samples[1].toInt() - predictor) else 0
         var stepIndex = 0
+        while (stepIndex < 88 && IMA_STEP_TABLE[stepIndex] < initDiff) {
+            stepIndex++
+        }
 
         val payloadBytes = (numSamples + 1) / 2
         val out = ByteArray(HEADER_BYTES + payloadBytes)

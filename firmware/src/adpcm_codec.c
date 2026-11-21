@@ -91,7 +91,12 @@ size_t ima_adpcm_encode_block(const int16_t *pcm_in, size_t num_samples, uint8_t
     if (out_cap < total_bytes) return 0;
 
     int32_t predictor = pcm_in[0];
+    int32_t init_diff = (num_samples > 1u) ? ((int32_t)pcm_in[1] - predictor) : 0;
+    if (init_diff < 0) init_diff = -init_diff;
     int32_t step_index = 0;
+    while (step_index < 88 && IMA_STEP_TABLE[step_index] < init_diff) {
+        step_index++;
+    }
 
     out_buf[0] = (uint8_t)(predictor & 0xFF);
     out_buf[1] = (uint8_t)((predictor >> 8) & 0xFF);

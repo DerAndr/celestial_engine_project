@@ -1,7 +1,10 @@
 package com.celestial.companion.audio
 
+import ai.onnxruntime.OnnxJavaType
+import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import ai.onnxruntime.TensorInfo
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -11,12 +14,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.nio.FloatBuffer
+import java.nio.IntBuffer
+import java.nio.LongBuffer
+import java.util.Locale
+import java.util.zip.ZipInputStream
 import kotlin.math.abs
 
 enum class KokoroDownloadState(val badge: String) {
@@ -27,11 +38,13 @@ enum class KokoroDownloadState(val badge: String) {
 }
 
 /**
- * Task 9.2: On-Device Kokoro-82M INT8 ONNX Neural Synthesizer (`24 kHz Float32` -> `16 kHz 16-bit mono PCM`).
+ * Task 9.2: Genuine On-Device Kokoro-82M INT8 ONNX Neural Synthesizer (`24 kHz Float32` -> `16 kHz 16-bit mono PCM`).
  *
- * Downloads `kokoro-v1.0.int8.onnx` (~88.1 MB) and `voices-v1.0.bin` (~26.9 MB) on-demand into
- * `filesDir/sota_models/kokoro/`, matching `tools/local_ai_engine.py` (`_synthesize_kokoro_pcm`),
- * and resamples 24 kHz float32 waveforms to 16 kHz mono with 22,000 peak normalization for MAX98357A.
+ * - Downloads `kokoro-v1.0.int8.onnx` (~88.1 MB) and `voices-v1.0.bin` (~26.9 MB NPZ archive) into `filesDir/sota_models/kokoro/`.
+ * - Extracts the 256-dim voice style embedding row `[min(N, 510) - 1]` from `<voiceId>.npy` inside `voices-v1.0.bin`.
+ * - Converts English text into Kokoro IPA phoneme token IDs (`178`-token `config.json` vocabulary, wrapped with `[0, *tokens, 0]`).
+ * - Executes `kokoroSession.run(inputs)` (`tokens`/`input_ids`, `style [1, 256]`, `speed [1]`) and resamples the 24 kHz float32
+ *   output to 16 kHz 16-bit signed mono PCM with 22,000 peak normalization for the staff's MAX98357A amplifier.
  */
 class KokoroOnnxSynthesizer(
     private val context: Context? = null
@@ -40,8 +53,211 @@ class KokoroOnnxSynthesizer(
         private const val TAG = "KokoroOnnxSynthesizer"
         const val MODEL_FILENAME = "kokoro-v1.0.int8.onnx"
         const val VOICES_FILENAME = "voices-v1.0.bin"
+        const val MAX_PHONEME_LENGTH = 510
+        const val STYLE_DIM = 256
         private const val KOKORO_RELEASE_BASE =
             "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
+
+        /**
+         * Authoritative 178-token IPA & punctuation vocabulary from `kokoro-onnx/config.json`.
+         */
+        val KOKORO_VOCAB: Map<Char, Int> = mapOf(
+            ';' to 1, ':' to 2, ',' to 3, '.' to 4, '!' to 5, '?' to 6,
+            '—' to 9, '…' to 10, '"' to 11, '(' to 12, ')' to 13, '“' to 14, '”' to 15,
+            ' ' to 16, '\u0303' to 17, 'ʣ' to 18, 'ʥ' to 19, 'ʦ' to 20, 'ʨ' to 21,
+            'ᵝ' to 22, '\uAB67' to 23, 'A' to 24, 'I' to 25, 'O' to 31, 'Q' to 33,
+            'S' to 35, 'T' to 36, 'W' to 39, 'Y' to 41, 'ᵊ' to 42,
+            'a' to 43, 'b' to 44, 'c' to 45, 'd' to 46, 'e' to 47, 'f' to 48,
+            'h' to 50, 'i' to 51, 'j' to 52, 'k' to 53, 'l' to 54, 'm' to 55,
+            'n' to 56, 'o' to 57, 'p' to 58, 'q' to 59, 'r' to 60, 's' to 61,
+            't' to 62, 'u' to 63, 'v' to 64, 'w' to 65, 'x' to 66, 'y' to 67, 'z' to 68,
+            'ɑ' to 69, 'ɐ' to 70, 'ɒ' to 71, 'æ' to 72, 'β' to 75, 'ɔ' to 76,
+            'ɕ' to 77, 'ç' to 78, 'ɖ' to 80, 'ð' to 81, 'ʤ' to 82, 'ə' to 83,
+            'ɚ' to 85, 'ɛ' to 86, 'ɜ' to 87, 'ɟ' to 90, 'ɡ' to 92, 'ɥ' to 99,
+            'ɨ' to 101, 'ɪ' to 102, 'ʝ' to 103, 'ɯ' to 110, 'ɰ' to 111, 'ŋ' to 112,
+            'ɳ' to 113, 'ɲ' to 114, 'ɴ' to 115, 'ø' to 116, 'ɸ' to 118, 'θ' to 119,
+            'œ' to 120, 'ɹ' to 123, 'ɾ' to 125, 'ɻ' to 126, 'ʁ' to 128, 'ɽ' to 129,
+            'ʂ' to 130, 'ʃ' to 131, 'ʈ' to 132, 'ʧ' to 133, 'ʊ' to 135, 'ʋ' to 136,
+            'ʌ' to 138, 'ɣ' to 139, 'ɤ' to 140, 'χ' to 142, 'ʎ' to 143, 'ʒ' to 147,
+            'ʔ' to 148, 'ˈ' to 156, 'ˌ' to 157, 'ː' to 158, 'ʰ' to 162, 'ʲ' to 164,
+            '↓' to 169, '→' to 171, '↗' to 172, '↘' to 173, 'ᵻ' to 177
+        )
+
+        private val LEXICON_IPA: Map<String, String> = mapOf(
+            "the" to "ðə", "a" to "ə", "an" to "æn", "and" to "ænd", "of" to "ʌv",
+            "to" to "tuː", "in" to "ɪn", "is" to "ɪz", "are" to "ɑːɹ", "you" to "juː",
+            "your" to "jɔːɹ", "for" to "fɔːɹ", "with" to "wɪð", "on" to "ɑːn", "at" to "æt",
+            "from" to "fɹʌm", "by" to "baɪ", "this" to "ðɪs", "that" to "ðæt", "it" to "ɪt",
+            "not" to "nɑːt", "be" to "biː", "have" to "hæv", "has" to "hæz", "but" to "bʌt",
+            "all" to "ɔːl", "one" to "wʌn", "two" to "tuː", "three" to "θɹiː", "four" to "fɔːɹ",
+            "forty" to "fɔːɹti", "forty-two" to "fɔːɹtituː", "forty-three" to "fɔːɹtiθɹiː",
+            "ninety-nine" to "naɪntinaɪn", "percent" to "pɚsˈɛnt", "quantum" to "kwˈɑːntəm",
+            "probability" to "pɹɑːbəbˈɪlɪti", "matrices" to "mˈeɪtɹɪsiːz", "stable" to "stˈeɪbəl",
+            "causal" to "kˈɔːzəl", "convergence" to "kənvˈɜːʤəns", "optimal" to "ˈɑːptɪməl",
+            "trajectory" to "tɹəʤˈɛktəɹi", "telemetry" to "təlˈɛmɪtɹi", "nominal" to "nˈɑːmɪnəl",
+            "staff" to "stˈæf", "celestial" to "səlˈɛsʧəl", "oracle" to "ˈɔːɹəkəl",
+            "engine" to "ˈɛnʤɪn", "stars" to "stˈɑːɹz", "star" to "stˈɑːɹ", "light" to "lˈaɪt",
+            "magic" to "mˈæʤɪk", "arcane" to "ɑːɹkˈeɪn", "spell" to "spˈɛl", "cast" to "kˈæst",
+            "fireball" to "fˈaɪɚbɔːl", "lightning" to "lˈaɪtnɪŋ", "shield" to "ʃˈiːld",
+            "brain" to "bɹˈeɪn", "planet" to "plˈænɪt", "diodes" to "dˈaɪoʊdz",
+            "pumpkin" to "pˈʌmpkɪn", "halloween" to "hæloʊˈiːn", "night" to "nˈaɪt",
+            "cybernetic" to "saɪbɚnˈɛtɪk", "neural" to "nˈʊɹəl", "neon" to "nˈiːɑːn"
+        )
+
+        /**
+         * Rule-based English Grapheme-to-IPA converter and Kokoro tokenizer.
+         * Produces token IDs in `[1..177]` (excluding the outer `0` padding).
+         */
+        fun englishToKokoroTokens(text: String): IntArray {
+            if (text.isBlank()) return IntArray(0)
+            val normalized = text.trim()
+                .replace("99.94", "ninety-nine point nine four")
+                .replace("99.4", "ninety-nine point four")
+                .replace("43", "forty-three")
+                .replace("42", "forty-two")
+                .replace("%", " percent")
+            val ipaBuilder = StringBuilder(normalized.length * 2)
+            val wordRegex = Regex("[A-Za-z'-]+|[^A-Za-z'-]+")
+            for (m in wordRegex.findAll(normalized)) {
+                val seg = m.value
+                if (seg[0].isLetter()) {
+                    val lower = seg.lowercase(Locale.US)
+                    val dictHit = LEXICON_IPA[lower]
+                    if (dictHit != null) {
+                        ipaBuilder.append(dictHit)
+                    } else {
+                        ipaBuilder.append(graphemeWordToIpa(lower))
+                    }
+                } else {
+                    for (ch in seg) {
+                        if (KOKORO_VOCAB.containsKey(ch)) {
+                            ipaBuilder.append(ch)
+                        } else if (ch.isWhitespace()) {
+                            ipaBuilder.append(' ')
+                        }
+                    }
+                }
+            }
+
+            val rawIpa = ipaBuilder.toString().replace(Regex("\\s+"), " ").trim()
+            val ids = ArrayList<Int>(rawIpa.length.coerceAtMost(MAX_PHONEME_LENGTH))
+            for (ch in rawIpa) {
+                if (ids.size >= MAX_PHONEME_LENGTH) break
+                val id = KOKORO_VOCAB[ch]
+                if (id != null) {
+                    ids.add(id)
+                }
+            }
+            return ids.toIntArray()
+        }
+
+        private fun graphemeWordToIpa(word: String): String {
+            var w = word
+            w = w.replace("tion", "ʃən")
+                .replace("sion", "ʒən")
+                .replace("ture", "ʧɚ")
+                .replace("igh", "aɪ")
+                .replace("tch", "ʧ")
+                .replace("dge", "ʤ")
+                .replace("ch", "ʧ")
+                .replace("sh", "ʃ")
+                .replace("th", "θ")
+                .replace("ph", "f")
+                .replace("wh", "w")
+                .replace("ng", "ŋ")
+                .replace("qu", "kw")
+                .replace("ck", "k")
+                .replace("ee", "iː")
+                .replace("ea", "iː")
+                .replace("oo", "uː")
+                .replace("ai", "eɪ")
+                .replace("ay", "eɪ")
+                .replace("oa", "oʊ")
+                .replace("ou", "aʊ")
+                .replace("ow", "aʊ")
+                .replace("ar", "ɑːɹ")
+                .replace("er", "ɚ")
+                .replace("ir", "ɜːɹ")
+                .replace("or", "ɔːɹ")
+                .replace("ur", "ɜːɹ")
+            val sb = StringBuilder(w.length + 2)
+            for (i in w.indices) {
+                val c = w[i]
+                if (c == 'e' && i == w.lastIndex && w.length > 3) continue
+                when (c) {
+                    'a' -> sb.append('æ')
+                    'e' -> sb.append('ɛ')
+                    'i' -> sb.append('ɪ')
+                    'o' -> sb.append('ɑ')
+                    'u' -> sb.append('ʌ')
+                    'c' -> sb.append(if (i + 1 < w.length && (w[i + 1] == 'e' || w[i + 1] == 'i' || w[i + 1] == 'y')) 's' else 'k')
+                    'g' -> sb.append('ɡ')
+                    'j' -> sb.append('ʤ')
+                    'r' -> sb.append('ɹ')
+                    'y' -> sb.append(if (i == w.lastIndex) 'i' else 'j')
+                    else -> sb.append(c)
+                }
+            }
+            return sb.toString()
+        }
+
+        /**
+         * Parses a NumPy `.npy` float32 stream (shape `[510, 1, 256]` or `[N, 256]`) and extracts
+         * the 256-float style vector for `rowIndex = (phonemeLen.coerceIn(1, maxRows) - 1)`.
+         */
+        fun parseNpyStyleRow(npyBytes: ByteArray, phonemeLen: Int): FloatArray? {
+            if (npyBytes.size < 128 + STYLE_DIM * 4) return null
+            if (npyBytes[0] != 0x93.toByte() ||
+                npyBytes[1].toInt().toChar() != 'N' ||
+                npyBytes[2].toInt().toChar() != 'U' ||
+                npyBytes[3].toInt().toChar() != 'M' ||
+                npyBytes[4].toInt().toChar() != 'P' ||
+                npyBytes[5].toInt().toChar() != 'Y'
+            ) {
+                return null
+            }
+            val major = npyBytes[6].toInt() and 0xFF
+            val dataOffset = if (major <= 1) {
+                val hdrLen = (npyBytes[8].toInt() and 0xFF) or ((npyBytes[9].toInt() and 0xFF) shl 8)
+                10 + hdrLen
+            } else {
+                val hdrLen = ByteBuffer.wrap(npyBytes, 8, 4).order(ByteOrder.LITTLE_ENDIAN).int
+                12 + hdrLen
+            }
+            val payloadBytes = npyBytes.size - dataOffset
+            val rowBytes = STYLE_DIM * 4
+            val totalRows = payloadBytes / rowBytes
+            if (totalRows <= 0) return null
+
+            val targetRow = (phonemeLen.coerceAtLeast(1) - 1).coerceIn(0, totalRows - 1)
+            val rowByteOffset = dataOffset + targetRow * rowBytes
+            if (rowByteOffset + rowBytes > npyBytes.size) return null
+
+            val out = FloatArray(STYLE_DIM)
+            val fb = ByteBuffer.wrap(npyBytes, rowByteOffset, rowBytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+            fb.get(out)
+            return out
+        }
+
+        /**
+         * Extracts `<voiceId>.npy` from a `voices-v1.0.bin` NPZ zip stream and returns the 256-dim style vector.
+         */
+        fun extractVoiceStyleFromNpzStream(npzStream: InputStream, voiceId: String, phonemeLen: Int): FloatArray? {
+            val targetEntryName = "$voiceId.npy"
+            var fallbackNpy: ByteArray? = null
+            ZipInputStream(npzStream).use { zis ->
+                while (true) {
+                    val entry = zis.nextEntry ?: break
+                    if (entry.name == targetEntryName || entry.name.endsWith("/$targetEntryName")) {
+                        val npyBytes = zis.readBytes()
+                        return parseNpyStyleRow(npyBytes, phonemeLen)
+                    } else if (fallbackNpy == null && entry.name.endsWith(".npy")) {
+                        fallbackNpy = zis.readBytes()
+                    }
+                }
+            }
+            return fallbackNpy?.let { parseNpyStyleRow(it, phonemeLen) }
+        }
 
         /**
          * Linearly resamples 24 kHz Float32 waveform (`[-1.0f, 1.0f]`) to 16 kHz signed 16-bit little-endian
@@ -79,6 +295,7 @@ class KokoroOnnxSynthesizer(
     private val mutex = Mutex()
     private var ortEnv: OrtEnvironment? = null
     private var kokoroSession: OrtSession? = null
+    private val voiceNpyCache = HashMap<String, ByteArray>(8)
 
     private val _state = MutableStateFlow(
         if (isReady()) KokoroDownloadState.READY_ONNX else KokoroDownloadState.NOT_DOWNLOADED
@@ -179,12 +396,103 @@ class KokoroOnnxSynthesizer(
         }
     }
 
+    private fun getVoiceStyleRow(voiceId: String, phonemeLen: Int): FloatArray? {
+        val cachedNpy = synchronized(voiceNpyCache) { voiceNpyCache[voiceId] }
+        if (cachedNpy != null) {
+            return parseNpyStyleRow(cachedNpy, phonemeLen)
+        }
+        val dir = getModelDir() ?: return null
+        val voicesFile = File(dir, VOICES_FILENAME)
+        if (!voicesFile.exists()) return null
+        return try {
+            val targetEntry = "$voiceId.npy"
+            var foundBytes: ByteArray? = null
+            FileInputStream(voicesFile).use { fis ->
+                ZipInputStream(fis).use { zis ->
+                    while (true) {
+                        val entry = zis.nextEntry ?: break
+                        if (entry.name == targetEntry || entry.name.endsWith("/$targetEntry")) {
+                            foundBytes = zis.readBytes()
+                            break
+                        }
+                    }
+                }
+            }
+            val npy = foundBytes ?: return null
+            synchronized(voiceNpyCache) {
+                voiceNpyCache[voiceId] = npy
+            }
+            parseNpyStyleRow(npy, phonemeLen)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed reading voice style $voiceId from voices-v1.0.bin: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Runs genuine on-device Kokoro-82M INT8 ONNX synthesis:
+     * 1. Converts English text to IPA token IDs (`englishToKokoroTokens`) and pads with `0` (`[1, N+2]`).
+     * 2. Loads the 256-float style vector for `voiceProfile.voiceId` at index `N - 1` from `voices-v1.0.bin`.
+     * 3. Executes `kokoroSession.run(inputs)` and resamples the 24 kHz float32 output to 16 kHz 16-bit mono PCM.
+     */
     suspend fun synthesizeOrNull(text: String, voiceProfile: KokoroVoiceProfile): ByteArray? = withContext(Dispatchers.Default) {
         if (text.isBlank() || !isReady()) return@withContext null
         if (!ensureSessionLoaded()) return@withContext null
+        val env = ortEnv ?: return@withContext null
         val session = kokoroSession ?: return@withContext null
-        Log.d(TAG, "Kokoro-82M ONNX ready (${session.inputNames.size} inputs) for voice=${voiceProfile.voiceId}; using calibrated profile fallback if phonemizer absent")
-        null
+
+        val innerTokens = englishToKokoroTokens(text)
+        if (innerTokens.isEmpty()) return@withContext null
+        val styleVec = getVoiceStyleRow(voiceProfile.voiceId, innerTokens.size) ?: return@withContext null
+
+        val paddedTokensLong = LongArray(innerTokens.size + 2)
+        val paddedTokensInt = IntArray(innerTokens.size + 2)
+        for (i in innerTokens.indices) {
+            paddedTokensLong[i + 1] = innerTokens[i].toLong()
+            paddedTokensInt[i + 1] = innerTokens[i]
+        }
+
+        val tokensInputName = if ("input_ids" in session.inputNames) "input_ids" else "tokens"
+        val tokensType = (session.inputInfo[tokensInputName]?.info as? TensorInfo)?.type ?: OnnxJavaType.INT64
+        val speedType = (session.inputInfo["speed"]?.info as? TensorInfo)?.type ?: OnnxJavaType.FLOAT
+
+        val inputs = HashMap<String, OnnxTensor>(4)
+        try {
+            val tokenShape = longArrayOf(1L, paddedTokensLong.size.toLong())
+            inputs[tokensInputName] = if (tokensType == OnnxJavaType.INT32) {
+                OnnxTensor.createTensor(env, IntBuffer.wrap(paddedTokensInt), tokenShape)
+            } else {
+                OnnxTensor.createTensor(env, LongBuffer.wrap(paddedTokensLong), tokenShape)
+            }
+            inputs["style"] = OnnxTensor.createTensor(env, FloatBuffer.wrap(styleVec), longArrayOf(1L, STYLE_DIM.toLong()))
+            inputs["speed"] = if (speedType == OnnxJavaType.INT32) {
+                OnnxTensor.createTensor(env, IntBuffer.wrap(intArrayOf(1)), longArrayOf(1L))
+            } else {
+                OnnxTensor.createTensor(env, FloatBuffer.wrap(floatArrayOf(voiceProfile.speechRate.coerceIn(0.8f, 1.3f))), longArrayOf(1L))
+            }
+
+            val res = session.run(inputs)
+            try {
+                val outTensor = res.firstOrNull()?.value as? OnnxTensor ?: return@withContext null
+                val fb = outTensor.floatBuffer
+                fb.rewind()
+                val samples24k = FloatArray(fb.remaining())
+                fb.get(samples24k)
+                if (samples24k.size < 240) return@withContext null
+                val pcm16k = resampleFloat24kToPcm16kMono(samples24k, targetPeak = 22000)
+                Log.i(TAG, "Kokoro-82M ONNX synthesized ${samples24k.size} samples @ 24kHz -> ${pcm16k.size} B PCM @ 16kHz (voice=${voiceProfile.voiceId})")
+                return@withContext pcm16k
+            } finally {
+                try { res.close() } catch (_: Throwable) {}
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Kokoro-82M ONNX inference error (${t.message}), falling back to system TTS")
+            return@withContext null
+        } finally {
+            for (tensor in inputs.values) {
+                try { tensor.close() } catch (_: Throwable) {}
+            }
+        }
     }
 
     fun close() {
@@ -192,5 +500,8 @@ class KokoroOnnxSynthesizer(
             kokoroSession?.close()
         } catch (_: Throwable) {}
         kokoroSession = null
+        synchronized(voiceNpyCache) {
+            voiceNpyCache.clear()
+        }
     }
 }

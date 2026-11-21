@@ -202,4 +202,34 @@ class OnDeviceSotaAudioEngineTest {
         assertEquals(226L, metrics.glassToGlassLatencyMs)
         assertTrue(metrics.meetsSub300MsTarget)
     }
+
+    @Test
+    fun `KokoroOnnxSynthesizer tokenizes English text into valid IPA vocab IDs and parses NPY style rows`() {
+        val tokens = com.celestial.companion.audio.KokoroOnnxSynthesizer.englishToKokoroTokens("Quantum probability stable at 99.94%.")
+        assertTrue("Expected non-empty Kokoro IPA token sequence", tokens.size > 10)
+        assertTrue("All token IDs must be within 1..177", tokens.all { it in 1..177 })
+
+        // Build a synthetic NumPy v1.0 .npy buffer with 2 rows of 256 float32s (128-byte header + 2 * 256 * 4 bytes)
+        val npy = ByteArray(128 + 2 * 256 * 4)
+        npy[0] = 0x93.toByte()
+        npy[1] = 'N'.code.toByte()
+        npy[2] = 'U'.code.toByte()
+        npy[3] = 'M'.code.toByte()
+        npy[4] = 'P'.code.toByte()
+        npy[5] = 'Y'.code.toByte()
+        npy[6] = 1
+        npy[7] = 0
+        // header_len = 118 (so 10 + 118 = 128 byte offset)
+        npy[8] = 118
+        npy[9] = 0
+        val fb = ByteBuffer.wrap(npy, 128, 2 * 256 * 4).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        for (i in 0 until 256) fb.put(0.25f) // row 0 (phonemeLen = 1)
+        for (i in 0 until 256) fb.put(0.75f) // row 1 (phonemeLen = 2)
+
+        val row0 = com.celestial.companion.audio.KokoroOnnxSynthesizer.parseNpyStyleRow(npy, phonemeLen = 1)
+        val row1 = com.celestial.companion.audio.KokoroOnnxSynthesizer.parseNpyStyleRow(npy, phonemeLen = 2)
+        assertEquals(256, row0?.size)
+        assertEquals(0.25f, row0!![0], 1e-5f)
+        assertEquals(0.75f, row1!![0], 1e-5f)
+    }
 }

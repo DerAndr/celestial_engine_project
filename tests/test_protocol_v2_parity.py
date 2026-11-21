@@ -179,7 +179,7 @@ class TestProtocolV2ParityAndMockVoiceLoop(unittest.TestCase):
 
     def test_ima_adpcm_4_to_1_compression_and_snr(self):
         num_samples = 480
-        pcm_samples = [int(16000.0 * math.sin(2.0 * math.pi * 150.0 * i / 16000.0)) for i in range(num_samples)]
+        pcm_samples = [int(16000.0 * math.sin(2.0 * math.pi * 500.0 * i / 16000.0)) for i in range(num_samples)]
         pcm_bytes = struct.pack(f"<{num_samples}h", *pcm_samples)
 
         encoded = adpcm_codec.encode_block(pcm_bytes)

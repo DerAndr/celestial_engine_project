@@ -570,7 +570,7 @@ static void handle_rx_resp_chunk(const net_packet_header_t *hdr,
         ack = true;
     } else if (accepted == 2) {
         if (response_audio_codec == 1) {
-            int16_t adpcm_pcm[NET_MAX_PAYLOAD_SIZE * 2];
+            static int16_t adpcm_pcm[NET_MAX_PAYLOAD_SIZE * 2];
             size_t count = ima_adpcm_decode_block(payload, hdr->payload_len, adpcm_pcm, NET_MAX_PAYLOAD_SIZE * 2);
             if (count > 0 && audio_stream_push(adpcm_pcm, count)) {
                 response_gate = candidate;
