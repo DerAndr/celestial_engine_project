@@ -559,3 +559,117 @@ com.celestial.companion/
     3. **Dual-Path Physical Smartphone Deployment (`Pixel 9 Pro XL` via `adb`)**:
        - **Path A (Cloud GitHub Actions -> `gh` CLI -> `adb`)**: Push changes to `android/`, monitor run via `gh run list --workflow=android-build.yml`, download compiled APK into git-ignored `scratch/apk/` (`gh release download --pattern "celestial_companion_*.apk" -D scratch/apk --clobber` or `gh run download <run-id> -D scratch/apk`), install via `adb -s 49051FDAS001YK install -r scratch/apk/celestial_companion_v*.apk`, launch via `adb shell am start -n com.celestial.companion/.MainActivity`, and remove `scratch/apk/`.
        - **Path B (Local Gradle -> `adb`)**: Run `cd android && .\gradlew assembleDebug` followed by `adb install -r android/app/build/outputs/apk/debug/app-debug.apk`.
+
+---
+
+## 9. SOTA Phase-Next Implementation Blueprint (Step-by-Step Spec for Smaller / Faster Models)
+
+> **Purpose:** Each task below is decomposed into an atomic, self-contained specification with exact file paths, method signatures, tensor shapes, and single-command test assertions so that smaller/faster coding models (`flash`, `flash_lite`, or subagents) can implement them deterministically without architectural guesswork.
+
+### Execution Guardrails for Implementing Agents
+1. **Never commit weights (`*.onnx`, `*.bin`, `*.apk`) to Git.** All ONNX models must be downloaded on-demand into `context.filesDir/sota_models/<model_name>/` with atomic `.part` rename.
+2. **Kotlin 2.0 Inline Lambda Rule:** Never place `break` or `continue` inside `.use { ... }` lambdas in Kotlin (causes `:app:compileDebugKotlin FAILED`). Use explicit `val res = session.run(inputs); try { ... } finally { res.close() }`.
+3. **JUnit 4 Backtick Method Names:** Never use `<`, `>`, `.`, `;`, `[`, or `/` inside backtick test method names (`fun \`...\`()`) in `android/app/src/test/` (illegal in Android JVM bytecode).
+4. **Always keep the pinned debug certificate:** Keep `signingConfigs.getByName("debug")` pointing to `android/app/celestial-debug.keystore` so `adb install -r` upgrades seamlessly without uninstalling.
+
+---
+
+### Task 9.1: Full Greedy Autoregressive Moonshine Decoder & SenseVoice CTC Decoder (`OnDeviceSotaAudioEngine.kt`)
+- [ ] **Objective**: Replace the first-pass encoder validation in `OnDeviceSotaAudioEngine.runMoonshineFirstPass` with the complete greedy token decoding loop for both **Moonshine Tiny INT8 ONNX** (`uncached_decode.int8.onnx` + `cached_decode.int8.onnx`) and **SenseVoice-Small INT8 ONNX** (`model.int8.onnx` CTC argmax).
+- **Target Files**:
+  1. `android/app/src/main/java/com/celestial/companion/ai/OnDeviceSotaAudioEngine.kt`
+  2. `android/app/src/test/java/com/celestial/companion/ai/OnDeviceSotaAudioEngineTest.kt`
+- **Step-by-Step Implementation Spec**:
+  1. **Add Pure-Kotlin CTC Argmax & Blank Collapse Helper (`companion object` in `OnDeviceSotaAudioEngine.kt`)**:
+     - Signature:
+       ```kotlin
+       fun decodeCtcGreedyLogits(
+           logitsFlat: FloatArray,
+           timeSteps: Int,
+           vocabSize: Int,
+           tokenMap: Map<Int, String>,
+           blankId: Int = 0
+       ): String
+       ```
+     - Logic:
+       - For each frame `t in 0 until timeSteps`, find `bestId = argmax(logitsFlat[t * vocabSize .. (t + 1) * vocabSize - 1])`.
+       - Collapse consecutive duplicate IDs (`if (bestId != prevId && bestId != blankId) emittedIds.add(bestId)`).
+       - Map `emittedIds` via `tokenMap[id]` and pass to `detokenizePieces(pieces)` (preserving `<|...|>` tags so `parseSenseVoiceRichTags` extracts language and `[laughter]`/`[applause]`/`[sigh]`).
+  2. **Add Moonshine Autoregressive Step Loop (`runMoonshineGreedyDecode` in `OnDeviceSotaAudioEngine.kt`)**:
+     - Load `cachedDecodeSession: OrtSession?` from `File(dir, "cached_decode.int8.onnx")` in `ensureOnnxSessionsLoaded()` and close it in `close()`.
+     - Step 0 (`uncachedDecodeSession`): Feed `BOS = 1L` (`shape [1, 1]`), encoder hidden states `encOut`, and sequence length `lenTensor`. Extract `logits` (`shape [1, 1, vocabSize]`), pick `nextToken = argmax`, and collect all KV cache output tensors (`present.*`).
+     - Steps `1..32` (`cachedDecodeSession`): Feed `longArrayOf(nextToken.toLong())` (`shape [1, 1]`), `encOut`, and the previous step's KV cache tensors until `nextToken == 2` (`</s>`) or `step == 32`.
+     - Convert token IDs via `tokenMap` -> `detokenizePieces(pieces)`.
+  3. **Unit Test in `OnDeviceSotaAudioEngineTest.kt`**:
+     - Add `@Test fun decodeCtcGreedyLogits collapses repeated tokens and blank frames accurately()` constructing a synthetic 5-frame, 15-class `FloatArray` with duplicates and `blankId = 0`, asserting exact decoded output `"<|en|><|Laughter|> Cast fireball"`.
+- **Verification Command**:
+  ```powershell
+  git push origin master && gh run watch (gh run list --workflow=android-build.yml --branch=master --limit 1 --json databaseId -q '.[0].databaseId') --exit-status
+  ```
+
+---
+
+### Task 9.2: On-Device Kokoro-82M INT8 ONNX Neural Synthesizer (`KokoroOnnxSynthesizer.kt` & `StaffTtsSynthesizer.kt`)
+- [ ] **Objective**: Add direct on-device `Kokoro-82M INT8 ONNX` neural waveform generation on Android (`24 kHz Float32` -> in-memory linear resampling to `16 kHz 16-bit signed mono PCM`), matching `tools/local_ai_engine.py` (`_synthesize_kokoro_pcm`) with zero-latency fallback to Android System `TextToSpeech`.
+- **Target Files**:
+  1. `android/app/src/main/java/com/celestial/companion/audio/KokoroOnnxSynthesizer.kt` *(new file)*
+  2. `android/app/src/main/java/com/celestial/companion/audio/StaffTtsSynthesizer.kt`
+  3. `android/app/src/test/java/com/celestial/companion/ai/OnDeviceSotaAudioEngineTest.kt`
+- **Step-by-Step Implementation Spec**:
+  1. **Create `KokoroOnnxSynthesizer.kt`**:
+     - Model directory: `File(context.filesDir, "sota_models/kokoro")` containing `kokoro-v1.0.int8.onnx` and `voices-v1.0.bin`.
+     - Add pure-Kotlin helper in `companion object`:
+       ```kotlin
+       fun resampleFloat24kToPcm16kMono(samples24k: FloatArray, targetPeak: Int = 22000): ByteArray
+       ```
+       - Linearly interpolates `24000 Hz` float samples (`[-1.0f, 1.0f]`) to `16000 Hz` (`outLen = (samples24k.size * 16000L / 24000L).toInt()`), normalizes peak amplitude to `targetPeak = 22000` (preventing MAX98357A clipping), and packs into little-endian `ByteArray(outLen * 2)`.
+     - Add `suspend fun synthesizeOrNull(text: String, voiceProfile: KokoroVoiceProfile): ByteArray?` and `fun close()`.
+  2. **Wire into `StaffTtsSynthesizer.kt`**:
+     - In `synthesizeTo16kMonoPcm(text, locale, voiceProfile)`: if `locale.language == "en"` and `kokoroOnnxSynthesizer.isReady()`, run `kokoroOnnxSynthesizer.synthesizeOrNull(cleanText, voiceProfile)` first; if non-null, return immediately; otherwise fall back to Android `TextToSpeech`.
+     - Call `kokoroOnnxSynthesizer.close()` inside `StaffTtsSynthesizer.shutdown()`.
+  3. **Unit Test in `OnDeviceSotaAudioEngineTest.kt`**:
+     - Add `@Test fun resampleFloat24kToPcm16kMono downsamples 24kHz sine wave to 16kHz 16bit PCM with 22000 peak()` asserting exact output byte length (`2400` samples -> `1600` samples = `3200` bytes) and peak sample within `21900..22000`.
+- **Verification Command**:
+  ```powershell
+  git push origin master && gh run watch (gh run list --workflow=android-build.yml --branch=master --limit 1 --json databaseId -q '.[0].databaseId') --exit-status
+  ```
+
+---
+
+### Task 9.3: 4:1 IMA-ADPCM Low-Bandwidth Wireless Audio Codec (RP2350 C + Kotlin + Python Parity)
+- [ ] **Objective**: Add an optional 4:1 `IMA-ADPCM` (`64 kbps` vs `256 kbps` raw PCM, `960 samples` per `484-byte` UDP payload) codec across C firmware, Android Kotlin, and Raspberry Pi 5 Python to eliminate Wi-Fi jitter and quadruple the effective pre-buffer duration on RP2350 without changing the `64 KB` RAM footprint.
+- **Target Files**:
+  1. `firmware/src/adpcm_codec.h` & `firmware/src/adpcm_codec.c` *(new files)*
+  2. `android/app/src/main/java/com/celestial/companion/audio/ImaAdpcmCodec.kt` *(new file)*
+  3. `tools/adpcm_codec.py` *(new file)*
+  4. `tests/test_protocol_v2_parity.py`
+- **Step-by-Step Implementation Spec**:
+  1. **Standard IMA-ADPCM 4-bit Nibble State (`predictor: int16`, `step_index: uint8`, 4-byte block header)**:
+     - Every ADPCM UDP chunk begins with a 4-byte little-endian header: `int16_t initial_predictor` (2 bytes), `uint8_t step_index` (1 byte, `0..88`), `uint8_t reserved` (1 byte = `0`), followed by `N` bytes of packed 4-bit nibbles (low nibble = sample `2*i`, high nibble = sample `2*i + 1`).
+     - Because each UDP chunk carries its own 4-byte `(predictor, step_index)` header, packet loss or out-of-order UDP delivery self-heals immediately on the next packet boundary!
+  2. **Implement identical `ima_adpcm_encode_block` / `ima_adpcm_decode_block` in C, Kotlin, and Python**:
+     - Use the canonical 89-entry `IMA_STEP_TABLE` (`7..32767`) and 16-entry `IMA_INDEX_TABLE` (`-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8`).
+  3. **Cross-Language Round-Trip Test in `tests/test_protocol_v2_parity.py`**:
+     - Encode a 480-sample 16 kHz speech/sine waveform in Python (`tools/adpcm_codec.py`), verify 4:1 compression (`960 bytes PCM` -> `244 bytes ADPCM`), and assert SNR `> 28 dB` on decode.
+- **Verification Command**:
+  ```powershell
+  python -m unittest discover -s tests -v
+  ```
+
+---
+
+### Task 9.4: End-to-End Speech-to-Speech (Omni) Latency Harness (`Mini-Omni2` / Native Audio-In -> Audio-Out)
+- [ ] **Objective**: Implement the Section 7.3 Phase 4 benchmark harness (`OmniAudioSession.kt` & `tools/omni_benchmark.py`) to evaluate direct audio-to-audio streaming (`16 kHz PCM in` -> `16 kHz PCM out` without intermediate text round-trips) targeting **< 300 ms glass-to-glass latency** on 16 GB RAM hosts (`Pixel 9 Pro XL` and `Raspberry Pi 5`).
+- **Target Files**:
+  1. `android/app/src/main/java/com/celestial/companion/ai/OmniAudioSession.kt` *(new file)*
+  2. `tools/omni_benchmark.py` *(new file)*
+- **Step-by-Step Implementation Spec**:
+  1. **Define `OmniAudioFrame` & `OmniLatencyMetrics` in `OmniAudioSession.kt`**:
+     - Measure `tMicReleaseMs`, `tFirstAudioChunkMs` (`TTFA` — Time-To-First-Audio), `tFirstSpellTagMs`, and `glassToGlassLatencyMs = tFirstAudioChunkMs - tMicReleaseMs`.
+     - Support streaming 20 ms (`640-byte`) uplink PCM frames directly into the active audio-to-audio session while concurrently dispatching early `[SPELL: ...]` control tokens to the staff over UDP `:5005`.
+  2. **Add `tools/omni_benchmark.py`**:
+     - Measures and compares sequential pipeline latency (`Moonshine STT` + `Local LLM TTFT` + `Kokoro-82M First Chunk`) against direct speech-to-speech streaming and outputs a Markdown latency table for `docs/experiments/`.
+- **Verification Command**:
+  ```powershell
+  python -m unittest discover -s tests -v && python tools/test_twin_acceptance.py
+  ```
