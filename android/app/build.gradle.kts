@@ -12,8 +12,8 @@ android {
         applicationId = "com.celestial.companion"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.3.9"
+        versionCode = 10
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

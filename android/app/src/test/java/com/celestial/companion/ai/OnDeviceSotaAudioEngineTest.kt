@@ -95,4 +95,44 @@ class OnDeviceSotaAudioEngineTest {
         val decoded = tokenizer.decodeTokens(listOf(1, 20, 2))
         assertEquals(" Hi", decoded)
     }
+
+    @Test
+    fun `parseSenseVoiceRichTags extracts language badges and emotion event tags for persona humor`() {
+        val raw = "<|de|><|HAPPY|><|Laughter|> \u2581Wie \u2581spät \u2581ist \u2581es [applause]"
+        val parsed = OnDeviceSotaAudioEngine.parseSenseVoiceRichTags(raw)
+        assertEquals("[DE]", parsed.languageTag)
+        assertEquals("Wie spät ist es", parsed.text)
+        assertTrue(parsed.eventTags.contains("[laughter]"))
+        assertTrue(parsed.eventTags.contains("[happy]"))
+        assertTrue(parsed.eventTags.contains("[applause]"))
+        assertTrue(parsed.formattedForLlm.contains("[laughter]"))
+    }
+
+    @Test
+    fun `detectAcousticEventsFromPcm16 classifies rhythmic laughter bursts and OfflineEdgeEngine responds with humor`() {
+        // Synthesize 400ms (6400 samples) with 4 rhythmic laughter bursts (each 50ms active, 50ms quiet)
+        val samples = ShortArray(6400)
+        for (frame in 0 until 8) {
+            val isBurst = (frame % 2 == 0)
+            val amp = if (isBurst) 18000 else 500
+            for (i in 0 until 800) {
+                // ~800 Hz carrier (ZCR = 0.10, within 0.04..0.24 laughter band)
+                val sign = if ((i / 10) % 2 == 0) 1 else -1
+                samples[frame * 800 + i] = (amp * sign).toShort()
+            }
+        }
+        val bb = ByteBuffer.allocate(samples.size * 2).order(ByteOrder.LITTLE_ENDIAN)
+        for (s in samples) bb.putShort(s)
+
+        val events = OnDeviceSotaAudioEngine.detectAcousticEventsFromPcm16(bb.array())
+        assertTrue("Expected [laughter] in detected events: $events", events.contains("[laughter]"))
+
+        val engine = OfflineEdgeEngine()
+        val marvinHumor = engine.resolveOfflineProphecy(
+            query = "[laughter] hello there",
+            personaId = OraclePersona.MARVIN.id,
+            language = com.celestial.companion.domain.model.StaffLanguage.ENGLISH
+        )
+        assertTrue("Expected Marvin humor response, got: $marvinHumor", marvinHumor.lowercase().contains("laugh"))
+    }
 }

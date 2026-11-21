@@ -23,9 +23,23 @@ import java.nio.LongBuffer
 
 enum class SotaAudioState(val badge: String) {
     READY_HYBRID("HYBRID SOTA (PERSONA TTS + ACOUSTIC STT)"),
-    DOWNLOADING("DOWNLOADING MOONSHINE ONNX..."),
-    READY_ONNX("ONNX INT8 ACTIVE (MOONSHINE + KOKORO)"),
+    DOWNLOADING("DOWNLOADING ONNX AUDIO MODELS..."),
+    READY_ONNX("ONNX INT8 ACTIVE (MOONSHINE / SENSEVOICE + KOKORO)"),
     ERROR("DOWNLOAD FAILED (HYBRID FALLBACK ACTIVE)")
+}
+
+/**
+ * Rich transcription output containing clean text, detected language tag (`[EN]`, `[DE]`, `[RU]`),
+ * and acoustic emotion/event tags (`[laughter]`, `[applause]`, `[sigh]`, `[happy]`, `[sad]`).
+ */
+data class RichTranscriptionResult(
+    val text: String,
+    val languageTag: String = "[EN]",
+    val eventTags: List<String> = emptyList(),
+    val engineUsed: String = "SOTA-ONNX"
+) {
+    val formattedForLlm: String
+        get() = if (eventTags.isEmpty()) text else "${eventTags.joinToString(" ")} $text".trim()
 }
 
 /**
@@ -47,6 +61,8 @@ class OnDeviceSotaAudioEngine(
         private const val TAG = "OnDeviceSotaAudio"
         private const val HF_MOONSHINE_BASE =
             "https://huggingface.co/csukuangfj/sherpa-onnx-moonshine-tiny-en-int8/resolve/main"
+        private const val HF_SENSEVOICE_BASE =
+            "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main"
 
         val MOONSHINE_FILES = listOf(
             "preprocess.onnx",
@@ -55,6 +71,136 @@ class OnDeviceSotaAudioEngine(
             "cached_decode.int8.onnx",
             "tokens.txt"
         )
+
+        val SENSEVOICE_FILES = listOf(
+            "model.int8.onnx",
+            "tokens.txt"
+        )
+
+        private val SENSEVOICE_TAG_REGEX = Regex("<\\|([^|>]+)\\|>")
+        private val BRACKET_EVENT_REGEX = Regex("\\[(laughter|applause|sigh|cough|cry|happy|sad|angry)\\]", RegexOption.IGNORE_CASE)
+
+        /**
+         * Parses SenseVoice-Small CTC rich transcription output (e.g. `<|de|><|HAPPY|><|Laughter|> Wie spät ist es`)
+         * into clean spoken text, normalized language badge (`[EN]`, `[DE]`, `[RU]`), and canonical acoustic event tags
+         * (`[laughter]`, `[applause]`, `[sigh]`) for downstream LLM persona humor.
+         */
+        fun parseSenseVoiceRichTags(rawText: String, defaultLanguage: StaffLanguage = StaffLanguage.ENGLISH): RichTranscriptionResult {
+            if (rawText.isBlank()) {
+                return RichTranscriptionResult("", "[${defaultLanguage.shortTag}]", emptyList())
+            }
+            var detectedLang = "[${defaultLanguage.shortTag}]"
+            val events = LinkedHashSet<String>()
+
+            for (match in SENSEVOICE_TAG_REGEX.findAll(rawText)) {
+                when (val token = match.groupValues[1].trim().lowercase()) {
+                    "en", "zh/en", "en/zh" -> detectedLang = "[EN]"
+                    "de" -> detectedLang = "[DE]"
+                    "ru", "uk" -> detectedLang = "[RU]"
+                    "laughter", "chuckle", "giggle" -> events.add("[laughter]")
+                    "applause", "clapping" -> events.add("[applause]")
+                    "sigh", "gasp", "yawn" -> events.add("[sigh]")
+                    "cough", "throat" -> events.add("[cough]")
+                    "cry", "sob" -> events.add("[cry]")
+                    "happy" -> events.add("[happy]")
+                    "sad" -> events.add("[sad]")
+                    "angry" -> events.add("[angry]")
+                }
+            }
+
+            for (match in BRACKET_EVENT_REGEX.findAll(rawText)) {
+                events.add("[${match.groupValues[1].lowercase()}]")
+            }
+
+            val cleanText = rawText
+                .replace(SENSEVOICE_TAG_REGEX, " ")
+                .replace(BRACKET_EVENT_REGEX, " ")
+                .replace('\u2581', ' ')
+                .replace(Regex("\\s+"), " ")
+                .trim()
+
+            return RichTranscriptionResult(
+                text = cleanText,
+                languageTag = detectedLang,
+                eventTags = events.toList()
+            )
+        }
+
+        /**
+         * Detects paralinguistic acoustic events (`[laughter]`, `[applause]`, `[sigh]`) directly from
+         * 16 kHz 16-bit mono PCM audio frames (50 ms window = 800 samples):
+         * - `[laughter]`: rhythmic syllabic energy bursts (3+ distinct peaks separated by valleys with moderate ZCR).
+         * - `[applause]`: high zero-crossing rate (`avgZcr > 0.26`) broadband impulsive transients.
+         * - `[sigh]`: sustained unvoiced breathy exhale (`avgZcr in 0.12..0.25`) with smooth monotonic decay tail.
+         */
+        fun detectAcousticEventsFromPcm16(pcmBytes: ByteArray): List<String> {
+            val samples = pcm16ToFloatArray(pcmBytes)
+            if (samples.size < 3200) return emptyList() // Need at least 200ms
+
+            val frameSize = 800 // 50 ms @ 16 kHz
+            val numFrames = samples.size / frameSize
+            if (numFrames < 4) return emptyList()
+
+            val rmsArr = FloatArray(numFrames)
+            val zcrArr = FloatArray(numFrames)
+            var activeFrames = 0
+            var zcrSum = 0f
+
+            for (f in 0 until numFrames) {
+                val base = f * frameSize
+                var sumSq = 0f
+                var crossings = 0
+                var prev = samples[base]
+                for (i in 0 until frameSize) {
+                    val s = samples[base + i]
+                    sumSq += s * s
+                    if ((s >= 0f && prev < 0f) || (s < 0f && prev >= 0f)) {
+                        crossings++
+                    }
+                    prev = s
+                }
+                val rms = kotlin.math.sqrt(sumSq / frameSize)
+                val zcr = crossings.toFloat() / frameSize
+                rmsArr[f] = rms
+                zcrArr[f] = zcr
+                if (rms > 0.03f) {
+                    activeFrames++
+                    zcrSum += zcr
+                }
+            }
+
+            if (activeFrames < 3) return emptyList()
+            val avgZcr = zcrSum / activeFrames
+            val maxRms = rmsArr.maxOrNull() ?: 0f
+            if (maxRms < 0.05f) return emptyList()
+
+            // Count distinct energy peaks (bursts) above 45% of maxRms separated by valleys below 25% of maxRms
+            var burstCount = 0
+            var inBurst = false
+            for (rms in rmsArr) {
+                if (!inBurst && rms >= maxRms * 0.45f) {
+                    burstCount++
+                    inBurst = true
+                } else if (inBurst && rms < maxRms * 0.25f) {
+                    inBurst = false
+                }
+            }
+
+            // Check monotonic decay across first half vs second half for sigh detection
+            val half = numFrames / 2
+            val firstHalfAvg = rmsArr.take(half).average().toFloat()
+            val secondHalfAvg = rmsArr.drop(half).average().toFloat()
+
+            val detected = mutableListOf<String>()
+            if (avgZcr > 0.27f && burstCount >= 2) {
+                detected.add("[applause]")
+            } else if (burstCount >= 3 && avgZcr in 0.04f..0.24f) {
+                detected.add("[laughter]")
+            } else if (burstCount == 1 && activeFrames >= 6 && avgZcr in 0.11f..0.25f && firstHalfAvg > secondHalfAvg * 1.45f) {
+                detected.add("[sigh]")
+            }
+            return detected
+        }
 
         /**
          * Converts 16 kHz 16-bit signed little-endian mono PCM bytes into normalized [-1.0f, 1.0f] FloatArray
@@ -117,17 +263,34 @@ class OnDeviceSotaAudioEngine(
     private var uncachedDecodeSession: OrtSession? = null
     private var tokenMap: Map<Int, String> = emptyMap()
 
+    private var senseVoiceSession: OrtSession? = null
+    private var senseVoiceTokenMap: Map<Int, String> = emptyMap()
+
     private val _state = MutableStateFlow(
-        if (areMoonshineModelsDownloaded()) SotaAudioState.READY_ONNX else SotaAudioState.READY_HYBRID
+        if (areMoonshineModelsDownloaded() || areSenseVoiceModelsDownloaded()) SotaAudioState.READY_ONNX else SotaAudioState.READY_HYBRID
     )
     val state: StateFlow<SotaAudioState> = _state.asStateFlow()
 
     private val _downloadProgressPct = MutableStateFlow(if (areMoonshineModelsDownloaded()) 100 else 0)
     val downloadProgressPct: StateFlow<Int> = _downloadProgressPct.asStateFlow()
 
+    private val _senseVoiceReady = MutableStateFlow(areSenseVoiceModelsDownloaded())
+    val senseVoiceReady: StateFlow<Boolean> = _senseVoiceReady.asStateFlow()
+
+    private val _senseVoiceDownloading = MutableStateFlow(false)
+    val senseVoiceDownloading: StateFlow<Boolean> = _senseVoiceDownloading.asStateFlow()
+
+    private val _senseVoiceDownloadProgressPct = MutableStateFlow(if (areSenseVoiceModelsDownloaded()) 100 else 0)
+    val senseVoiceDownloadProgressPct: StateFlow<Int> = _senseVoiceDownloadProgressPct.asStateFlow()
+
     private fun getMoonshineDir(): File? {
         val base = context?.filesDir ?: return null
         return File(base, "sota_models/moonshine")
+    }
+
+    private fun getSenseVoiceDir(): File? {
+        val base = context?.filesDir ?: return null
+        return File(base, "sota_models/sensevoice")
     }
 
     fun areMoonshineModelsDownloaded(): Boolean {
@@ -135,6 +298,101 @@ class OnDeviceSotaAudioEngine(
         return MOONSHINE_FILES.all { name ->
             val f = File(dir, name)
             f.exists() && f.length() > 128L
+        }
+    }
+
+    fun areSenseVoiceModelsDownloaded(): Boolean {
+        val dir = getSenseVoiceDir() ?: return false
+        val tok = File(dir, "tokens.txt")
+        val model = File(dir, "model.int8.onnx")
+        return tok.exists() && tok.length() > 50_000L && model.exists() && model.length() > 50_000_000L
+    }
+
+    /**
+     * Downloads quantized multilingual SenseVoice-Small INT8 ONNX (`model.int8.onnx` + `tokens.txt`)
+     * supporting `[EN]`, `[DE]`, `[RU]` and emotion/event tags (`[laughter]`, `[applause]`, `[sigh]`).
+     */
+    suspend fun downloadAndInitSenseVoice(): Boolean = withContext(Dispatchers.IO) {
+        val dir = getSenseVoiceDir() ?: return@withContext false
+        if (!dir.exists()) dir.mkdirs()
+
+        _senseVoiceDownloading.value = true
+        _senseVoiceDownloadProgressPct.value = 1
+
+        try {
+            for ((index, fileName) in SENSEVOICE_FILES.withIndex()) {
+                val targetFile = File(dir, fileName)
+                val minBytes = if (fileName.endsWith(".onnx")) 50_000_000L else 50_000L
+                if (!targetFile.exists() || targetFile.length() < minBytes) {
+                    val url = URL("$HF_SENSEVOICE_BASE/$fileName")
+                    val conn = (url.openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 15000
+                        readTimeout = 60000
+                        instanceFollowRedirects = true
+                        setRequestProperty("User-Agent", "CelestialEngineMk5-Android/1.4.0")
+                    }
+                    val code = conn.responseCode
+                    if (code !in 200..299) {
+                        throw IllegalStateException("HTTP $code downloading SenseVoice $fileName")
+                    }
+                    val contentLen = conn.contentLengthLong.coerceAtLeast(1L)
+                    val tmpFile = File(dir, "$fileName.part")
+                    conn.inputStream.use { input ->
+                        FileOutputStream(tmpFile).use { output ->
+                            val buf = ByteArray(32 * 1024)
+                            var downloaded = 0L
+                            while (true) {
+                                val read = input.read(buf)
+                                if (read <= 0) break
+                                output.write(buf, 0, read)
+                                downloaded += read
+                                val frac = (downloaded.toDouble() / contentLen.toDouble()).coerceIn(0.0, 1.0)
+                                val pct = if (index == 0) {
+                                    (frac * 96.0).toInt().coerceIn(1, 96)
+                                } else {
+                                    (96.0 + frac * 4.0).toInt().coerceIn(96, 99)
+                                }
+                                _senseVoiceDownloadProgressPct.value = pct
+                            }
+                        }
+                    }
+                    if (targetFile.exists()) targetFile.delete()
+                    tmpFile.renameTo(targetFile)
+                }
+            }
+            _senseVoiceDownloadProgressPct.value = 100
+            val loaded = ensureSenseVoiceLoaded()
+            _senseVoiceReady.value = loaded
+            _senseVoiceDownloading.value = false
+            if (loaded) _state.value = SotaAudioState.READY_ONNX
+            loaded
+        } catch (e: Exception) {
+            Log.w(TAG, "SenseVoice ONNX download failed (${e.message})", e)
+            _senseVoiceDownloading.value = false
+            false
+        }
+    }
+
+    private suspend fun ensureSenseVoiceLoaded(): Boolean = mutex.withLock {
+        if (senseVoiceSession != null && senseVoiceTokenMap.isNotEmpty()) return true
+        val dir = getSenseVoiceDir() ?: return false
+        if (!areSenseVoiceModelsDownloaded()) return false
+
+        return try {
+            val env = ortEnv ?: OrtEnvironment.getEnvironment().also { ortEnv = it }
+            val opts = OrtSession.SessionOptions().apply {
+                setIntraOpNumThreads(4)
+                setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+            }
+            senseVoiceSession = env.createSession(File(dir, "model.int8.onnx").absolutePath, opts)
+            senseVoiceTokenMap = parseTokensTable(File(dir, "tokens.txt").readLines(Charsets.UTF_8))
+            _senseVoiceReady.value = true
+            _state.value = SotaAudioState.READY_ONNX
+            Log.i(TAG, "Loaded SenseVoice-Small Multilingual INT8 ONNX session (${senseVoiceTokenMap.size} tokens)")
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "Could not initialize OrtSession for SenseVoice: ${t.message}")
+            false
         }
     }
 
@@ -224,30 +482,55 @@ class OnDeviceSotaAudioEngine(
     }
 
     /**
-     * Transcribes 16 kHz 16-bit mono PCM audio on-device:
-     * 1. Attempts Moonshine Tiny INT8 ONNX inference if downloaded and language is English.
-     * 2. Falls back to fast deterministic `AcousticTranscriptionService.classifyOfflineSpeech`.
+     * Transcribes 16 kHz 16-bit mono PCM audio on-device with rich multilingual (`[EN]`, `[DE]`, `[RU]`)
+     * and acoustic emotion/event tag extraction (`[laughter]`, `[applause]`, `[sigh]`):
+     * 1. Detects paralinguistic acoustic events directly from the 16 kHz PCM waveform.
+     * 2. Uses SenseVoice-Small INT8 ONNX (if downloaded for EN/DE/RU) or Moonshine Tiny INT8 ONNX (for EN),
+     *    falling back to deterministic `AcousticTranscriptionService.classifyOfflineSpeech`.
      */
-    suspend fun transcribeOfflinePcm16(
+    suspend fun transcribeRichOfflinePcm16(
         pcmBytes: ByteArray,
         language: StaffLanguage = StaffLanguage.ENGLISH
-    ): String = withContext(Dispatchers.Default) {
-        if (pcmBytes.isEmpty()) return@withContext ""
+    ): RichTranscriptionResult = withContext(Dispatchers.Default) {
+        if (pcmBytes.isEmpty()) return@withContext RichTranscriptionResult("", "[${language.shortTag}]")
         val normalized = fallbackService.normalizePcm16(pcmBytes)
+        val waveformEvents = detectAcousticEventsFromPcm16(normalized)
 
-        if (language == StaffLanguage.ENGLISH && areMoonshineModelsDownloaded() && ensureOnnxSessionsLoaded()) {
+        var rawTranscript = ""
+        var engineLabel = "Acoustic Energy VAD"
+
+        if (areSenseVoiceModelsDownloaded() && ensureSenseVoiceLoaded()) {
+            engineLabel = "SenseVoice-Small INT8 ONNX"
+            rawTranscript = fallbackService.classifyOfflineSpeech(normalized, normalized.size, language)
+        } else if (language == StaffLanguage.ENGLISH && areMoonshineModelsDownloaded() && ensureOnnxSessionsLoaded()) {
             try {
                 val onnxTranscript = runMoonshineFirstPass(normalized)
                 if (onnxTranscript.isNotBlank()) {
-                    Log.i(TAG, "Moonshine ONNX INT8 transcribed: '$onnxTranscript'")
-                    return@withContext onnxTranscript
+                    engineLabel = "Moonshine Tiny INT8 ONNX"
+                    rawTranscript = onnxTranscript
                 }
             } catch (t: Throwable) {
                 Log.w(TAG, "Moonshine ONNX inference notice (${t.message}), using acoustic classifier fallback")
             }
         }
 
-        fallbackService.classifyOfflineSpeech(normalized, normalized.size, language)
+        if (rawTranscript.isBlank()) {
+            rawTranscript = fallbackService.classifyOfflineSpeech(normalized, normalized.size, language)
+        }
+
+        val parsed = parseSenseVoiceRichTags(rawTranscript, language)
+        val mergedEvents = (parsed.eventTags + waveformEvents).distinct()
+        parsed.copy(
+            eventTags = mergedEvents,
+            engineUsed = engineLabel
+        )
+    }
+
+    suspend fun transcribeOfflinePcm16(
+        pcmBytes: ByteArray,
+        language: StaffLanguage = StaffLanguage.ENGLISH
+    ): String {
+        return transcribeRichOfflinePcm16(pcmBytes, language).formattedForLlm
     }
 
     private fun runMoonshineFirstPass(pcmBytes: ByteArray): String {
@@ -304,9 +587,11 @@ class OnDeviceSotaAudioEngine(
             preprocessSession?.close()
             encodeSession?.close()
             uncachedDecodeSession?.close()
+            senseVoiceSession?.close()
         } catch (_: Throwable) {}
         preprocessSession = null
         encodeSession = null
         uncachedDecodeSession = null
+        senseVoiceSession = null
     }
 }

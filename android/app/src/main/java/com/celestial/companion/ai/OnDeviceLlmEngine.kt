@@ -395,7 +395,13 @@ class OnDeviceLlmEngine(
         val tok = tokenizer ?: return@flow
 
         val sysPrompt = buildCompactPersonaSystemPrompt(personaId, language)
-        val cleanUserPrompt = prompt.trim().ifBlank { "Give a brief status prophecy." }
+        val parsedTags = OnDeviceSotaAudioEngine.parseSenseVoiceRichTags(prompt, language)
+        val cleanUserPrompt = if (parsedTags.eventTags.isNotEmpty()) {
+            val eventStr = parsedTags.eventTags.joinToString(" ")
+            "The user just made this acoustic sound/emotion: $eventStr while saying: \"${parsedTags.text.ifBlank { "Hello Oracle" }}\". React wittily in-character with humor!"
+        } else {
+            prompt.trim().ifBlank { "Give a brief status prophecy." }
+        }
         val promptIds = tok.encodeChatMl(sysPrompt, cleanUserPrompt)
 
         // Inspect KV cache shape from model input metadata (default SmolLM2-135M: 30 layers, 3 heads, 64 dim)

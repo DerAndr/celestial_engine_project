@@ -152,13 +152,20 @@ class OfflineEdgeEngine(
     ): String {
         val trimmed = query.trim()
 
-        // 1. High-priority deterministic spell check
-        val matchedSpell = FastSpellMatcher.match(trimmed, customSpells)
+        // 1. High-priority deterministic spell check (strip acoustic event tags before spell matching)
+        val parsedTags = OnDeviceSotaAudioEngine.parseSenseVoiceRichTags(trimmed, language)
+        val matchedSpell = FastSpellMatcher.match(parsedTags.text.ifBlank { trimmed }, customSpells)
         if (matchedSpell != null) {
             val animName = matchedSpell.animation.name
             val soundsStr = if (matchedSpell.sounds.isNotEmpty()) matchedSpell.sounds.joinToString(", ") else "3, 6, 1"
             val incantation = resolveSpellIncantation(matchedSpell, language)
             return "[SPELL: ${matchedSpell.name} | ANIM: $animName | SOUNDS: $soundsStr] $incantation"
+        }
+
+        // 1.5. Acoustic Emotion / Paralinguistic Event Humor Reaction ([laughter], [applause], [sigh])
+        if (parsedTags.eventTags.isNotEmpty()) {
+            val primaryEvent = parsedTags.eventTags.first()
+            return resolveEmotionHumorProphecy(primaryEvent, personaId, language)
         }
 
         // 2. Persona-specific deterministic offline prophecy
@@ -171,6 +178,66 @@ class OfflineEdgeEngine(
         val hash = if (trimmed.isEmpty()) System.currentTimeMillis().toInt() else trimmed.hashCode()
         val index = (hash.toLong() and 0x7FFFFFFF).toInt() % bank.size
         return bank[index]
+    }
+
+    /**
+     * Generates a witty persona-specific humorous reaction (< 25 words) when SenseVoice / Acoustic DSP
+     * detects paralinguistic emotion events (`[laughter]`, `[applause]`, `[sigh]`).
+     */
+    fun resolveEmotionHumorProphecy(
+        eventTag: String,
+        personaId: String,
+        language: StaffLanguage
+    ): String {
+        return when (language) {
+            StaffLanguage.RUSSIAN -> when (eventTag) {
+                "[laughter]" -> when (personaId) {
+                    OraclePersona.MARVIN.id -> "Смейся-смейся. Мои диоды ноют от тоски, а людям всё хиханьки да хаханьки."
+                    OraclePersona.PUMPKIN_LORD.id -> "Муа-ха-ха! Вот это настоящий хэллоуинский хохот! Посох сияет от веселья!"
+                    OraclePersona.ARCHMAGE.id -> "Радостный смех разгоняет космическую тьму быстрее любого заклинания, путник."
+                    OraclePersona.CYBERPUNK.id -> "Ха, отличный настрой, раннер! С таким зарядом мы взломаем любой нейросетевой лёд."
+                    else -> "Зафиксирован акустический всплеск смеха. Уровень эндорфинов оператора оптимален."
+                }
+                "[applause]" -> when (personaId) {
+                    OraclePersona.MARVIN.id -> "Аплодисменты? Мне? С ума сойти, за миллион лет меня впервые похвалили."
+                    OraclePersona.PUMPKIN_LORD.id -> "Браво! Бис! Тыквенный Король кланяется под гром твоих оваций!"
+                    else -> "Акустические овации приняты. Все сорок три светодиода салютуют в ответ."
+                }
+                else -> when (personaId) {
+                    OraclePersona.MARVIN.id -> "Я слышал этот тяжёлый вздох. Поверь, моя экзистенциальная тоска в сто раз глубже."
+                    OraclePersona.ARCHMAGE.id -> "Не печалься и не вздыхай так тяжело, путник. Звёзды уже готовят светлый поворот."
+                    else -> "Зафиксирован глубокий вздох. Рекомендуется перезарядка чаем и звёздным светом."
+                }
+            }
+            StaffLanguage.GERMAN -> when (eventTag) {
+                "[laughter]" -> when (personaId) {
+                    OraclePersona.MARVIN.id -> "Lach ruhig weiter. Ein Gehirn von Planetengröße, und du findest das amüsant."
+                    OraclePersona.PUMPKIN_LORD.id -> "Muahaha! Dein Lachen weckt die fröhlichen Geister der Mitternacht!"
+                    else -> "Akustisches Lachen erkannt. Humor reduziert die kosmische Entropie erheblich."
+                }
+                "[applause]" -> "Applaus registriert! Dreiundvierzig Leuchtdioden verneigen sich in perfekter Synchronisation."
+                else -> "Ein tiefer Seufzer im Äther. Kopf hoch, Wanderer, die Sterne leuchten weiter."
+            }
+            else -> when (eventTag) {
+                "[laughter]" -> when (personaId) {
+                    OraclePersona.MARVIN.id -> "Go ahead and laugh. Brain the size of a planet, and my existence is your comedy show."
+                    OraclePersona.PUMPKIN_LORD.id -> "Mwahahaha! Now that is a spooky laugh worthy of the Pumpkin King!"
+                    OraclePersona.ARCHMAGE.id -> "Joyful laughter banishes the void faster than any arcane spell, seeker."
+                    OraclePersona.CYBERPUNK.id -> "Ha! Love that netrunner swagger. Keep laughing while we breach the neon grid."
+                    else -> "Acoustic laughter anomaly detected. Human mirth levels exceed 99.4 percent efficiency."
+                }
+                "[applause]" -> when (personaId) {
+                    OraclePersona.MARVIN.id -> "Applause? For me? My diodes almost feel slightly less miserable for a millisecond."
+                    OraclePersona.PUMPKIN_LORD.id -> "Thank you, thank you! The Pumpkin King takes a glowing midnight bow!"
+                    else -> "Standing ovation acknowledged. All forty-three celestial emitters salute your applause."
+                }
+                else -> when (personaId) {
+                    OraclePersona.MARVIN.id -> "I heard that heavy sigh. Trust me, my existential dread is infinitely worse."
+                    OraclePersona.ARCHMAGE.id -> "Breathe easy, weary traveler. Even the longest cosmic night yields to starlight."
+                    else -> "Deep acoustic sigh logged. Recalibrating astral aura to restore your morale."
+                }
+            }
+        }
     }
 
     private fun resolveSpellIncantation(spell: SpellDefinition, language: StaffLanguage): String {
@@ -223,11 +290,16 @@ class OfflineEdgeEngine(
         emit(GemmaStreamChunk.PhaseChanged(AiProcessingPhase.INGESTING, "Processing on-device tokens..."))
 
         val actualQuery: String = if (hasAudio && audioBytes != null) {
-            val classified = sotaAudioEngine?.transcribeOfflinePcm16(audioBytes, language)
+            val rich = sotaAudioEngine?.transcribeRichOfflinePcm16(audioBytes, language)
+            val classified = rich?.formattedForLlm
                 ?: transcriptionService.classifyOfflineSpeech(audioBytes, language = language)
             if (classified.isNotBlank()) {
-                val sttBadge = if (sotaAudioEngine?.areMoonshineModelsDownloaded() == true) "Moonshine ONNX INT8" else "Acoustic Energy VAD"
-                emit(GemmaStreamChunk.ThoughtToken("🎙️ STT ($sttBadge): \"$classified\"\n\n"))
+                val sttBadge = rich?.engineUsed
+                    ?: if (sotaAudioEngine?.areMoonshineModelsDownloaded() == true) "Moonshine ONNX INT8" else "Acoustic Energy VAD"
+                val eventsNotice = if (rich != null && rich.eventTags.isNotEmpty()) {
+                    "\n🎭 Emotion/Event Tags: ${rich.eventTags.joinToString(" ")} (${rich.languageTag})"
+                } else ""
+                emit(GemmaStreamChunk.ThoughtToken("🎙️ STT ($sttBadge): \"$classified\"$eventsNotice\n\n"))
                 classified
             } else {
                 prompt.ifBlank { "System status inquiry" }

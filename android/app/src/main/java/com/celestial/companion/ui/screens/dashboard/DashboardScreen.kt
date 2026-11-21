@@ -1065,6 +1065,9 @@ fun DashboardScreen(
         val sotaDownloadProgress by viewModel.sotaDownloadProgress.collectAsState()
         val onDeviceLlmState by viewModel.onDeviceLlmState.collectAsState()
         val onDeviceLlmDownloadProgress by viewModel.onDeviceLlmDownloadProgress.collectAsState()
+        val senseVoiceReady by viewModel.senseVoiceReady.collectAsState()
+        val senseVoiceDownloading by viewModel.senseVoiceDownloading.collectAsState()
+        val senseVoiceDownloadProgress by viewModel.senseVoiceDownloadProgress.collectAsState()
         val currentPersona by viewModel.currentPersona.collectAsState()
         val activeKokoroVoice = com.celestial.companion.audio.KokoroVoiceProfile.forPersona(currentPersona.id)
 
@@ -1310,6 +1313,63 @@ fun DashboardScreen(
                             ) {
                                 Text(
                                     text = "GET SMOLLM2 ONNX",
+                                    color = AetherCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = CardBorder, thickness = 1.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🌍 MULTILINGUAL & EMOTION STT",
+                            color = RunicGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            text = "SenseVoice INT8 ([EN/DE/RU])",
+                            color = AetherCyan,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = when {
+                                senseVoiceReady -> "✅ SenseVoice + [laughter]/[sigh] Active"
+                                senseVoiceDownloading -> "⬇️ Downloading SenseVoice ($senseVoiceDownloadProgress%)..."
+                                else -> "🎭 Acoustic Emotion DSP ([laughter]/[sigh])"
+                            },
+                            color = if (senseVoiceReady) EmeraldGreen else TextSecondary,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        if (!senseVoiceReady && !senseVoiceDownloading) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0x2200E5FF))
+                                    .border(1.dp, AetherCyan, RoundedCornerShape(6.dp))
+                                    .clickable { viewModel.downloadSenseVoiceOnnx() }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "GET SENSEVOICE",
                                     color = AetherCyan,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,

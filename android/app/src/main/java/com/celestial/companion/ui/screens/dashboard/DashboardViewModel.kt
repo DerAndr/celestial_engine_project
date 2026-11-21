@@ -76,6 +76,27 @@ class DashboardViewModel(
     val onDeviceLlmDownloadProgress: StateFlow<Int> =
         repository.onDeviceLlmEngine?.downloadProgressPct ?: MutableStateFlow(0).asStateFlow()
 
+    val senseVoiceReady: StateFlow<Boolean> =
+        repository.sotaAudioEngine?.senseVoiceReady ?: MutableStateFlow(false).asStateFlow()
+
+    val senseVoiceDownloading: StateFlow<Boolean> =
+        repository.sotaAudioEngine?.senseVoiceDownloading ?: MutableStateFlow(false).asStateFlow()
+
+    val senseVoiceDownloadProgress: StateFlow<Int> =
+        repository.sotaAudioEngine?.senseVoiceDownloadProgressPct ?: MutableStateFlow(0).asStateFlow()
+
+    fun downloadSenseVoiceOnnx() {
+        viewModelScope.launch {
+            repository.log("SOTA-AUDIO", "⬇️ Downloading SenseVoice-Small Multilingual INT8 ONNX ([EN]/[DE]/[RU] + Emotion tags)...", LogLevel.INFO)
+            val ok = repository.sotaAudioEngine?.downloadAndInitSenseVoice() ?: false
+            if (ok) {
+                repository.log("SOTA-AUDIO", "✅ SenseVoice-Small Multilingual INT8 ONNX ready ([laughter]/[applause]/[sigh] active)!", LogLevel.SUCCESS)
+            } else {
+                repository.log("SOTA-AUDIO", "⚠️ SenseVoice download failed; using acoustic emotion DSP + Moonshine ONNX", LogLevel.WARN)
+            }
+        }
+    }
+
     fun downloadOnDeviceLlm() {
         viewModelScope.launch {
             repository.log("SOTA-LLM", "⬇️ Downloading SmolLM2-135M-Instruct INT8 ONNX (~131 MB)...", LogLevel.INFO)

@@ -370,9 +370,9 @@ Updated 2026-10-29. The project baseline locks the primary operating topology to
 #### Phase 1: Real On-Device STT — Moonshine & SenseVoice Integration
 - [x] **Android Companion: Moonshine ONNX Runtime Integration (`OnDeviceSotaAudioEngine.kt`) — ✅ Completed (2026-11-15)**:
   - Integrated `com.microsoft.onnxruntime:onnxruntime-android:1.20.0` with on-demand download & caching of quantized `Moonshine Tiny INT8 ONNX` (`preprocess.onnx`, `encode.int8.onnx`, `uncached_decode.int8.onnx`, `cached_decode.int8.onnx`, `tokens.txt` ~26 MB) into `filesDir/sota_models/moonshine/` and zero-latency acoustic DSP fallback.
-- [ ] **Multilingual Support via SenseVoice-Small (`sherpa-onnx`)**:
-  - Include quantized `sherpa-onnx-sense-voice-int8` (~120 MB) for seamless English (`[EN]`), German (`[DE]`), and Russian (`[RU]`).
-  - Capture acoustic event tags (`[laughter]`, `[applause]`, `[sigh]`) and pass them to the LLM for persona humor.
+- [x] **Multilingual Support via SenseVoice-Small (`sherpa-onnx`) & Acoustic Emotion Tags — ✅ Completed (2026-11-21)**:
+  - Integrated quantized `sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17` (`model.int8.onnx` + `tokens.txt`) in `OnDeviceSotaAudioEngine.kt` for seamless English (`[EN]`), German (`[DE]`), and Russian (`[RU]`) support.
+  - Implemented `parseSenseVoiceRichTags` and `detectAcousticEventsFromPcm16` to capture acoustic emotion/event tags (`[laughter]`, `[applause]`, `[sigh]`, `[happy]`, `[sad]`) and pass them to `OfflineEdgeEngine.kt` and `OnDeviceLlmEngine.kt` for in-character persona humor.
 
 #### Phase 2: Edge LLM Engine — On-Device Generative ONNX Runtime LLM
 - [x] **Android Companion: On-Device Generative LLM Integration (`OnDeviceLlmEngine.kt`, `SmolLM2-135M-Instruct` INT8 ONNX) — ✅ Completed (2026-11-15)**:
