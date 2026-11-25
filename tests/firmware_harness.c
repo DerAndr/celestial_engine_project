@@ -72,7 +72,11 @@ uint32_t net_client_response_progress_ms(void) { return to_ms_since_boot(get_abs
 #define main firmware_main
 #include "../firmware/src/main.c"
 #undef main
+#ifdef _WIN32
 #define EXPORT __declspec(dllexport)
+#else
+#define EXPORT __attribute__((visibility("default")))
+#endif
 static void reset_gpio(void) { memset(test_gpio, 1, sizeof test_gpio); test_now = 0; }
 
 EXPORT int query_bounce_probe(void) {

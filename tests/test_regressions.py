@@ -18,6 +18,31 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def build_harness():
+    build = ROOT / 'firmware/build/host-tests'
+    build.mkdir(parents=True, exist_ok=True)
+    includes = build / 'include'
+    for name in ['pico/time.h', 'pico/stdlib.h', 'pico/bootrom.h', 'pico/cyw43_arch.h', 'hardware/gpio.h',
+                 'hardware/i2c.h', 'hardware/pio.h', 'hardware/dma.h', 'hardware/clocks.h',
+                 'hardware/sync.h', 'hardware/irq.h', 'hardware/watchdog.h', 'audio_i2s.pio.h', 'mic_i2s.pio.h', 'ws2812.pio.h']:
+        path = includes / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('#include "pico_stubs.h"\n', encoding='utf-8')
+
+    if os.name != 'nt':
+        compiler = shutil.which('gcc') or shutil.which('cc') or shutil.which('clang')
+        if not compiler:
+            raise RuntimeError('C compiler (gcc/cc/clang) required for firmware host tests')
+        so_path = build / 'firmware_harness.so'
+        cmd = [
+            compiler, '-std=c11', '-shared', '-fPIC', '-O2',
+            f'-I{includes}', f'-I{ROOT / "tests"}', f'-I{ROOT / "firmware/src"}',
+            str(ROOT / 'tests/firmware_harness.c'), '-o', str(so_path), '-lm'
+        ]
+        result = subprocess.run(cmd, cwd=build, capture_output=True, text=True, errors='replace')
+        if result.returncode:
+            raise RuntimeError(result.stdout + result.stderr)
+        return ctypes.CDLL(str(so_path))
+
     vswhere = Path(os.environ.get('ProgramFiles(x86)', 'C:/Program Files (x86)')) / 'Microsoft Visual Studio/Installer/vswhere.exe'
     install = subprocess.check_output([str(vswhere), '-latest', '-products', '*', '-requires',
                                       'Microsoft.VisualStudio.Component.VC.Tools.x86.x64',
@@ -32,15 +57,6 @@ def build_harness():
             key, value = line.split('=', 1)
             if key and not key.startswith('='):
                 env[key.upper()] = value
-    build = ROOT / 'firmware/build/host-tests'
-    build.mkdir(parents=True, exist_ok=True)
-    includes = build / 'include'
-    for name in ['pico/time.h', 'pico/stdlib.h', 'pico/bootrom.h', 'pico/cyw43_arch.h', 'hardware/gpio.h',
-                 'hardware/i2c.h', 'hardware/pio.h', 'hardware/dma.h', 'hardware/clocks.h',
-                 'hardware/sync.h', 'hardware/irq.h', 'hardware/watchdog.h', 'audio_i2s.pio.h', 'mic_i2s.pio.h', 'ws2812.pio.h']:
-        path = includes / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text('#include "pico_stubs.h"\n', encoding='utf-8')
     compiler = shutil.which('cl.exe', path=env['PATH'])
     if not compiler:
         raise RuntimeError('Visual Studio developer environment did not provide cl.exe')
