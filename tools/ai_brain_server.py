@@ -944,6 +944,25 @@ def process_query_worker(transport, session):
     complete = transport.stream(session, pcm, to_oled_ascii(oled_display_text).encode("ascii", "replace"))
     print(f"[REQUEST {session.request_id}] {'Delivered' if complete else 'Cancelled/failed'}; {len(pcm)} PCM bytes")
 
+    if ESP32_SATELLITE_BRIDGE is not None and getattr(ESP32_SATELLITE_BRIDGE, "attached", False):
+        def _mirror_to_esp32():
+            try:
+                ESP32_SATELLITE_BRIDGE.send_state(
+                    persona=active_persona.upper().replace("_", " "),
+                    last_heard=(user_text or "(staff query)")[:95],
+                    prophecy=spoken_text[:219],
+                    active_spell=(parsed_spell["name"] if parsed_spell.get("is_spell") else "NONE")[:23],
+                    status="SPEAKING TTS...",
+                )
+                if pcm:
+                    ESP32_SATELLITE_BRIDGE.stream_pcm_to_speaker(pcm)
+                ESP32_SATELLITE_BRIDGE.send_state(status=f"ONLINE :{PORT}")
+            except Exception:
+                pass
+        threading.Thread(target=_mirror_to_esp32, daemon=True).start()
+
+ESP32_SATELLITE_BRIDGE = None
+
 def discover_local_ips():
     """Finds real active IPv4 LAN/Hotspot addresses instead of Debian's 127.0.1.1."""
     ips = []
@@ -996,6 +1015,23 @@ def main():
         pi5_web_console.start_web_console_daemon(port=int(os.environ.get("BRAIN_WEB_PORT", "8080")))
     except Exception as e:
         print(f"  [WEB CONSOLE WARN] {e}")
+
+    global ESP32_SATELLITE_BRIDGE
+    if os.environ.get("BRAIN_DISABLE_ESP32_SATELLITE", "0") != "1":
+        try:
+            import pi5_esp32_satellite
+            esp_ip_cfg = os.environ.get("BRAIN_ESP32_IP") or config.get("esp32_satellite_ip")
+            ESP32_SATELLITE_BRIDGE = pi5_esp32_satellite.Esp32SatelliteBridge(
+                esp_ip=esp_ip_cfg, persona_id=persona_id
+            )
+            def _attach_esp32_bg():
+                found = ESP32_SATELLITE_BRIDGE.discover_esp32(timeout=1.5)
+                if found or ESP32_SATELLITE_BRIDGE.serial_port_path:
+                    ESP32_SATELLITE_BRIDGE.attach(esp_ip=found)
+                    print(f"  [ESP32-S3 SATELLITE] Auto-attached to {found or ESP32_SATELLITE_BRIDGE.serial_port_path} (Screen + Speaker + Mic)")
+            threading.Thread(target=_attach_esp32_bg, daemon=True).start()
+        except Exception as e:
+            print(f"  [ESP32-S3 SATELLITE WARN] {e}")
     print("=" * 64)
     print("Ready and listening for Pico 2 W queries (Hold QUERY on staff)...")
 
@@ -1012,6 +1048,11 @@ def main():
     except KeyboardInterrupt:
         print("\nShutting down AI Brain Server.")
     finally:
+        if ESP32_SATELLITE_BRIDGE is not None:
+            try:
+                ESP32_SATELLITE_BRIDGE.detach()
+            except Exception:
+                pass
         sock.close()
 
 if __name__ == "__main__":
