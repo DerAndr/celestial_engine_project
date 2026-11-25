@@ -39,25 +39,33 @@ description: >-
    - Keep `DashboardViewModel._chatHistory` capped at `MAX_CHAT_HISTORY = 40`.
 2. **Multimodal Camera & Gallery Vision Downscaling**:
    - Always decode photos via two-pass `decodeSampledBitmap` (`max 800px`, EXIF orientation applied, intermediate bitmaps recycled, JPEG Base64 `< 100 KB`) and wrap network calls in `catch (e: Throwable)` so large photos never crash the app.
-3. **Build & Deployment Pipeline (Local Gradle vs. GitHub Actions CI/CD + `adb`)**:
+3. **Build & Deployment Pipeline (Cloud GitHub Actions CI/CD + `adb` — No Local Android SDK on Host)**:
+   - **CRITICAL AGENT RULE (Do NOT Search for Local Android SDK)**: This Windows workstation does **NOT** have a local Android SDK (`Android\Sdk`) installed. **NEVER** waste `run_command` turns searching the filesystem for `ANDROID_HOME` or running `.\gradlew` locally. Instead:
+     1. Run `python tools/preflight_check.py` locally (`< 1s`) to verify Kotlin 2.0 and JUnit 4 bytecode invariants before pushing.
+     2. Push the branch and let GitHub Actions (`.github/workflows/android-build.yml`) run `./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace`.
    - **Single Source of Truth for Version**: `versionName` and `versionCode` in `android/app/build.gradle.kts` drive the entire release and web ecosystem.
-   - **Path A — Cloud Build via GitHub Actions (`.github/workflows/android-build.yml` + `.github/workflows/pages.yml`)**:
-     1. Any push touching `android/**` triggers `Build Android Companion APK` (`android-build.yml`) on `ubuntu-latest` (Temurin JDK 17 + Gradle cache).
-     2. The workflow runs `./gradlew assembleDebug --no-daemon`, extracts `versionName` from `android/app/build.gradle.kts`, renames the output to `celestial_companion_v${ANDROID_VER}.apk`, uploads it as a GitHub Actions artifact, and (on `master`) automatically overwrites the asset on the latest GitHub Release (`gh release upload "$LATEST_TAG" "celestial_companion_v${ANDROID_VER}.apk" --clobber`).
-     3. Simultaneously, `.github/workflows/pages.yml` triggers whenever `android/app/build.gradle.kts` changes and auto-patches `celestial_companion_v*.apk` links and `Android 15 Compose v*` badges in `docs/index.html` during GitHub Pages deployment.
-     4. **Deploying the Cloud-Built APK to Physical Phone (`Pixel 9 Pro XL`)**:
-        ```powershell
-        gh run list --workflow=android-build.yml --limit 1
-        gh release download --pattern "celestial_companion_*.apk" -D scratch/apk --clobber
-        adb install -r (Get-Item scratch/apk/celestial_companion_v*.apk).FullName
-        adb shell am start -n com.celestial.companion/.MainActivity
-        Remove-Item -Recurse -Force scratch/apk
-        ```
-   - **Path B — Local Gradle Build & Direct `adb` Install**:
+   - **Pinned Debug Keystore (`android/app/celestial-debug.keystore`)**: Keep `signingConfigs.getByName("debug")` pointing to `celestial-debug.keystore` so cloud-built APKs always upgrade in-place via `adb install -r` without `INSTALL_FAILED_UPDATE_INCOMPATIBLE` or wiping downloaded ONNX models.
+   - **Cloud Build & Physical Smartphone Deployment (`Pixel 9 Pro XL` `49051FDAS001YK`)**:
      ```powershell
-     cd android
-     .\gradlew assembleDebug
-     adb install -r app/build/outputs/apk/debug/app-debug.apk
-     adb shell am start -n com.celestial.companion/.MainActivity
+     git push origin <branch>
+     Start-Sleep -Seconds 4
+     $runId = (gh run list --workflow=android-build.yml --branch=<branch> --limit 1 --json databaseId -q '.[0].databaseId')
+     gh run watch $runId --exit-status
+     Remove-Item -Recurse -Force scratch/apk -ErrorAction SilentlyContinue
+     gh run download $runId -D scratch/apk
+     $apk = (Get-ChildItem -Path scratch/apk -Filter "celestial_companion_*.apk" -Recurse | Select-Object -First 1).FullName
+     adb -s 49051FDAS001YK install -r "$apk"
+     adb -s 49051FDAS001YK shell am start -n com.celestial.companion/.MainActivity
+     Remove-Item -Recurse -Force scratch/apk -ErrorAction SilentlyContinue
      ```
-   - **Zero Root Clutter Rule**: **Never** create `temp_apk*`, `build_apk`, or screenshot dumps in the repository root. Always use git-ignored `scratch/` and clean up immediately.
+   - **Zero Root Clutter Rule**: **Never** create `temp_apk*`, `build_apk`, or screenshot dumps in the repository root. Always use git-ignored `scratch/apk/` and delete only `scratch/apk/`.
+
+## 4. Kotlin 2.0, JUnit 4 & ONNX Runtime Anti-Defect Rules
+1. **No `break` or `continue` Inside `.use { ... }` Lambdas (Kotlin 2.0 Error)**:
+   - Kotlin 2.0 rejects non-local `break`/`continue` inside inline `.use { ... }` lambdas (`The feature "break continue in inline lambdas" is experimental`). Always write explicit `val res = session.run(inputs); try { ... } finally { res.close() }`.
+2. **No Illegal JVM Characters in JUnit 4 Backtick Test Names**:
+   - Android JVM/DEX bytecode forbids `<`, `>`, `.`, `;`, `[`, `]`, and `/` inside backtick method names (`@Test fun \`...\`()`). Write `"at most 25 words"` instead of `"<= 25 words"`.
+3. **Dynamic ONNX Integer Tensor Typing (`INT32` vs `INT64`)**:
+   - `sherpa-onnx` models (`Moonshine`, `SenseVoice`) expect `OnnxJavaType.INT32` (`IntBuffer`), while HuggingFace Optimum models (`SmolLM2-135M`, `Kokoro-82M`) expect `INT64` (`LongBuffer`). Always inspect `(session.inputInfo[name]?.info as? TensorInfo)?.type` via `createTypedIntTensor` rather than hardcoding `LongBuffer`.
+4. **Pure JVM Unit Test Dependencies**:
+   - Keep `testImplementation("org.json:json:20240303")` and `testOptions { unitTests.isReturnDefaultValues = true }` in `android/app/build.gradle.kts` so `org.json.JSONObject` and `android.util.Log` work in pure JVM tests.

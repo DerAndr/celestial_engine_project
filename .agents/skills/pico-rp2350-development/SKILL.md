@@ -30,6 +30,10 @@ description: >-
    - Pressing the rotary encoder button (`GP8`) or `QUERY` (`GP9`) while in `STATE_PROCESSING` or `STATE_SPEAKING` must immediately abort active audio DMA, flush the 64 KB playback ring buffer, and transition the state machine back to `STATE_IDLE`.
 3. **Web Digital Twin Synchronization**:
    - Whenever adding or modifying LED patterns (`28`) in `firmware/src/leds.c` or chiptunes/SFX (`21` melodies + `14` SFX) in `firmware/src/audio.c`, keep `docs/simulator.js`, `docs/twin/state.js`, and `README.md` synchronized.
+4. **lwIP Callback & ISR Stack Budget (`<= 256 Bytes`)**:
+   - **Never** allocate buffers `> 256 bytes` on the stack inside lwIP UDP receive callbacks (`net_client.c: udp_rx_callback`), `net_client_send_audio_chunk`, or PIO/DMA ISRs (`audio.c`). Always place large scratch arrays (`adpcm_pcm`, `uplink_adpcm_buf`) in `static` BSS and compile with `-Wall -Wextra` (`0 warnings` policy).
+5. **Cross-Platform Host C Test Harness (`tests/firmware_harness.c`)**:
+   - Production C drivers (`query_button.c`, `encoder.c`, `sh1106.c`, `audio.c`, `mic.c`, `leds.c`, `net_dispatcher.c`, `adpcm_codec.c`) are compiled into a host shared library (`firmware_harness.dll` via MSVC `cl.exe` on Windows, `firmware_harness.so` via `gcc -shared -fPIC` on Linux) and tested by `tests/test_regressions.py`. Never weaken test thresholds to pass a failing regression.
 
 ## 3. Build & Verification Commands
 From repository root:

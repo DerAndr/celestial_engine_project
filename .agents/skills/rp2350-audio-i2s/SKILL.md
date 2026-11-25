@@ -35,3 +35,7 @@ description: >-
 4. **Standalone Procedural Synthesizer & Phonetic VU Coupling (`firmware/src/audio.c`)**:
    - Synthesizes **21 8-bit chiptune melodies** and **14 cosmic/R2-D2/spell SFX** on Core 1 at `16 kHz`.
    - Real-time speaker amplitude feeds into `leds.c` (Phonetic VU Coupling) so spoken syllables modulate the 43 WS2812B LEDs during `STATE_SPEAKING`.
+5. **End-to-End 4:1 IMA-ADPCM Wireless Codec (`64 kbps` vs `256 kbps`, `codec_id = 1`)**:
+   - Both uplink (`NET_MSG_QUERY_START` 6-byte payload with `payload[5] = 1` + `NET_MSG_AUDIO_CHUNK`) and downlink (`NET_MSG_RESP_AUDIO_START` 8-byte payload with `payload[4] = 1` + `NET_MSG_RESP_AUDIO_CHUNK`) support 4:1 `IMA-ADPCM` compression (`firmware/src/adpcm_codec.c/h`, `ImaAdpcmCodec.kt`, `tools/adpcm_codec.py`).
+   - Each UDP chunk carries a self-healing 4-byte little-endian block header (`[int16 initial_predictor][uint8 initial_step_index][uint8 reserved=0]`), where `initial_step_index` is selected adaptively from `|pcm[1] - pcm[0]|` so `500 Hz` full-scale waveforms achieve `SNR > 28 dB`.
+   - Maintain 100% bit-for-bit encoding/decoding identity across C, Python, and Kotlin (`test_adpcm_c_vs_python_bit_exact_parity` and `ImaAdpcmCodecTest.kt`).
