@@ -4,6 +4,7 @@ From repository root: python -m unittest discover -s tests -v
 Requires installed Visual Studio C build tools on Windows (no downloads).
 """
 import ctypes
+import math
 import os
 from pathlib import Path
 import subprocess
@@ -101,6 +102,50 @@ class FirmwareRegressions(unittest.TestCase):
     def test_boot_announcement_eventually_plays_after_chime(self): self.probe('main_boot_announcement_probe')
     def test_net_dispatcher_validation_and_routing(self): self.probe('test_net_dispatcher_validation_and_routing')
     def test_audio_ring_buffer_fifo_and_bounds(self): self.probe('test_audio_ring_buffer_fifo_and_bounds')
+
+    def test_adpcm_c_vs_python_bit_exact_parity(self):
+        spec = importlib.util.spec_from_file_location('adpcm_codec', ROOT / 'tools/adpcm_codec.py')
+        adpcm_py = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(adpcm_py)
+
+        encode_fn = self.firmware.harness_adpcm_encode
+        encode_fn.argtypes = [ctypes.POINTER(ctypes.c_int16), ctypes.c_uint16, ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint16]
+        encode_fn.restype = ctypes.c_uint16
+
+        decode_fn = self.firmware.harness_adpcm_decode
+        decode_fn.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.c_uint16, ctypes.POINTER(ctypes.c_int16), ctypes.c_uint16]
+        decode_fn.restype = ctypes.c_uint16
+
+        num_samples = 480
+        pcm_samples = [
+            int(18000 * math.sin(2 * math.pi * 500 * i / 16000) + 6000 * math.cos(2 * math.pi * 1200 * i / 16000))
+            for i in range(num_samples)
+        ]
+        pcm_bytes = struct.pack(f'<{num_samples}h', *pcm_samples)
+
+        c_pcm_in = (ctypes.c_int16 * num_samples)(*pcm_samples)
+        c_adpcm_out = (ctypes.c_uint8 * 512)()
+        c_encoded_len = encode_fn(c_pcm_in, num_samples, c_adpcm_out, 512)
+        self.assertEqual(c_encoded_len, 244)
+        c_encoded_bytes = bytes(c_adpcm_out[:c_encoded_len])
+
+        py_encoded_bytes = adpcm_py.encode_block(pcm_bytes)
+        self.assertEqual(c_encoded_bytes, py_encoded_bytes)
+
+        c_adpcm_in = (ctypes.c_uint8 * len(py_encoded_bytes)).from_buffer_copy(py_encoded_bytes)
+        c_pcm_out = (ctypes.c_int16 * num_samples)()
+        c_decoded_count = decode_fn(c_adpcm_in, len(py_encoded_bytes), c_pcm_out, num_samples)
+        self.assertEqual(c_decoded_count, num_samples)
+        c_decoded_samples = tuple(c_pcm_out[:c_decoded_count])
+
+        py_decoded_bytes = adpcm_py.decode_block(py_encoded_bytes, num_samples)
+        py_decoded_samples = struct.unpack(f'<{num_samples}h', py_decoded_bytes)
+        self.assertEqual(c_decoded_samples, py_decoded_samples)
+
+        sig_power = sum(s * s for s in pcm_samples)
+        err_power = sum((a - b) ** 2 for a, b in zip(pcm_samples, c_decoded_samples))
+        snr_db = 10.0 * math.log10(sig_power / max(err_power, 1))
+        self.assertGreater(snr_db, 28.0)
 
 
 class VoiceToolRegressions(unittest.TestCase):
@@ -207,6 +252,27 @@ class Pi5EmotionHumorParityTests(unittest.TestCase):
                     self.assertTrue(len(reply.strip()) > 0)
                     self.assertLessEqual(len(reply.split()), 25, f"{persona}/{lang}/{event}: {reply}")
                     self.assertNotIn('*', reply)
+
+    def test_esp32_satellite_attach_detach_and_cmic_framing(self):
+        spec = importlib.util.spec_from_file_location('pi5_esp32_satellite', ROOT / 'tools/pi5_esp32_satellite.py')
+        sat = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(sat)
+
+        bridge = sat.Esp32SatelliteBridge(esp_ip='192.168.178.121', persona_id='archmage')
+        attach = bridge.build_attach_payload()
+        self.assertEqual(attach['cmd'], 'celestial_pi5_attach')
+        self.assertEqual(attach['host'], 'PI5-BRAIN')
+        self.assertEqual(attach['persona'], 'ARCHMAGE')
+
+        frame_pcm = struct.pack('<240h', *([1200, -1200] * 120))
+        pkt = sat.build_cmic_packet(42, frame_pcm)
+        kind, seq, payload = sat.parse_cmic_packet(pkt)
+        self.assertEqual(kind, 'CMIC')
+        self.assertEqual(seq, 42)
+        self.assertEqual(payload, frame_pcm)
+
+        kind_end, _, _ = sat.parse_cmic_packet(b'CMIC_END')
+        self.assertEqual(kind_end, 'CMIC_END')
 
 
 if __name__ == '__main__':

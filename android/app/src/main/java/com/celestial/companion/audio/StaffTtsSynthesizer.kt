@@ -21,6 +21,7 @@ private const val TAG = "StaffTtsSynthesizer"
 
 class StaffTtsSynthesizer(private val context: Context) {
     private var tts: TextToSpeech? = null
+    val kokoroOnnxSynthesizer = KokoroOnnxSynthesizer(context)
     private val initDeferred = CompletableDeferred<Boolean>()
     private var isInitialized = false
 
@@ -81,6 +82,13 @@ class StaffTtsSynthesizer(private val context: Context) {
             .replace(Regex("[*#_`~]"), "")
             .trim()
         if (cleanText.isEmpty()) return@withContext null
+
+        if (locale.language == "en" && kokoroOnnxSynthesizer.isReady()) {
+            val neuralPcm = kokoroOnnxSynthesizer.synthesizeOrNull(cleanText, voiceProfile)
+            if (neuralPcm != null && neuralPcm.isNotEmpty()) {
+                return@withContext neuralPcm
+            }
+        }
 
         val curMs = System.currentTimeMillis()
         val cacheDir = context.externalCacheDir ?: context.cacheDir
@@ -299,6 +307,7 @@ class StaffTtsSynthesizer(private val context: Context) {
 
     fun shutdown() {
         try {
+            kokoroOnnxSynthesizer.close()
             tts?.stop()
             tts?.shutdown()
             tts = null

@@ -85,6 +85,190 @@ class DashboardViewModel(
     val senseVoiceDownloadProgress: StateFlow<Int> =
         repository.sotaAudioEngine?.senseVoiceDownloadProgressPct ?: MutableStateFlow(0).asStateFlow()
 
+    val kokoroOnnxState: StateFlow<com.celestial.companion.audio.KokoroDownloadState> =
+        repository.ttsSynthesizer?.kokoroOnnxSynthesizer?.state
+            ?: MutableStateFlow(com.celestial.companion.audio.KokoroDownloadState.NOT_DOWNLOADED).asStateFlow()
+
+    val kokoroDownloadProgress: StateFlow<Int> =
+        repository.ttsSynthesizer?.kokoroOnnxSynthesizer?.downloadProgressPct ?: MutableStateFlow(0).asStateFlow()
+
+    val useAdpcmCodec: StateFlow<Boolean> = repository.useAdpcmCodec
+
+    private val _isBenchmarkRunning = MutableStateFlow(false)
+    val isBenchmarkRunning: StateFlow<Boolean> = _isBenchmarkRunning.asStateFlow()
+
+    fun toggleAdpcmCodec() {
+        repository.setUseAdpcmCodec(!repository.useAdpcmCodec.value)
+    }
+
+    /**
+     * Task 9.8: Runs an interactive on-device SOTA benchmark suite across IMA-ADPCM 4:1 codec,
+     * Moonshine/SenseVoice STT, SmolLM2-135M LLM, and Kokoro-82M TTS, posting telemetry
+     * into both LiveLogConsole and the Oracle Terminal Prophecy view.
+     */
+    fun runOnDeviceSotaBenchmark() {
+        if (_isBenchmarkRunning.value) return
+        _isBenchmarkRunning.value = true
+        _processingPhase.value = AiProcessingPhase.THINKING
+        _activePrompt.value = "[⚡ On-Device SOTA Benchmark]"
+        _liveStreamingText.value = "Running on-device SOTA telemetry benchmark (IMA-ADPCM, STT, LLM, Kokoro-82M)..."
+
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            val totalT0 = System.nanoTime()
+            try {
+                repository.log("BENCHMARK", "⚡ Starting On-Device SOTA Benchmark...", LogLevel.INFO)
+
+                // 1. 4:1 IMA-ADPCM Codec Speed & SNR on 1-second (16,000 samples = 32,000 bytes) 500 Hz tone
+                val sampleCount = 16000
+                val srcSamples = ShortArray(sampleCount) { i ->
+                    (kotlin.math.sin(2.0 * Math.PI * 500.0 * i / 16000.0) * 16000.0).toInt().toShort()
+                }
+                val inBb = java.nio.ByteBuffer.allocate(sampleCount * 2).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                for (s in srcSamples) inBb.putShort(s)
+                val rawPcm = inBb.array()
+
+                val encT0 = System.nanoTime()
+                val adpcmBytes = com.celestial.companion.audio.ImaAdpcmCodec.encodeBlock(rawPcm)
+                val encUs = (System.nanoTime() - encT0) / 1000L
+
+                val decT0 = System.nanoTime()
+                val decodedPcm = com.celestial.companion.audio.ImaAdpcmCodec.decodeBlockToPcm16Le(adpcmBytes, sampleCount)
+                val decUs = (System.nanoTime() - decT0) / 1000L
+
+                val decBb = java.nio.ByteBuffer.wrap(decodedPcm).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                var sigPow = 0.0
+                var errPow = 0.0
+                for (i in 0 until sampleCount) {
+                    val orig = srcSamples[i].toDouble()
+                    val rec = if (decBb.remaining() >= 2) decBb.short.toDouble() else 0.0
+                    sigPow += orig * orig
+                    val d = orig - rec
+                    errPow += d * d
+                }
+                val snrDb = if (errPow > 1e-9) 10.0 * kotlin.math.log10(sigPow / errPow) else 99.9
+                val adpcmLine = "1) IMA-ADPCM 4:1: ${rawPcm.size}B -> ${adpcmBytes.size}B | enc=${encUs}us, dec=${decUs}us | SNR=${"%.2f".format(java.util.Locale.US, snrDb)} dB"
+                repository.log("BENCHMARK", adpcmLine, LogLevel.SUCCESS)
+
+                // 2. On-Device SOTA Audio (Moonshine / SenseVoice STT)
+                val sotaAudio = repository.sotaAudioEngine
+                val sttLine = if (sotaAudio != null) {
+                    val moonReady = sotaAudio.areMoonshineModelsDownloaded()
+                    val svReady = sotaAudio.areSenseVoiceModelsDownloaded()
+                    val sttT0 = System.nanoTime()
+                    val res = sotaAudio.transcribeRichOfflinePcm16(rawPcm, _currentLanguage.value)
+                    val sttMs = (System.nanoTime() - sttT0) / 1_000_000L
+                    if (moonReady || svReady) {
+                        "2) SOTA STT (${res.engineUsed}): ${sttMs}ms | lang=${res.languageTag} | text='${res.text.take(36)}'"
+                    } else {
+                        "2) SOTA STT: Model not downloaded yet — tap Download on Dashboard (DSP fallback ${sttMs}ms)"
+                    }
+                } else {
+                    "2) SOTA STT: Engine unavailable"
+                }
+                repository.log("BENCHMARK", sttLine, LogLevel.INFO)
+
+                // 3. On-Device Generative LLM (SmolLM2-135M)
+                val llmEngine = repository.onDeviceLlmEngine
+                var llmTokPerSec = 0f
+                val llmLine = if (llmEngine != null && llmEngine.isModelDownloaded()) {
+                    val llmT0 = System.nanoTime()
+                    var ttftMs = 0L
+                    var tokenCount = 0
+                    val preview = StringBuilder()
+                    llmEngine.generateStream(
+                        prompt = "Bless this celestial circuit in one short sentence.",
+                        personaId = _currentPersona.value.id,
+                        language = _currentLanguage.value,
+                        maxNewTokens = 12
+                    ).collect { chunk ->
+                        if (tokenCount == 0) {
+                            ttftMs = (System.nanoTime() - llmT0) / 1_000_000L
+                        }
+                        tokenCount++
+                        preview.append(chunk)
+                    }
+                    val llmMs = ((System.nanoTime() - llmT0) / 1_000_000L).coerceAtLeast(1L)
+                    llmTokPerSec = (tokenCount * 1000f) / llmMs.toFloat()
+                    "3) SmolLM2-135M ONNX: $tokenCount tok in ${llmMs}ms (${"%.1f".format(java.util.Locale.US, llmTokPerSec)} tok/s, TTFT=${ttftMs}ms)"
+                } else {
+                    "3) SmolLM2-135M ONNX: Model not downloaded yet — tap Download on Dashboard"
+                }
+                repository.log("BENCHMARK", llmLine, LogLevel.INFO)
+
+                // 4. On-Device Kokoro-82M TTS
+                val kokoro = repository.ttsSynthesizer?.kokoroOnnxSynthesizer
+                val sampleSentence = "The Omnissiah blesses this circuit."
+                val kokoroTokens = com.celestial.companion.audio.KokoroOnnxSynthesizer.englishToKokoroTokens(sampleSentence)
+                val ttsLine = if (kokoro != null && kokoro.isReady()) {
+                    val profile = com.celestial.companion.audio.KokoroVoiceProfile.forPersona(_currentPersona.value.id)
+                    val ttsT0 = System.nanoTime()
+                    val pcm = kokoro.synthesizeOrNull(sampleSentence, profile)
+                    val synthMs = ((System.nanoTime() - ttsT0) / 1_000_000L).coerceAtLeast(1L)
+                    if (pcm != null && pcm.isNotEmpty()) {
+                        val audioMs = (pcm.size / 32.0).coerceAtLeast(1.0)
+                        val rtf = synthMs.toDouble() / audioMs
+                        "4) Kokoro-82M ONNX (${profile.voiceId}): ${pcm.size}B in ${synthMs}ms (dur=${audioMs.toInt()}ms, RTF=${"%.2f".format(java.util.Locale.US, rtf)}, tokens=${kokoroTokens.size})"
+                    } else {
+                        "4) Kokoro-82M ONNX: Synthesis returned empty (tokens=${kokoroTokens.size})"
+                    }
+                } else {
+                    "4) Kokoro-82M ONNX: Model not downloaded yet — tap Download on Dashboard (G2P tokens=${kokoroTokens.size})"
+                }
+                repository.log("BENCHMARK", ttsLine, LogLevel.INFO)
+
+                val totalMs = ((System.nanoTime() - totalT0) / 1_000_000L).coerceAtLeast(1L)
+                val report = buildString {
+                    appendLine("⚡ ON-DEVICE SOTA BENCHMARK (${totalMs} ms)")
+                    appendLine(adpcmLine)
+                    appendLine(sttLine)
+                    appendLine(llmLine)
+                    append(ttsLine)
+                }
+
+                _liveStreamingText.value = report
+                _liveElapsedMs.value = totalMs
+                _liveTokensPerSec.value = llmTokPerSec
+                _liveModality.value = "SOTA BENCHMARK"
+                _processingPhase.value = AiProcessingPhase.COMPLETED
+
+                val benchMsg = OracleChatMessage(
+                    isUser = false,
+                    text = report,
+                    modalityUsed = "SOTA BENCHMARK",
+                    latencyMs = totalMs,
+                    tokensPerSec = llmTokPerSec,
+                    isStreaming = false
+                )
+                val nextHistory = _chatHistory.value + benchMsg
+                _chatHistory.value = if (nextHistory.size > MAX_CHAT_HISTORY) {
+                    nextHistory.takeLast(MAX_CHAT_HISTORY)
+                } else {
+                    nextHistory
+                }
+                repository.log("BENCHMARK", "✅ SOTA Benchmark complete in ${totalMs}ms", LogLevel.SUCCESS)
+            } catch (t: Throwable) {
+                val err = "Benchmark error: ${t.message ?: t.javaClass.simpleName}"
+                _liveStreamingText.value = err
+                _processingPhase.value = AiProcessingPhase.ERROR
+                repository.log("BENCHMARK", err, LogLevel.ERROR)
+            } finally {
+                _isBenchmarkRunning.value = false
+            }
+        }
+    }
+
+    fun downloadKokoroOnnx() {
+        viewModelScope.launch {
+            repository.log("SOTA-TTS", "⬇️ Downloading Kokoro-82M INT8 ONNX (~115 MB)...", LogLevel.INFO)
+            val ok = repository.ttsSynthesizer?.kokoroOnnxSynthesizer?.downloadAndInit() ?: false
+            if (ok) {
+                repository.log("SOTA-TTS", "✅ Kokoro-82M INT8 ONNX loaded on device!", LogLevel.SUCCESS)
+            } else {
+                repository.log("SOTA-TTS", "⚠️ Kokoro-82M ONNX download failed; using calibrated TTS profile", LogLevel.WARN)
+            }
+        }
+    }
+
     fun downloadSenseVoiceOnnx() {
         viewModelScope.launch {
             repository.log("SOTA-AUDIO", "⬇️ Downloading SenseVoice-Small Multilingual INT8 ONNX ([EN]/[DE]/[RU] + Emotion tags)...", LogLevel.INFO)

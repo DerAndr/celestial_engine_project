@@ -48,7 +48,22 @@ class StaffRepository(
     val emergencyAbortUseCase: EmergencyAbortUseCase = EmergencyAbortUseCase()
 ) {
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-    private val ttsSynthesizer = context?.let { com.celestial.companion.audio.StaffTtsSynthesizer(it) }
+    val ttsSynthesizer = context?.let { com.celestial.companion.audio.StaffTtsSynthesizer(it) }
+
+    private val _useAdpcmCodec = MutableStateFlow(
+        context?.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
+            ?.getBoolean("use_adpcm_codec", false) ?: false
+    )
+    val useAdpcmCodec: StateFlow<Boolean> = _useAdpcmCodec.asStateFlow()
+
+    fun setUseAdpcmCodec(enabled: Boolean) {
+        _useAdpcmCodec.value = enabled
+        try {
+            context?.getSharedPreferences("celestial_prefs", android.content.Context.MODE_PRIVATE)
+                ?.edit()?.putBoolean("use_adpcm_codec", enabled)?.apply()
+        } catch (_: Exception) {}
+        log("SPEAKER", "📡 Wireless audio codec: ${if (enabled) "4:1 IMA-ADPCM (64 kbps)" else "Raw PCM16 (256 kbps)"}", LogLevel.INFO)
+    }
 
     companion object {
         const val MAX_LOG_ENTRIES = 100
@@ -120,6 +135,8 @@ class StaffRepository(
 
     private val incomingAudioStream = ByteArrayOutputStream()
     private var activeAudioJob: Job? = null
+    @Volatile
+    private var uplinkAudioCodecId: Int = 0
 
     fun abortCurrentQuery() {
         Log.i(TAG, "abortCurrentQuery: aborting TTS, canceling audio stream, sending CANCEL packet")
@@ -287,8 +304,22 @@ class StaffRepository(
         reqId: Long = activeQueryRequestId.takeIf { it != 0L } ?: System.currentTimeMillis()
     ) {
         val sampleCount = pcmBytes.size / 2
-        log("SPEAKER", "🔊 Streaming audio to staff speaker ($sampleCount samples @ 16kHz to $targetIp)...", LogLevel.INFO)
-        val startPayload = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(sampleCount).array()
+        val adpcmEnabled = _useAdpcmCodec.value
+        log(
+            "SPEAKER",
+            "🔊 Streaming audio to staff speaker ($sampleCount samples @ 16kHz, codec=${if (adpcmEnabled) "4:1 IMA-ADPCM" else "PCM16"} to $targetIp)...",
+            LogLevel.INFO
+        )
+        val startPayload = if (adpcmEnabled) {
+            ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(sampleCount)
+                .put(1.toByte())
+                .put(0.toByte())
+                .putShort(0.toShort())
+                .array()
+        } else {
+            ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(sampleCount).array()
+        }
         val startPacket = CelestialPacket(
             msgType = NetMessageType.RESP_START,
             seqNum = 1,
@@ -299,36 +330,42 @@ class StaffRepository(
         transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, startPacket)
         delay(2) // Minimized wakeup delay (2ms instead of 25ms)
 
-        val chunkSize = 480 // 480 bytes = 240 samples @ 16kHz = 15ms of audio (<= NET_MAX_PAYLOAD_SIZE 512)
+        val chunkSize = if (adpcmEnabled) 960 else 480 // 960B PCM (480 samples = 30ms) -> 244B ADPCM
+        val chunkDurationMs = if (adpcmEnabled) 30L else 15L
         var seq = 0
         var offset = 0
-        val prebufferChunks = 80 // 19,200 samples = 1.20s pre-buffer inside Pico's 65,536 RAM buffer
+        val prebufferChunks = if (adpcmEnabled) 40 else 80 // 1.20s pre-buffer inside Pico's 65,536 RAM buffer
         var steadyStartTime = 0L
 
         while (kotlinx.coroutines.currentCoroutineContext().isActive && offset < pcmBytes.size) {
             val length = minOf(chunkSize, pcmBytes.size - offset)
-            val chunk = pcmBytes.copyOfRange(offset, offset + length)
+            val rawSlice = pcmBytes.copyOfRange(offset, offset + length)
+            val payloadChunk = if (adpcmEnabled) {
+                val evenSlice = if (rawSlice.size % 4 != 0) rawSlice + byteArrayOf(0, 0) else rawSlice
+                com.celestial.companion.audio.ImaAdpcmCodec.encodeBlock(evenSlice)
+            } else {
+                rawSlice
+            }
             val chunkPacket = CelestialPacket(
                 msgType = NetMessageType.RESP_CHUNK,
                 seqNum = seq,
-                payloadLen = chunk.size,
+                payloadLen = payloadChunk.size,
                 requestId = reqId,
-                payload = chunk
+                payload = payloadChunk
             )
             transport.sendPacket(targetIp, ProtocolConstants.DEFAULT_PORT, chunkPacket)
             offset += length
             seq++
 
-            // Fast burst for first 80 chunks (1.20s of audio delivered in ~160ms)
+            // Fast burst for first 1.20s of audio
             if (seq < prebufferChunks) {
                 delay(2)
             } else {
                 if (steadyStartTime == 0L) {
                     steadyStartTime = System.currentTimeMillis()
                 }
-                // Drift-free absolute scheduling: nominal 15ms per chunk
                 val steadyIndex = seq - prebufferChunks
-                val targetTimeMs = steadyStartTime + (steadyIndex * 15L)
+                val targetTimeMs = steadyStartTime + (steadyIndex * chunkDurationMs)
                 val waitMs = targetTimeMs - System.currentTimeMillis()
                 if (waitMs > 0) {
                     delay(waitMs)
@@ -515,8 +552,10 @@ class StaffRepository(
                     return
                 }
                 activeQueryRequestId = packet.requestId
-                Log.i(TAG, "Incoming QUERY_START from ${packet.senderIp} (reqId=${packet.requestId})")
-                log("VOICE", "🎤 QUERY_START received from ${packet.senderIp} (reqId=${packet.requestId})", LogLevel.INFO)
+                uplinkAudioCodecId = if (packet.payload.size >= 6) (packet.payload[5].toInt() and 0xFF) else 0
+                val codecLabel = if (uplinkAudioCodecId == com.celestial.companion.audio.ImaAdpcmCodec.CODEC_ID_IMA_ADPCM) "4:1 IMA-ADPCM" else "PCM16"
+                Log.i(TAG, "Incoming QUERY_START from ${packet.senderIp} (reqId=${packet.requestId}, uplinkCodec=$codecLabel)")
+                log("VOICE", "🎤 QUERY_START received from ${packet.senderIp} (reqId=${packet.requestId}, codec=$codecLabel)", LogLevel.INFO)
                 incomingAudioStream.reset()
                 _telemetry.value = _telemetry.value.copy(
                     state = StaffState.LISTENING,
@@ -525,10 +564,18 @@ class StaffRepository(
             }
             NetMessageType.AUDIO_CHUNK -> {
                 if (packet.payload.isNotEmpty()) {
-                    incomingAudioStream.write(packet.payload)
-                    val count = incomingAudioStream.size() / 480
-                    if (count > 0 && count % 20 == 0) {
-                        log("VOICE", "🎙️ Streaming audio... ${incomingAudioStream.size()} B ($count chunks)", LogLevel.DEBUG)
+                    val pcmBytes = if (uplinkAudioCodecId == com.celestial.companion.audio.ImaAdpcmCodec.CODEC_ID_IMA_ADPCM && packet.payload.size >= 4) {
+                        val sampleCount = (packet.payload.size - 4) * 2
+                        com.celestial.companion.audio.ImaAdpcmCodec.decodeBlockToPcm16Le(packet.payload, sampleCount)
+                    } else {
+                        packet.payload
+                    }
+                    if (pcmBytes.isNotEmpty()) {
+                        incomingAudioStream.write(pcmBytes)
+                        val count = incomingAudioStream.size() / 480
+                        if (count > 0 && count % 20 == 0) {
+                            log("VOICE", "🎙️ Streaming audio... ${incomingAudioStream.size()} B ($count chunks)", LogLevel.DEBUG)
+                        }
                     }
                 }
             }

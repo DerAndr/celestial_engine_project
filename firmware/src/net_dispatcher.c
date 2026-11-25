@@ -6,7 +6,7 @@ static const net_msg_rule_t PROTOCOL_V2_RULES[] = {
     { NET_MSG_QUERY_START,      2,  2,                    false, "QUERY_START"    },
     { NET_MSG_AUDIO_CHUNK,      2,  NET_MAX_PAYLOAD_SIZE, true,  "AUDIO_CHUNK"    },
     { NET_MSG_QUERY_END,        0,  0,                    false, "QUERY_END"      },
-    { NET_MSG_RESP_AUDIO_START, 4,  4,                    false, "RESP_START"     },
+    { NET_MSG_RESP_AUDIO_START, 4,  8,                    false, "RESP_START"     },
     { NET_MSG_RESP_AUDIO_CHUNK, 2,  NET_MAX_PAYLOAD_SIZE, true,  "RESP_CHUNK"     },
     { NET_MSG_RESP_AUDIO_END,   0,  4,                    false, "RESP_END"       },
     { NET_MSG_CANCEL,           0,  4,                    false, "CANCEL"         },

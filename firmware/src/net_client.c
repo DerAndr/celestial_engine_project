@@ -1,6 +1,7 @@
 #include "net_client.h"
 #include "net_protocol.h"
 #include "net_dispatcher.h"
+#include "adpcm_codec.h"
 #include "audio.h"
 #include "response_gate.h"
 #include "pico/stdlib.h"
@@ -169,6 +170,7 @@ static uint32_t request_counter;
 static volatile bool response_failed;
 static volatile uint32_t response_progress_ms;
 static uint32_t response_expected_samples, response_received_samples;
+static uint8_t response_audio_codec = 0; // 0 = PCM16, 1 = 4:1 IMA-ADPCM
 
 /* Called only inside the lwIP callback, which already owns the SDK lock. */
 static void acknowledge_response(const net_packet_header_t *received, const ip_addr_t *dst_ip, uint16_t dst_port) {
@@ -523,7 +525,7 @@ static void handle_rx_resp_start(const net_packet_header_t *hdr,
                                  const uint8_t *payload,
                                  void *user_ctx) {
     const net_rx_context_t *ctx = (const net_rx_context_t *)user_ctx;
-    if (payload == NULL || hdr->payload_len != sizeof(uint32_t)) return;
+    if (payload == NULL || (hdr->payload_len != 4 && hdr->payload_len != 8)) return;
 
     // Pair with companion / brain host and open gate for direct or active stream
     companion_ip_addr = *ctx->addr;
@@ -538,6 +540,7 @@ static void handle_rx_resp_start(const net_packet_header_t *hdr,
     bool ack = response_gate_start(&response_gate, hdr->request_id);
     if (ack && first) {
         memcpy(&response_expected_samples, payload, sizeof(uint32_t));
+        response_audio_codec = (hdr->payload_len >= 5) ? payload[4] : 0;
         audio_stop_voice();
         audio_stop_chiptune();
         audio_stop_cosmic_sfx();
@@ -566,14 +569,25 @@ static void handle_rx_resp_chunk(const net_packet_header_t *hdr,
     if (accepted == 1) {
         ack = true;
     } else if (accepted == 2) {
-        int16_t chunk[NET_MAX_PAYLOAD_SIZE / 2];
-        memcpy(chunk, payload, hdr->payload_len);
-        size_t count = hdr->payload_len / 2;
-        if (audio_stream_push(chunk, count)) {
-            response_gate = candidate;
-            response_received_samples += (uint32_t)count;
-            last_resp_chunk_rx_ms = ctx->now;
-            ack = true;
+        if (response_audio_codec == 1) {
+            static int16_t adpcm_pcm[NET_MAX_PAYLOAD_SIZE * 2];
+            size_t count = ima_adpcm_decode_block(payload, hdr->payload_len, adpcm_pcm, NET_MAX_PAYLOAD_SIZE * 2);
+            if (count > 0 && audio_stream_push(adpcm_pcm, count)) {
+                response_gate = candidate;
+                response_received_samples += (uint32_t)count;
+                last_resp_chunk_rx_ms = ctx->now;
+                ack = true;
+            }
+        } else {
+            int16_t chunk[NET_MAX_PAYLOAD_SIZE / 2];
+            memcpy(chunk, payload, hdr->payload_len);
+            size_t count = hdr->payload_len / 2;
+            if (audio_stream_push(chunk, count)) {
+                response_gate = candidate;
+                response_received_samples += (uint32_t)count;
+                last_resp_chunk_rx_ms = ctx->now;
+                ack = true;
+            }
         }
     }
     if (ack) {
@@ -990,6 +1004,8 @@ bool net_client_ping_server(void) {
     return true;
 }
 
+#define ADPCM_CODEC_ID_IMA_4BIT 1u
+
 bool net_client_send_query_start(uint8_t lang_code, uint8_t model_preset) {
     net_client_cancel();
     cyw43_arch_lwip_begin();
@@ -999,7 +1015,7 @@ bool net_client_send_query_start(uint8_t lang_code, uint8_t model_preset) {
     resp_text_buffer[0] = '\0';
     response_progress_ms = to_ms_since_boot(get_absolute_time());
     cyw43_arch_lwip_end();
-    uint8_t payload[2] = { lang_code, model_preset };
+    uint8_t payload[6] = { lang_code, model_preset, 0u, 0u, 0u, ADPCM_CODEC_ID_IMA_4BIT };
     bool sent = send_udp_packet(NET_MSG_QUERY_START, payload, sizeof payload);
     if (sent) send_udp_packet(NET_MSG_QUERY_START, payload, sizeof payload);
     else { net_client_cancel(); response_failed = true; }
@@ -1011,16 +1027,19 @@ bool net_client_send_audio_chunk(const int16_t *samples, size_t sample_count) {
         return true;
     }
 
+    static uint8_t uplink_adpcm_buf[NET_MAX_PAYLOAD_SIZE];
+    const size_t max_samples_per_pkt = (NET_MAX_PAYLOAD_SIZE - IMA_ADPCM_HEADER_BYTES) * 2u;
     size_t offset = 0;
     while (offset < sample_count) {
         size_t chunk_samples = sample_count - offset;
-        size_t max_samples_per_pkt = NET_MAX_PAYLOAD_SIZE / sizeof(int16_t);
         if (chunk_samples > max_samples_per_pkt) {
             chunk_samples = max_samples_per_pkt;
         }
 
-        size_t bytes = chunk_samples * sizeof(int16_t);
-        if (!send_udp_packet(NET_MSG_AUDIO_CHUNK, &samples[offset], bytes)) {
+        size_t adpcm_bytes = ima_adpcm_encode_block(
+            &samples[offset], chunk_samples, uplink_adpcm_buf, sizeof(uplink_adpcm_buf)
+        );
+        if (adpcm_bytes == 0 || !send_udp_packet(NET_MSG_AUDIO_CHUNK, uplink_adpcm_buf, adpcm_bytes)) {
             return false;
         }
         offset += chunk_samples;

@@ -1068,6 +1068,9 @@ fun DashboardScreen(
         val senseVoiceReady by viewModel.senseVoiceReady.collectAsState()
         val senseVoiceDownloading by viewModel.senseVoiceDownloading.collectAsState()
         val senseVoiceDownloadProgress by viewModel.senseVoiceDownloadProgress.collectAsState()
+        val kokoroOnnxState by viewModel.kokoroOnnxState.collectAsState()
+        val kokoroDownloadProgress by viewModel.kokoroDownloadProgress.collectAsState()
+        val useAdpcmCodec by viewModel.useAdpcmCodec.collectAsState()
         val currentPersona by viewModel.currentPersona.collectAsState()
         val activeKokoroVoice = com.celestial.companion.audio.KokoroVoiceProfile.forPersona(currentPersona.id)
 
@@ -1370,6 +1373,74 @@ fun DashboardScreen(
                             ) {
                                 Text(
                                     text = "GET SENSEVOICE",
+                                    color = AetherCyan,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = CardBorder, thickness = 1.dp)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🔊 KOKORO-82M NEURAL TTS",
+                            color = RunicGold,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (useAdpcmCodec) Color(0x2200E676) else SpaceBlack)
+                                .border(1.dp, if (useAdpcmCodec) EmeraldGreen else CardBorder, RoundedCornerShape(6.dp))
+                                .clickable { viewModel.toggleAdpcmCodec() }
+                                .padding(horizontal = 7.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = if (useAdpcmCodec) "📡 4:1 ADPCM (64kbps)" else "📡 PCM16 (256kbps)",
+                                color = if (useAdpcmCodec) EmeraldGreen else TextSecondary,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = when (kokoroOnnxState) {
+                                com.celestial.companion.audio.KokoroDownloadState.READY_ONNX -> "✅ Kokoro-82M INT8 ONNX Ready"
+                                com.celestial.companion.audio.KokoroDownloadState.DOWNLOADING -> "⬇️ Downloading Kokoro ($kokoroDownloadProgress%)..."
+                                else -> "🎙️ Calibrated Profile (${activeKokoroVoice.voiceId})"
+                            },
+                            color = if (kokoroOnnxState == com.celestial.companion.audio.KokoroDownloadState.READY_ONNX) EmeraldGreen else TextSecondary,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        if (kokoroOnnxState != com.celestial.companion.audio.KokoroDownloadState.READY_ONNX &&
+                            kokoroOnnxState != com.celestial.companion.audio.KokoroDownloadState.DOWNLOADING
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0x2200E5FF))
+                                    .border(1.dp, AetherCyan, RoundedCornerShape(6.dp))
+                                    .clickable { viewModel.downloadKokoroOnnx() }
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "GET KOKORO ONNX",
                                     color = AetherCyan,
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,

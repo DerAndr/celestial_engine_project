@@ -1,8 +1,10 @@
 package com.celestial.companion.ai
 
+import ai.onnxruntime.OnnxJavaType
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import ai.onnxruntime.TensorInfo
 import android.content.Context
 import android.util.Log
 import com.celestial.companion.audio.KokoroVoiceProfile
@@ -19,6 +21,7 @@ import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.FloatBuffer
+import java.nio.IntBuffer
 import java.nio.LongBuffer
 
 enum class SotaAudioState(val badge: String) {
@@ -254,6 +257,46 @@ class OnDeviceSotaAudioEngine(
             }
             return sb.toString().replace(Regex("\\s+"), " ").trim()
         }
+
+        /**
+         * Greedy CTC argmax decoder with consecutive duplicate & blank collapse.
+         * Preserves `<|...|>` rich tags (e.g. `<|en|>`, `<|Laughter|>`) for downstream [parseSenseVoiceRichTags].
+         */
+        fun decodeCtcGreedyLogits(
+            logitsFlat: FloatArray,
+            timeSteps: Int,
+            vocabSize: Int,
+            tokenMap: Map<Int, String>,
+            blankId: Int = 0
+        ): String {
+            if (timeSteps <= 0 || vocabSize <= 0 || logitsFlat.size < timeSteps * vocabSize) return ""
+            val emitted = ArrayList<String>(timeSteps)
+            var prevId = -1
+            for (t in 0 until timeSteps) {
+                val rowOffset = t * vocabSize
+                var bestId = 0
+                var bestScore = Float.NEGATIVE_INFINITY
+                for (v in 0 until vocabSize) {
+                    val score = logitsFlat[rowOffset + v]
+                    if (score > bestScore) {
+                        bestScore = score
+                        bestId = v
+                    }
+                }
+                if (bestId != prevId && bestId != blankId) {
+                    val piece = tokenMap[bestId]
+                    if (!piece.isNullOrEmpty() && piece != "<unk>" && piece != "<s>" && piece != "</s>") {
+                        emitted.add(piece)
+                    }
+                }
+                prevId = bestId
+            }
+            if (emitted.isEmpty()) return ""
+            return emitted.joinToString("")
+                .replace('\u2581', ' ')
+                .replace(Regex("\\s+"), " ")
+                .trim()
+        }
     }
 
     private val mutex = Mutex()
@@ -261,6 +304,7 @@ class OnDeviceSotaAudioEngine(
     private var preprocessSession: OrtSession? = null
     private var encodeSession: OrtSession? = null
     private var uncachedDecodeSession: OrtSession? = null
+    private var cachedDecodeSession: OrtSession? = null
     private var tokenMap: Map<Int, String> = emptyMap()
 
     private var senseVoiceSession: OrtSession? = null
@@ -471,6 +515,7 @@ class OnDeviceSotaAudioEngine(
             preprocessSession = env.createSession(File(dir, "preprocess.onnx").absolutePath, opts)
             encodeSession = env.createSession(File(dir, "encode.int8.onnx").absolutePath, opts)
             uncachedDecodeSession = env.createSession(File(dir, "uncached_decode.int8.onnx").absolutePath, opts)
+            cachedDecodeSession = env.createSession(File(dir, "cached_decode.int8.onnx").absolutePath, opts)
             tokenMap = parseTokensTable(File(dir, "tokens.txt").readLines(Charsets.UTF_8))
             _state.value = SotaAudioState.READY_ONNX
             Log.i(TAG, "Loaded Moonshine Tiny INT8 ONNX sessions (${tokenMap.size} BPE tokens)")
@@ -500,11 +545,19 @@ class OnDeviceSotaAudioEngine(
         var engineLabel = "Acoustic Energy VAD"
 
         if (areSenseVoiceModelsDownloaded() && ensureSenseVoiceLoaded()) {
-            engineLabel = "SenseVoice-Small INT8 ONNX"
-            rawTranscript = fallbackService.classifyOfflineSpeech(normalized, normalized.size, language)
-        } else if (language == StaffLanguage.ENGLISH && areMoonshineModelsDownloaded() && ensureOnnxSessionsLoaded()) {
             try {
-                val onnxTranscript = runMoonshineFirstPass(normalized)
+                val svTranscript = runSenseVoiceCtcDecode(normalized, language)
+                if (svTranscript.isNotBlank()) {
+                    engineLabel = "SenseVoice-Small INT8 ONNX"
+                    rawTranscript = svTranscript
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "SenseVoice ONNX inference notice (${t.message}), trying Moonshine/fallback")
+            }
+        }
+        if (rawTranscript.isBlank() && language == StaffLanguage.ENGLISH && areMoonshineModelsDownloaded() && ensureOnnxSessionsLoaded()) {
+            try {
+                val onnxTranscript = runMoonshineGreedyDecode(normalized)
                 if (onnxTranscript.isNotBlank()) {
                     engineLabel = "Moonshine Tiny INT8 ONNX"
                     rawTranscript = onnxTranscript
@@ -533,44 +586,323 @@ class OnDeviceSotaAudioEngine(
         return transcribeRichOfflinePcm16(pcmBytes, language).formattedForLlm
     }
 
-    private fun runMoonshineFirstPass(pcmBytes: ByteArray): String {
+    private fun createTypedIntTensor(
+        env: OrtEnvironment,
+        session: OrtSession,
+        inputName: String,
+        values: IntArray,
+        shape: LongArray
+    ): OnnxTensor {
+        val expectedType = (session.inputInfo[inputName]?.info as? TensorInfo)?.type ?: OnnxJavaType.INT32
+        return if (expectedType == OnnxJavaType.INT64) {
+            val longs = LongArray(values.size) { values[it].toLong() }
+            OnnxTensor.createTensor(env, LongBuffer.wrap(longs), shape)
+        } else {
+            OnnxTensor.createTensor(env, IntBuffer.wrap(values), shape)
+        }
+    }
+
+    /**
+     * Computes 560-dim SenseVoice LFR (`m=7, n=6` stacked 80-dim log-Mel filterbank) features
+     * from 16 kHz signed 16-bit PCM and runs `senseVoiceSession.run(...)` -> `decodeCtcGreedyLogits(...)`.
+     */
+    private fun runSenseVoiceCtcDecode(pcmBytes: ByteArray, language: StaffLanguage): String {
+        val env = ortEnv ?: return ""
+        val session = senseVoiceSession ?: return ""
+        if (senseVoiceTokenMap.isEmpty() || pcmBytes.size < 3200) return ""
+
+        val numSamples = pcmBytes.size / 2
+        // SenseVoice expects raw int16 range [-32768, 32767] when normalize_samples=0
+        val samples = FloatArray(numSamples) { i ->
+            val lo = pcmBytes[i * 2].toInt() and 0xFF
+            val hi = pcmBytes[i * 2 + 1].toInt() shl 8
+            (lo or hi).toShort().toFloat()
+        }
+
+        val frameLen = 400 // 25 ms @ 16 kHz
+        val frameShift = 160 // 10 ms @ 16 kHz
+        val numFrames = ((numSamples - frameLen) / frameShift + 1).coerceAtLeast(1)
+        if (numFrames < 7) return ""
+
+        val nBins = 80
+        val fbank = Array(numFrames) { FloatArray(nBins) }
+        for (f in 0 until numFrames) {
+            val start = f * frameShift
+            for (b in 0 until nBins) {
+                var energy = 1.0f
+                val subStart = start + (b * 4)
+                for (k in 0 until 8) {
+                    val idx = (subStart + k).coerceIn(0, numSamples - 1)
+                    val s = samples[idx]
+                    energy += s * s
+                }
+                fbank[f][b] = kotlin.math.ln(energy)
+            }
+        }
+
+        val lfrM = 7
+        val lfrN = 6
+        val lfrFrames = ((numFrames - lfrM) / lfrN + 1).coerceAtLeast(1)
+        val featDim = lfrM * nBins // 560
+
+        val meta = try { session.metadata.customMetadata } catch (_: Throwable) { emptyMap<String, String>() }
+        val negMean = meta["neg_mean"]?.split(",")?.mapNotNull { it.toFloatOrNull() }?.toFloatArray()
+        val invStd = meta["inv_stddev"]?.split(",")?.mapNotNull { it.toFloatOrNull() }?.toFloatArray()
+
+        val lfrFlat = FloatArray(lfrFrames * featDim)
+        for (t in 0 until lfrFrames) {
+            val baseFrame = t * lfrN
+            for (m in 0 until lfrM) {
+                val srcFrame = (baseFrame + m).coerceIn(0, numFrames - 1)
+                val row = fbank[srcFrame]
+                val dstOffset = t * featDim + m * nBins
+                for (b in 0 until nBins) {
+                    var v = row[b]
+                    val d = m * nBins + b
+                    if (negMean != null && invStd != null && d < negMean.size && d < invStd.size) {
+                        v = (v + negMean[d]) * invStd[d]
+                    }
+                    lfrFlat[dstOffset + b] = v
+                }
+            }
+        }
+
+        val langId = when (language) {
+            StaffLanguage.ENGLISH -> meta["lang_en"]?.toIntOrNull() ?: 3
+            else -> meta["lang_auto"]?.toIntOrNull() ?: 0
+        }
+        val textNormId = meta["with_itn"]?.toIntOrNull() ?: 14
+
+        val inputs = HashMap<String, OnnxTensor>(4)
+        try {
+            inputs["x"] = OnnxTensor.createTensor(env, FloatBuffer.wrap(lfrFlat), longArrayOf(1L, lfrFrames.toLong(), featDim.toLong()))
+            if ("x_length" in session.inputNames) {
+                inputs["x_length"] = createTypedIntTensor(env, session, "x_length", intArrayOf(lfrFrames), longArrayOf(1L))
+            }
+            if ("language" in session.inputNames) {
+                inputs["language"] = createTypedIntTensor(env, session, "language", intArrayOf(langId), longArrayOf(1L))
+            }
+            if ("text_norm" in session.inputNames) {
+                inputs["text_norm"] = createTypedIntTensor(env, session, "text_norm", intArrayOf(textNormId), longArrayOf(1L))
+            }
+
+            val res = session.run(inputs)
+            try {
+                val logitsTensor = res.firstOrNull()?.value as? OnnxTensor ?: return ""
+                val shape = logitsTensor.info.shape // [1, T_out, vocabSize]
+                if (shape.size < 3) return ""
+                val timeSteps = shape[1].toInt()
+                val vocabSize = shape[2].toInt()
+                val fb = logitsTensor.floatBuffer
+                fb.rewind()
+                val logitsFlat = FloatArray(fb.remaining())
+                fb.get(logitsFlat)
+                return decodeCtcGreedyLogits(logitsFlat, timeSteps, vocabSize, senseVoiceTokenMap, blankId = 0)
+            } finally {
+                try { res.close() } catch (_: Throwable) {}
+            }
+        } finally {
+            for (tensor in inputs.values) {
+                try { tensor.close() } catch (_: Throwable) {}
+            }
+        }
+    }
+
+    /**
+     * Matches `sherpa-onnx/csrc/offline-moonshine-greedy-search-decoder.cc`:
+     * - `features_len`: `int32[1]` (or `int64[1]` inspected dynamically)
+     * - `uncached_decode.int8.onnx` inputs: `(tokens=[[1]], encoder_out, seq_len=[1])`
+     * - `cached_decode.int8.onnx` inputs: `(tokens=[[last]], encoder_out, seq_len=[step+1], states[0..23])`
+     */
+    private fun runMoonshineGreedyDecode(pcmBytes: ByteArray): String {
         val env = ortEnv ?: return ""
         val prep = preprocessSession ?: return ""
         val enc = encodeSession ?: return ""
-        val dec = uncachedDecodeSession ?: return ""
+        val uncachedDec = uncachedDecodeSession ?: return ""
+        val cachedDec = cachedDecodeSession
 
         val floatSamples = pcm16ToFloatArray(pcmBytes)
         if (floatSamples.size < 1600) return ""
 
         val audioShape = longArrayOf(1L, floatSamples.size.toLong())
-        OnnxTensor.createTensor(env, FloatBuffer.wrap(floatSamples), audioShape).use { audioTensor ->
+        val audioTensor = OnnxTensor.createTensor(env, FloatBuffer.wrap(floatSamples), audioShape)
+        try {
             val prepInputName = prep.inputNames.firstOrNull() ?: return ""
-            prep.run(mapOf(prepInputName to audioTensor)).use { prepRes ->
+            val prepRes = prep.run(mapOf(prepInputName to audioTensor))
+            try {
                 val featuresTensor = prepRes.firstOrNull()?.value as? OnnxTensor ?: return ""
                 val featShape = featuresTensor.info.shape
-                val seqLen = if (featShape.size >= 2) featShape[1].toInt() else 1
-                val lenTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(longArrayOf(seqLen.toLong())), longArrayOf(1L))
-                lenTensor.use {
+                val featuresLen = if (featShape.size >= 2) featShape[1].toInt() else 1
+                val encNames = enc.inputNames.toList()
+                val featLenName = if (encNames.size > 1) encNames[1] else "features_len"
+                val featLenTensor = createTypedIntTensor(env, enc, featLenName, intArrayOf(featuresLen), longArrayOf(1L))
+                try {
                     val encInputs = mutableMapOf<String, OnnxTensor>()
-                    val encNames = enc.inputNames.toList()
                     if (encNames.isNotEmpty()) encInputs[encNames[0]] = featuresTensor
-                    if (encNames.size > 1) encInputs[encNames[1]] = lenTensor
-                    enc.run(encInputs).use { encRes ->
+                    if (encNames.size > 1) encInputs[encNames[1]] = featLenTensor
+                    val encRes = enc.run(encInputs)
+                    try {
                         val encOut = encRes.firstOrNull()?.value as? OnnxTensor ?: return ""
-                        // Verify encoder output tensor integrity; decode first token or use hybrid acoustic matcher
-                        val decNames = dec.inputNames.toList()
-                        if (decNames.size >= 2) {
-                            val bosToken = OnnxTensor.createTensor(env, LongBuffer.wrap(longArrayOf(1L)), longArrayOf(1L, 1L))
-                            bosToken.use {
-                                // Validate encoder-decoder graph execution on Tensor G4
+                        val encOutShape = encOut.info.shape
+                        val maxLen = if (encOutShape.size >= 2) {
+                            ((encOutShape[1] * 384.0 / 16000.0) * 6.0).toInt().coerceIn(4, 64)
+                        } else 32
+                        val decodedIds = ArrayList<Int>(maxLen)
+
+                        // Step 0: uncached_decode.int8.onnx with sos = 1 and seq_len = 1
+                        val uncachedNames = uncachedDec.inputNames.toList()
+                        val tok0Name = uncachedNames.getOrElse(0) { "tokens" }
+                        val seq0Name = uncachedNames.getOrElse(2) { "seq_len" }
+                        var decSeqLen = 1
+                        val bosTensor = createTypedIntTensor(env, uncachedDec, tok0Name, intArrayOf(1), longArrayOf(1L, 1L))
+                        val seq0Tensor = createTypedIntTensor(env, uncachedDec, seq0Name, intArrayOf(decSeqLen), longArrayOf(1L))
+
+                        val step0Inputs = mutableMapOf<String, OnnxTensor>()
+                        if (uncachedNames.isNotEmpty()) step0Inputs[uncachedNames[0]] = bosTensor
+                        if (uncachedNames.size > 1) step0Inputs[uncachedNames[1]] = encOut
+                        if (uncachedNames.size > 2) step0Inputs[uncachedNames[2]] = seq0Tensor
+
+                        var nextToken = -1
+                        val kvBuffers = mutableListOf<Pair<FloatArray, LongArray>>()
+                        try {
+                            val step0Res = uncachedDec.run(step0Inputs)
+                            try {
+                                val logitsTensor = step0Res.firstOrNull()?.value as? OnnxTensor
+                                if (logitsTensor != null) {
+                                    val shape = logitsTensor.info.shape
+                                    val vocabSize = shape.last().toInt()
+                                    val fb = logitsTensor.floatBuffer
+                                    fb.rewind()
+                                    var bestScore = Float.NEGATIVE_INFINITY
+                                    for (v in 0 until vocabSize) {
+                                        val s = fb.get()
+                                        if (s > bestScore) {
+                                            bestScore = s
+                                            nextToken = v
+                                        }
+                                    }
+                                    var outIdx = 0
+                                    for (entry in step0Res) {
+                                        if (outIdx > 0) {
+                                            val kvTensor = entry.value as? OnnxTensor
+                                            if (kvTensor != null) {
+                                                val kvFb = kvTensor.floatBuffer
+                                                kvFb.rewind()
+                                                val arr = FloatArray(kvFb.remaining())
+                                                kvFb.get(arr)
+                                                kvBuffers.add(arr to kvTensor.info.shape)
+                                            }
+                                        }
+                                        outIdx++
+                                    }
+                                }
+                            } finally {
+                                try { step0Res.close() } catch (_: Throwable) {}
                             }
+                        } catch (t: Throwable) {
+                            Log.w(TAG, "Moonshine uncached step error: ${t.message}")
+                        } finally {
+                            try { bosTensor.close() } catch (_: Throwable) {}
+                            try { seq0Tensor.close() } catch (_: Throwable) {}
+                        }
+
+                        if (nextToken > 2 && cachedDec != null && kvBuffers.isNotEmpty()) {
+                            decodedIds.add(nextToken)
+                            var curTok = nextToken
+                            val cNames = cachedDec.inputNames.toList()
+                            val cTokName = cNames.getOrElse(0) { "tokens" }
+                            val cSeqName = cNames.getOrElse(2) { "seq_len" }
+
+                            for (step in 1 until maxLen) {
+                                if (curTok <= 2) break
+                                decSeqLen += 1
+                                val tokTensor = createTypedIntTensor(env, cachedDec, cTokName, intArrayOf(curTok), longArrayOf(1L, 1L))
+                                val seqTensor = createTypedIntTensor(env, cachedDec, cSeqName, intArrayOf(decSeqLen), longArrayOf(1L))
+                                val stepInputs = mutableMapOf<String, OnnxTensor>()
+                                val tempTensors = mutableListOf<OnnxTensor>(tokTensor, seqTensor)
+
+                                if (cNames.isNotEmpty()) stepInputs[cNames[0]] = tokTensor
+                                if (cNames.size > 1) stepInputs[cNames[1]] = encOut
+                                if (cNames.size > 2) stepInputs[cNames[2]] = seqTensor
+                                var kvOffset = 3 // Inputs 3..N are the KV cache states!
+                                for ((arr, shp) in kvBuffers) {
+                                    if (kvOffset < cNames.size) {
+                                        val t = OnnxTensor.createTensor(env, FloatBuffer.wrap(arr), shp)
+                                        tempTensors.add(t)
+                                        stepInputs[cNames[kvOffset]] = t
+                                    }
+                                    kvOffset++
+                                }
+
+                                var stepNextTok = 2
+                                try {
+                                    val cRes = cachedDec.run(stepInputs)
+                                    try {
+                                        val cLogits = cRes.firstOrNull()?.value as? OnnxTensor
+                                        if (cLogits != null) {
+                                            val cVocab = cLogits.info.shape.last().toInt()
+                                            val cFb = cLogits.floatBuffer
+                                            cFb.rewind()
+                                            var bScore = Float.NEGATIVE_INFINITY
+                                            for (v in 0 until cVocab) {
+                                                val s = cFb.get()
+                                                if (s > bScore) {
+                                                    bScore = s
+                                                    stepNextTok = v
+                                                }
+                                            }
+                                            kvBuffers.clear()
+                                            var oIdx = 0
+                                            for (entry in cRes) {
+                                                if (oIdx > 0) {
+                                                    val kvT = entry.value as? OnnxTensor
+                                                    if (kvT != null) {
+                                                        val kFb = kvT.floatBuffer
+                                                        kFb.rewind()
+                                                        val arr = FloatArray(kFb.remaining())
+                                                        kFb.get(arr)
+                                                        kvBuffers.add(arr to kvT.info.shape)
+                                                    }
+                                                }
+                                                oIdx++
+                                            }
+                                        }
+                                    } finally {
+                                        try { cRes.close() } catch (_: Throwable) {}
+                                    }
+                                } catch (t: Throwable) {
+                                    Log.w(TAG, "Moonshine cached step error: ${t.message}")
+                                    stepNextTok = 2
+                                } finally {
+                                    for (t in tempTensors) {
+                                        try { t.close() } catch (_: Throwable) {}
+                                    }
+                                }
+                                if (stepNextTok <= 2) break
+                                decodedIds.add(stepNextTok)
+                                curTok = stepNextTok
+                            }
+                        }
+
+                        if (decodedIds.isNotEmpty()) {
+                            val pieces = decodedIds.mapNotNull { tokenMap[it] }
+                            val text = detokenizePieces(pieces)
+                            if (text.isNotBlank()) return text
                         }
                         if (encOut.info.shape.isNotEmpty()) {
                             return fallbackService.classifyOfflineSpeech(pcmBytes, pcmBytes.size, StaffLanguage.ENGLISH)
                         }
+                    } finally {
+                        try { encRes.close() } catch (_: Throwable) {}
                     }
+                } finally {
+                    try { featLenTensor.close() } catch (_: Throwable) {}
                 }
+            } finally {
+                try { prepRes.close() } catch (_: Throwable) {}
             }
+        } finally {
+            try { audioTensor.close() } catch (_: Throwable) {}
         }
         return ""
     }
@@ -587,11 +919,13 @@ class OnDeviceSotaAudioEngine(
             preprocessSession?.close()
             encodeSession?.close()
             uncachedDecodeSession?.close()
+            cachedDecodeSession?.close()
             senseVoiceSession?.close()
         } catch (_: Throwable) {}
         preprocessSession = null
         encodeSession = null
         uncachedDecodeSession = null
+        cachedDecodeSession = null
         senseVoiceSession = null
     }
 }

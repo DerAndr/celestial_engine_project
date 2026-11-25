@@ -562,95 +562,190 @@ com.celestial.companion/
 
 ---
 
-## 9. SOTA Phase-Next Implementation Blueprint (Step-by-Step Spec for Smaller / Faster Models)
+## 9. SOTA Phase-Next Implementation Blueprint & Anti-Defect Playbook (For Smaller / Faster Models)
 
-> **Purpose:** Each task below is decomposed into an atomic, self-contained specification with exact file paths, method signatures, tensor shapes, and single-command test assertions so that smaller/faster coding models (`flash`, `flash_lite`, or subagents) can implement them deterministically without architectural guesswork.
-
-### Execution Guardrails for Implementing Agents
-1. **Never commit weights (`*.onnx`, `*.bin`, `*.apk`) to Git.** All ONNX models must be downloaded on-demand into `context.filesDir/sota_models/<model_name>/` with atomic `.part` rename.
-2. **Kotlin 2.0 Inline Lambda Rule:** Never place `break` or `continue` inside `.use { ... }` lambdas in Kotlin (causes `:app:compileDebugKotlin FAILED`). Use explicit `val res = session.run(inputs); try { ... } finally { res.close() }`.
-3. **JUnit 4 Backtick Method Names:** Never use `<`, `>`, `.`, `;`, `[`, or `/` inside backtick test method names (`fun \`...\`()`) in `android/app/src/test/` (illegal in Android JVM bytecode).
-4. **Always keep the pinned debug certificate:** Keep `signingConfigs.getByName("debug")` pointing to `android/app/celestial-debug.keystore` so `adb install -r` upgrades seamlessly without uninstalling.
+> **Purpose:** This section is a strict, zero-ambiguity handbook written specifically for smaller/faster coding models (`flash`, `flash_lite`, or delegated subagents). Every rule below was derived from real defects caught during the Phase 9 audit on branch `feat/sota-phase-next`. Follow every check literally before declaring a task done.
 
 ---
 
-### Task 9.1: Full Greedy Autoregressive Moonshine Decoder & SenseVoice CTC Decoder (`OnDeviceSotaAudioEngine.kt`)
-- [ ] **Objective**: Replace the first-pass encoder validation in `OnDeviceSotaAudioEngine.runMoonshineFirstPass` with the complete greedy token decoding loop for both **Moonshine Tiny INT8 ONNX** (`uncached_decode.int8.onnx` + `cached_decode.int8.onnx`) and **SenseVoice-Small INT8 ONNX** (`model.int8.onnx` CTC argmax).
-- **Target Files**:
-  1. `android/app/src/main/java/com/celestial/companion/ai/OnDeviceSotaAudioEngine.kt`
-  2. `android/app/src/test/java/com/celestial/companion/ai/OnDeviceSotaAudioEngineTest.kt`
-- **Step-by-Step Implementation Spec**:
-  1. **Add Pure-Kotlin CTC Argmax & Blank Collapse Helper (`companion object` in `OnDeviceSotaAudioEngine.kt`)**:
-     - Signature:
-       ```kotlin
-       fun decodeCtcGreedyLogits(
-           logitsFlat: FloatArray,
-           timeSteps: Int,
-           vocabSize: Int,
-           tokenMap: Map<Int, String>,
-           blankId: Int = 0
-       ): String
-       ```
-     - Logic:
-       - For each frame `t in 0 until timeSteps`, find `bestId = argmax(logitsFlat[t * vocabSize .. (t + 1) * vocabSize - 1])`.
-       - Collapse consecutive duplicate IDs (`if (bestId != prevId && bestId != blankId) emittedIds.add(bestId)`).
-       - Map `emittedIds` via `tokenMap[id]` and pass to `detokenizePieces(pieces)` (preserving `<|...|>` tags so `parseSenseVoiceRichTags` extracts language and `[laughter]`/`[applause]`/`[sigh]`).
-  2. **Add Moonshine Autoregressive Step Loop (`runMoonshineGreedyDecode` in `OnDeviceSotaAudioEngine.kt`)**:
-     - Load `cachedDecodeSession: OrtSession?` from `File(dir, "cached_decode.int8.onnx")` in `ensureOnnxSessionsLoaded()` and close it in `close()`.
-     - Step 0 (`uncachedDecodeSession`): Feed `BOS = 1L` (`shape [1, 1]`), encoder hidden states `encOut`, and sequence length `lenTensor`. Extract `logits` (`shape [1, 1, vocabSize]`), pick `nextToken = argmax`, and collect all KV cache output tensors (`present.*`).
-     - Steps `1..32` (`cachedDecodeSession`): Feed `longArrayOf(nextToken.toLong())` (`shape [1, 1]`), `encOut`, and the previous step's KV cache tensors until `nextToken == 2` (`</s>`) or `step == 32`.
-     - Convert token IDs via `tokenMap` -> `detokenizePieces(pieces)`.
-  3. **Unit Test in `OnDeviceSotaAudioEngineTest.kt`**:
-     - Add `@Test fun decodeCtcGreedyLogits collapses repeated tokens and blank frames accurately()` constructing a synthetic 5-frame, 15-class `FloatArray` with duplicates and `blankId = 0`, asserting exact decoded output `"<|en|><|Laughter|> Cast fireball"`.
-- **Verification Command**:
+### 9.0. Anti-Defect ("Анти-Брак") Rules & Self-Audit Checklist for Smaller Models
+
+Before marking any task complete, a model **MUST** audit its own diff (`git diff`) against these **7 Golden Anti-Defect Rules**:
+
+1. **ZERO STUBS & ZERO SILENT FALLBACKS (`No Fake Implementations`):**
+   - **FORBIDDEN:** Returning `null`, `emptyList()`, or `ByteArray(0)` with a comment like `// Placeholder for future model` or `// Delegate to fallback for now`.
+   - **FORBIDDEN:** Calling a legacy fallback inside a new engine branch while returning the new engine's label (for example, calling `runMoonshineGreedyDecode()` inside the `SotaSttModel.SENSE_VOICE_SMALL` branch and labeling the result `"SenseVoice-Small INT8 ONNX"`).
+   - **REQUIRED:** Every `OrtSession` (`preprocess`, `encode`, `uncachedDecode`, `cachedDecode`, `senseVoice`, `kokoro`) must be invoked via `session.run(inputs)`, its output tensors parsed, and its pure-Kotlin pre/post-processing helpers verified by a dedicated JUnit 4 unit test with non-trivial synthetic tensors.
+2. **EXACT ONNX TENSOR TYPES (`INT32` vs `INT64`) & INPUT ORDERING:**
+   - Many `sherpa-onnx` models (`Moonshine`, `SenseVoice`) declare `int32_t` tensor inputs (`features_len`, `tokens`, `seq_len`, `x_length`, `language`, `text_norm`), while HuggingFace Optimum models (`SmolLM2-135M`, `Kokoro-82M`) declare `int64_t` (`LongBuffer`).
+   - **NEVER hardcode `LongBuffer` without checking the session's `TensorInfo.type`!** Passing `LongBuffer` (`INT64`) to an `INT32` ONNX input throws `OrtException: Unexpected input data type. Actual: (tensor(int64)) , expected: (tensor(int32))` at runtime.
+   - **ALWAYS use `createTypedIntTensor(env, session, inputName, values, shape)`** (implemented in `OnDeviceSotaAudioEngine.kt`), which inspects `(session.inputInfo[inputName]?.info as? TensorInfo)?.type == OnnxJavaType.INT32` and creates either an `IntBuffer` or a `LongBuffer` automatically.
+   - **ALWAYS verify exact input indices against the C++/Python exporter:**
+     - `Moonshine uncached_decode.int8.onnx`: `input[0] = tokens` (`int32[1, 1] = [[1]]`), `input[1] = encoder_out` (`float32[1, T, D]`), `input[2] = seq_len` (`int32[1] = [1]`). Outputs: `output[0] = logits`, `output[1..K] = states` (KV cache).
+     - `Moonshine cached_decode.int8.onnx`: `input[0] = tokens` (`int32[1, 1] = [[lastToken]]`), `input[1] = encoder_out`, `input[2] = seq_len` (`int32[1] = [step + 1]`), `input[3..K+2] = states` (`kvOffset = 3`).
+     - `SenseVoice model.int8.onnx`: `x` (`float32[1, T_lfr, 560]` with `LFR m=7, n=6` + `CMVN neg_mean/inv_stddev`), `x_length` (`int32[1]`), `language` (`int32[1]`, `0=auto, 3=en`), `text_norm` (`int32[1]`, `14=with_itn, 15=woitn`).
+     - `Kokoro kokoro-v1.0.int8.onnx`: `tokens` or `input_ids` (`int64[1, N + 2] = [[0, *phoneme_ids, 0]]`), `style` (`float32[1, 256]` extracted from row `min(N, 510) - 1` of `<voiceId>.npy` inside `voices-v1.0.bin`), `speed` (`float32[1]`).
+3. **RP2350 EMBEDDED STACK & ISR SAFETY (`firmware/src/`):**
+   - **NEVER allocate buffers `> 256 bytes` on the stack** inside lwIP UDP receive callbacks (`net_client.c: udp_rx_callback`), PIO/DMA ISRs (`audio.c`), or deep call chains on Core 0/Core 1.
+   - Always declare large scratch arrays as `static` in BSS (e.g., `static int16_t adpcm_pcm[NET_MAX_PAYLOAD_SIZE * 2];`) when accessed only from the single-threaded lwIP callback context, and always compile with `-Wall -Wextra` (`0 warnings` policy).
+4. **NEVER WEAKEN TESTS TO HIDE AN ALGORITHM BUG:**
+   - **FORBIDDEN:** If an SNR test fails at `500 Hz` (`SNR < 28 dB`), **NEVER** lower the test frequency to `200 Hz` or lower the threshold to `18 dB` to make the test green.
+   - **REQUIRED:** Fix the algorithm! (For example, in `adpcm_codec.{c,kt,py}`, initializing `step_index` in the 4-byte block header from the first sample delta `|pcm[1] - pcm[0]|` eliminated slope-overload distortion on `500 Hz` full-scale sine waves and achieved `SNR > 30 dB`).
+5. **KOTLIN 2.0 & ANDROID JVM TEST COMPILER RULES:**
+   - **Kotlin 2.0 Inline Lambda Rule:** Never place `break` or `continue` inside `.use { ... }` lambdas in Kotlin (causes `:app:compileDebugKotlin FAILED: The feature "break continue in inline lambdas" is experimental`). Always write explicit `val res = session.run(inputs); try { ... } finally { res.close() }`.
+   - **JUnit 4 Backtick Method Names:** Never use `<`, `>`, `.`, `;`, `[`, `]`, or `/` inside backtick test method names (`fun \`...\`()`) in `android/app/src/test/` (causes `:app:compileDebugUnitTestKotlin FAILED: Name contains illegal characters`).
+   - **Pure JVM JSON & Android Stubs:** Keep `testImplementation("org.json:json:20240303")` and `testOptions { unitTests.isReturnDefaultValues = true }` in `android/app/build.gradle.kts`.
+6. **WEIGHTS & CERTIFICATES HYGIENE:**
+   - **Never commit weights (`*.onnx`, `*.bin`, `*.apk`) to Git.** All ONNX models are downloaded on-demand into `context.filesDir/sota_models/<model_name>/` using atomic `.part` rename.
+   - **Keep `android/app/celestial-debug.keystore` pinned** in `android/app/build.gradle.kts` so cloud CI APKs and local APKs share the exact same signature (`adb install -r` upgrades in-place without uninstalling or losing downloaded ONNX models).
+7. **BRANCH & CLEAN WORKSPACE DISCIPLINE:**
+   - Work on the feature branch (`feat/sota-phase-next`) and **NEVER merge into `master`** until the user explicitly commands it.
+   - Never leave temporary files in the repository root; use `scratch/apk/` for temporary APK downloads and clean up only `scratch/apk/` (`Remove-Item -Recurse -Force scratch/apk`).
+
+---
+
+### 9.1. Completed Foundation Tasks on `feat/sota-phase-next` (`Tasks 9.1–9.4`)
+
+- [x] **Task 9.1: Full Greedy Autoregressive Moonshine Decoder & SenseVoice CTC Decoder (`OnDeviceSotaAudioEngine.kt`) — ✅ Completed & Audited (`7645fde`)**:
+  - Implemented `decodeCtcGreedyLogits`, `createTypedIntTensor` (auto-matching `INT32` vs `INT64`), `extractSenseVoiceLfrFeatures` (`80-bin` log-Mel filterbank + `LFR m=7, n=6` -> `560-dim` + `CMVN neg_mean/inv_stddev` from ONNX metadata), `runSenseVoiceCtcDecode`, and `runMoonshineGreedyDecode` (`uncached_decode.int8.onnx` -> `cached_decode.int8.onnx` with `seq_len` at `input[2]` and `kvOffset = 3`).
+  - Covered by 14 JUnit 4 unit tests in `OnDeviceSotaAudioEngineTest.kt` (including `extractSenseVoiceLfrFeatures` dimension checks and `decodeCtcGreedyLogits`).
+- [x] **Task 9.2: Genuine On-Device Kokoro-82M INT8 ONNX Neural Synthesizer (`KokoroOnnxSynthesizer.kt` & `StaffTtsSynthesizer.kt`) — ✅ Completed & Audited (`7645fde`)**:
+  - Implemented on-demand download of `kokoro-v1.0.int8.onnx` (`88.1 MB`) and `voices-v1.0.bin` (`26.9 MB` NPZ archive) from `thewh1teagle/kokoro-onnx` (`model-files-v1.0`).
+  - Implemented `parseNpyStyleRow` and `extractVoiceStyleFromNpzStream` to parse the 256-float style vector for token length `N` (`row = min(N, 510) - 1`) from `<voiceId>.npy` inside `voices-v1.0.bin`.
+  - Embedded the 178-entry `KOKORO_VOCAB` (`config.json`), implemented `englishToKokoroTokens(text)` (`[[0, *tokens, 0]]`), wired `kokoroSession.run(inputs)` + `resampleFloat24kToPcm16kMono(samples24k, targetPeak = 22000)` into `StaffTtsSynthesizer.kt`, and added UI download progress to `DashboardScreen.kt`.
+- [x] **Task 9.3: 4:1 IMA-ADPCM Low-Bandwidth Wireless Audio Codec (RP2350 C + Kotlin + Python Parity) — ✅ Completed & Audited (`7645fde`)**:
+  - Implemented [`firmware/src/adpcm_codec.h`](../firmware/src/adpcm_codec.h), [`firmware/src/adpcm_codec.c`](../firmware/src/adpcm_codec.c), [`ImaAdpcmCodec.kt`](../android/app/src/main/java/com/celestial/companion/audio/ImaAdpcmCodec.kt), and [`tools/adpcm_codec.py`](../tools/adpcm_codec.py) with adaptive initial `step_index` in the 4-byte block header (`[int16 predictor][uint8 step_index][uint8 reserved=0]`), achieving `SNR > 30 dB` on a `500 Hz` full-scale sine wave (`960 samples` per `484-byte` UDP chunk).
+  - Wired downlink negotiation (`NET_MSG_RESP_AUDIO_START` 8-byte payload `[uint32 sample_count][uint8 codec_id=1][3x0]` + `NET_MSG_RESP_AUDIO_CHUNK`) across `firmware/src/net_dispatcher.c`, `firmware/src/net_client.c` (using BSS `static int16_t adpcm_pcm[NET_MAX_PAYLOAD_SIZE * 2]`), `StaffRepository.kt`, and `tools/brain_transport.py`.
+- [x] **Task 9.4: End-to-End Speech-to-Speech (`Omni`) Latency Harness (`OmniAudioSession.kt` & `tools/omni_benchmark.py`) — ✅ Completed & Audited (`7645fde`)**:
+  - Implemented [`OmniAudioSession.kt`](../android/app/src/main/java/com/celestial/companion/ai/OmniAudioSession.kt) and [`tools/omni_benchmark.py`](../tools/omni_benchmark.py) with `OmniLatencyMetrics` (`TTFA`, `glassToGlassLatencyMs`, `firstSpellDispatchMs`, `meetsSub300msSla`) and 5 JUnit 4 unit tests in `OmniAudioSessionTest.kt`.
+
+---
+
+### 9.2. Foolproof Step-by-Step Verification Playbook (Copy-Paste Commands)
+
+Every model must run **all 3 verification stages** below after making any code change and verify that the output matches the expected result word-for-word.
+
+#### Stage 1: Local RP2350 Firmware Build, Host C/Python 47-Test Suite & Digital Twin Acceptance
+Run this single chained PowerShell command from the repository root (`c:\projects\personal\hardware-01\celestial_engine_project`):
+```powershell
+cmake --build firmware/build --target celestial_firmware --parallel 4 ; python -m unittest discover -s tests -v ; python tools/test_twin_acceptance.py
+```
+- **Expected Output Criteria (MUST ALL PASS):**
+  1. `celestial_firmware.uf2` compiles with **`0 warnings` and `0 errors`** under `-Wall -Wextra`.
+  2. `python -m unittest discover -s tests -v` outputs **`Ran 47 tests` ... `OK`** (or `47+` as new tests are added), including `test_ima_adpcm_4to1_roundtrip_snr_and_Start_packet_framing ... ok`.
+  3. `python tools/test_twin_acceptance.py` outputs **`ALL ACCEPTANCE CHECKS PASSED`**.
+
+#### Stage 2: Cloud Android CI Compilation & Full JUnit 4 Test Suite (`44+` Tests)
+Because Android builds run in GitHub Actions (`.github/workflows/android-build.yml`, which executes `./gradlew testDebugUnitTest assembleDebug --no-daemon`), push your commit to `feat/sota-phase-next` and watch the run to completion:
+```powershell
+git push origin feat/sota-phase-next
+Start-Sleep -Seconds 4
+$runId = (gh run list --workflow=android-build.yml --branch=feat/sota-phase-next --limit 1 --json databaseId -q '.[0].databaseId')
+gh run watch $runId --exit-status
+```
+- **If the run fails (`exit code != 0`), inspect the exact compiler/test failure immediately:**
   ```powershell
-  git push origin master && gh run watch (gh run list --workflow=android-build.yml --branch=master --limit 1 --json databaseId -q '.[0].databaseId') --exit-status
+  gh run view $runId --log-failed
   ```
+- **Expected Output Criteria:**
+  - `Run Unit Tests & Build Debug APK with Gradle` -> **`✓`** (`BUILD SUCCESSFUL`).
+
+#### Stage 3: Live Hardware Flash & On-Device Verification (`Pico 2 W` + `Google Pixel 9 Pro XL`)
+1. **Flash `celestial_firmware.uf2` to Pico 2 W (`RP2350` on `COM11`):**
+   ```powershell
+   C:\Users\AndrD\.pico-sdk\picotool\2.2.0-a4\picotool\picotool.exe load -f -x firmware/build/celestial_firmware.uf2
+   ```
+2. **Install the Newly Built Branch APK onto `Google Pixel 9 Pro XL` (`49051FDAS001YK`):**
+   ```powershell
+   $runId = (gh run list --workflow=android-build.yml --branch=feat/sota-phase-next --limit 1 --json databaseId -q '.[0].databaseId')
+   Remove-Item -Recurse -Force scratch/apk -ErrorAction SilentlyContinue
+   gh run download $runId -D scratch/apk
+   $apk = (Get-ChildItem -Path scratch/apk -Filter "celestial_companion_*.apk" -Recurse | Select-Object -First 1).FullName
+   adb -s 49051FDAS001YK install -r "$apk"
+   adb -s 49051FDAS001YK shell am start -n com.celestial.companion/.MainActivity
+   Remove-Item -Recurse -Force scratch/apk -ErrorAction SilentlyContinue
+   ```
+3. **Verify Live Neural Inference & 4:1 IMA-ADPCM Streaming in `adb logcat`:**
+   ```powershell
+   adb -s 49051FDAS001YK logcat -d | Select-String -Pattern "OnDeviceSotaAudio|OnDeviceLlmEngine|KokoroOnnxSynthesizer|StaffTtsSynthesizer|StaffRepository" | Select-Object -Last 40
+   ```
+   - Look for:
+     - `OnDeviceSotaAudio: Moonshine Tiny INT8 ONNXsessions loaded` (or `SenseVoice-Small INT8 ONNX session loaded`)
+     - `OnDeviceLlmEngine: SmolLM2-135M-Instruct generated ... tokens in ... ms (... tok/s)`
+     - `KokoroOnnxSynthesizer: Kokoro-82M synthesized ... chars` -> `StaffTtsSynthesizer: Synthesized with On-Device Kokoro-82M INT8 ONNX`
+     - `StaffRepository: Streaming TTS via 4:1 IMA-ADPCM (codec_id=1)`
 
 ---
 
-### Task 9.2: On-Device Kokoro-82M INT8 ONNX Neural Synthesizer (`KokoroOnnxSynthesizer.kt` & `StaffTtsSynthesizer.kt`)
-- [ ] **Objective**: Add direct on-device `Kokoro-82M INT8 ONNX` neural waveform generation on Android (`24 kHz Float32` -> in-memory linear resampling to `16 kHz 16-bit signed mono PCM`), matching `tools/local_ai_engine.py` (`_synthesize_kokoro_pcm`) with zero-latency fallback to Android System `TextToSpeech`.
-- **Target Files**:
-  1. `android/app/src/main/java/com/celestial/companion/audio/KokoroOnnxSynthesizer.kt` *(new file)*
-  2. `android/app/src/main/java/com/celestial/companion/audio/StaffTtsSynthesizer.kt`
-  3. `android/app/src/test/java/com/celestial/companion/ai/OnDeviceSotaAudioEngineTest.kt`
-- **Step-by-Step Implementation Spec**:
-  1. **Create `KokoroOnnxSynthesizer.kt`**:
-     - Model directory: `File(context.filesDir, "sota_models/kokoro")` containing `kokoro-v1.0.int8.onnx` and `voices-v1.0.bin`.
-     - Add pure-Kotlin helper in `companion object`:
-       ```kotlin
-       fun resampleFloat24kToPcm16kMono(samples24k: FloatArray, targetPeak: Int = 22000): ByteArray
-       ```
-       - Linearly interpolates `24000 Hz` float samples (`[-1.0f, 1.0f]`) to `16000 Hz` (`outLen = (samples24k.size * 16000L / 24000L).toInt()`), normalizes peak amplitude to `targetPeak = 22000` (preventing MAX98357A clipping), and packs into little-endian `ByteArray(outLen * 2)`.
-     - Add `suspend fun synthesizeOrNull(text: String, voiceProfile: KokoroVoiceProfile): ByteArray?` and `fun close()`.
-  2. **Wire into `StaffTtsSynthesizer.kt`**:
-     - In `synthesizeTo16kMonoPcm(text, locale, voiceProfile)`: if `locale.language == "en"` and `kokoroOnnxSynthesizer.isReady()`, run `kokoroOnnxSynthesizer.synthesizeOrNull(cleanText, voiceProfile)` first; if non-null, return immediately; otherwise fall back to Android `TextToSpeech`.
-     - Call `kokoroOnnxSynthesizer.close()` inside `StaffTtsSynthesizer.shutdown()`.
-  3. **Unit Test in `OnDeviceSotaAudioEngineTest.kt`**:
-     - Add `@Test fun resampleFloat24kToPcm16kMono downsamples 24kHz sine wave to 16kHz 16bit PCM with 22000 peak()` asserting exact output byte length (`2400` samples -> `1600` samples = `3200` bytes) and peak sample within `21900..22000`.
-- **Verification Command**:
-  ```powershell
-  git push origin master && gh run watch (gh run list --workflow=android-build.yml --branch=master --limit 1 --json databaseId -q '.[0].databaseId') --exit-status
-  ```
+## 10. Next-Step Implementation Specifications for Smaller Models (`Tasks 9.5–9.8`)
+
+> **Instructions for the Implementing Model:** Implement Tasks `9.5`, `9.6`, `9.7`, and `9.8` in sequence on branch `feat/sota-phase-next`. Each task has an exact file list, function signature, algorithm specification, and verification command. Do **NOT** invent shortcuts, do **NOT** leave `TODO` stubs, and run the verification command after each task.
 
 ---
 
-### Task 9.3: 4:1 IMA-ADPCM Low-Bandwidth Wireless Audio Codec (RP2350 C + Kotlin + Python Parity)
-- [ ] **Objective**: Add an optional 4:1 `IMA-ADPCM` (`64 kbps` vs `256 kbps` raw PCM, `960 samples` per `484-byte` UDP payload) codec across C firmware, Android Kotlin, and Raspberry Pi 5 Python to eliminate Wi-Fi jitter and quadruple the effective pre-buffer duration on RP2350 without changing the `64 KB` RAM footprint.
+### Task 9.5: Uplink 4:1 IMA-ADPCM Microphone Compression (`Pico 2 W INMP441 -> Phone / Pi 5`)
+- [x] **Objective**: Currently, **downlink** TTS audio (`Phone/Pi 5 -> Pico 2 W` via `NET_MSG_RESP_AUDIO_START` + `NET_MSG_RESP_AUDIO_CHUNK`) uses 4:1 `IMA-ADPCM` (`64 kbps`), while **uplink** microphone capture (`Pico 2 W -> Phone/Pi 5` via `NET_MSG_QUERY_START` + `NET_MSG_AUDIO_CHUNK`) still transmits raw 16-bit PCM (`256 kbps`). Extend 4:1 `IMA-ADPCM` to uplink microphone packets so both directions run at `64 kbps` with self-healing 4-byte block headers. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Target Files**:
-  1. `firmware/src/adpcm_codec.h` & `firmware/src/adpcm_codec.c` *(new files)*
-  2. `android/app/src/main/java/com/celestial/companion/audio/ImaAdpcmCodec.kt` *(new file)*
-  3. `tools/adpcm_codec.py` *(new file)*
+  1. `firmware/src/net_client.c`
+  2. `android/app/src/main/java/com/celestial/companion/domain/repository/StaffRepository.kt`
+  3. `tools/brain_transport.py`
   4. `tests/test_protocol_v2_parity.py`
+  5. `android/app/src/test/java/com/celestial/companion/audio/ImaAdpcmCodecTest.kt`
 - **Step-by-Step Implementation Spec**:
-  1. **Standard IMA-ADPCM 4-bit Nibble State (`predictor: int16`, `step_index: uint8`, 4-byte block header)**:
-     - Every ADPCM UDP chunk begins with a 4-byte little-endian header: `int16_t initial_predictor` (2 bytes), `uint8_t step_index` (1 byte, `0..88`), `uint8_t reserved` (1 byte = `0`), followed by `N` bytes of packed 4-bit nibbles (low nibble = sample `2*i`, high nibble = sample `2*i + 1`).
-     - Because each UDP chunk carries its own 4-byte `(predictor, step_index)` header, packet loss or out-of-order UDP delivery self-heals immediately on the next packet boundary!
-  2. **Implement identical `ima_adpcm_encode_block` / `ima_adpcm_decode_block` in C, Kotlin, and Python**:
-     - Use the canonical 89-entry `IMA_STEP_TABLE` (`7..32767`) and 16-entry `IMA_INDEX_TABLE` (`-1, -1, -1, -1, 2, 4, 6, 8, -1, -1, -1, -1, 2, 4, 6, 8`).
-  3. **Cross-Language Round-Trip Test in `tests/test_protocol_v2_parity.py`**:
-     - Encode a 480-sample 16 kHz speech/sine waveform in Python (`tools/adpcm_codec.py`), verify 4:1 compression (`960 bytes PCM` -> `244 bytes ADPCM`), and assert SNR `> 28 dB` on decode.
+  1. **Firmware Uplink Negotiation (`firmware/src/net_client.c`)**:
+     - In `net_client_send_query_start(uint32_t sample_rate, uint8_t persona_id)`:
+       - Expand the `NET_MSG_QUERY_START` (`0x10`) payload from 5 bytes (`[uint32 sample_rate][uint8 persona_id]`) to **6 bytes**: `[uint32 sample_rate][uint8 persona_id][uint8 codec_id]` where `codec_id = ADPCM_CODEC_ID_IMA_4BIT` (`1`).
+       - Keep backward compatibility: receivers that check `payload_len >= 6` read `codec_id = payload[5]`; if `payload_len == 5`, they default to `codec_id = 0` (raw PCM16).
+     - In `net_client_send_audio_chunk(const int16_t *pcm_samples, uint16_t sample_count)`:
+       - Use a `static uint8_t uplink_adpcm_buf[NET_MAX_PAYLOAD_SIZE];` in BSS (never on the stack!).
+       - Encode `pcm_samples` (`sample_count` samples, e.g., `480` or `512` samples) via `uint16_t adpcm_bytes = ima_adpcm_encode_block(pcm_samples, sample_count, uplink_adpcm_buf, sizeof(uplink_adpcm_buf));`.
+       - Send `uplink_adpcm_buf` (`adpcm_bytes` length) as the `NET_MSG_AUDIO_CHUNK` (`0x11`) payload.
+  2. **Android Companion Uplink Decoding (`StaffRepository.kt`)**:
+     - Add `@Volatile private var uplinkAudioCodecId: Int = 0`.
+     - When handling `UdpProtocol.MSG_QUERY_START` (`0x10`):
+       - Read `uplinkAudioCodecId = if (packet.payload.size >= 6) (packet.payload[5].toInt() and 0xFF) else 0`.
+     - When handling `UdpProtocol.MSG_AUDIO_CHUNK` (`0x11`):
+       - If `uplinkAudioCodecId == ImaAdpcmCodec.CODEC_ID_IMA_ADPCM` (`1`) and `packet.payload.size >= 4`:
+         - Compute `val sampleCount = (packet.payload.size - 4) * 2`
+         - Decode via `val pcmBytes = ImaAdpcmCodec.decodeBlockToPcm16Le(packet.payload, sampleCount)` and append `pcmBytes` to `incomingMicBuffer`.
+       - Else append raw `packet.payload` as before.
+  3. **Raspberry Pi 5 Uplink Decoding (`tools/brain_transport.py`)**:
+     - In `parse_query_start(payload: bytes)`: return `(sample_rate, persona_id, codec_id)` where `codec_id = payload[5] if len(payload) >= 6 else 0` (keep a helper or default so existing callers unpacking `(sample_rate, persona_id)` don't break, or store `self.uplink_codec_id = codec_id`).
+     - In `NET_MSG_AUDIO_CHUNK` handling in `tools/ai_brain_server.py` / `tools/brain_transport.py`: if `uplink_codec_id == ADPCM_CODEC_ID_IMA_4BIT` (`1`), decode `payload` via `ima_adpcm_decode_block(payload)` before appending to `audio_buffer`.
+  4. **Unit Tests (`tests/test_protocol_v2_parity.py` & `ImaAdpcmCodecTest.kt`)**:
+     - Add `test_uplink_query_start_and_adpcm_audio_chunk_roundtrip` in `tests/test_protocol_v2_parity.py` asserting that a 6-byte `NET_MSG_QUERY_START` (`codec_id = 1`) followed by a `244-byte` ADPCM `NET_MSG_AUDIO_CHUNK` decodes to `960 bytes` (`480 samples`) of 16 kHz PCM with `SNR > 28 dB`.
+- **Verification Command**:
+  ```powershell
+  cmake --build firmware/build --target celestial_firmware --parallel 4 ; python -m unittest discover -s tests -v
+  ```
+
+---
+
+### Task 9.6: Cross-Language Bit-Exact C $\leftrightarrow$ Python $\leftrightarrow$ Kotlin IMA-ADPCM Test (`tests/firmware_harness.c` & `tests/test_regressions.py`)
+- [x] **Objective**: Guarantee that the C (`firmware/src/adpcm_codec.c`), Python (`tools/adpcm_codec.py`), and Kotlin (`ImaAdpcmCodec.kt`) implementations of `ima_adpcm_encode_block` and `ima_adpcm_decode_block` are **100% bit-for-bit identical** (same initial `step_index`, same nibble packing order, and same predictor clamping). — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
+- **Target Files**:
+  1. `tests/firmware_harness.c`
+  2. `tests/test_regressions.py`
+  3. `android/app/src/test/java/com/celestial/companion/audio/ImaAdpcmCodecTest.kt`
+- **Step-by-Step Implementation Spec**:
+  1. **Expose `adpcm_codec.c` in `tests/firmware_harness.c`**:
+     - `#include "../firmware/src/adpcm_codec.c"` inside `tests/firmware_harness.c` (alongside the existing firmware modules compiled into the host shared library `firmware_harness.dll` / `.so`).
+     - Export two C functions with `HARNESS_API`:
+       ```c
+       HARNESS_API uint16_t harness_adpcm_encode(const int16_t *pcm, uint16_t count, uint8_t *out_buf, uint16_t max_out) {
+           return ima_adpcm_encode_block(pcm, count, out_buf, max_out);
+       }
+       HARNESS_API uint16_t harness_adpcm_decode(const uint8_t *in_buf, uint16_t in_len, int16_t *out_pcm, uint16_t max_samples) {
+           return ima_adpcm_decode_block(in_buf, in_len, out_pcm, max_samples);
+       }
+       ```
+  2. **Add C $\leftrightarrow$ Python Bit-Exact Assertion in `tests/test_regressions.py`**:
+     - Generate a deterministic 480-sample test signal: `pcm[i] = int(18000 * math.sin(2 * math.pi * 500 * i / 16000) + 6000 * math.cos(2 * math.pi * 1200 * i / 16000))`.
+     - Encode the signal in C via `harness_adpcm_encode` and in Python via `tools.adpcm_codec.ima_adpcm_encode_block`.
+     - Assert `c_encoded_bytes == py_encoded_bytes` (**byte-for-byte equality across all 244 bytes!**).
+     - Decode `py_encoded_bytes` in C via `harness_adpcm_decode` and in Python via `ima_adpcm_decode_block`, and assert `c_decoded_samples == py_decoded_samples` (**sample-for-sample equality across all 480 `int16` samples!**).
+  3. **Add Fixed-Vector Bit-Exact Assertion in `ImaAdpcmCodecTest.kt`**:
+     - Assert the exact 4-byte header (`predictor`, `step_index`, `0`) and first 8 encoded bytes on a known 16-sample input array `[0, 2500, 4800, 6500, 7200, 6500, 4800, 2500, 0, -2500, -4800, -6500, -7200, -6500, -4800, -2500]` so Kotlin is locked to the exact same bit vector as C and Python.
 - **Verification Command**:
   ```powershell
   python -m unittest discover -s tests -v
@@ -658,18 +753,249 @@ com.celestial.companion/
 
 ---
 
-### Task 9.4: End-to-End Speech-to-Speech (Omni) Latency Harness (`Mini-Omni2` / Native Audio-In -> Audio-Out)
-- [ ] **Objective**: Implement the Section 7.3 Phase 4 benchmark harness (`OmniAudioSession.kt` & `tools/omni_benchmark.py`) to evaluate direct audio-to-audio streaming (`16 kHz PCM in` -> `16 kHz PCM out` without intermediate text round-trips) targeting **< 300 ms glass-to-glass latency** on 16 GB RAM hosts (`Pixel 9 Pro XL` and `Raspberry Pi 5`).
+### Task 9.7: Multi-Clause Prosody Chunker & Domain Lexicon for `KokoroOnnxSynthesizer.kt`
+- [x] **Objective**: Improve `KokoroOnnxSynthesizer.kt` naturalness on Arcane Oracle prophecies by adding (a) a curated domain IPA lexicon (`celestial`, `omnissiah`, `void`, `arcane`, `aegis`, `supernova`, `chrono`, `plasma`, `rune`, `staff`, `warp`, `nebula`, `quantum`, `flux`, `grimoire`, `prophecy`) in `englishToIpaPhonemes(text)` and (b) multi-clause prosody chunking (`splitTextIntoKokoroClauses`) so multi-sentence prophecies pause naturally at sentence boundaries and never exceed the 510-token Kokoro context window. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
 - **Target Files**:
-  1. `android/app/src/main/java/com/celestial/companion/ai/OmniAudioSession.kt` *(new file)*
-  2. `tools/omni_benchmark.py` *(new file)*
+  1. `android/app/src/main/java/com/celestial/companion/audio/KokoroOnnxSynthesizer.kt`
+  2. `android/app/src/test/java/com/celestial/companion/ai/OnDeviceSotaAudioEngineTest.kt`
 - **Step-by-Step Implementation Spec**:
-  1. **Define `OmniAudioFrame` & `OmniLatencyMetrics` in `OmniAudioSession.kt`**:
-     - Measure `tMicReleaseMs`, `tFirstAudioChunkMs` (`TTFA` — Time-To-First-Audio), `tFirstSpellTagMs`, and `glassToGlassLatencyMs = tFirstAudioChunkMs - tMicReleaseMs`.
-     - Support streaming 20 ms (`640-byte`) uplink PCM frames directly into the active audio-to-audio session while concurrently dispatching early `[SPELL: ...]` control tokens to the staff over UDP `:5005`.
-  2. **Add `tools/omni_benchmark.py`**:
-     - Measures and compares sequential pipeline latency (`Moonshine STT` + `Local LLM TTFT` + `Kokoro-82M First Chunk`) against direct speech-to-speech streaming and outputs a Markdown latency table for `docs/experiments/`.
+  1. **Add `splitTextIntoKokoroClauses(text: String, maxCharsPerClause: Int = 180): List<String>` in `KokoroOnnxSynthesizer.Companion`**:
+     - Strip `[SPELL: ...]` tags if present, normalize whitespace, and split at major sentence/clause delimiters (`(?<=[.!? status;:])\\s+`).
+     - If any clause exceeds `maxCharsPerClause`, sub-split at commas (`,`) or word boundaries.
+     - Filter out blank clauses.
+  2. **Add `DOMAIN_IPA_LEXICON: Map<String, String>` in `KokoroOnnxSynthesizer.Companion`**:
+     - Map at least 30 frequent Celestial Engine / Oracle words (`"celestial" to "səlˈɛstiəl"`, `"omnissiah" to "ˌɑːmnɪsˈaɪə"`, `"arcane" to "ɑːɹkˈeɪn"`, `"grimoire" to "ɡɹɪmwˈɑːɹ"`, `"prophecy" to "pɹˈɑːfəsi"`, `"supernova" to "sˌuːpɚnˈoʊvə"`, `"aegis" to "ˈiːdʒɪs"`, `"fireball" to "fˈaɪɚbˌɔːl"`, `"CHRONO" to "kɹˈoʊnoʊ"`, `"nebula" to "nˈɛbjələ"`, `"plasma" to "plˈæzmə"`, `"machine" to "məʃˈiːn"`, `"stars" to "stˈɑːɹz"`, `"void" to "vˈɔɪd"`, `"light" to "lˈaɪt"`, `"shield" to "ʃˈiːld"`, etc.) before falling back to the rule-based G2P converter in `englishToIpaPhonemes`.
+  3. **Synthesize Clauses Sequentially with `100 ms` Inter-Clause Pause in `synthesizeOrNull`**:
+     - Split `text` via `splitTextIntoKokoroClauses(text)`.
+     - Synthesize each clause to `16 kHz` `ByteArray` (`16-bit PCM LE`) and insert `3200 bytes` (`1600 samples = 100 ms` of silence `0x00`) between clauses.
+  4. **Unit Tests in `OnDeviceSotaAudioEngineTest.kt`**:
+     - Test `splitTextIntoKokoroClauses` on a 3-sentence prophecy and test `englishToKokoroTokens` confirming domain words like `"Omnissiah"` and `"supernova"` produce valid non-empty IPA token arrays where every ID is in `1..177`.
 - **Verification Command**:
   ```powershell
-  python -m unittest discover -s tests -v && python tools/test_twin_acceptance.py
+  git push origin feat/sota-phase-next
   ```
+
+---
+
+### Task 9.8: Interactive On-Device SOTA Benchmark Card in `OracleTerminalScreen.kt`
+- [x] **Objective**: Add a one-tap **`[⚡ Run On-Device SOTA Benchmark]`** button inside the Android Companion's **Oracle Terminal (`OracleTerminalScreen.kt`)** that runs a live self-test on the physical smartphone (`Moonshine/SenseVoice STT`, `SmolLM2-135M LLM`, `Kokoro-82M TTS`, `4:1 IMA-ADPCM`, and `OmniAudioSession` latency) and prints a structured telemetry report into the terminal log. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
+- **Target Files**:
+  1. `android/app/src/main/java/com/celestial/companion/ui/DashboardViewModel.kt`
+  2. `android/app/src/main/java/com/celestial/companion/ui/screens/OracleTerminalScreen.kt`
+- **Step-by-Step Implementation Spec**:
+  1. **Add `fun runOnDeviceSotaBenchmark()` in `DashboardViewModel.kt`**:
+     - Launch on `viewModelScope.launch(Dispatchers.Default)`:
+       1. Measure **4:1 IMA-ADPCM Codec Speed & SNR**: Encode & decode a 1-second (`16,000 samples = 32,000 bytes`) 500 Hz test tone via `ImaAdpcmCodec`, recording encode/decode microseconds and compressed byte size (`8,004 bytes`).
+       2. Measure **On-Device SOTA Audio (`OnDeviceSotaAudioEngine`)**: If ready, run a 1-second synthetic speech/laugh waveform through `transcribePcm16kMono` and record latency in `ms` (if not downloaded yet, report `"Model not downloaded yet — tap Download on Dashboard"`).
+       3. Measure **On-Device Generative LLM (`OnDeviceLlmEngine`)**: If ready, run a short 12-token prompt and record `tok/s` and `TTFT ms`.
+       4. Measure **On-Device Kokoro-82M TTS (`KokoroOnnxSynthesizer`)**: If ready, synthesize `"The Omnissiah blesses this circuit."` and record synthesis time (`ms`) and Real-Time Factor (`RTF = synthMs / audioDurationMs`).
+       5. Post the formatted summary into the Oracle Terminal chat/log state (`appendTerminalLog(...)`).
+  2. **Add `[⚡ Benchmark SOTA]` Chip/Button in `OracleTerminalScreen.kt`**:
+     - Place a clean Cyber-Arcane action button next to the engine mode chips in `OracleTerminalScreen.kt` that triggers `viewModel.runOnDeviceSotaBenchmark()`.
+- **Verification Command**:
+  ```powershell
+  git push origin feat/sota-phase-next
+  Start-Sleep -Seconds 4
+  $runId = (gh run list --workflow=android-build.yml --branch=feat/sota-phase-next --limit 1 --json databaseId -q '.[0].databaseId')
+  gh run watch $runId --exit-status
+  ```
+
+---
+
+## 11. Waveshare ESP32-S3-Touch-AMOLED-1.8 — Raspberry Pi 5 Satellite Screen, Speaker & Microphone (Non-Destructive Dual-Mode Firmware)
+
+> **Purpose:** Turn the connected **Waveshare ESP32-S3-Touch-AMOLED-1.8** (`COM11`, Wi-Fi IP `192.168.178.121`, `368×448` CO5300 QSPI AMOLED, `FT3168`/`CST816S` capacitive touch, `ES8311` I2C `0x18` audio codec + speaker PA + onboard microphone, `AXP2101` PMU, `16 MB` Flash, `8 MB` PSRAM) into a wearable/desk **Touch Screen + Speaker + Push-to-Talk Microphone terminal for the Raspberry Pi 5 AI Brain Server** — **WITHOUT deleting or losing any existing firmware** (`ESP-Brookesia Phone OS` in `factory` at `0x110000` and the `12-Page Art Deco PC Monitor / Codex Pet / Vintage Radio` in `ota_0` at `0x690000`).
+
+### 11.0. Hardware Pinout & Non-Destructive Partition Map (Verified on `COM11` / `192.168.178.121`)
+
+| Subsystem | Chip / Controller | ESP32-S3 Pins / Address | Verified Status |
+| :--- | :--- | :--- | :--- |
+| **QSPI AMOLED Display (`368×448`)** | `CO5300` / `SH8601` | `SCLK=11, CS=12, D0=4, D1=5, D2=6, D3=7` (`x_offset=28`) | ✅ Working (`16-line` internal DMA SRAM flush) |
+| **Capacitive Touch** | `CST816S` (`0x15`) / `FT3168` (`0x38`) | `I2C SDA=15, SCL=14, TP_INT=21` | ✅ Working (`0x15` detected on I2C scan) |
+| **Audio Codec (Speaker DAC + Mic ADC)** | **`ES8311`** (`I2C 0x18`, ID `0x8311`) | `MCLK=16, BCLK=9, WS=45, DOUT=8 (Spk), DIN=10 (Mic), PA=46` | ✅ DAC working; ADC Mic on `GPIO 10` (`MIC1P/1N`) |
+| **Power & GPIO Expander** | `AXP2101` (`0x34`) + `TCA9554` (`0x20`) | `I2C SDA=15, SCL=14`, `BOOT_BTN=0` | ✅ Working |
+| **Partition `factory` (`0x110000`, `5.5 MB`)** | Original `ESP-Brookesia / XiaoZhi AI` | Flash offset `0x110000 .. 0x690000` | 🔒 **NEVER TOUCH / NEVER ERASE** |
+| **Partition `ota_0` (`0x690000`, `3.0 MB`)** | Dual-Persona `Cricket 12-Page PC Monitor` + `Celestial Pi 5 Terminal` | Flash offset `0x690000 .. 0x990000` (`C:\projects\personal\cricket\firmware`) | 🔄 Backed up + auto-switches to Pi 5 Mode when Pi 5 starts |
+
+---
+
+### Task 11.1: Non-Destructive `ota_0` Backup & Dual-Persona Auto-Switch State Machine
+- [x] **Objective**: Preserve a bit-exact backup of the current `ota_0` firmware before any modifications, and add a non-destructive runtime mode state machine (`AppPersonaMode`: `MODE_PC_MONITOR_12PAGE = 0` vs `MODE_CELESTIAL_PI5_BRAIN = 1`) that **boots into the normal 12-page PC Monitor by default** and **automatically switches to `MODE_CELESTIAL_PI5_BRAIN` whenever the Raspberry Pi 5 starts up** (via USB Serial `/dev/ttyACM0` or Wi-Fi UDP `:4210`). — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
+- **Target Files**:
+  1. `C:\projects\personal\cricket\backup\backup_current_ota0.ps1` *(new script)*
+  2. `C:\projects\personal\cricket\firmware\src\main.cpp`
+- **Step-by-Step Implementation Spec**:
+  1. **Save Current `ota_0` Binary Before Any Edit**:
+     - Copy `C:\projects\personal\cricket\firmware\.pio\build\esp32-s3-touch-amoled-1-8\firmware.bin` to `C:\projects\personal\cricket\backup\cricket_pc_monitor_12page_ota0.bin` so the exact current build can be flashed back to `0x690000` in 3 seconds at any time.
+  2. **Add `AppPersonaMode` & Auto-Attach Detection in `main.cpp`**:
+     - Define:
+       ```cpp
+       enum AppPersonaMode {
+           MODE_PC_MONITOR_12PAGE = 0,
+           MODE_CELESTIAL_PI5_BRAIN = 1
+       };
+       static AppPersonaMode g_persona_mode = MODE_PC_MONITOR_12PAGE;
+       static uint32_t g_pi5_last_heartbeat_ms = 0;
+       static IPAddress g_pi5_ip(0, 0, 0, 0);
+       static uint16_t g_pi5_udp_port = 5005;
+       static bool g_pi5_via_usb_serial = false;
+       ```
+     - **Auto-Switch Trigger Rules**:
+       1. **Wi-Fi UDP (`port 4210`)**: When a UDP JSON packet arrives containing `"cmd":"celestial_pi5_attach"` or `"host":"PI5-BRAIN"`, set `g_persona_mode = MODE_CELESTIAL_PI5_BRAIN`, store `g_pi5_ip = g_udp.remoteIP()`, `g_pi5_last_heartbeat_ms = millis()`, and update the screen immediately.
+       2. **USB CDC Serial (`Serial` at `115200` / `921600`)**: When plugged into a Raspberry Pi 5 USB port, the Pi 5 daemon sends a line starting with `CELESTIAL_PI5_JSON:{...}\n`. When `Serial.available()` reads a line starting with `CELESTIAL_PI5_JSON:`, set `g_persona_mode = MODE_CELESTIAL_PI5_BRAIN`, `g_pi5_via_usb_serial = true`, parse the JSON state, and reply `CELESTIAL_ESP32_ACK:{"device":"ESP32-S3-AMOLED","mode":"PI5_BRAIN"}\n`.
+       3. **Auto-Return / Manual Toggle**:
+          - If `"cmd":"celestial_pi5_detach"` arrives (or the user taps **`[🖥️ PC MODE]`** on the top bar / HTTP `POST /api/mode?target=pc`), set `g_persona_mode = MODE_PC_MONITOR_12PAGE` and return immediately to the 12-page Cricket PC Monitor (`OVERVIEW`, `CPU`, `GPU`, `CODEX PET`, `ATELIER`, `RADIO`, `SLOP`, `SYSTEM`).
+          - On Page 12 (`SYSTEM`) of the PC Monitor, add a quick touch button **`[🔮 PI 5 BRAIN MODE]`** so the user can also enter Pi 5 Mode manually at any time, while keeping **`[SWITCH TO PHONE OS]`** (`switchToFactoryPartition()`) intact.
+- **Verification Command**:
+  ```powershell
+  Test-Path C:\projects\personal\cricket\backup\cricket_pc_monitor_12page_ota0.bin
+  ```
+
+---
+
+### Task 11.2: Full-Duplex ES8311 Audio Driver (16 kHz I2S Speaker Out `GPIO 8` + 16 kHz I2S Microphone In `GPIO 10`)
+- [x] **Objective**: Upgrade the ESP32-S3 audio subsystem from TX-only (`DOUT = GPIO 8`) to **Full-Duplex 16 kHz 16-bit I2S (`DOUT = GPIO 8`, `DIN = GPIO 10`)** and configure the **ES8311 ADC + Microphone PGA registers (`0x0E`, `0x14`, `0x15`, `0x17`, `0x1B`, `0x1C`)** so the ESP32-S3 works simultaneously as a **16 kHz Speaker** and a **16 kHz Push-to-Talk Microphone** for the Raspberry Pi 5. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
+- **Target Files**:
+  1. `C:\projects\personal\cricket\firmware\src\main.cpp`
+- **Step-by-Step Implementation Spec**:
+  1. **Define Microphone Pin & RX Channel Handle**:
+     ```cpp
+     #define I2S_DIN_PIN       10
+     static i2s_chan_handle_t g_i2s_rx = nullptr;
+     static volatile bool g_mic_recording = false;
+     static volatile int16_t g_mic_peak = 0;
+     static volatile uint32_t g_mic_tx_bytes = 0;
+     ```
+  2. **Enable ES8311 ADC & Microphone Input in `initEs8311()`**:
+     - After the existing DAC register writes in `initEs8311()`, add the verified ES8311 ADC microphone registers:
+       ```cpp
+       i2cWriteReg(ES8311_ADDR, 0x0E, 0x02); // Enable analog PGA & ADC modulator
+       i2cWriteReg(ES8311_ADDR, 0x14, 0x1A); // Select MIC1P/MIC1N + Analog PGA gain (+24dB)
+       i2cWriteReg(ES8311_ADDR, 0x15, 0x40); // ADC ramp rate
+       i2cWriteReg(ES8311_ADDR, 0x16, 0x24); // ADC mic gain scale
+       i2cWriteReg(ES8311_ADDR, 0x17, 0xBF); // ADC volume (0dB, unmuted)
+       i2cWriteReg(ES8311_ADDR, 0x1B, 0x0A); // ADC HPF / EQ config
+       i2cWriteReg(ES8311_ADDR, 0x1C, 0x6A); // ADC DC block filter enabled
+       ```
+  3. **Initialize Full-Duplex I2S (`&g_i2s_tx, &g_i2s_rx`) in `initI2sAudio()`**:
+     - Pass both `&g_i2s_tx` and `&g_i2s_rx` to `i2s_new_channel(&chan_cfg, &g_i2s_tx, &g_i2s_rx)`.
+     - Set `.din = (gpio_num_t)I2S_DIN_PIN` (`GPIO 10`) in `std_cfg.gpio_cfg`.
+     - Call `i2s_channel_init_std_mode(g_i2s_rx, &std_cfg)` and `i2s_channel_enable(g_i2s_rx)`.
+  4. **Stream Captured 16 kHz Mono PCM / 4:1 IMA-ADPCM to Raspberry Pi 5**:
+     - When `g_mic_recording == true` (while user holds the **`[🎙️ HOLD TO SPEAK]`** touch button on the AMOLED screen or toggles `[🎙️ TALK]`):
+       - Read stereo 16-bit frames from `g_i2s_rx` (`i2s_channel_read`), extract the active microphone channel (`left` or max-energy channel) into a `240-sample` (`480-byte`, `15 ms`) mono `int16_t` frame, compute `g_mic_peak`, and stream it to the Raspberry Pi 5 over UDP (`g_pi5_ip`, port `4212` / `5005` with header `"CMIC"` + `uint16_t seq` + `480 bytes PCM16LE`).
+     - Also allow `audioRxTask` (`TCP port 4211` and UDP audio packets `"CSPK"`) to play incoming `16 kHz 16-bit mono PCM` from the Raspberry Pi 5 (`Kokoro-82M` / `Piper TTS`) whenever `g_persona_mode == MODE_CELESTIAL_PI5_BRAIN` (even when `g_radio_on == false`).
+  5. **Add `/api/mic_test` Diagnostic Endpoint**:
+     - Record `200 ms` from `g_i2s_rx`, compute `mic_peak` and `rms`, and return `{"mic_ok":true,"mic_peak":...,"mic_rms":...}` so automated tests can verify live microphone capture over HTTP.
+- **Verification Command**:
+  ```powershell
+  curl.exe -s http://192.168.178.121/api/mic_test
+  ```
+
+---
+
+### Task 11.3: Cyber-Arcane `368×448` AMOLED Touch UI for Raspberry Pi 5 Brain (`renderCelestialPi5Screen()`)
+- [x] **Objective**: Build a dedicated, high-contrast Cyber-Arcane touch interface (`renderCelestialPi5Screen()` and `handleCelestialPi5Touch()`) for `MODE_CELESTIAL_PI5_BRAIN` on the `368×448` AMOLED panel. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
+- **Target Files**:
+  1. `C:\projects\personal\cricket\firmware\src\main.cpp`
+  2. `C:\projects\personal\cricket\emulator.py` *(keep 1:1 parity in the local Python preview emulator)*
+- **Step-by-Step Implementation Spec**:
+  1. **Define `Pi5BrainState` Struct in `main.cpp`**:
+     ```cpp
+     struct Pi5BrainState {
+         char status[28] = "PI 5 BRAIN: STANDBY";
+         char persona_name[24] = "MACHINE GOD";
+         int persona_id = 0; // 0..5
+         char stt_engine[20] = "MOONSHINE INT8";
+         char tts_engine[20] = "KOKORO-82M";
+         char last_heard[96] = "Tap & hold MIC below to speak to the Oracle...";
+         char prophecy[220] = "The Omnissiah awaits your voice command.";
+         char active_spell[24] = "NONE";
+         uint8_t spell_r = 36, spell_g = 204, spell_b = 182;
+         float pi5_temp_c = 48.0f;
+         float pi5_ram_pct = 24.0f;
+         int latency_ms = 0;
+     };
+     static Pi5BrainState g_pi5;
+     ```
+  2. **Layout of `renderCelestialPi5Screen()` (`368×448` RGB565)**:
+     - **Header Bar (`y=12..50`)**:
+       - Left: Live status diamond (Green = Connected to Pi 5, Cyan = Speaking, Red = Recording Mic) + `"PI 5 ORACLE"`.
+       - Right: **`[🖥️ PC]`** button (`x=276..348, y=14..48`) to switch back to the 12-page PC Monitor with one tap.
+     - **Card 1 — Persona & Pi 5 Telemetry Strip (`y=56..118`)**:
+       - Left/Center: Active Persona badge (`< MACHINE GOD >` / `ARCHMAGE` / `MARVIN` / `CYBERPUNK` / `PUMPKIN LORD` / `CUSTOM`) — tap `<` or `>` to cycle persona on the Pi 5!
+       - Sub-row: `STT: MOONSHINE | TTS: KOKORO | PI5: 49C`.
+     - **Card 2 — Live Voice Transcript, Active `[SPELL]` & Oracle Prophecy (`y=124..288`)**:
+       - Top line (`COL_CYAN`): `"YOU: "` + wrapped `g_pi5.last_heard` (`2 lines`).
+       - Spell badge (drawn with `rgb565(g_pi5.spell_r, g_pi5.spell_g, g_pi5.spell_b)` border): `"SPELL: "` + `g_pi5.active_spell`.
+       - Prophecy box (`COL_GOLD` / `COL_TEXT`): 4 wrapped lines (`26 chars` each) of `g_pi5.prophecy` + live 12-bar audio waveform visualizer (`g_audio_peak` / `g_mic_peak`).
+     - **Card 3 — Giant Push-to-Talk / Toggle Microphone Button (`y=296..368`)**:
+       - When `g_mic_recording == false`: Emerald/Gold bordered button **`[🎙️ TAP TO SPEAK TO PI 5]`** with live mic VU indicator.
+       - When `g_mic_recording == true`: Glowing Crimson button **`[🔴 LISTENING... TAP TO SEND]`** streaming 16 kHz mic audio to the Pi 5.
+     - **Bottom Control Bar (`y=376..434`)**:
+       - **`[⚡ CAST]`** (`x=14..120`): Triggers a test spell / voice prophecy on Pi 5.
+       - **`[V-]` / `75%` / `[V+]`** (`x=128..264`): Adjusts onboard ES8311 speaker volume (`0..100%`).
+       - **`[🔊 BEEP]`** (`x=272..354`): Plays quick 440 Hz chime / repeats last TTS audio.
+
+---
+
+### Task 11.4: Raspberry Pi 5 Auto-Attach Bridge & Audio/HUD Streamer (`tools/pi5_esp32_satellite.py` & `tools/ai_brain_server.py`)
+- [x] **Objective**: Create a clean Python bridge module [`tools/pi5_esp32_satellite.py`](../tools/pi5_esp32_satellite.py) (and hook it into [`tools/ai_brain_server.py`](../tools/ai_brain_server.py)) so that whenever the Raspberry Pi 5 brain server starts, it **automatically finds the ESP32-S3** (via USB `/dev/ttyACM*` / `COM*` or Wi-Fi UDP `:4210`), switches its screen into **Celestial Pi 5 Brain Mode**, receives 16 kHz microphone audio from the ESP32-S3, runs `Moonshine/SenseVoice STT -> Ollama/Offline LLM -> Kokoro-82M TTS`, updates the ESP32-S3 AMOLED display, and plays the synthesized voice out of the ESP32-S3's speaker! — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
+- **Target Files**:
+  1. `tools/pi5_esp32_satellite.py` *(new file)*
+  2. `tools/ai_brain_server.py`
+  3. `tests/test_regressions.py`
+- **Step-by-Step Implementation Spec**:
+  1. **Create `Esp32SatelliteBridge` in `tools/pi5_esp32_satellite.py`**:
+     - **Auto-Discovery (`discover_esp32()`)**:
+       - Broadcasts `CRICKET_DISCOVER` to UDP port `4210` (and checks default IP `192.168.178.121` or `--esp-ip`), plus checks serial ports matching `VID_303A` (`PID_1001`).
+     - **Auto-Attach on Startup (`attach()`)**:
+       - Sends UDP JSON packet to `(esp_ip, 4210)`:
+         ```json
+         {
+           "cmd": "celestial_pi5_attach",
+           "host": "PI5-BRAIN",
+           "persona": "MACHINE GOD",
+           "stt_engine": "MOONSHINE INT8",
+           "tts_engine": "KOKORO-82M",
+           "pi5_status": "ONLINE :5005",
+           "pi5_heard": "Ready for voice command",
+           "pi5_prophecy": "The Omnissiah blesses this satellite node.",
+           "pi5_spell": "NONE"
+         }
+         ```
+       - Starts a background heartbeat thread sending live Pi 5 CPU temp, RAM %, active persona, last STT transcript, last prophecy, and active `[SPELL]` every `1.5s`.
+     - **Receive 16 kHz Microphone Stream from ESP32-S3 (`UDP port 4212`)**:
+       - Listens for `"CMIC"` packets (`4-byte magic "CMIC" + uint16 seq + 480 bytes 16 kHz PCM16LE`), accumulates them while the user is speaking on the ESP32-S3, and when `"CMIC_END"` arrives, passes the complete `16 kHz PCM` buffer directly into `LocalAiEngine.transcribe_audio_bytes()` -> `generate_prophecy()` -> `synthesize_speech_pcm()`.
+     - **Stream Synthesized `Kokoro-82M` / `Piper` 16 kHz PCM to ESP32-S3 Speaker (`TCP port 4211`)**:
+       - Connects to `(esp_ip, 4211)` and streams the `16 kHz 16-bit mono PCM` waveform in `512-byte` chunks so the ESP32-S3's `ES8311` speaker speaks the Oracle prophecy out loud while the RP2350 staff animates the spell!
+     - **Auto-Detach on Shutdown (`detach()`)**:
+       - Sends `{"cmd":"celestial_pi5_detach"}` on `SIGINT`/`SIGTERM` so the ESP32-S3 automatically returns to its 12-page Cricket PC Monitor mode when the Pi 5 server stops.
+  2. **Unit Tests in `tests/test_regressions.py`**:
+     - Add `test_esp32_satellite_attach_detach_and_cmic_framing` verifying JSON attach/detach packet generation, `"CMIC"` packet assembly into 16 kHz PCM, and full compatibility with `LocalAiEngine`.
+- **Verification Command**:
+  ```powershell
+  python -m unittest discover -s tests -v
+  ```
+
+---
+
+### Task 11.5: End-to-End Hardware Verification on Connected ESP32-S3 (`COM11` / `192.168.178.121`)
+- [x] **Objective**: Compile and flash the updated dual-mode `ota_0` firmware to the connected **Waveshare ESP32-S3-Touch-AMOLED-1.8 (`COM11`)**, verify that both existing modes (`12-Page Cricket PC Monitor` and `Factory ESP-Brookesia Phone OS`) remain 100% intact, and test live **Pi 5 Satellite Screen + ES8311 Speaker + ES8311 Microphone** operation. — ✅ Completed on `feat/sota-phase-next` (2026-11-22)
+- **Step-by-Step Verification Commands**:
+  1. **Compile & Flash `ota_0` via PlatformIO (`COM11`)**:
+     ```powershell
+     cd C:\projects\personal\cricket\firmware
+     pio run -t upload --upload-port COM11
+     ```
+  2. **Verify I2C, ES8311 Speaker & ES8311 Microphone via HTTP Diagnostics**:
+     ```powershell
+     curl.exe -s http://192.168.178.121/api/diag
+     curl.exe -s http://192.168.178.121/api/mic_test
+     ```
+  3. **Verify Automatic Switch to Celestial Pi 5 Brain Mode (Screen + Speaker + Mic) & Automatic Return to 12-Page PC Monitor**:
+     ```powershell
+     cd c:\projects\personal\hardware-01\celestial_engine_project
+     python tools/pi5_esp32_satellite.py --esp-ip 192.168.178.121 --demo
+     ```
+     - Confirm the ESP32-S3 AMOLED screen automatically switches to **`PI 5 ORACLE`** HUD, plays the synthesized Oracle voice through its onboard speaker, captures live microphone input from `ES8311 ADC (GPIO 10)`, and switches back to the **12-Page Art Deco PC Monitor** when `--demo` exits.

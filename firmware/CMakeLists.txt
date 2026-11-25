@@ -37,6 +37,7 @@ add_executable(celestial_firmware
     src/ws2812_driver.c
     src/max98357a_driver.c
     src/audio_ring_buffer.c
+    src/adpcm_codec.c
     src/chiptune_synth.c
     src/audio.c
     src/mic.c

@@ -7,6 +7,7 @@ Phase 4 Integration Test Suite:
    [SPELL: ...] APP_COMMAND 0x20 dispatch -> acknowledged PCM audio & OLED text streaming).
 """
 
+import math
 import os
 import re
 import socket
@@ -21,6 +22,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import brain_transport
 import ai_brain_server
+import adpcm_codec
+import omni_benchmark
 
 
 class TestProtocolV2ParityAndMockVoiceLoop(unittest.TestCase):
@@ -170,6 +173,132 @@ class TestProtocolV2ParityAndMockVoiceLoop(unittest.TestCase):
             self.assertEqual(app_commands, [('L', 5), ('C', 3)])
             self.assertEqual(received_text.decode("ascii"), "[SPELL] Fireball: Ignis plasma infernum!")
             self.assertEqual(bytes(received_pcm), expected_pcm)
+        finally:
+            server_sock.close()
+            staff_sock.close()
+
+    def test_ima_adpcm_4_to_1_compression_and_snr(self):
+        num_samples = 480
+        pcm_samples = [int(16000.0 * math.sin(2.0 * math.pi * 500.0 * i / 16000.0)) for i in range(num_samples)]
+        pcm_bytes = struct.pack(f"<{num_samples}h", *pcm_samples)
+
+        encoded = adpcm_codec.encode_block(pcm_bytes)
+        self.assertEqual(len(encoded), 244)  # 4-byte header + 240 nibble bytes
+
+        decoded_bytes = adpcm_codec.decode_block(encoded, num_samples)
+        self.assertEqual(len(decoded_bytes), 960)
+        decoded_samples = struct.unpack(f"<{num_samples}h", decoded_bytes)
+
+        sig_power = sum(s * s for s in pcm_samples)
+        err_power = sum((a - b) ** 2 for a, b in zip(pcm_samples, decoded_samples))
+        snr_db = 10.0 * math.log10(sig_power / max(err_power, 1))
+        self.assertGreater(snr_db, 28.0)
+
+    def test_omni_benchmark_harness_evaluates_sub_300ms(self):
+        res = omni_benchmark.evaluate_pipeline_latency(stt_ms=95.0, llm_ttft_ms=140.0, tts_first_chunk_ms=75.0)
+        self.assertEqual(res["sequential_ttfa_ms"], 310.0)
+        self.assertTrue(res["omni_meets_300ms"])
+
+    def test_brain_transport_adpcm_stream_packets(self):
+        # Verify BrainTransport.stream(..., use_adpcm=True) emits 8-byte RESP_START(codec=1) and 244-byte ADPCM chunks
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_sock.bind(("127.0.0.1", 0))
+        server_addr = server_sock.getsockname()
+
+        staff_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        staff_sock.bind(("127.0.0.1", 0))
+        staff_sock.settimeout(2.0)
+
+        transport = brain_transport.BrainTransport(server_sock, retry_seconds=0.05, packet_timeout=2.0)
+        pcm_samples = [int(14000.0 * math.sin(2.0 * math.pi * 150.0 * i / 16000.0)) for i in range(480)]
+        pcm_bytes = struct.pack("<480h", *pcm_samples)
+
+        def worker(tp, session):
+            tp.stream(session, pcm_bytes, b"ADPCM OK", use_adpcm=True)
+
+        t = threading.Thread(target=transport.serve, args=(worker,), daemon=True)
+        t.start()
+        try:
+            rid = 9001
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_QUERY_START, rid, 0, bytes([0, 5])), server_addr)
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_AUDIO_CHUNK, rid, 0, b"\x00\x01" * 160), server_addr)
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_QUERY_END, rid, 1), server_addr)
+
+            start_payload = None
+            chunks = []
+            got_end = False
+            while not got_end:
+                raw, _ = staff_sock.recvfrom(1024)
+                kind, r_id, seq, payload = brain_transport.unpack(raw)
+                if kind == brain_transport.MSG_ACK:
+                    continue
+                if kind == brain_transport.MSG_RESP_START:
+                    start_payload = payload
+                elif kind == brain_transport.MSG_RESP_CHUNK:
+                    chunks.append(payload)
+                elif kind == brain_transport.MSG_RESP_END:
+                    got_end = True
+                staff_sock.sendto(brain_transport.packet(brain_transport.MSG_ACK, r_id, seq, bytes([kind])), server_addr)
+
+            self.assertEqual(len(start_payload), 8)
+            sample_cnt, codec_id, _, _, _ = struct.unpack("<IBBBB", start_payload)
+            self.assertEqual((sample_cnt, codec_id), (480, 1))
+            self.assertEqual(len(chunks), 1)
+            self.assertEqual(len(chunks[0]), 244)
+        finally:
+            server_sock.close()
+            staff_sock.close()
+
+    def test_uplink_query_start_and_adpcm_audio_chunk_roundtrip(self):
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        server_sock.bind(("127.0.0.1", 0))
+        server_addr = server_sock.getsockname()
+
+        staff_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        staff_sock.bind(("127.0.0.1", 0))
+        staff_sock.settimeout(2.0)
+
+        transport = brain_transport.BrainTransport(server_sock, retry_seconds=0.05, packet_timeout=2.0)
+        num_samples = 480
+        pcm_samples = [int(16000.0 * math.sin(2.0 * math.pi * 500.0 * i / 16000.0)) for i in range(num_samples)]
+        pcm_bytes = struct.pack(f"<{num_samples}h", *pcm_samples)
+        adpcm_chunk = adpcm_codec.encode_block(pcm_bytes)
+        self.assertEqual(len(adpcm_chunk), 244)
+
+        captured = {}
+
+        def worker(tp, session):
+            captured["codec_id"] = session.uplink_codec_id
+            captured["pcm"] = bytes(session.pcm)
+            tp.stream(session, b"\x00\x00" * 16, b"UPLINK ADPCM OK")
+
+        t = threading.Thread(target=transport.serve, args=(worker,), daemon=True)
+        t.start()
+        try:
+            rid = 9002
+            query_start_payload = bytes([0, 5, 0, 0, 0, brain_transport.ADPCM_CODEC_ID_IMA_4BIT])
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_QUERY_START, rid, 0, query_start_payload), server_addr)
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_AUDIO_CHUNK, rid, 0, adpcm_chunk), server_addr)
+            staff_sock.sendto(brain_transport.packet(brain_transport.MSG_QUERY_END, rid, 1), server_addr)
+
+            got_end = False
+            while not got_end:
+                raw, _ = staff_sock.recvfrom(1024)
+                kind, r_id, seq, _ = brain_transport.unpack(raw)
+                if kind == brain_transport.MSG_ACK:
+                    continue
+                if kind == brain_transport.MSG_RESP_END:
+                    got_end = True
+                staff_sock.sendto(brain_transport.packet(brain_transport.MSG_ACK, r_id, seq, bytes([kind])), server_addr)
+
+            self.assertEqual(captured["codec_id"], 1)
+            decoded_pcm = captured["pcm"]
+            self.assertEqual(len(decoded_pcm), 960)
+            decoded_samples = struct.unpack(f"<{num_samples}h", decoded_pcm)
+            sig_power = sum(s * s for s in pcm_samples)
+            err_power = sum((a - b) ** 2 for a, b in zip(pcm_samples, decoded_samples))
+            snr_db = 10.0 * math.log10(sig_power / max(err_power, 1))
+            self.assertGreater(snr_db, 28.0)
         finally:
             server_sock.close()
             staff_sock.close()
