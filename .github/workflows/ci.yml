@@ -2,19 +2,26 @@ name: Core Engine CI
 
 on:
   push:
-    branches: [ master, main ]
-    paths-ignore:
-      - 'android/**'
-      - 'docs/**'
-      - '*.md'
+    branches:
+      - master
+      - main
+      - 'feat/**'
+      - 'refactor/**'
+      - 'ci/**'
+      - 'chore/**'
   pull_request:
     branches: [ master, main ]
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-python:
-    name: Run Python Protocol & Transport Tests
+    name: Run C Firmware Harness, Python Protocol & Digital Twin Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,21 +37,30 @@ jobs:
           if [ -f tools/requirements-brain.txt ]; then pip install -r tools/requirements-brain.txt; fi
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Run Unit Tests
+      - name: Run Static Preflight Checks
+        run: |
+          python tools/preflight_check.py
+
+      - name: Run C Firmware & Python Unit Tests
         run: |
           python -m unittest discover -s tests -v
+
+      - name: Run Web Digital Twin Acceptance Suite
+        run: |
+          python tools/test_twin_acceptance.py
 
   lint-and-validate:
     name: Validate Scripts & Schemas
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Validate JSON configuration files
         run: |
-          if [ -f tools/brain_config.json ]; then python -c "import json; json.load(open('tools/brain_config.json'))"; fi
-          python -c "import json; json.load(open('tools/brain_config.example.json'))"
+          if [ -f tools/brain_config.json ]; then python3 -c "import json; json.load(open('tools/brain_config.json'))"; fi
+          python3 -c "import json; json.load(open('tools/brain_config.example.json'))"
 
       - name: Check Shell Scripts Syntax
         run: |

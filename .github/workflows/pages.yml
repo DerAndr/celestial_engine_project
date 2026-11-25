@@ -38,6 +38,9 @@ jobs:
           sed -i "s/Android v[0-9.]*/Android v${ANDROID_VER}/g" docs/index.html
           sed -i "s/Android 15 Compose v[0-9.]*/Android 15 Compose v${ANDROID_VER}/g" docs/index.html
 
+      - name: Verify Digital Twin Acceptance Before Pages Deploy
+        run: python3 tools/test_twin_acceptance.py
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

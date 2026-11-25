@@ -172,5 +172,7 @@ static void watchdog_reboot(uint32_t pc, uint32_t sp, uint32_t delay_ms) { (void
 static void watchdog_enable(uint32_t delay_ms, bool pause_on_debug) { (void)delay_ms; (void)pause_on_debug; }
 static void watchdog_update(void) {}
 static bool watchdog_caused_reboot(void) { return false; }
+#ifdef _MSC_VER
 #define __attribute__(x)
+#endif
 #endif
