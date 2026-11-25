@@ -24,8 +24,12 @@ description: >-
    - Strip all markdown (`*`, `#`, backticks) and emojis before passing text to `Piper` TTS or the `SH1106` OLED ticker.
 2. **Arcane `[SPELL: ...]` Hardware Choreography**:
    - Parse `[SPELL: Name | ANIM: Animation | SOUNDS: Sfx1, Sfx2, ...]` from the LLM response stream, strip the tag from spoken TTS text, and send the corresponding binary UDP LED/SFX commands (`NET_MSG_APP_COMMAND`) to the staff before streaming TTS audio chunks.
-3. **Downlink Audio Pacing (`32 ms` per `1024 B`)**:
-   - Pace outgoing `1024-byte` (`512 samples` @ `16 kHz`) PCM packets at ~`28–30 ms` intervals so the RP2350's `64 KB` circular ring buffer (`2.04s` capacity) never overflows or underruns.
+3. **Downlink Audio Pacing (`32 ms` per `1024 B` PCM / `4:1 IMA-ADPCM`)**:
+   - Supports both raw `16 kHz` 16-bit mono PCM and 4:1 `IMA-ADPCM` (`codec_id = 1`, `tools/adpcm_codec.py`) across uplink (`NET_MSG_QUERY_START` + `NET_MSG_AUDIO_CHUNK`) and downlink (`NET_MSG_RESP_AUDIO_START` + `NET_MSG_RESP_AUDIO_CHUNK`).
+4. **Waveshare ESP32-S3-Touch-AMOLED-1.8 Satellite Screen, Speaker & Mic (`tools/pi5_esp32_satellite.py`)**:
+   - When `tools/ai_brain_server.py` starts, `Esp32SatelliteBridge` auto-discovers the **Waveshare ESP32-S3-Touch-AMOLED-1.8** (`368×448` CO5300 QSPI AMOLED, `ES8311` full-duplex audio codec at I2C `0x18`, `DOUT = GPIO 8` Speaker, `DIN = GPIO 10` Mic, `PA = GPIO 46`) over UDP `:4210` or USB CDC Serial (`VID_303A:PID_1001`).
+   - Sends `{"cmd":"celestial_pi5_attach"}` so the ESP32-S3 non-destructively switches its `ota_0` (`0x690000`) UI from the 12-Page PC Monitor into the **`🔮 PI 5 ORACLE` HUD** (preserving both the 12-page monitor and `factory` `0x110000` ESP-Brookesia OS).
+   - Receives `16 kHz` microphone audio (`"CMIC"` + `uint16 seq` + `480 B PCM16LE` on UDP `:4212`) when the user taps `[🎙️ TAP TO SPEAK TO PI 5]`, runs `STT -> LLM -> Kokoro-82M TTS`, updates the AMOLED screen, and streams `16 kHz` voice audio to the ESP32-S3 speaker over TCP `:4211`.
 
 ## 3. Useful Pi 5 Management Commands
 ```bash
