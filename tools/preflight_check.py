@@ -80,11 +80,33 @@ def check_json_configs() -> list[str]:
     return errors
 
 
+def check_workflow_env_contexts() -> list[str]:
+    """Ensures GitHub Actions workflows use steps.<id>.outputs.<name> instead of dynamic ${{ env.VAR }}."""
+    errors: list[str] = []
+    wf_dir = ROOT / ".github/workflows"
+    if not wf_dir.exists():
+        return errors
+    env_ctx_re = re.compile(r"\$\{\{\s*env\.([A-Za-z0-9_]+)\s*\}\}")
+    for yml in wf_dir.glob("*.yml"):
+        text = yml.read_text(encoding="utf-8")
+        for lineno, line in enumerate(text.splitlines(), start=1):
+            m = env_ctx_re.search(line)
+            if m:
+                var_name = m.group(1)
+                if not re.search(rf"^\s*{re.escape(var_name)}\s*:", text, re.MULTILINE):
+                    rel = yml.relative_to(ROOT)
+                    errors.append(
+                        f"{rel}:{lineno}: Unbound `env.{var_name}` expression (use `$GITHUB_OUTPUT` + `steps.<id>.outputs.<name>`)"
+                    )
+    return errors
+
+
 def main() -> int:
     all_errors: list[str] = []
     all_errors.extend(check_junit_backtick_names())
     all_errors.extend(check_kotlin_inline_use_break_continue())
     all_errors.extend(check_json_configs())
+    all_errors.extend(check_workflow_env_contexts())
 
     if all_errors:
         print("PREFLIGHT CHECK FAILED:")

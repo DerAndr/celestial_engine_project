@@ -44,12 +44,13 @@ jobs:
         run: ./gradlew testDebugUnitTest assembleDebug --no-daemon --stacktrace
 
       - name: Version APK & Sync with Latest GitHub Release
+        id: version_apk
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ANDROID_VER=$(grep -oP 'versionName\s*=\s*"\K[^"]+' android/app/build.gradle.kts || echo "1.1.2")
+          ANDROID_VER=$(grep -oP 'versionName\s*=\s*"\K[^"]+' android/app/build.gradle.kts || echo "1.4.0")
           cp android/app/build/outputs/apk/debug/app-debug.apk "celestial_companion_v${ANDROID_VER}.apk"
-          echo "ANDROID_VER=${ANDROID_VER}" >> $GITHUB_ENV
+          echo "android_ver=${ANDROID_VER}" >> "$GITHUB_OUTPUT"
           if [ "${{ github.ref_name }}" = "master" ]; then
             LATEST_TAG=$(gh release view --json tagName -q .tagName || echo "")
             if [ -n "$LATEST_TAG" ]; then
@@ -66,6 +67,6 @@ jobs:
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: celestial-companion-v${{ env.ANDROID_VER }}-apk
+          name: celestial-companion-v${{ steps.version_apk.outputs.android_ver }}-apk
           path: celestial_companion_v*.apk
           if-no-files-found: error
